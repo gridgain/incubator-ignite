@@ -44,7 +44,7 @@ public class CacheHolder<K, V> {
      * @param ignite Ignite.
      * @param cacheName Cache name.
      */
-    public CacheHolder(Ignite ignite, String cacheName) {
+    CacheHolder(Ignite ignite, String cacheName) {
         this.ignite = ignite;
         this.cacheName = cacheName;
     }
@@ -54,11 +54,11 @@ public class CacheHolder<K, V> {
      *
      * @return Underlying cache.
      */
-    public IgniteCache<K, V> prepare() {
+    public IgniteCache<K, V> cache() {
         if (cache == null) {
-            CacheConfiguration<K, V> ccfg = new CacheConfiguration<>(cacheName);
-            ccfg.setAtomicityMode(TRANSACTIONAL);
-            ccfg.setCacheMode(REPLICATED);
+            CacheConfiguration<K, V> ccfg = new CacheConfiguration<K, V>(cacheName)
+                .setAtomicityMode(TRANSACTIONAL)
+                .setCacheMode(REPLICATED);
 
             cache = ignite.getOrCreateCache(ccfg);
         }

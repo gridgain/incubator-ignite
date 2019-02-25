@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console;
 
-import java.net.HttpURLConnection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,6 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.User;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
@@ -41,21 +39,17 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
-import io.vertx.ext.web.handler.UserSessionHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
-import io.vertx.ext.web.sstore.LocalSessionStore;
+import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
-import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
 
 /**
@@ -81,38 +75,17 @@ public class WebConsoleServer extends AbstractVerticle {
     protected final Ignite ignite;
 
     /** */
-    private final IgniteAuth auth;
-
-    /** */
     private final RestApiRouter[] routers;
 
     /**
-     * @param s Message to log.
-     */
-    protected void logInfo(Object s) {
-        ignite.log().info(String.valueOf(s));
-    }
-
-    /**
-     * @param msg Message to log.
-     * @param e Error to log.
-     */
-    protected void logError(String msg, Throwable e) {
-        ignite.log().error(msg, e);
-    }
-
-    /**
      * @param ignite Ignite.
-     * @param auth Auth provider.
      * @param routers REST API routers.
      */
     public WebConsoleServer(
         Ignite ignite,
-        IgniteAuth auth,
         RestApiRouter... routers
     ) {
         this.ignite = ignite;
-        this.auth = auth;
         this.routers = routers;
     }
 
@@ -133,8 +106,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
-        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
-        router.route().handler(UserSessionHandler.create(auth));
+        router.route().handler(SessionHandler.create(ClusteredSessionStore.create(vertx)));
 
         router.route("/eventbus/*").handler(sockJsHnd);
 
@@ -152,7 +124,7 @@ public class WebConsoleServer extends AbstractVerticle {
             .requestHandler(router)
             .listen(3000);
 
-        logInfo("Web Console server started.");
+        ignite.log().info("Web Console server started.");
     }
 
     /**
@@ -190,15 +162,6 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param router Router.
      */
     private void registerRestRoutes(Router router) {
-        router.route("/api/v1/user").handler(this::handleUser);
-        router.route("/api/v1/signup").handler(this::handleSignUp);
-        router.route("/api/v1/signin").handler(this::handleSignIn);
-        router.route("/api/v1/logout").handler(this::handleLogout);
-
-        router.route("/api/v1/password/forgot").handler(this::handleDummy);
-        router.route("/api/v1/password/reset").handler(this::handleDummy);
-        router.route("/api/v1/password/validate/token").handler(this::handleDummy);
-
         router.route("/api/v1/activation/resend").handler(this::handleDummy);
         router.route("/api/v1/activities/page").handler(this::handleDummy);
 
@@ -303,85 +266,16 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param e Error to send.
      */
     private void sendError(RoutingContext ctx, String msg, Throwable e) {
-        logError(msg, e);
+        ignite.log().error(msg, e);
 
         sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
-    }
-
-    /**
-     * Get the authenticated user (if any).
-     * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
-     *
-     * @param ctx Context
-     * @return User or {@code null} if the current user is not authenticated.
-     */
-    @Nullable private User checkUser(RoutingContext ctx) {
-        User user = ctx.user();
-
-        if (user == null)
-            sendStatus(ctx, HTTP_UNAUTHORIZED);
-
-        return user;
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void handleUser(RoutingContext ctx) {
-        User user = checkUser(ctx);
-
-        if (user != null)
-            sendResult(ctx, user.principal());
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void handleSignUp(RoutingContext ctx) {
-        JsonObject authInfo = ctx.getBodyAsJson();
-
-        authInfo.put("signup", true);
-
-        auth.authenticate(authInfo, asyncRes -> {
-            if (asyncRes.succeeded()) {
-                ctx.setUser(asyncRes.result());
-
-                sendStatus(ctx, HTTP_OK);
-            }
-            else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
-        });
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void handleSignIn(RoutingContext ctx) {
-        auth.authenticate(ctx.getBody().toJsonObject(), asyncRes -> {
-            if (asyncRes.succeeded()) {
-                ctx.setUser(asyncRes.result());
-
-                sendStatus(ctx, HTTP_OK);
-            }
-            else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
-        });
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void handleLogout(RoutingContext ctx) {
-        ctx.clearUser();
-
-        sendStatus(ctx, HTTP_OK);
     }
 
     /**
      * @param ctx Context
      */
     private void handleDummy(RoutingContext ctx) {
-        logInfo("Dummy: " + ctx.request().path());
+        ignite.log().info("Dummy: " + ctx.request().path());
 
         sendStatus(ctx, HTTP_OK, "[]");
     }

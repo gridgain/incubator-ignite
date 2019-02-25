@@ -31,7 +31,6 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.db.UniqueIndex;
 import org.apache.ignite.console.dto.Cache;
 import org.apache.ignite.console.dto.Cluster;
 import org.apache.ignite.console.dto.DataObject;
@@ -64,9 +63,6 @@ public class ConfigurationsRouter extends AbstractRouter {
     private final OneToManyIndex clustersIdx;
 
     /** */
-    private final UniqueIndex clusterNameIdx;
-
-    /** */
     private final OneToManyIndex cachesIdx;
 
     /** */
@@ -81,12 +77,14 @@ public class ConfigurationsRouter extends AbstractRouter {
     public ConfigurationsRouter(Ignite ignite) {
         super(ignite);
 
-        clustersTbl = new Table<>(ignite, "wc_account_clusters");
+        clustersTbl = new Table<Cluster>(ignite, "wc_account_clusters")
+            .addUniqueIndex(Cluster::name, (cluster) -> "Cluster '" + cluster + "' already exits");
+
         cachesTbl = new Table<>(ignite, "wc_cluster_caches");
         modelsTbl = new Table<>(ignite, "wc_cluster_models");
         igfssTbl = new Table<>(ignite, "wc_cluster_igfss");
         clustersIdx = new OneToManyIndex(ignite, "wc_account_clusters_idx");
-        clusterNameIdx = new UniqueIndex(ignite, "wc_unique_cluster_name_idx", "Cluster '%s' already exits");
+
         cachesIdx = new OneToManyIndex(ignite, "wc_cluster_caches_idx");
         modelsIdx = new OneToManyIndex(ignite, "wc_cluster_models_idx");
         igfssIdx = new OneToManyIndex(ignite, "wc_cluster_igfss_idx");
@@ -94,16 +92,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override protected void initializeCaches() {
-        clustersTbl.prepare();
-        cachesTbl.prepare();
-        modelsTbl.prepare();
-        igfssTbl.prepare();
-
-        clustersIdx.prepare();
-        clusterNameIdx.prepare();
-        cachesIdx.prepare();
-        modelsIdx.prepare();
-        igfssIdx.prepare();
+        clustersIdx.cache();
+        cachesIdx.cache();
+        modelsIdx.cache();
+        igfssIdx.cache();
     }
 
     /** {@inheritDoc} */
@@ -213,8 +205,6 @@ public class ConfigurationsRouter extends AbstractRouter {
         JsonObject jsonCluster = json.getJsonObject("cluster");
 
         Cluster newCluster = Cluster.fromJson(jsonCluster);
-
-        clusterNameIdx.checkUnique(userId, newCluster.name(), newCluster, newCluster.name());
 
         UUID clusterId = newCluster.id();
 
@@ -525,7 +515,6 @@ public class ConfigurationsRouter extends AbstractRouter {
                         UUID clusterId = cluster.id();
 
                         clustersIdx.remove(userId, clusterId);
-                        clusterNameIdx.removeUniqueKey(userId, cluster.name());
 
                         removeClusterObjects(clusterId, cachesTbl, cachesIdx);
                         removeClusterObjects(clusterId, modelsTbl, modelsIdx);

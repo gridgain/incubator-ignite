@@ -22,13 +22,14 @@ import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
-import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
@@ -49,16 +50,26 @@ public class WebConsoleLauncher extends AbstractVerticle {
     public static void main(String... args) {
         Ignite ignite = startIgnite();
 
-        Vertx vertx = Vertx.vertx(new VertxOptions()
-            .setBlockedThreadCheckInterval(1000 * 60 * 60));
+        VertxOptions options = new VertxOptions()
+            .setBlockedThreadCheckInterval(1000L * 60L * 60L)
+            .setClusterManager(new IgniteClusterManager(ignite));
 
-        IgniteAuth auth = new IgniteAuth(ignite, vertx);
+        Vertx.clusteredVertx(options, res -> {
+            if (res.failed()) {
+                ignite.log().error("Failed to start clustered Vertx!");
 
-        RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
-        RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
-        RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
+                return;
+            }
 
-        vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter, downloadRouter));
+            Vertx vertx = res.result();
+
+            RestApiRouter accRouter = new AccountRouter(ignite, vertx);
+            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
+            RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
+
+            vertx.deployVerticle(new WebConsoleServer(ignite, accRouter, cfgsRouter, notebooksRouter, downloadRouter));
+        });
     }
 
     /**

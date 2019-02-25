@@ -150,8 +150,17 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @param ctx Context.
      * @param status Status to send.
      */
-    private void sendStatus(RoutingContext ctx, int status) {
+    protected void sendStatus(RoutingContext ctx, int status) {
         ctx.response().setStatusCode(status).end();
+    }
+
+    /**
+     * @param ctx Context.
+     * @param status Status to send.
+     * @param msg Message to send.
+     */
+    protected void sendStatus(RoutingContext ctx, int status, String msg) {
+        ctx.response().setStatusCode(status).end(msg);
     }
 
     /**
