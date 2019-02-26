@@ -85,6 +85,7 @@ public class AccountRouter extends AbstractRouter {
         try {
             JsonObject body = ctx.getBodyAsJson();
 
+            // TODO WC-960 WRONG logic, we need to check that current User is ADMIN!
             if (getBoolean(body, "user.admin", false)) {
                 sendResult(ctx, authProvider.registerAccount(body).principal());
 

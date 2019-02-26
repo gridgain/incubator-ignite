@@ -57,6 +57,9 @@ public class IgniteAuth implements AuthProvider {
     /** */
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
+    /** Special key to check that first user should be granted admin rights. */
+    private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("75744f56-59c4-4228-b07a-fabf4babc059");
+
     /** */
     private final Table<Account> accountsTbl;
 
@@ -99,7 +102,7 @@ public class IgniteAuth implements AuthProvider {
      * @throws GeneralSecurityException If failed to compute hash.
      */
     private String computeHash(String pwd, String salt) throws Exception {
-        // TODO IGNITE-5617: How about re-hash on first successful compare.
+        // TODO IGNITE-5617: How about to re-hash on first successful compare?
         PBEKeySpec spec = new PBEKeySpec(
             pwd.toCharArray(),
             salt.getBytes(StandardCharsets.UTF_8), // For compatibility with hashing data imported from NodeJS.
@@ -165,9 +168,25 @@ public class IgniteAuth implements AuthProvider {
     /**
      * @param body Sign up info.
      */
+    @SuppressWarnings("unchecked")
     public Account registerAccount(JsonObject body) throws Exception {
         String salt = generateSalt();
         String hash = computeHash(body.getString("password"), salt);
+
+        boolean admin;
+
+        try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            IgniteCache cache = accountsTbl.cache();
+
+            Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
+
+            admin = firstUserMarker == null;
+
+            if (admin)
+                cache.put(FIRST_USER_MARKER_KEY, FIRST_USER_MARKER_KEY);
+
+            tx.commit();
+        }
 
         Account account = new Account(
             UUID.randomUUID(),
@@ -177,7 +196,7 @@ public class IgniteAuth implements AuthProvider {
             body.getString("company"),
             body.getString("country"),
             body.getString("industry"),
-            body.getBoolean("admin", false),
+            body.getBoolean("admin", admin),
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             ZonedDateTime.now().toString(),
@@ -188,6 +207,10 @@ public class IgniteAuth implements AuthProvider {
             salt,
             hash
         );
+
+
+
+
 
         try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             accountsTbl.save(account);
