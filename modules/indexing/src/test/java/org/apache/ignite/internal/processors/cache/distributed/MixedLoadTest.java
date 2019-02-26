@@ -1,11 +1,18 @@
 package org.apache.ignite.internal.processors.cache.distributed;
 
 import java.math.BigDecimal;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import javax.cache.Cache;
 import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -14,6 +21,8 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -48,10 +57,10 @@ public class MixedLoadTest extends GridCommonAbstractTest {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setCacheConfiguration(
-            cacheConfiguration(CACHE_ATOMIC_PARTITIONED, PARTITIONED),
-            cacheConfiguration(CACHE_ATOMIC_REPLICATED, REPLICATED),
-            cacheConfiguration(CACHE_TX_PARTITIONED, PARTITIONED),
-            cacheConfiguration(CACHE_TX_REPLICATED, REPLICATED));
+            cacheConfiguration("pGrp", CACHE_ATOMIC_PARTITIONED, PARTITIONED, ATOMIC),
+            cacheConfiguration("rGrp", CACHE_ATOMIC_REPLICATED, REPLICATED, ATOMIC),
+            cacheConfiguration("pGrp", CACHE_TX_PARTITIONED, PARTITIONED, TRANSACTIONAL),
+            cacheConfiguration("rGrp", CACHE_TX_REPLICATED, REPLICATED, TRANSACTIONAL));
 
         cfg.setDataStorageConfiguration(new DataStorageConfiguration().setPageSize(1024).
             setDefaultDataRegionConfiguration(new DataRegionConfiguration().
@@ -65,6 +74,8 @@ public class MixedLoadTest extends GridCommonAbstractTest {
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
+        System.setProperty(IgniteSystemProperties.IGNITE_ENABLE_MESSAGE_STATS, "true");
+
         startGrids(3);
     }
 
@@ -73,15 +84,18 @@ public class MixedLoadTest extends GridCommonAbstractTest {
         super.afterTest();
 
         stopAllGrids();
+
+        System.clearProperty(IgniteSystemProperties.IGNITE_ENABLE_MESSAGE_STATS);
     }
 
     /**
      * @param name Name.
      * @param cacheMode Cache mode.
      */
-    private CacheConfiguration<Integer, TestValue> cacheConfiguration(String name, CacheMode cacheMode) {
-        return new CacheConfiguration<Integer, TestValue>(CACHE_ATOMIC_PARTITIONED).
-            setName(name).
+    private CacheConfiguration<Integer, TestValue> cacheConfiguration(String grpName, String name, CacheMode cacheMode, CacheAtomicityMode atomicityMode) {
+        return new CacheConfiguration<Integer, TestValue>(name).
+            setGroupName(grpName).
+            setAtomicityMode(atomicityMode).
             setCacheMode(cacheMode).
             setWriteSynchronizationMode(FULL_SYNC).
             setIndexedTypes(Integer.class, TestValue.class).
@@ -92,28 +106,85 @@ public class MixedLoadTest extends GridCommonAbstractTest {
      *
      */
     public void testMixedLoad() throws Exception {
-        LongAdder opCnt = new LongAdder();
+        LongAdder delCnt = new LongAdder();
+        LongAdder insCnt = new LongAdder();
+        LongAdder readCnt = new LongAdder();
 
-        final int preload = 200;
+        final int preload = 2000;
+
+        Random r = new Random(0);
 
         AtomicInteger idx = new AtomicInteger();
-
         IgniteInternalFuture<?> preloadFut = multithreadedAsync(new Runnable() {
             @Override public void run() {
                 int idx0 = idx.getAndIncrement();
 
                 try(IgniteDataStreamer<Integer, Object> streamer = grid(0).dataStreamer(CACHES[idx0])) {
                     for (int i = 0; i < preload; i++)
-                        streamer.addData(i, new TestValue(i, "test" + i, "test" + i + "@test.ru", BigDecimal.valueOf((i + 1) * 1_000)));
+                        streamer.addData(i, new TestValue(i));
                 }
             }
         }, CACHES.length, "loader");
 
-        preloadFut.get();
+        preloadFut.get(); // Preload keys.
 
-        grid(0).context().io().dumpProcessedMessagesStats();
-        grid(1).context().io().dumpProcessedMessagesStats();
-        grid(2).context().io().dumpProcessedMessagesStats();
+        AtomicBoolean stopped = new AtomicBoolean();
+
+        AtomicInteger uidx = new AtomicInteger();
+        IgniteInternalFuture<?> updaterFut = multithreadedAsync(new Runnable() {
+            @Override public void run() {
+                int idx = uidx.getAndIncrement();
+
+                AtomicInteger inc = new AtomicInteger(preload);
+
+                while(!stopped.get()) {
+                    int op = r.nextInt(5);
+                    int nodeIdx = r.nextInt(3);
+
+                    switch (op) {
+                        case 0: // remove one of inserted keys.
+                            int k = preload + r.nextInt(inc.get());
+                            grid(nodeIdx).cache(CACHES[idx]).remove(k);
+
+                            delCnt.increment();
+
+                            break;
+                        default: // insert new key.
+                            k = inc.getAndIncrement();
+                            grid(nodeIdx).cache(CACHES[idx]).put(k, new TestValue(k));
+
+                            insCnt.increment();
+
+                            break;
+                    }
+                }
+            }
+        }, CACHES.length, "updater");
+
+        AtomicInteger ridx = new AtomicInteger();
+        IgniteInternalFuture<?> readerFut = multithreadedAsync(new Runnable() {
+            @Override public void run() {
+                int idx = ridx.getAndIncrement();
+
+                while(!stopped.get()) {
+                    int nodeIdx = r.nextInt(3);
+
+                    QueryCursor<Cache.Entry<Integer, TestValue>> qry = grid(nodeIdx).cache(CACHES[idx]).query(new ScanQuery<>());
+
+                    for (Cache.Entry<Integer, TestValue> ignored : qry)
+                        readCnt.increment();
+                }
+            }
+        }, CACHES.length, "reader");
+
+        doSleep(35_000);
+
+        stopped.set(true);
+
+        updaterFut.get();
+        readerFut.get();
+
+        log.info("Performance score: dels=" + delCnt.sum() + ", inserts=" + insCnt.sum() + ", reads=" + readCnt.sum());
     }
 
     private static class TestValue {
@@ -130,11 +201,11 @@ public class MixedLoadTest extends GridCommonAbstractTest {
         @QuerySqlField(index = true)
         private BigDecimal salary;
 
-        public TestValue(int id, String login, String email, BigDecimal salary) {
+        public TestValue(int id) {
             this.id = id;
-            this.login = login;
-            this.email = email;
-            this.salary = salary;
+            this.login = "test" + id;
+            this.email = "test" + id + "@test.ru";
+            this.salary = BigDecimal.valueOf((id + 1) * 1_000);
         }
 
         /**
