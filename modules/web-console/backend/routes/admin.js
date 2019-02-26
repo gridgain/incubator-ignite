@@ -30,13 +30,12 @@ module.exports = {
  * @param settings
  * @param mongo
  * @param spacesService
- * @param {MailsService} mailsService
  * @param {SessionsService} sessionsService
  * @param {UsersService} usersService
  * @param {NotificationsService} notificationsService
  * @returns {Promise}
  */
-module.exports.factory = function(settings, mongo, spacesService, mailsService, sessionsService, usersService, notificationsService) {
+module.exports.factory = function(settings, mongo, spacesService, sessionsService, usersService, notificationsService) {
     return new Promise((factoryResolve) => {
         const router = new express.Router();
 

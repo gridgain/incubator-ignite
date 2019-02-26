@@ -17,6 +17,7 @@
 
 'use strict';
 
+const fs = require('fs');
 const _ = require('lodash');
 const nodemailer = require('nodemailer');
 
@@ -34,16 +35,61 @@ module.exports = {
 module.exports.factory = (settings) => {
     class MailsService {
         /**
+         * Read template file.
+         * @param {String} template Path to template file.
+         * @param template
+         */
+        readTemplate(template) {
+            try {
+                return fs.readFileSync(template, 'utf8');
+            }
+            catch (ignored) {
+                throw new Error('Failed to find email template: ' + template);
+            }
+        }
+
+        /**
+         * Prepare mail template.
+         *
+         * @param {String} template Path to template file.
+         * @param ctx Mail context.
+         * @return Prepared template.
+         * @throws IOException If failed to prepare template.
+         */
+        prepareTemplate(template, ctx) {
+            let content = this.readTemplate(template);
+
+            _.forIn(ctx, (value, key) => content = content.replace(new RegExp(`\\$\\{${key}\\}`, 'g'), value || 'n/a'));
+
+            return content;
+        }
+
+        /**
+         * @param {string} subject Email subject.
+         * @param {Account} user User that signed up.
+         * @param {string} host Web Console host.
+         */
+        prepareContext(subject, user, host) {
+            return {
+                host,
+                subject,
+                greeting: settings.mail.greeting,
+                sign: settings.mail.sign,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email
+            };
+        }
+
+        /**
          * Send mail to user.
          *
-         * @param {Account} user
-         * @param {String} subject
-         * @param {String} html
-         * @param {String} sendErr
+         * @param {String} template Path to template file.
+         * @param {object} ctx
          * @throws {Error}
          * @return {Promise}
          */
-        send(user, subject, html, sendErr) {
+        send(template, ctx) {
             const options = settings.mail;
 
             return new Promise((resolve, reject) => {
@@ -61,22 +107,17 @@ module.exports.factory = (settings) => {
                     return transporter.verify().then(() => transporter);
                 })
                 .then((transporter) => {
-                    const sign = options.sign ? `<br><br>--------------<br>${options.sign}<br>` : '';
-                    const to = `"${user.firstName} ${user.lastName}" <${user.email}>`;
-
-                    const mail = {
+                    return transporter.sendMail({
                         from: options.from,
-                        to,
-                        subject,
-                        html: html + sign
-                    };
-
-                    return transporter.sendMail(mail);
+                        to: `"${ctx.firstName} ${ctx.lastName}" <${ctx.email}>`,
+                        subject: ctx.subject,
+                        html: this.prepareTemplate(template, ctx)
+                    });
                 })
                 .catch((err) => {
                     console.log('Failed to send email.', err);
 
-                    return Promise.reject(sendErr ? new Error(sendErr) : err);
+                    return Promise.reject(err);
                 });
         }
 
@@ -87,23 +128,16 @@ module.exports.factory = (settings) => {
          * @param user User that signed up.
          * @param createdByAdmin Whether user was created by admin.
          */
-        emailUserSignUp(host, user, createdByAdmin) {
-            const resetLink = `${host}/password/reset?token=${user.resetPasswordToken}`;
+        sendWelcomeLetter(host, user, createdByAdmin) {
+            const sbj = createdByAdmin ? `Account was created for ${settings.mail.greeting}.`
+                : `Thanks for signing up for ${settings.mail.greeting}.`;
 
-            const sbj = createdByAdmin
-                ? 'Account was created for'
-                : 'Thanks for signing up for';
+            const ctx = this.prepareContext(sbj, user, host);
 
-            const reason = createdByAdmin
-                ? 'administrator created account for you'
-                : 'you have signed up';
+            ctx.resetLink = `${host}/password/reset?token=${user.resetPasswordToken}`;
+            ctx.reason = createdByAdmin ? 'administrator created account for you' : 'you have signed up';
 
-            return this.send(user, `${sbj} ${settings.mail.greeting}.`,
-                `Hello ${user.firstName} ${user.lastName}!<br><br>` +
-                `You are receiving this email because ${reason} to use <a href="${host}">${settings.mail.greeting}</a>.<br><br>` +
-                'If you do not know what this email is about, please ignore it.<br>' +
-                'You may reset the password by clicking on the following link, or paste this into your browser:<br><br>' +
-                `<a href="${resetLink}">${resetLink}</a>`);
+            return this.send('templates/welcomeLetter.html', ctx);
         }
 
         /**
@@ -112,15 +146,13 @@ module.exports.factory = (settings) => {
          * @param host
          * @param user
          */
-        emailUserActivation(host, user) {
-            const activationLink = `${host}/signin?activationToken=${user.activationToken}`;
+        sendActivationLink(host, user) {
+            const ctx = this.prepareContext(`Confirm your account on ${settings.mail.greeting}`, user, host);
 
-            return this.send(user, `Confirm your account on ${settings.mail.greeting}`,
-                `Hello ${user.firstName} ${user.lastName}!<br><br>` +
-                `You are receiving this email because you have signed up to use <a href="${host}">${settings.mail.greeting}</a>.<br><br>` +
-                'Please click on the following link, or paste this into your browser to activate your account:<br><br>' +
-                `<a href="${activationLink}">${activationLink}</a>`,
-                'Failed to send email with confirm account link!');
+            ctx.activationLink = `${host}/signin?activationToken=${user.activationToken}`;
+
+            return this.send('templates/activationLink.html', ctx)
+                .catch(() => Promise.reject(new Error('Failed to send email with confirm account link!')));
         }
 
         /**
@@ -129,16 +161,13 @@ module.exports.factory = (settings) => {
          * @param host
          * @param user
          */
-        emailUserResetLink(host, user) {
-            const resetLink = `${host}/password/reset?token=${user.resetPasswordToken}`;
+        sendResetLink(host, user) {
+            const ctx = this.prepareContext('Password Reset', user, host);
 
-            return this.send(user, 'Password Reset',
-                `Hello ${user.firstName} ${user.lastName}!<br><br>` +
-                'You are receiving this because you (or someone else) have requested the reset of the password for your account.<br><br>' +
-                'Please click on the following link, or paste this into your browser to complete the process:<br><br>' +
-                `<a href="${resetLink}">${resetLink}</a><br><br>` +
-                'If you did not request this, please ignore this email and your password will remain unchanged.',
-                'Failed to send email with reset link!');
+            ctx.resetLink = `${host}/password/reset?token=${user.resetPasswordToken}`;
+
+            return this.send('templates/resetPassword.html', ctx)
+                .catch(() => Promise.reject(new Error('Failed to send email with reset link!')));
         }
 
         /**
@@ -146,11 +175,11 @@ module.exports.factory = (settings) => {
          * @param host
          * @param user
          */
-        emailPasswordChanged(host, user) {
-            return this.send(user, 'Your password has been changed',
-                `Hello ${user.firstName} ${user.lastName}!<br><br>` +
-                `This is a confirmation that the password for your account on <a href="${host}">${settings.mail.greeting}</a> has just been changed.<br><br>`,
-                'Password was changed, but failed to send confirmation email!');
+        sendPasswordChanged(host, user) {
+            const ctx = this.prepareContext('Password Reset', user, host);
+
+            return this.send('templates/passwordChanged.html', ctx)
+                .catch(() => Promise.reject(new Error('Password was changed, but failed to send confirmation email!')));
         }
 
         /**
@@ -158,11 +187,11 @@ module.exports.factory = (settings) => {
          * @param host
          * @param user
          */
-        emailUserDeletion(host, user) {
-            return this.send(user, 'Your account was removed',
-                `Hello ${user.firstName} ${user.lastName}!<br><br>` +
-                `You are receiving this email because your account for <a href="${host}">${settings.mail.greeting}</a> was removed.`,
-                'Account was removed, but failed to send email notification to user!');
+        sendAccountDeleted(host, user) {
+            const ctx = this.prepareContext('Your account was removed', user, host);
+
+            return this.send('templates/accountDeleted.html', ctx)
+                .catch(() => Promise.reject(new Error('Password was changed, but failed to send confirmation email!')));
         }
     }
 
