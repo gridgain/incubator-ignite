@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.routes.AccountRouter;
+import org.apache.ignite.console.routes.AdminRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
@@ -70,6 +71,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
             RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
             RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
             RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
+            RestApiRouter adminRouter = new AdminRouter(ignite);
 
             WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
@@ -91,7 +93,8 @@ public class WebConsoleLauncher extends AbstractVerticle {
                 accRouter,
                 cfgsRouter,
                 notebooksRouter,
-                downloadRouter
+                downloadRouter,
+                adminRouter
             ));
 
             System.out.println("Ignite Web Console Server started");

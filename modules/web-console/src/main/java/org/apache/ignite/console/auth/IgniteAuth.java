@@ -208,10 +208,6 @@ public class IgniteAuth implements AuthProvider {
             hash
         );
 
-
-
-
-
         try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             accountsTbl.save(account);
 
