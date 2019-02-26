@@ -79,7 +79,7 @@ class ConnectionState {
         return cluster;
     }
 
-    update(demo, count, clusters) {
+    update(demo, count, clusters, hasDemo) {
         this.clusters = clusters;
 
         if (_.isEmpty(this.clusters))
@@ -90,6 +90,8 @@ class ConnectionState {
 
         if (this.cluster)
             this.cluster.connected = !!_.find(clusters, {id: this.cluster.id});
+
+        this.hasDemo = hasDemo;
 
         if (count === 0)
             this.state = State.AGENT_DISCONNECTED;
@@ -237,7 +239,7 @@ export default class AgentManager {
 
                 const conn = this.connectionSbj.getValue();
 
-                conn.update(false, data.count, data.clusters); // TODO IGNITE-5617 this.isDemoMode()
+                conn.update(false, data.count, data.clusters, false); // TODO IGNITE-5617 this.isDemoMode()
 
                 this.connectionSbj.next(conn);
             });
