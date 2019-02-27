@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-import {AppStore, selectSidebarOpened} from '../../store';
+package org.apache.ignite.internal.processors.affinity;
 
-export default class WebConsoleSidebar {
-    static $inject = ['$rootScope', 'Store'];
+import org.apache.ignite.IgniteSystemProperties;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-    constructor(
-        private $rootScope: ng.IRootScopeService,
-        private store: AppStore
-    ) {}
+/**
+ * Tests affinity history assignment diff calculation for history assignment without optimization.
+ */
+@RunWith(JUnit4.class)
+public class GridHistoryAffinityAssignmentTestNoOptimization extends GridHistoryAffinityAssignmentTest {
+    /** */
+    @BeforeClass
+    public static void beforeTests() {
+        System.setProperty(IgniteSystemProperties.IGNITE_DISABLE_AFFINITY_MEMORY_OPTIMIZATION, "true");
+    }
 
-    sidebarOpened$ = this.store.state$.pipe(selectSidebarOpened());
-
-    get showNavigation(): boolean {
-        return !!this.$rootScope.user;
+    /** */
+    @AfterClass
+    public static void afterTests() {
+        System.clearProperty(IgniteSystemProperties.IGNITE_DISABLE_AFFINITY_MEMORY_OPTIMIZATION);
     }
 }
