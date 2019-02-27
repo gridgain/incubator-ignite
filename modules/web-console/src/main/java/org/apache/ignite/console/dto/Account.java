@@ -46,6 +46,9 @@ public class Account extends AbstractDto {
     private boolean admin;
 
     /** */
+    private boolean activated;
+
+    /** */
     private String tok;
 
     /** */
@@ -140,10 +143,73 @@ public class Account extends AbstractDto {
     }
 
     /**
-     * @return Account e-mail.
+     * @return First name.
+     */
+    public String firstName() {
+        return firstName;
+    }
+
+    /**
+     * @return Last name.
+     */
+    public String lastName() {
+        return lastName;
+    }
+
+    /**
+     * @return e-mail.
      */
     public String email() {
         return email;
+    }
+
+    /**
+     * @return Company.
+     */
+    public String company() {
+        return company;
+    }
+
+    /**
+     * @return Сountry.
+     */
+    public String country() {
+        return country;
+    }
+
+    /**
+     * @return Admin flag.
+     */
+    public boolean admin() {
+        return admin;
+    }
+
+    /**
+     * @param admin Admin flag.
+     */
+    public void admin(boolean admin) {
+        this.admin = admin;
+    }
+
+    /**
+     * @return Activated flag.
+     */
+    public boolean activated() {
+        return activated;
+    }
+
+    /**
+     * @return Last login.
+     */
+    public String lastLogin() {
+        return lastLogin;
+    }
+
+    /**
+     * @return Last activity.
+     */
+    public String lastActivity() {
+        return lastActivity;
     }
 
     /**

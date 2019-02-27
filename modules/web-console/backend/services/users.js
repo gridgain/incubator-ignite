@@ -173,7 +173,7 @@ module.exports.factory = (errors, settings, mongo, spacesService, mailsService, 
                             email: 1,
                             company: 1,
                             country: 1,
-                            lastLogin: 1,
+                            lastLogin:1,
                             lastActivity: 1,
                             activated: 1,
                             spaces: {
