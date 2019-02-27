@@ -1282,16 +1282,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             }
 
             public Message head() {
-                try {
-                    Runnable head = stripe.head();
+                Runnable head = stripe.head();
 
-                    return head instanceof StripeAwareRunnable ? ((StripeAwareRunnable)head).message() : null;
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
-                }
-
-                return null;
+                return head instanceof StripeAwareRunnable ? ((StripeAwareRunnable)head).message() : null;
             }
 
             @Override public void run() {
