@@ -1058,21 +1058,21 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             long now = U.currentTimeMillis();
 
-            GridCursor<PendingRow> cur;
-
-            if (grp.sharedGroup())
-                cur = pendingEntries.find(new PendingRow(cctx.cacheId()), new PendingRow(cctx.cacheId(), now, 0));
-            else
-                cur = pendingEntries.find(null, new PendingRow(CU.UNDEFINED_CACHE_ID, now, 0));
-
-            if (!cur.next())
+            if (!busyLock.enterBusy())
                 return false;
 
-            int cleared = 0;
-
-            cctx.shared().database().checkpointReadLock();
-
             try {
+                GridCursor<PendingRow> cur;
+
+                cur = grp.sharedGroup() ?
+                    pendingEntries.find(new PendingRow(cctx.cacheId()), new PendingRow(cctx.cacheId(), now, 0)) :
+                    pendingEntries.find(null, new PendingRow(CU.UNDEFINED_CACHE_ID, now, 0));
+
+                if (!cur.next())
+                    return false;
+
+                int cleared = 0;
+
                 do {
                     PendingRow row = cur.get();
 
@@ -1096,7 +1096,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 while (cur.next());
             }
             finally {
-                cctx.shared().database().checkpointReadUnlock();
+                busyLock.leaveBusy();
             }
         }
 
