@@ -17,44 +17,40 @@
 
 package org.apache.ignite.console.routes;
 
+import java.util.Collection;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Schemas;
+import org.apache.ignite.console.dto.DataObject;
+import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.services.NotebooksService;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.transactions.Transaction;
+
+import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
  * Router to handle REST API for notebooks.
  */
 public class NotebooksRouter extends AbstractRouter {
     /** */
-    private final Table<Notebook> notebooksTbl;
-
-    /** */
-    private final OneToManyIndex notebooksIdx;
+    private final NotebooksService notebooksSrvc;
 
     /**
      * @param ignite Ignite.
      */
-    public NotebooksRouter(Ignite ignite) {
+    public NotebooksRouter(Ignite ignite, NotebooksService notebooksSrvc) {
         super(ignite);
 
-        notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
-            .addUniqueIndex(Notebook::name, (notebook) -> "Notebook '" + notebook.name() + "' already exits");
-
-        notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
+        this.notebooksSrvc = notebooksSrvc;
     }
 
     /** {@inheritDoc} */
     @Override protected void initializeCaches() {
-        notebooksIdx.cache();
+
     }
 
     /** {@inheritDoc} */
@@ -70,7 +66,16 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        loadList(ctx, notebooksTbl, notebooksIdx, "Failed to load notebooks");
+        try {
+            UUID userId = UUID.fromString(requestParam(ctx, "id"));
+
+            Collection<? extends DataObject> notebooks = notebooksSrvc.load(userId);
+
+            sendResult(ctx, toJsonArray(notebooks));
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to load notebooks", e);
+        }
     }
 
     /**
@@ -87,22 +92,9 @@ public class NotebooksRouter extends AbstractRouter {
 
                 JsonObject json = Schemas.sanitize(Notebook.class, ctx.getBodyAsJson());
 
-                UUID notebookId = ensureId(json);
+                Notebook notebook = Notebook.fromJson(json);
 
-                String name = json.getString("name");
-
-                if (F.isEmpty(name))
-                    throw new IllegalStateException("Notebook name is empty");
-
-                Notebook notebook = new Notebook(notebookId, null, name, json.encode());
-
-                try (Transaction tx = txStart()) {
-                    notebooksTbl.save(notebook);
-
-                    notebooksIdx.add(userId, notebookId);
-
-                    tx.commit();
-                }
+                notebooksSrvc.save(userId, notebook);
 
                 sendResult(ctx, json);
             }
@@ -129,19 +121,7 @@ public class NotebooksRouter extends AbstractRouter {
                 if (notebookId == null)
                     throw new IllegalStateException("Notebook ID not found");
 
-                int rmvCnt = 0;
-
-                try (Transaction tx = txStart()) {
-                    Notebook notebook = notebooksTbl.delete(notebookId);
-
-                    if (notebook != null) {
-                        notebooksIdx.remove(userId, notebookId);
-
-                        rmvCnt = 1;
-                    }
-
-                    tx.commit();
-                }
+                int rmvCnt = notebooksSrvc.delete(userId, notebookId);
 
                 sendResult(ctx, rowsAffected(rmvCnt));
             }

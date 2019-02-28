@@ -19,6 +19,7 @@ package org.apache.ignite.console.dto;
 
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
+import org.apache.ignite.internal.util.typedef.F;
 
 /**
  * DTO for queries notebook.
@@ -28,15 +29,36 @@ public class Notebook extends DataObject {
     private String name;
 
     /**
+     * @param json JSON data.
+     * @return New instance of model DTO.
+     */
+    public static Notebook fromJson(JsonObject json) {
+        String id = json.getString("_id");
+
+        if (id == null)
+            throw new IllegalStateException("Notebook ID not found");
+
+        String name = json.getString("name");
+
+        if (F.isEmpty(name))
+            throw new IllegalStateException("Notebook name is empty");
+
+        return new Notebook(
+            UUID.fromString(id),
+            json.getString("name"),
+            json.encode()
+        );
+    }
+
+    /**
      * Full constructor.
      *
      * @param id ID.
-     * @param space Space ID.
      * @param name Notebook name.
      * @param json JSON payload.
      */
-    public Notebook(UUID id, UUID space, String name, String json) {
-        super(id, space, json);
+    public Notebook(UUID id, String name, String json) {
+        super(id, json);
 
         this.name = name;
     }

@@ -101,25 +101,6 @@ public abstract class AbstractRouter implements RestApiRouter {
     }
 
     /**
-     * Ensure that object has ID.
-     * If not, ID will be generated and added to object.
-     *
-     * @param json JSON object.
-     * @return Object ID.
-     */
-    protected UUID ensureId(JsonObject json) {
-        UUID id = getId(json);
-
-        if (id == null) {
-            id = UUID.randomUUID();
-
-            json.put("_id", id.toString());
-        }
-
-        return id;
-    }
-
-    /**
      * @param user User.
      * @return User ID.
      */

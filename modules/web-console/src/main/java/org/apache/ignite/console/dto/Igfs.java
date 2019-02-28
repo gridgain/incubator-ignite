@@ -48,7 +48,6 @@ public class Igfs extends DataObject {
 
         return new Igfs(
             UUID.fromString(id),
-            null,
             json.getString("name"),
             IgfsMode.valueOf(json.getString("defaultMode", PRIMARY.name())),
             json.getInteger("affinityGroupSize", 512),
@@ -59,14 +58,13 @@ public class Igfs extends DataObject {
      * Full constructor.
      *
      * @param id ID.
-     * @param space Space ID.
      * @param name IGFS name.
      * @param dfltMode IGFS default mode.
      * @param affGrpSz IGFS size of the group in blocks.
      * @param json JSON payload.
      */
-    protected Igfs(UUID id, UUID space, String name, IgfsMode dfltMode, int affGrpSz, String json) {
-        super(id, space, json);
+    public Igfs(UUID id, String name, IgfsMode dfltMode, int affGrpSz, String json) {
+        super(id, json);
 
         this.name = name;
         this.dfltMode = dfltMode;

@@ -36,6 +36,7 @@ import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
+import org.apache.ignite.console.services.Services;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -67,9 +68,11 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
             Vertx vertx = res.result();
 
+            Services services = new Services(ignite);
+
             RestApiRouter accRouter = new AccountRouter(ignite, vertx);
             RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
-            RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+            RestApiRouter notebooksRouter = new NotebooksRouter(ignite, services.notebooks());
             RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
             RestApiRouter adminRouter = new AdminRouter(ignite);
 

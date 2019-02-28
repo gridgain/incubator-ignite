@@ -15,53 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.services;
 
-import java.util.UUID;
-import io.vertx.core.json.JsonObject;
+import org.apache.ignite.Ignite;
 
 /**
- * Abstract data object.
+ * All services.
  */
-public abstract class DataObject extends AbstractDto {
+public class Services {
     /** */
-    private String json;
+    private final NotebooksService notebooks;
 
     /**
-     * Default constructor.
+     * @param ignite Ignite.
      */
-    protected DataObject() {
-        // No-op.
+    public Services(Ignite ignite) {
+        notebooks = new NotebooksService(ignite);
     }
 
     /**
-     * Full constructor.
-     *
-     * @param id ID.
-     * @param json JSON encoded payload.
+     * @return Notebooks service.
      */
-    protected DataObject(UUID id, String json) {
-        super(id);
-
-        this.json = json;
+    public NotebooksService notebooks() {
+        return notebooks;
     }
-
-    /**
-     * @return JSON encoded payload.
-     */
-    public String json() {
-        return json;
-    }
-
-    /**
-     * @param json JSON encoded payload.
-     */
-    public void json(String json) {
-        this.json = json;
-    }
-
-    /**
-     * @return JSON value suitable for short lists.
-     */
-    public abstract JsonObject shortView();
 }
