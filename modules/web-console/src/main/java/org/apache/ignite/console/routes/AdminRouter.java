@@ -22,6 +22,7 @@ import java.util.UUID;
 import javax.cache.Cache;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
@@ -112,26 +113,30 @@ public class AdminRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void toggle(RoutingContext ctx) {
-        try {
-            UUID userId = UUID.fromString(requestParam(ctx, "userId"));
-            boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
+        User user = checkUser(ctx);
 
-            try(Transaction tx = txStart()) {
-                Account acc = tblAccounts.load(userId);
+        if (user != null) {
+            try {
+                UUID userId = UUID.fromString(requestParam(ctx, "userId"));
+                boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
 
-                if (acc == null)
-                    throw new IllegalStateException("Account not found for id: " + userId);
+                try(Transaction tx = txStart()) {
+                    Account acc = tblAccounts.load(userId);
 
-                acc.admin(adminFlag);
+                    if (acc == null)
+                        throw new IllegalStateException("Account not found for id: " + userId);
 
-                tblAccounts.save(acc);
+                    acc.admin(adminFlag);
 
-                tx.commit();
+                    tblAccounts.save(acc);
+
+                    tx.commit();
+                }
+
             }
-
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to change admin status", e);
+            catch (Throwable e) {
+                sendError(ctx, "Failed to change admin status", e);
+            }
         }
     }
 
