@@ -214,12 +214,12 @@ public abstract class AbstractService {
 
         /** {@inheritDoc} */
         @Override public void resume() throws IgniteException {
-            // Nested transaction do nothing.
+            throw new UnsupportedOperationException("Resume is not supported for nested transaction");
         }
 
         /** {@inheritDoc} */
         @Override public void suspend() throws IgniteException {
-            // Nested transaction do nothing.
+            throw new UnsupportedOperationException("Suspend is not supported for nested transaction");
         }
 
         /** {@inheritDoc} */
