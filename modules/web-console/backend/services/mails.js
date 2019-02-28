@@ -176,7 +176,7 @@ module.exports.factory = (settings) => {
          * @param user
          */
         sendPasswordChanged(host, user) {
-            const ctx = this.prepareContext('Password Reset', user, host);
+            const ctx = this.prepareContext('Your password has been changed', user, host);
 
             return this.send('templates/passwordChanged.html', ctx)
                 .catch(() => Promise.reject(new Error('Password was changed, but failed to send confirmation email!')));
