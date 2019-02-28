@@ -291,7 +291,7 @@ public class IgniteBenchmarkUtils {
 
         if(args.nodes() == 1){
             if (customProps.get("NODES_NUM") != null)
-                args.nodes(Integer.valueOf(customProps.get("BACKUPS")));
+                args.nodes(Integer.valueOf(customProps.get("NODES_NUM")));
             else {
                 int nodesNum = 0;
 
