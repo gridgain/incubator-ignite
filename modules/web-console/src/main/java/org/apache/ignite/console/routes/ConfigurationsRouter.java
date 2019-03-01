@@ -17,8 +17,6 @@
 
 package org.apache.ignite.console.routes;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
 import io.vertx.core.json.JsonArray;
@@ -27,17 +25,13 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.OneToManyIndex;
-import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Cache;
 import org.apache.ignite.console.dto.Cluster;
-import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Igfs;
 import org.apache.ignite.console.dto.Model;
 import org.apache.ignite.console.services.ConfigurationsService;
 import org.apache.ignite.internal.util.typedef.F;
 
-import static org.apache.ignite.console.common.Utils.diff;
 import static org.apache.ignite.console.common.Utils.idsFromJson;
 
 /**
@@ -46,6 +40,7 @@ import static org.apache.ignite.console.common.Utils.idsFromJson;
 public class ConfigurationsRouter extends AbstractRouter {
     /** */
     private final ConfigurationsService cfgSrvc;
+
     /**
      * @param ignite Ignite.
      */
@@ -64,34 +59,33 @@ public class ConfigurationsRouter extends AbstractRouter {
         router.get("/api/v1/configuration/clusters/:id/models").handler(this::loadModelsShortList);
         router.get("/api/v1/configuration/clusters/:id/igfss").handler(this::loadIgfssShortList);
 
-        router.put("/api/v1/configuration/clusters").handler(this::saveAdvancedCluster);
-        router.put("/api/v1/configuration/clusters/basic").handler(this::saveBasicCluster);
-        router.post("/api/v1/configuration/clusters/remove").handler(this::deleteClusters);
-
         router.get("/api/v1/configuration/caches/:id").handler(this::loadCache);
         router.get("/api/v1/configuration/domains/:id").handler(this::loadModel);
         router.get("/api/v1/configuration/igfs/:id").handler(this::loadIgfs);
+
+        router.put("/api/v1/configuration/clusters").handler(this::saveAdvancedCluster);
+        router.put("/api/v1/configuration/clusters/basic").handler(this::saveBasicCluster);
+        router.post("/api/v1/configuration/clusters/remove").handler(this::deleteClusters);
     }
 
     /**
-     * @param cluster Cluster DTO.
-     * @return Short view of cluster DTO as JSON object.
+     * @param ctx Context.
      */
-    protected JsonObject shortCluster(Cluster cluster) {
-//            UUID clusterId = cluster.id();
-//
-//            int cachesCnt = cachesIdx.load(clusterId).size();
-//            int modelsCnt = modelsIdx.load(clusterId).size();
-//            int igfsCnt = igfssIdx.load(clusterId).size();
+    private void loadConfiguration(RoutingContext ctx) {
+        User user = checkUser(ctx);
 
-            return new JsonObject()
-                .put("_id", cluster._id())
-                .put("name", cluster.name())
-                .put("discovery", cluster.discovery())
-//                .put("cachesCount", cachesCnt)
-//                .put("modelsCount", modelsCnt)
-//                .put("igfsCount", igfsCnt)
-                ;
+        if (user != null) {
+            try {
+                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+
+                JsonObject json = cfgSrvc.loadConfiguration(clusterId);
+
+                sendResult(ctx, json);
+            }
+            catch (Throwable e) {
+                sendError(ctx, "Failed to load configuration", e);
+            }
+        }
     }
 
     /**
@@ -106,19 +100,9 @@ public class ConfigurationsRouter extends AbstractRouter {
             try {
                 UUID userId = getUserId(user.principal());
 
-//                try (Transaction tx = txStart()) {
-//                    TreeSet<UUID> clusterIds = clustersIdx.load(userId);
-//
-//                    Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
-//
-//                    JsonArray shortList = new JsonArray();
-//
-//                    clusters.forEach(cluster -> shortList.add(shortCluster(cluster)));
-//
-//                    tx.commit();
-//
-                    sendResult(ctx, "[]"/*shortList.toBuffer()*/);
-//                }
+                JsonArray clusters = cfgSrvc.loadClusters(userId);
+
+                sendResult(ctx, clusters);
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to load clusters", e);
@@ -127,151 +111,111 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     * Handle objects that was deleted from cluster.
+     * @param ctx Cluster.
+     */
+    private void loadCluster(RoutingContext ctx) {
+        User user = checkUser(ctx);
+
+        if (user != null) {
+            try {
+                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+
+
+                Cluster cluster = cfgSrvc.loadCluster(clusterId);
+
+                if (cluster == null)
+                    throw new IllegalStateException("Cluster not found for ID: " + clusterId);
+
+                sendResult(ctx, cluster.json());
+            }
+            catch (Throwable e) {
+                sendError(ctx, "Failed to load cluster", e);
+            }
+        }
+    }
+
+    /**
+     * Load cluster caches short list.
      *
-     * @param oldCluster Old cluster JSON.
-     * @param newCluster New cluster JSON.
-     * @param fld Field name that holds IDs to check for deletion.
+     * @param ctx Context.
      */
-    private void removedInCluster(
-        Table<? extends DataObject> tbl,
-        OneToManyIndex idx,
-        UUID clusterId,
-        JsonObject oldCluster,
-        JsonObject newCluster,
-        String fld
-    ) {
-        TreeSet<UUID> oldIds = idsFromJson(oldCluster, fld);
-        TreeSet<UUID> newIds = idsFromJson(newCluster, fld);
+    private void loadCachesShortList(RoutingContext ctx) {
+        loadShortList(ctx, cfgSrvc::loadCaches, "Failed to load cluster caches");
+    }
 
-        TreeSet<UUID> deletedIds = diff(oldIds, newIds);
+    /**
+     * Load cluster models short list.
+     *
+     * @param ctx Context.
+     */
+    private void loadModelsShortList(RoutingContext ctx) {
+        loadShortList(ctx, cfgSrvc::loadModels, "Failed to load cluster models");
+    }
 
-        if (!F.isEmpty(deletedIds)) {
-            tbl.deleteAll(deletedIds);
-            idx.removeAll(clusterId, deletedIds);
+    /**
+     * Get cluster IGFSs short list.
+     *
+     * @param ctx Context.
+     */
+    private void loadIgfssShortList(RoutingContext ctx) {
+        loadShortList(ctx, cfgSrvc::loadIgfss, "Failed to load cluster models");
+    }
+
+
+    /**
+     * @param ctx Context.
+     */
+    private void loadCache(RoutingContext ctx) {
+        checkUser(ctx);
+
+        try {
+            UUID cacheId = UUID.fromString(requestParam(ctx, "id"));
+
+            Cache cache = cfgSrvc.loadCache(cacheId);
+
+            if (cache == null)
+                throw new IllegalStateException("Cache not found for ID: " + cacheId);
+
+            sendResult(ctx, cache.json());
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get cache", e);
         }
     }
 
     /**
-     * @param userId User ID.
-     * @param json JSON data.
-     * @return Saved cluster.
+     * @param ctx Context.
      */
-    private Cluster saveCluster(UUID userId, JsonObject json) {
-        ensureTx();
+    private void loadModel(RoutingContext ctx) {
+        checkUser(ctx);
 
-        JsonObject jsonCluster = json.getJsonObject("cluster");
+        try {
+            UUID mdlId = UUID.fromString(requestParam(ctx, "id"));
 
-        Cluster newCluster = Cluster.fromJson(jsonCluster);
-
-        UUID clusterId = newCluster.id();
-
-//        Cluster oldCluster = clustersTbl.load(clusterId);
-//
-//        if (oldCluster != null) {
-//            JsonObject oldClusterJson = new JsonObject(oldCluster.json());
-//
-//            removedInCluster(cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
-//            removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
-//            removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
-//        }
-//
-//        clustersIdx.add(userId, clusterId);
-//
-//        clustersTbl.save(newCluster);
-
-        return newCluster;
+            Model mdl = cfgSrvc.loadModel(mdlId);
+            sendResult(ctx, mdl.json());
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get model", e);
+        }
     }
 
     /**
-     * @param cluster Cluster.
-     * @param json JSON data.
-     * @param basic {@code true} in case of saving basic cluster.
+     * @param ctx Context.
      */
-    private void saveCaches(Cluster cluster, JsonObject json, boolean basic) {
-        JsonArray jsonCaches = json.getJsonArray("caches");
+    private void loadIgfs(RoutingContext ctx) {
+        checkUser(ctx);
 
-        if (F.isEmpty(jsonCaches))
-            return;
+        try {
+            UUID igfsId = UUID.fromString(requestParam(ctx, "id"));
 
-        int sz = jsonCaches.size();
+            Igfs igfs = cfgSrvc.loadIgfs(igfsId);
 
-        Map<UUID, Cache> caches = new HashMap<>(sz);
-
-        for (int i = 0; i < sz; i++) {
-            Cache cache = Cache.fromJson(jsonCaches.getJsonObject(i));
-
-            caches.put(cache.id(), cache);
+            sendResult(ctx, igfs.json());
         }
-
-//        if (basic) {
-//            Collection<Cache> oldCaches = cachesTbl.loadAll(new TreeSet<>(caches.keySet()));
-//
-//            oldCaches.forEach(oldCache -> {
-//                Cache newCache = caches.get(oldCache.id());
-//
-//                if (newCache != null) {
-//                    JsonObject oldJson = new JsonObject(oldCache.json());
-//                    JsonObject newJson = new JsonObject(newCache.json());
-//
-//                    newCache.json(oldJson.mergeIn(newJson).encode());
-//                }
-//            });
-//        }
-//
-//        cachesIdx.addAll(cluster.id(), caches.keySet());
-//
-//        cachesTbl.saveAll(caches);
-    }
-
-    /**
-     * @param cluster Cluster.
-     * @param json JSON data.
-     */
-    private void saveModels(Cluster cluster, JsonObject json) {
-        JsonArray jsonModels = json.getJsonArray("models");
-
-        if (F.isEmpty(jsonModels))
-            return;
-
-        int sz = jsonModels.size();
-
-        Map<UUID, Model> mdls = new HashMap<>(sz);
-
-        for (int i = 0; i < sz; i++) {
-            Model mdl = Model.fromJson(jsonModels.getJsonObject(i));
-
-            mdls.put(mdl.id(), mdl);
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get IGFS", e);
         }
-
-//        modelsIdx.addAll(cluster.id(), mdls.keySet());
-//
-//        modelsTbl.saveAll(mdls);
-    }
-
-    /**
-     * @param cluster Cluster.
-     * @param json JSON data.
-     */
-    private void saveIgfss(Cluster cluster, JsonObject json) {
-        JsonArray jsonIgfss = json.getJsonArray("igfss");
-
-        if (F.isEmpty(jsonIgfss))
-            return;
-
-        int sz = jsonIgfss.size();
-
-        Map<UUID, Igfs> igfss = new HashMap<>(sz);
-
-        for (int i = 0; i < sz; i++) {
-            Igfs igfs = Igfs.fromJson(jsonIgfss.getJsonObject(i));
-
-            igfss.put(igfs.id(), igfs);
-        }
-
-//        igfssIdx.addAll(cluster.id(), igfss.keySet());
-//
-//        igfssTbl.saveAll(igfss);
     }
 
     /**
@@ -288,15 +232,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 JsonObject json = ctx.getBodyAsJson();
 
-//                try (Transaction tx = txStart()) {
-//                    Cluster cluster = saveCluster(userId, json);
-//
-//                    saveCaches(cluster, json, false);
-//                    saveModels(cluster, json);
-//                    saveIgfss(cluster, json);
-//
-//                    tx.commit();
-//                }
+                cfgSrvc.saveAdvancedCluster(userId, json);
 
                 sendResult(ctx, rowsAffected(1));
             }
@@ -320,13 +256,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 JsonObject json = ctx.getBodyAsJson();
 
-//                try (Transaction tx = txStart()) {
-//                    Cluster cluster = saveCluster(userId, json);
-//
-//                    saveCaches(cluster, json, true);
-//
-//                    tx.commit();
-//                }
+                cfgSrvc.saveBasicCluster(userId, json);
 
                 sendResult(ctx, rowsAffected(1));
             }
@@ -334,108 +264,6 @@ public class ConfigurationsRouter extends AbstractRouter {
                 sendError(ctx, "Failed to save cluster", e);
             }
         }
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadConfiguration(RoutingContext ctx) {
-        User user = checkUser(ctx);
-
-        if (user != null) {
-            try {
-//                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
-//
-//                try (Transaction tx = txStart()) {
-//                    Cluster cluster = clustersTbl.load(clusterId);
-//
-//                    if (cluster == null)
-//                        throw new IllegalStateException("Cluster not found for ID: " + clusterId);
-//
-//                    Collection<Cache> caches = cachesTbl.loadAll(cachesIdx.load(clusterId));
-//                    Collection<Model> models = modelsTbl.loadAll(modelsIdx.load(clusterId));
-//                    Collection<Igfs> igfss = igfssTbl.loadAll(igfssIdx.load(clusterId));
-//
-//                    JsonObject json = new JsonObject()
-//                        .put("cluster", new JsonObject(cluster.json()))
-//                        .put("caches", toJsonArray(caches))
-//                        .put("models", toJsonArray(models))
-//                        .put("igfss", toJsonArray(igfss));
-//
-//                        loadConfigurationEx(clusterId, json);
-//
-//                    tx.commit();
-
-                    sendResult(ctx, "{}"/*json*/);
-//                }
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to load configuration", e);
-            }
-        }
-    }
-
-    /**
-     * @param ctx Cluster.
-     */
-    private void loadCluster(RoutingContext ctx) {
-        User user = checkUser(ctx);
-
-        if (user != null) {
-            try {
-//                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
-//
-//                try (Transaction tx = txStart()) {
-//                    Cluster cluster = clustersTbl.load(clusterId);
-//
-//                    tx.commit();
-//
-//                    if (cluster == null)
-//                        throw new IllegalStateException("Cluster not found for ID: " + clusterId);
-//
-                    sendResult(ctx, "{}" /*Buffer.buffer(cluster.json())*/);
-//                }
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to load cluster", e);
-            }
-        }
-    }
-
-    /**
-     * Load cluster caches short list.
-     *
-     * @param ctx Context.
-     */
-    private void loadCachesShortList(RoutingContext ctx) {
-        // loadShortList(ctx, cachesTbl, cachesIdx, "Failed to load cluster caches");
-    }
-
-    /**
-     * Load cluster models short list.
-     *
-     * @param ctx Context.
-     */
-    private void loadModelsShortList(RoutingContext ctx) {
-        // loadShortList(ctx, modelsTbl, modelsIdx, "Failed to load cluster models");
-    }
-
-    /**
-     * Get cluster IGFSs short list.
-     *
-     * @param ctx Context.
-     */
-    private void loadIgfssShortList(RoutingContext ctx) {
-        // loadShortList(ctx, igfssTbl, igfssIdx, "Failed to load cluster IGFSs");
-    }
-
-    /**
-     * @param clusterId Cluster ID.
-     */
-    private void removeClusterObjects(UUID clusterId, Table<? extends DataObject> tbl, OneToManyIndex idx) {
-        TreeSet<UUID> ids = idx.delete(clusterId);
-
-        tbl.deleteAll(ids);
     }
 
     /**
@@ -455,95 +283,13 @@ public class ConfigurationsRouter extends AbstractRouter {
                 if (F.isEmpty(clusterIds))
                     throw new IllegalStateException("Cluster IDs not found");
 
-//                try (Transaction tx = txStart()) {
-//                    Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
-//
-//                    clusters.forEach(cluster -> {
-//                        UUID clusterId = cluster.id();
-//
-//                        clustersIdx.remove(userId, clusterId);
-//
-//                        removeClusterObjects(clusterId, cachesTbl, cachesIdx);
-//                        removeClusterObjects(clusterId, modelsTbl, modelsIdx);
-//                        removeClusterObjects(clusterId, igfssTbl, igfssIdx);
-//                    });
-//
-//                    clustersTbl.deleteAll(clusterIds);
-//
-//                    tx.commit();
-//                }
+                cfgSrvc.deleteClusters(userId, clusterIds);
 
                 sendResult(ctx, rowsAffected(clusterIds.size()));
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to delete cluster", e);
             }
-        }
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadCache(RoutingContext ctx) {
-        checkUser(ctx);
-
-        try {
-            UUID cacheId = UUID.fromString(requestParam(ctx, "id"));
-
-//            try (Transaction tx = txStart()) {
-//                Cache cache = cachesTbl.load(cacheId);
-//
-//                tx.commit();
-//
-                sendResult(ctx, "{}"/*cache.json()*/);
-//            }
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to get cache", e);
-        }
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadModel(RoutingContext ctx) {
-        checkUser(ctx);
-
-        try {
-            UUID mdlId = UUID.fromString(requestParam(ctx, "id"));
-
-//            try (Transaction tx = txStart()) {
-//                Model mdl = modelsTbl.load(mdlId);
-//
-//                tx.commit();
-//
-                sendResult(ctx, "{}"/*mdl.json()*/);
-//            }
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to get model", e);
-        }
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadIgfs(RoutingContext ctx) {
-        checkUser(ctx);
-
-        try {
-            UUID igfsId = UUID.fromString(requestParam(ctx, "id"));
-
-//            try (Transaction tx = txStart()) {
-//                Igfs igfs = igfssTbl.load(igfsId);
-//
-//                tx.commit();
-//
-                sendResult(ctx, "{}"/*igfs.json()*/);
-//            }
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to get IGFS", e);
         }
     }
 }

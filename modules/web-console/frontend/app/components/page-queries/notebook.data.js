@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import _ from "lodash";
+
 const DEMO_NOTEBOOK = {
     name: 'SQL demo',
     _id: 'demo',

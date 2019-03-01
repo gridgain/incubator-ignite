@@ -21,8 +21,8 @@ import java.net.HttpURLConnection;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
@@ -32,18 +32,14 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.OneToManyIndex;
-import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
-import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
  * Base class for routers.
@@ -51,9 +47,6 @@ import static org.apache.ignite.console.common.Utils.toJsonArray;
 public abstract class AbstractRouter implements RestApiRouter {
     /** */
     protected final Ignite ignite;
-
-    /** */
-    private volatile boolean ready;
 
     /** */
     private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
@@ -201,66 +194,30 @@ public abstract class AbstractRouter implements RestApiRouter {
     }
 
     /**
-     * Ensure that transaction was started explicitly.
+     * Load short list of DTOs.
+     *
+     * @param ctx Context.
+     * @param dataSrc Data source.
+     * @param errMsg Message to show in case of error.
      */
-    protected void ensureTx() {
-        if (ignite.transactions().tx() == null)
-            throw new IllegalStateException("Transaction was not started explicitly");
-    }
+    protected void loadShortList(
+        RoutingContext ctx,
+        Function<UUID, Collection<? extends DataObject>> dataSrc,
+        String errMsg) {
+        try {
+            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
-//    /**
-//     * Load short list of DTOs.
-//     *
-//     * @param ctx Context.
-//     * @param tbl Table with DTOs.
-//     * @param idx Index with DTOs IDs.
-//     * @param errMsg Message to show in case of error.
-//     */
-//    protected void loadList(RoutingContext ctx, Table<? extends DataObject> tbl, OneToManyIndex idx, String errMsg) {
-//        try {
-//            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
-//
-//            try (Transaction tx = txStart()) {
-//                TreeSet<UUID> ids = idx.load(clusterId);
-//
-//                Collection<? extends DataObject> items = tbl.loadAll(ids);
-//
-//                tx.commit();
-//
-//                sendResult(ctx, toJsonArray(items));
-//            }
-//        }
-//        catch (Throwable e) {
-//            sendError(ctx, errMsg, e);
-//        }
-//    }
-//
-//    /**
-//     * Load short list of DTOs.
-//     *
-//     * @param ctx Context.
-//     * @param tbl Table with DTOs.
-//     * @param idx Index with DTOs IDs.
-//     * @param errMsg Message to show in case of error.
-//     */
-//    protected void loadShortList(RoutingContext ctx, Table<? extends DataObject> tbl, OneToManyIndex idx, String errMsg) {
-//        try {
-//            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
-//
-//            try (Transaction tx = txStart()) {
-//                TreeSet<UUID> ids = idx.load(clusterId);
-//
-//                Collection<? extends DataObject> items = tbl.loadAll(ids);
-//
-//                tx.commit();
-//
-//                JsonArray res = new JsonArray(items.stream().map(DataObject::shortView).collect(Collectors.toList()));
-//
-//                sendResult(ctx, res);
-//            }
-//        }
-//        catch (Throwable e) {
-//            sendError(ctx, errMsg, e);
-//        }
-//    }
+            Collection<? extends DataObject> items = dataSrc.apply(clusterId);
+
+            List<JsonObject> list = items
+                .stream()
+                .map(DataObject::shortView)
+                .collect(Collectors.toList());
+
+            sendResult(ctx, new JsonArray(list));
+        }
+        catch (Throwable e) {
+            sendError(ctx, errMsg, e);
+        }
+    }
 }
