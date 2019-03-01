@@ -88,7 +88,7 @@ public class AccountsService extends AbstractService {
      * @return Saved account.
      */
     public Account save(Account account) {
-        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = txStart()) {
             accountsTbl.save(account);
 
             tx.commit();
@@ -102,7 +102,7 @@ public class AccountsService extends AbstractService {
      */
     public boolean shouldBeAdmin() {
         /*
-        try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try(Transaction tx = txStart()) {
             IgniteCache cache = accountsTbl.cache();
 
             Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
@@ -120,27 +120,23 @@ public class AccountsService extends AbstractService {
         return false;
     }
 
-//    /**
-//     * Remove notebook.
-//     *
-//     * @param userId User ID.
-//     * @param notebookId Notebook ID.
-//     */
-//    public int delete(UUID userId, UUID notebookId) {
-//        int rmvCnt = 0;
+    /**
+     * Remove account.
+     *
+     * @param accId Avvount ID.
+     */
+    public int delete(UUID accId) {
+        int rmvCnt = 0;
+
+        try (Transaction tx = txStart()) {
+//            Account acc = accountsTbl.delete(notebookId);
 //
-//        try (Transaction tx = txStart()) {
-//            Notebook notebook = notebooksTbl.delete(notebookId);
-//
-//            if (notebook != null) {
-//                notebooksIdx.remove(userId, notebookId);
-//
+//            if (acc != null)
 //                rmvCnt = 1;
-//            }
-//
-//            tx.commit();
-//        }
-//
-//        return rmvCnt;
-//    }
+
+            tx.commit();
+        }
+
+        return rmvCnt;
+    }
 }

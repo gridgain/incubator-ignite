@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import _ from "lodash";
+import _ from 'lodash';
 import uuidv4 from 'uuid/v4';
 
 export default class Notebook {

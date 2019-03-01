@@ -120,7 +120,6 @@ public class ConfigurationsRouter extends AbstractRouter {
             try {
                 UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
-
                 Cluster cluster = cfgSrvc.loadCluster(clusterId);
 
                 if (cluster == null)

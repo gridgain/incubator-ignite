@@ -50,6 +50,7 @@ public class NotebooksService extends AbstractService {
 
     /** {@inheritDoc} */
     @Override protected void initialize() {
+        notebooksTbl.cache();
         notebooksIdx.cache();
     }
 

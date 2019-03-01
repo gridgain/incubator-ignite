@@ -62,15 +62,19 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        try {
-            UUID userId = UUID.fromString(requestParam(ctx, "id"));
+        User user = checkUser(ctx);
 
-            Collection<? extends DataObject> notebooks = notebooksSrvc.load(userId);
+        if (user != null) {
+            try {
+                UUID userId = getUserId(user.principal());
 
-            sendResult(ctx, toJsonArray(notebooks));
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to load notebooks", e);
+                Collection<? extends DataObject> notebooks = notebooksSrvc.load(userId);
+
+                sendResult(ctx, toJsonArray(notebooks));
+            }
+            catch (Throwable e) {
+                sendError(ctx, "Failed to load notebooks", e);
+            }
         }
     }
 

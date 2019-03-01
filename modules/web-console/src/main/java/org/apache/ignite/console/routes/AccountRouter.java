@@ -28,7 +28,6 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.services.AccountsService;
 
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
@@ -43,11 +42,13 @@ public class AccountRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
+     * @param accSrvc Accounts service.
      */
-    public AccountRouter(Ignite ignite, Vertx vertx, AccountsService accsrvc) {
+    public AccountRouter(Ignite ignite, Vertx vertx, AccountsService accSrvc) {
         super(ignite);
 
-        authProvider = new IgniteAuth(ignite, vertx, accsrvc);
+        authProvider = new IgniteAuth(ignite, vertx, accSrvc);
     }
 
     /** {@inheritDoc} */
@@ -93,10 +94,10 @@ public class AccountRouter extends AbstractRouter {
             signIn(ctx);
         }
         catch (IgniteException e) {
-            sendStatus(ctx, HTTP_INTERNAL_ERROR, e.getMessage());
+            sendError(ctx, e.getMessage(), e);
         }
-        catch (Throwable ignored) {
-            sendStatus(ctx, HTTP_INTERNAL_ERROR);
+        catch (Throwable e) {
+            sendError(ctx, "Sign up failed", e);
         }
     }
 
