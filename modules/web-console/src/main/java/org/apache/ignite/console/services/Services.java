@@ -24,13 +24,35 @@ import org.apache.ignite.Ignite;
  */
 public class Services {
     /** */
+    private final AccountsService accouts;
+
+    /** */
+    private final ConfigurationsService configurations;
+
+    /** */
     private final NotebooksService notebooks;
 
     /**
      * @param ignite Ignite.
      */
     public Services(Ignite ignite) {
+        accouts = new AccountsService(ignite);
+        configurations = new ConfigurationsService(ignite);
         notebooks = new NotebooksService(ignite);
+    }
+
+    /**
+     * @return Accounts service.
+     */
+    public AccountsService accounts() {
+        return accouts;
+    }
+
+    /**
+     * @return Configurations service.
+     */
+    public ConfigurationsService configurations() {
+        return configurations;
     }
 
     /**

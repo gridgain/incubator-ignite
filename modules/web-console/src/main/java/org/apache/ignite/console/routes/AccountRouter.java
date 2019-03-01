@@ -26,6 +26,7 @@ import io.vertx.ext.web.handler.UserSessionHandler;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.services.AccountsService;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -43,15 +44,10 @@ public class AccountRouter extends AbstractRouter {
     /**
      * @param ignite Ignite.
      */
-    public AccountRouter(Ignite ignite, Vertx vertx ) {
+    public AccountRouter(Ignite ignite, Vertx vertx, AccountsService accsrvc) {
         super(ignite);
 
-        authProvider = new IgniteAuth(ignite, vertx);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initializeCaches() {
-
+        authProvider = new IgniteAuth(ignite, vertx, accsrvc);
     }
 
     /** {@inheritDoc} */

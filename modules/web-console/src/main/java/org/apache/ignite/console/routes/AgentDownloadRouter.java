@@ -61,11 +61,6 @@ public class AgentDownloadRouter extends AbstractRouter {
     }
 
     /** {@inheritDoc} */
-    @Override protected void initializeCaches() {
-        // No-op so far.
-    }
-
-    /** {@inheritDoc} */
     @Override public void install(Router router) {
         router.get("/api/v1/downloads/agent").handler(this::load);
     }

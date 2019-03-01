@@ -28,7 +28,6 @@ import org.apache.ignite.console.db.Schemas;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.services.NotebooksService;
-import org.apache.ignite.internal.util.typedef.F;
 
 import static org.apache.ignite.console.common.Utils.toJsonArray;
 
@@ -36,7 +35,9 @@ import static org.apache.ignite.console.common.Utils.toJsonArray;
  * Router to handle REST API for notebooks.
  */
 public class NotebooksRouter extends AbstractRouter {
-    /** */
+    /**
+     *
+     */
     private final NotebooksService notebooksSrvc;
 
     /**
@@ -46,11 +47,6 @@ public class NotebooksRouter extends AbstractRouter {
         super(ignite);
 
         this.notebooksSrvc = notebooksSrvc;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initializeCaches() {
-
     }
 
     /** {@inheritDoc} */

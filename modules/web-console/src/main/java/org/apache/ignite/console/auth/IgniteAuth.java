@@ -21,6 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.ZonedDateTime;
 import java.util.UUID;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -29,20 +31,13 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.PRNG;
 import io.vertx.ext.auth.User;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteAuthenticationException;
-import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.transactions.Transaction;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Authentication with storing user information in Ignite.
@@ -57,15 +52,12 @@ public class IgniteAuth implements AuthProvider {
     /** */
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
-    /** Special key to check that first user should be granted admin rights. */
-    private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("75744f56-59c4-4228-b07a-fabf4babc059");
+    /** */
+    private final Ignite ignite;
 
     /** */
-    private final Table<Account> accountsTbl;
+    private final AccountsService accSrvc;
 
-    /** */
-    private Ignite ignite;
-    
     /** */
     private final PRNG rnd;
 
@@ -73,13 +65,12 @@ public class IgniteAuth implements AuthProvider {
      * @param ignite Ignite.
      * @param vertx Vertx.
      */
-    public IgniteAuth(Ignite ignite, Vertx vertx) {
+    public IgniteAuth(Ignite ignite, Vertx vertx, AccountsService accSrvc) {
         this.ignite = ignite;
+        this.accSrvc = accSrvc;
         
         rnd = new PRNG(vertx);
 
-        accountsTbl = new Table<Account>(ignite, "accounts")
-            .addUniqueIndex(Account::email, (acc) -> "Account with email: " + acc.email() + " already registered");
     }
 
     /**
@@ -123,9 +114,7 @@ public class IgniteAuth implements AuthProvider {
         if (accId == null)
             throw new IgniteAuthenticationException("Missing account identity");
 
-        IgniteCache<UUID, Account> cache = accountsTbl.cache();
-
-        Account account = cache.get(accId);
+        Account account = accSrvc.getById(accId);
 
         if (account == null)
             throw new IgniteAuthenticationException("Failed to find account with identity: " + accId);
@@ -142,11 +131,7 @@ public class IgniteAuth implements AuthProvider {
             if (F.isEmpty(email) || F.isEmpty(pwd))
                 throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
 
-            Account account;
-
-            try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                account = accountsTbl.getByIndex(email);
-            }
+            Account account = accSrvc.getByEmail(email);
 
             if (account == null)
                 throw new IgniteAuthenticationException("Failed to find registered account");
@@ -168,25 +153,11 @@ public class IgniteAuth implements AuthProvider {
     /**
      * @param body Sign up info.
      */
-    @SuppressWarnings("unchecked")
     public Account registerAccount(JsonObject body) throws Exception {
         String salt = generateSalt();
         String hash = computeHash(body.getString("password"), salt);
 
-        boolean admin;
-
-        try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-            IgniteCache cache = accountsTbl.cache();
-
-            Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
-
-            admin = firstUserMarker == null;
-
-            if (admin)
-                cache.put(FIRST_USER_MARKER_KEY, FIRST_USER_MARKER_KEY);
-
-            tx.commit();
-        }
+        boolean admin = accSrvc.shouldBeAdmin();
 
         Account account = new Account(
             UUID.randomUUID(),
@@ -208,12 +179,6 @@ public class IgniteAuth implements AuthProvider {
             hash
         );
 
-        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-            accountsTbl.save(account);
-
-            tx.commit();
-
-            return account;
-        }
+        return accSrvc.save(account);
     }
 }

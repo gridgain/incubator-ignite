@@ -50,8 +50,6 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      */
     public Table(Ignite ignite, String cacheName) {
         super(ignite, cacheName);
-
-        cache();
     }
 
     /**
@@ -65,7 +63,6 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     }
 
     /** */
-    @SuppressWarnings("unchecked")
     private IgniteCache<Object, UUID> indexCache() {
         IgniteCache cache = cache();
 

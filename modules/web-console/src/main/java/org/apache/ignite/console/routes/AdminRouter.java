@@ -28,29 +28,24 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.ScanQuery;
-import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.console.services.Services;
 
 /**
  * Admin router.
  */
 public class AdminRouter extends AbstractRouter {
     /** */
-    private final Table<Account> tblAccounts;
+    private final Services srvcs;
 
     /**
      * @param ignite Ignite.
+     * @param srvcs Services.
      */
-    public AdminRouter(Ignite ignite) {
+    public AdminRouter(Ignite ignite, Services srvcs) {
         super(ignite);
 
-        tblAccounts = new Table<>(ignite, "accounts");
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initializeCaches() {
-        tblAccounts.cache();
+        this.srvcs = srvcs;
     }
 
     /** {@inheritDoc} */
@@ -68,7 +63,7 @@ public class AdminRouter extends AbstractRouter {
      */
     private void  list(RoutingContext ctx) {
         try {
-            IgniteCache<UUID, Account> cache = tblAccounts.cache();
+            IgniteCache<UUID, Account> cache = null; // tblAccounts.cache();
 
             List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
 
@@ -120,18 +115,18 @@ public class AdminRouter extends AbstractRouter {
                 UUID userId = UUID.fromString(requestParam(ctx, "userId"));
                 boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
 
-                try(Transaction tx = txStart()) {
-                    Account acc = tblAccounts.load(userId);
-
-                    if (acc == null)
-                        throw new IllegalStateException("Account not found for id: " + userId);
-
-                    acc.admin(adminFlag);
-
-                    tblAccounts.save(acc);
-
-                    tx.commit();
-                }
+//                try(Transaction tx = txStart()) {
+//                    Account acc = tblAccounts.load(userId);
+//
+//                    if (acc == null)
+//                        throw new IllegalStateException("Account not found for id: " + userId);
+//
+//                    acc.admin(adminFlag);
+//
+//                    tblAccounts.save(acc);
+//
+//                    tx.commit();
+//                }
 
             }
             catch (Throwable e) {

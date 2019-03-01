@@ -70,11 +70,11 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
             Services services = new Services(ignite);
 
-            RestApiRouter accRouter = new AccountRouter(ignite, vertx);
-            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
+            RestApiRouter accRouter = new AccountRouter(ignite, vertx, services.accounts());
+            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite, services.configurations());
             RestApiRouter notebooksRouter = new NotebooksRouter(ignite, services.notebooks());
             RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
-            RestApiRouter adminRouter = new AdminRouter(ignite);
+            RestApiRouter adminRouter = new AdminRouter(ignite, services);
 
             WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
