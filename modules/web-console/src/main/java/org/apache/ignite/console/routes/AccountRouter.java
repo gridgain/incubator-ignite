@@ -46,7 +46,7 @@ public class AccountRouter extends AbstractRouter {
      * @param accSrvc Accounts service.
      */
     public AccountRouter(Ignite ignite, Vertx vertx, AccountsService accSrvc) {
-        super(ignite);
+        super(ignite, vertx);
 
         authProvider = new IgniteAuth(ignite, vertx, accSrvc);
     }

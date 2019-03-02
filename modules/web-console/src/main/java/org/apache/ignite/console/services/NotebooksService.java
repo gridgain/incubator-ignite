@@ -19,12 +19,19 @@ package org.apache.ignite.console.services;
 
 import java.util.Collection;
 import java.util.UUID;
+import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.db.OneToManyIndex;
+import org.apache.ignite.console.db.Schemas;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.transactions.Transaction;
+
+import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
  * Service to handle notebooks.
@@ -54,52 +61,95 @@ public class NotebooksService extends AbstractService {
         notebooksIdx.cache();
     }
 
-    /**
-     * Load notebooks.
-     *
-     * @param userId User ID.
-     */
-    public Collection<? extends DataObject> load(UUID userId) {
-        return loadList(userId, notebooksIdx, notebooksTbl);
+    /** {@inheritDoc} */
+    @Override public void start() {
+        EventBus eventBus = vertx.eventBus();
+
+        eventBus.consumer(Addresses.NOTEBOOK_LIST, this::load);
+        eventBus.consumer(Addresses.NOTEBOOK_SAVE, this::save);
+        eventBus.consumer(Addresses.NOTEBOOK_DELETE, this::delete);
     }
 
     /**
-     * Save notebook.
-     *
-     * @param userId User ID.
-     * @param notebook Notebook to save.
+     * @param msg Message to process.
      */
-    public void save(UUID userId, Notebook notebook) {
-        try (Transaction tx = txStart()) {
-            notebooksTbl.save(notebook);
+    private void load(Message<JsonObject> msg) {
+        vertx.executeBlocking(
+            fut -> {
+                try {
+                    UUID userId = getUserId(msg);
 
-            notebooksIdx.add(userId, notebook.id());
+                    Collection<? extends DataObject> notebooks = loadList(userId, notebooksIdx, notebooksTbl);
 
-            tx.commit();
-        }
+                    fut.complete(toJsonArray(notebooks));
+                }
+                catch (Throwable e) {
+                    fut.fail(e);
+                }
+            },
+            new ReplyHandler(msg)
+        );
     }
 
     /**
-     * Remove notebook.
-     *
-     * @param userId User ID.
-     * @param notebookId Notebook ID.
+     * @param msg Message to process.
      */
-    public int delete(UUID userId, UUID notebookId) {
-        int rmvCnt = 0;
+    private void save(Message<JsonObject> msg) {
+        vertx.executeBlocking(
+            fut -> {
+                try {
+                    UUID userId = getUserId(msg);
+                    Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(msg, "notebook")));
 
-        try (Transaction tx = txStart()) {
-            Notebook notebook = notebooksTbl.delete(notebookId);
+                    try (Transaction tx = txStart()) {
+                        notebooksTbl.save(notebook);
 
-            if (notebook != null) {
-                notebooksIdx.remove(userId, notebookId);
+                        notebooksIdx.add(userId, notebook.id());
 
-                rmvCnt = 1;
-            }
+                        tx.commit();
+                    }
 
-            tx.commit();
-        }
+                    fut.complete();
+                }
+                catch (Throwable e) {
+                    fut.fail(e);
+                }
+            },
+            new ReplyHandler(msg)
+        );
+    }
 
-        return rmvCnt;
+    /**
+     * @param msg Message to process.
+     */
+    private void delete(Message<JsonObject> msg) {
+        vertx.executeBlocking(
+            fut -> {
+                try {
+                    UUID userId = getUserId(msg);
+                    UUID notebookId = getId(getProperty(msg, "notebook"));
+
+                    int rmvCnt = 0;
+
+                    try (Transaction tx = txStart()) {
+                        Notebook notebook = notebooksTbl.delete(notebookId);
+
+                        if (notebook != null) {
+                            notebooksIdx.remove(userId, notebookId);
+
+                            rmvCnt = 1;
+                        }
+
+                        tx.commit();
+                    }
+
+                    fut.complete(rowsAffected(rmvCnt));
+                }
+                catch (Throwable e) {
+                    fut.fail(e);
+                }
+            },
+            new ReplyHandler(msg)
+        );
     }
 }

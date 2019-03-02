@@ -32,4 +32,13 @@ public interface Addresses {
 
     /** */
     public static final String CLUSTER_TOPOLOGY = "cluster:topology";
+
+    /** */
+    public static final String NOTEBOOK_LIST = "notebook:list";
+
+    /** */
+    public static final String NOTEBOOK_SAVE = "notebooks:save";
+
+    /** */
+    public static final String NOTEBOOK_DELETE = "notebooks:delete";
 }

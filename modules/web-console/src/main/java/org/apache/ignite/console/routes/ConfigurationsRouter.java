@@ -19,6 +19,7 @@ package org.apache.ignite.console.routes;
 
 import java.util.TreeSet;
 import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
@@ -43,9 +44,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      */
-    public ConfigurationsRouter(Ignite ignite, ConfigurationsService cfgSrvc) {
-        super(ignite);
+    public ConfigurationsRouter(Ignite ignite, Vertx vertx, ConfigurationsService cfgSrvc) {
+        super(ignite, vertx);
 
         this.cfgSrvc = cfgSrvc;
     }

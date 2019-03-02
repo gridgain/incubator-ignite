@@ -22,6 +22,7 @@ import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.auth.User;
@@ -49,11 +50,12 @@ public class AgentDownloadRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      * @param agentFolderName Folder where agent ZIP stored.
      * @param agentFileName Agent file name.
      */
-    public AgentDownloadRouter(Ignite ignite, String agentFolderName, String agentFileName) {
-        super(ignite);
+    public AgentDownloadRouter(Ignite ignite, Vertx vertx, String agentFolderName, String agentFileName) {
+        super(ignite, vertx);
 
         this.agentFileName = agentFileName;
 

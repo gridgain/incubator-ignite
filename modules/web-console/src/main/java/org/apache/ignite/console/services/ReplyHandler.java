@@ -17,48 +17,33 @@
 
 package org.apache.ignite.console.services;
 
-import org.apache.ignite.Ignite;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
+
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static org.apache.ignite.console.common.Utils.errorMessage;
 
 /**
- * All services.
+ * Default reply handler.
  */
-public class Services {
+public class ReplyHandler implements Handler<AsyncResult<Object>> {
     /** */
-    private final AccountsService accouts;
-
-    /** */
-    private final ConfigurationsService configurations;
-
-    /** */
-    private final NotebooksService notebooks;
+    private final Message<JsonObject> msg;
 
     /**
-     * @param ignite Ignite.
+     * @param msg Message to send reply.
      */
-    public Services(Ignite ignite) {
-        accouts = new AccountsService(ignite);
-        configurations = new ConfigurationsService(ignite);
-        notebooks = new NotebooksService(ignite);
+    ReplyHandler(Message<JsonObject> msg) {
+        this.msg = msg;
     }
 
-    /**
-     * @return Accounts service.
-     */
-    public AccountsService accounts() {
-        return accouts;
-    }
-
-    /**
-     * @return Configurations service.
-     */
-    public ConfigurationsService configurations() {
-        return configurations;
-    }
-
-    /**
-     * @return Notebooks service.
-     */
-    public NotebooksService notebooks() {
-        return notebooks;
+    /** {@inheritDoc} */
+    @Override public void handle(AsyncResult<Object> asyncRes) {
+        if (asyncRes.succeeded())
+            msg.reply(asyncRes.result());
+        else
+            msg.fail(HTTP_INTERNAL_ERROR, errorMessage(asyncRes.cause()));
     }
 }

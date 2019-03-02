@@ -136,15 +136,13 @@ export default class NotebookData {
             return this.$q.when(DEMO_NOTEBOOK);
 
         return this.$http.post('/api/v1/notebooks/save', notebook)
-            .then(({data}) => {
-                const idx = _.findIndex(this.notebooks, {_id: data._id});
+            .then(() => {
+                const idx = _.findIndex(this.notebooks, {_id: notebook._id});
 
-                if (idx >= 0)
-                    this.notebooks[idx] = data;
-                else
-                    this.notebooks.push(data);
+                if (idx < 0)
+                    this.notebooks.push(notebook);
 
-                return data;
+                return notebook;
             })
             .catch(({data}) => Promise.reject(data));
     }

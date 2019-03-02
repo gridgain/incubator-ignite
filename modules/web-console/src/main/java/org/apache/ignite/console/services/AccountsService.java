@@ -17,14 +17,17 @@
 
 package org.apache.ignite.console.services;
 
+import java.util.List;
 import java.util.UUID;
+import javax.cache.Cache;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.transactions.Transaction;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Service to handle notebooks.
@@ -100,8 +103,10 @@ public class AccountsService extends AbstractService {
     /**
      * @return {@code true} if first user should be granted with admin permissions.
      */
+    @SuppressWarnings("unchecked")
     public boolean shouldBeAdmin() {
-        /*
+        boolean admin;
+
         try(Transaction tx = txStart()) {
             IgniteCache cache = accountsTbl.cache();
 
@@ -115,9 +120,7 @@ public class AccountsService extends AbstractService {
             tx.commit();
         }
 
-         */
-
-        return false;
+        return admin;
     }
 
     /**
@@ -129,14 +132,74 @@ public class AccountsService extends AbstractService {
         int rmvCnt = 0;
 
         try (Transaction tx = txStart()) {
-//            Account acc = accountsTbl.delete(notebookId);
-//
-//            if (acc != null)
-//                rmvCnt = 1;
+            Account acc = accountsTbl.delete(accId);
+
+            if (acc != null)
+                rmvCnt = 1;
 
             tx.commit();
         }
 
         return rmvCnt;
+    }
+
+    /**
+     * @return List of all users.
+     */
+    public JsonArray list() {
+        IgniteCache<UUID, Account> cache = accountsTbl.cache();
+
+        List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
+
+        JsonArray res = new JsonArray();
+
+        users.forEach(entry -> {
+            Object v = entry.getValue();
+
+            if (v instanceof Account) {
+                Account user = (Account)v;
+
+                res.add(new JsonObject()
+                    .put("_id", user._id())
+                    .put("firstName", user.firstName())
+                    .put("lastName", user.lastName())
+                    .put("admin", user.admin())
+                    .put("email", user.email())
+                    .put("company", user.company())
+                    .put("country", user.country())
+                    .put("lastLogin", user.lastLogin())
+                    .put("lastActivity", user.lastActivity())
+                    .put("activated", user.activated())
+                    .put("counters", new JsonObject()
+                        .put("clusters", 0)
+                        .put("caches", 0)
+                        .put("models", 0)
+                        .put("igfs", 0))
+                    .put("activitiesTotal", 0)
+                    .put("activitiesDetail", 0)
+                );
+            }
+        });
+
+        return res;
+    }
+
+    /**
+     * @param userId User ID.
+     * @param adminFlag Administration flag.
+     */
+    public void toggle(UUID userId, boolean adminFlag) {
+        try (Transaction tx = txStart()) {
+            Account acc = accountsTbl.load(userId);
+
+            if (acc == null)
+                throw new IllegalStateException("Account not found for id: " + userId);
+
+            acc.admin(adminFlag);
+
+            accountsTbl.save(acc);
+
+            tx.commit();
+        }
     }
 }

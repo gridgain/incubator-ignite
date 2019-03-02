@@ -125,7 +125,7 @@ public class Utils {
      * @param req Request.
      * @return Request origin.
      */
-    public  static String origin(HttpServerRequest req) {
+    public static String origin(HttpServerRequest req) {
         String proto = req.getHeader("x-forwarded-proto");
 
         if (F.isEmpty(proto))

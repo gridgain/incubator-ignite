@@ -26,6 +26,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -49,6 +50,9 @@ public abstract class AbstractRouter implements RestApiRouter {
     protected final Ignite ignite;
 
     /** */
+    protected final Vertx vertx;
+
+    /** */
     private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
         HttpHeaderValues.NO_CACHE,
         HttpHeaderValues.NO_STORE,
@@ -56,9 +60,11 @@ public abstract class AbstractRouter implements RestApiRouter {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      */
-    protected AbstractRouter(Ignite ignite) {
+    protected AbstractRouter(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
+        this.vertx = vertx;
     }
 
     /**
@@ -133,7 +139,16 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @param ctx Context.
      * @param data Data to send.
      */
-    protected void sendResult(RoutingContext ctx, Buffer data) {
+    protected void sendResult(RoutingContext ctx, Object data) {
+        Buffer buf;
+
+        if (data instanceof JsonObject)
+            buf = ((JsonObject)data).toBuffer();
+        else if (data instanceof JsonArray)
+            buf = ((JsonArray)data).toBuffer();
+        else
+            buf = Buffer.buffer(String.valueOf(data));
+
         ctx
             .response()
             .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
@@ -141,31 +156,7 @@ public abstract class AbstractRouter implements RestApiRouter {
             .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
             .putHeader(HttpHeaderNames.EXPIRES, "0")
             .setStatusCode(HTTP_OK)
-            .end(data);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, JsonObject data) {
-        sendResult(ctx, data.toBuffer());
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, JsonArray data) {
-        sendResult(ctx, data.toBuffer());
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, String data) {
-        sendResult(ctx, Buffer.buffer(data));
+            .end(buf);
     }
 
     /**

@@ -17,36 +17,27 @@
 
 package org.apache.ignite.console.routes;
 
-import java.util.Collection;
-import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.Schemas;
-import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.services.NotebooksService;
 
-import static org.apache.ignite.console.common.Utils.toJsonArray;
+import static org.apache.ignite.console.common.Addresses.NOTEBOOK_DELETE;
+import static org.apache.ignite.console.common.Addresses.NOTEBOOK_LIST;
+import static org.apache.ignite.console.common.Addresses.NOTEBOOK_SAVE;
 
 /**
  * Router to handle REST API for notebooks.
  */
 public class NotebooksRouter extends AbstractRouter {
     /**
-     *
-     */
-    private final NotebooksService notebooksSrvc;
-
-    /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      */
-    public NotebooksRouter(Ignite ignite, NotebooksService notebooksSrvc) {
-        super(ignite);
-
-        this.notebooksSrvc = notebooksSrvc;
+    public NotebooksRouter(Ignite ignite, Vertx vertx) {
+        super(ignite, vertx);
     }
 
     /** {@inheritDoc} */
@@ -66,11 +57,15 @@ public class NotebooksRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = getUserId(user.principal());
+                JsonObject msg = new JsonObject()
+                    .put("user", user.principal());
 
-                Collection<? extends DataObject> notebooks = notebooksSrvc.load(userId);
-
-                sendResult(ctx, toJsonArray(notebooks));
+                vertx.eventBus().send(NOTEBOOK_LIST, msg, asyncRes -> {
+                    if (asyncRes.succeeded())
+                        sendResult(ctx, asyncRes.result().body());
+                    else
+                        sendError(ctx, "Failed to load notebooks", asyncRes.cause());
+                });
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to load notebooks", e);
@@ -88,15 +83,16 @@ public class NotebooksRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = getUserId(user.principal());
+                JsonObject msg = new JsonObject()
+                    .put("user", user.principal())
+                    .put("notebook", ctx.getBodyAsJson());
 
-                JsonObject json = Schemas.sanitize(Notebook.class, ctx.getBodyAsJson());
-
-                Notebook notebook = Notebook.fromJson(json);
-
-                notebooksSrvc.save(userId, notebook);
-
-                sendResult(ctx, json);
+                vertx.eventBus().send(NOTEBOOK_SAVE, msg, asyncRes -> {
+                    if (asyncRes.succeeded())
+                        sendResult(ctx, asyncRes.result().body());
+                    else
+                        sendError(ctx, "Failed to save notebook", asyncRes.cause());
+                });
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to save notebook", e);
@@ -114,16 +110,25 @@ public class NotebooksRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = getUserId(user.principal());
+                JsonObject msg = new JsonObject()
+                    .put("user", user.principal())
+                    .put("notebook", ctx.getBodyAsJson());
 
-                UUID notebookId = getId(ctx.getBodyAsJson());
+//                UUID notebookId = getId(ctx.getBodyAsJson());
+//
+//                if (notebookId == null)
+//                    throw new IllegalStateException("Notebook ID not found");
 
-                if (notebookId == null)
-                    throw new IllegalStateException("Notebook ID not found");
+//                JsonObject json = new JsonObject()
+//                    .put("userId", userId.toString())
+//                    .put("notebookId", notebookId.toString());
 
-                int rmvCnt = notebooksSrvc.delete(userId, notebookId);
-
-                sendResult(ctx, rowsAffected(rmvCnt));
+                vertx.eventBus().send(NOTEBOOK_DELETE, msg, asyncRes -> {
+                    if (asyncRes.succeeded())
+                        sendResult(ctx, asyncRes.result().body());
+                    else
+                        sendError(ctx, "Failed to delete notebook", asyncRes.cause());
+                });
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to delete notebook", e);

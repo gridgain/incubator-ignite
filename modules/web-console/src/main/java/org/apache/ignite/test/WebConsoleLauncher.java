@@ -22,21 +22,22 @@ import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
-import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AdminRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
-import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
-import org.apache.ignite.console.services.Services;
+import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.services.ConfigurationsService;
+import org.apache.ignite.console.services.NotebooksService;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -56,39 +57,31 @@ public class WebConsoleLauncher extends AbstractVerticle {
         Ignite ignite = startIgnite();
 
         VertxOptions options = new VertxOptions()
-            .setBlockedThreadCheckInterval(1000L * 60L * 60L)
-            .setClusterManager(new IgniteClusterManager(ignite));
+            .setBlockedThreadCheckInterval(1000L * 60L * 60L);
+//            .setClusterManager(new IgniteClusterManager(ignite));
 
-        Vertx.clusteredVertx(options, res -> {
-            if (res.failed()) {
-                ignite.log().error("Failed to start clustered Vertx!");
+        Vertx vertx = Vertx.vertx(options);
 
-                return;
-            }
+//        Vertx.clusteredVertx(options, res -> {
+//            if (res.failed()) {
+//                ignite.log().error("Failed to start clustered Vertx!");
+//
+//                return;
+//            }
+//
+//            Vertx vertx = res.result();
 
-            Vertx vertx = res.result();
+            AccountsService accSrvc = new AccountsService(ignite);
 
-            Services services = new Services(ignite);
-
-            RestApiRouter accRouter = new AccountRouter(ignite, vertx, services.accounts());
-            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite, services.configurations());
-            RestApiRouter notebooksRouter = new NotebooksRouter(ignite, services.notebooks());
-            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
-            RestApiRouter adminRouter = new AdminRouter(ignite, services);
+            RestApiRouter accRouter = new AccountRouter(ignite, vertx, accSrvc);
+            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite, vertx, new ConfigurationsService(ignite));
+            RestApiRouter notebooksRouter = new NotebooksRouter(ignite, vertx);
+            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, vertx, "/your/path", "ignite-web-agent-x.y.z");
+            RestApiRouter adminRouter = new AdminRouter(ignite, vertx, accSrvc);
 
             WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
-            // TODO Remove this code after WC-950 will be implemented.
-            // Uncomment if you need Vertx to handle static resources.
-            // cfg.setWebRoot("modules/web-console/frontend/build");
-
-            // TODO Remove this code after WC-950 will be implemented.
-            // Uncomment if you need SSL.
-            // cfg
-            //    .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
-            //    .setKeyStorePassword("123456")
-            //    .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
-            //    .setTrustStorePassword("123456");
+            vertx.deployVerticle(new NotebooksService(ignite));
 
             vertx.deployVerticle(new WebConsoleServer(
                 cfg,
@@ -101,7 +94,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
             ));
 
             System.out.println("Ignite Web Console Server started");
-        });
+//        });
     }
 
     /**

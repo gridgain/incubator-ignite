@@ -20,6 +20,9 @@ package org.apache.ignite.console.services;
 import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteTransactions;
@@ -27,6 +30,7 @@ import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.future.IgniteFinishedFutureImpl;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.lang.IgniteAsyncSupport;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteUuid;
@@ -42,7 +46,7 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
 /**
  * Base class for routers.
  */
-public abstract class AbstractService {
+public abstract class AbstractService extends AbstractVerticle {
     /** */
     protected final Ignite ignite;
 
@@ -60,6 +64,49 @@ public abstract class AbstractService {
      * Initialize caches.
      */
     protected abstract void initialize();
+
+    /**
+     * @param json JSON object.
+     * @return ID or {@code null} if object has no ID.
+     */
+    @Nullable protected UUID getId(JsonObject json) {
+        String s = json.getString("_id");
+
+        return F.isEmpty(s) ? null : UUID.fromString(s);
+    }
+
+    /**
+     *
+     * @param msg JSON message.
+     * @param key Property name.
+     * @return JSON for specified property.
+     * @throws IllegalStateException If property not found.
+     */
+    protected JsonObject getProperty(Message<JsonObject> msg, String key) {
+        JsonObject json = msg.body().getJsonObject(key);
+
+        if (json == null)
+            throw new IllegalStateException("Message does not contain property: " + key);
+
+        return json;
+    }
+
+
+    /**
+     * @param msg JSON message.
+     * @return User ID.
+     * @throws IllegalStateException If user ID not found.
+     */
+    protected UUID getUserId(Message<JsonObject> msg) {
+        JsonObject user = getProperty(msg, "user");
+
+        UUID userId = getId(user);
+
+        if (userId == null)
+            throw new IllegalStateException("User ID not found");
+
+        return userId;
+    }
 
     /**
      * Start transaction.
@@ -105,6 +152,15 @@ public abstract class AbstractService {
 
             return tbl.loadAll(ids);
         }
+    }
+
+    /**
+     * @param rows Number of rows.
+     * @return JSON with number of affected rows.
+     */
+    protected JsonObject rowsAffected(int rows) {
+        return new JsonObject()
+            .put("rowsAffected", rows);
     }
 
     /**
