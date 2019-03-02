@@ -37,8 +37,26 @@ public interface Addresses {
     public static final String NOTEBOOK_LIST = "notebook:list";
 
     /** */
-    public static final String NOTEBOOK_SAVE = "notebooks:save";
+    public static final String NOTEBOOK_SAVE = "notebook:save";
 
     /** */
-    public static final String NOTEBOOK_DELETE = "notebooks:delete";
+    public static final String NOTEBOOK_DELETE = "notebook:delete";
+
+    /** */
+    public static final String ACCOUNT_GET_BY_ID = "account:get:by:id";
+
+    /** */
+    public static final String ACCOUNT_GET_BY_EMAIL = "account:get:by:email";
+
+    /** */
+    public static final String ACCOUNT_LIST = "account:list";
+
+    /** */
+    public static final String ACCOUNT_SAVE = "account:save";
+
+    /** */
+    public static final String ACCOUNT_DELETE = "account:delete";
+
+    /** */
+    public static final String ACCOUNT_TOGGLE = "account:toggle";
 }

@@ -81,6 +81,8 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
             WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
+            vertx.deployVerticle(accSrvc);
+
             vertx.deployVerticle(new NotebooksService(ignite));
 
             vertx.deployVerticle(new WebConsoleServer(

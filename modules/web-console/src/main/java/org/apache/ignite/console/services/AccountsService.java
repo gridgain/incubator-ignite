@@ -20,14 +20,19 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import javax.cache.Cache;
+import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.ScanQuery;
+import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.transactions.Transaction;
+
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 
 /**
  * Service to handle notebooks.
@@ -52,6 +57,61 @@ public class AccountsService extends AbstractService {
     /** {@inheritDoc} */
     @Override protected void initialize() {
         accountsTbl.cache();
+    }
+
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        EventBus eventBus = vertx.eventBus();
+
+        eventBus.consumer(Addresses.ACCOUNT_GET_BY_ID, this::getById1);
+        eventBus.consumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail1);
+        eventBus.consumer(Addresses.ACCOUNT_LIST, this::list1);
+        eventBus.consumer(Addresses.ACCOUNT_SAVE, this::save1);
+        eventBus.consumer(Addresses.ACCOUNT_DELETE, this::delete1);
+        eventBus.consumer(Addresses.ACCOUNT_TOGGLE, this::toggle1);
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void getById1(Message<JsonObject> msg) {
+        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void getByEmail1(Message<JsonObject> msg) {
+        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void list1(Message<JsonObject> msg) {
+        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void save1(Message<JsonObject> msg) {
+        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void delete1(Message<JsonObject> msg) {
+        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void toggle1(Message<JsonObject> msg) {
+        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
     }
 
     /**
@@ -82,6 +142,47 @@ public class AccountsService extends AbstractService {
         }
 
         return acc;
+    }
+
+    /**
+     * @return List of all users.
+     */
+    public JsonArray list() {
+        IgniteCache<UUID, Account> cache = accountsTbl.cache();
+
+        List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
+
+        JsonArray res = new JsonArray();
+
+        users.forEach(entry -> {
+            Object v = entry.getValue();
+
+            if (v instanceof Account) {
+                Account user = (Account)v;
+
+                res.add(new JsonObject()
+                    .put("_id", user._id())
+                    .put("firstName", user.firstName())
+                    .put("lastName", user.lastName())
+                    .put("admin", user.admin())
+                    .put("email", user.email())
+                    .put("company", user.company())
+                    .put("country", user.country())
+                    .put("lastLogin", user.lastLogin())
+                    .put("lastActivity", user.lastActivity())
+                    .put("activated", user.activated())
+                    .put("counters", new JsonObject()
+                        .put("clusters", 0)
+                        .put("caches", 0)
+                        .put("models", 0)
+                        .put("igfs", 0))
+                    .put("activitiesTotal", 0)
+                    .put("activitiesDetail", 0)
+                );
+            }
+        });
+
+        return res;
     }
 
     /**
@@ -126,7 +227,7 @@ public class AccountsService extends AbstractService {
     /**
      * Remove account.
      *
-     * @param accId Avvount ID.
+     * @param accId Account ID.
      */
     public int delete(UUID accId) {
         int rmvCnt = 0;
@@ -141,47 +242,6 @@ public class AccountsService extends AbstractService {
         }
 
         return rmvCnt;
-    }
-
-    /**
-     * @return List of all users.
-     */
-    public JsonArray list() {
-        IgniteCache<UUID, Account> cache = accountsTbl.cache();
-
-        List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
-
-        JsonArray res = new JsonArray();
-
-        users.forEach(entry -> {
-            Object v = entry.getValue();
-
-            if (v instanceof Account) {
-                Account user = (Account)v;
-
-                res.add(new JsonObject()
-                    .put("_id", user._id())
-                    .put("firstName", user.firstName())
-                    .put("lastName", user.lastName())
-                    .put("admin", user.admin())
-                    .put("email", user.email())
-                    .put("company", user.company())
-                    .put("country", user.country())
-                    .put("lastLogin", user.lastLogin())
-                    .put("lastActivity", user.lastActivity())
-                    .put("activated", user.activated())
-                    .put("counters", new JsonObject()
-                        .put("clusters", 0)
-                        .put("caches", 0)
-                        .put("models", 0)
-                        .put("igfs", 0))
-                    .put("activitiesTotal", 0)
-                    .put("activitiesDetail", 0)
-                );
-            }
-        });
-
-        return res;
     }
 
     /**
