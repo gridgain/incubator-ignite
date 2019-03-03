@@ -49,6 +49,9 @@ public interface Addresses {
     public static final String ACCOUNT_GET_BY_EMAIL = "account:get:by:email";
 
     /** */
+    public static final String ACCOUNT_REGISTER = "account:register";
+
+    /** */
     public static final String ACCOUNT_LIST = "account:list";
 
     /** */
@@ -59,4 +62,7 @@ public interface Addresses {
 
     /** */
     public static final String ACCOUNT_TOGGLE = "account:toggle";
+
+    /** */
+    public static final String CONFIGURATION_LOAD = "configuration:load";
 }

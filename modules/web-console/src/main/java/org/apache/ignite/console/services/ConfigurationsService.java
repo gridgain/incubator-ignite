@@ -22,9 +22,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
+import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Cache;
@@ -98,6 +101,20 @@ public class ConfigurationsService extends AbstractService {
         cachesIdx.cache();
         modelsIdx.cache();
         igfssIdx.cache();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        EventBus eventBus = vertx.eventBus();
+
+        eventBus.consumer(Addresses.CONFIGURATION_LOAD, this::loadConfiguration1);
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void loadConfiguration1(Message<JsonObject> msg) {
+        msg.fail(500, "Not implemented yet");
     }
 
     /**

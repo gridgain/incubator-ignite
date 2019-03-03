@@ -61,16 +61,6 @@ public class ContextAccount extends AbstractUser {
         this.cachedAccount = account;
     }
 
-    /**
-     * @return Account.
-     */
-    public Account account() throws IgniteAuthenticationException {
-        if (cachedAccount != null)
-            return cachedAccount;
-
-        return cachedAccount = authProvider.account(accId);
-    }
-
     /** {@inheritDoc} */
     @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> asyncResHnd) {
         asyncResHnd.handle(Future.succeededFuture(true));
@@ -79,7 +69,10 @@ public class ContextAccount extends AbstractUser {
     /** {@inheritDoc} */
     @Override public JsonObject principal() throws IgniteException {
         try {
-            return account().principal();
+            if (cachedAccount == null)
+                cachedAccount = authProvider.account(accId);
+
+            return cachedAccount.principal();
         }
         catch (IgniteAuthenticationException e) {
             throw U.convertException(e);

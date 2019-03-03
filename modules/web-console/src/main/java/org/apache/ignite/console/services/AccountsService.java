@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.services;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 import javax.cache.Cache;
@@ -66,6 +67,7 @@ public class AccountsService extends AbstractService {
 
         eventBus.consumer(Addresses.ACCOUNT_GET_BY_ID, this::getById1);
         eventBus.consumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail1);
+        eventBus.consumer(Addresses.ACCOUNT_REGISTER, this::register);
         eventBus.consumer(Addresses.ACCOUNT_LIST, this::list1);
         eventBus.consumer(Addresses.ACCOUNT_SAVE, this::save1);
         eventBus.consumer(Addresses.ACCOUNT_DELETE, this::delete1);
@@ -84,6 +86,50 @@ public class AccountsService extends AbstractService {
      */
     private void getByEmail1(Message<JsonObject> msg) {
         msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private void register(Message<JsonObject> msg) {
+        vertx.executeBlocking(
+            fut -> {
+                try {
+                    boolean admin = shouldBeAdmin();
+
+                    JsonObject json = msg.body();
+
+                    Account account = new Account(
+                        UUID.randomUUID(),
+                        json.getString("email"),
+                        json.getString("firstName"),
+                        json.getString("lastName"),
+                        json.getString("company"),
+                        json.getString("country"),
+                        json.getString("industry"),
+                        UUID.randomUUID().toString(),
+                        UUID.randomUUID().toString(),
+                        ZonedDateTime.now().toString(),
+                        "",
+                        "",
+                        "",
+                        json.getString("salt"),
+                        json.getString("hash"),
+                        admin,
+                        false,
+                        false
+                    );
+
+                    accountsTbl.save(account);
+
+                    fut.complete();
+                }
+                catch (Throwable e) {
+                    fut.fail(e);
+                }
+            },
+            new ResultHandler(msg)
+        );
     }
 
     /**
@@ -205,7 +251,7 @@ public class AccountsService extends AbstractService {
      * @return {@code true} if first user should be granted with admin permissions.
      */
     @SuppressWarnings("unchecked")
-    public boolean shouldBeAdmin() {
+    private boolean shouldBeAdmin() {
         boolean admin;
 
         try(Transaction tx = txStart()) {

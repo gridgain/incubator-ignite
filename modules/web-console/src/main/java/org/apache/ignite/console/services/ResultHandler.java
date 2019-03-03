@@ -26,16 +26,16 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static org.apache.ignite.console.common.Utils.errorMessage;
 
 /**
- * Default reply handler.
+ * Default result handler.
  */
-public class ReplyHandler implements Handler<AsyncResult<Object>> {
+public class ResultHandler implements Handler<AsyncResult<Object>> {
     /** */
     private final Message<JsonObject> msg;
 
     /**
      * @param msg Message to send reply.
      */
-    ReplyHandler(Message<JsonObject> msg) {
+    ResultHandler(Message<JsonObject> msg) {
         this.msg = msg;
     }
 

@@ -26,12 +26,10 @@ import io.vertx.ext.web.handler.UserSessionHandler;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.auth.IgniteAuth;
-import org.apache.ignite.console.services.AccountsService;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
-import static org.apache.ignite.console.common.Utils.getBoolean;
 
 /**
  * Router to handle REST API for configurations.
@@ -43,26 +41,25 @@ public class AccountRouter extends AbstractRouter {
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
-     * @param accSrvc Accounts service.
      */
-    public AccountRouter(Ignite ignite, Vertx vertx, AccountsService accSrvc) {
+    public AccountRouter(Ignite ignite, Vertx vertx) {
         super(ignite, vertx);
 
-        authProvider = new IgniteAuth(ignite, vertx, accSrvc);
+        authProvider = new IgniteAuth(ignite, vertx);
     }
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        router.route("/api/v1/user").handler(this::getAccount);
-        router.route("/api/v1/signup").handler(this::signUp);
-        router.route("/api/v1/signin").handler(this::signIn);
-        router.route("/api/v1/logout").handler(this::logout);
+        router.post("/api/v1/user").handler(this::getAccount);
+        router.post("/api/v1/signup").handler(this::signUp);
+        router.post("/api/v1/signin").handler(this::signIn);
+        router.post("/api/v1/logout").handler(this::logout);
 
-//        router.route("/api/v1/password/forgot").handler(this::handleDummy);
-//        router.route("/api/v1/password/reset").handler(this::handleDummy);
-//        router.route("/api/v1/password/validate/token").handler(this::handleDummy);
+        router.post("/api/v1/password/forgot").handler(this::forgotPassword);
+        router.post("/api/v1/password/reset").handler(this::resetPassword);
+        router.post("/api/v1/password/validate/token").handler(this::validateToken);
     }
 
     /**
@@ -82,14 +79,7 @@ public class AccountRouter extends AbstractRouter {
         try {
             JsonObject body = ctx.getBodyAsJson();
 
-            // TODO WC-960 WRONG logic, we need to check that current User is ADMIN!
-            if (getBoolean(body, "user.admin", false)) {
-                sendResult(ctx, authProvider.registerAccount(body).principal());
-
-                return;
-            }
-
-            authProvider.registerAccount(body);
+            authProvider.registerAccount(body).get();
 
             signIn(ctx);
         }
@@ -123,5 +113,41 @@ public class AccountRouter extends AbstractRouter {
         ctx.clearUser();
 
         sendStatus(ctx, HTTP_OK);
+    }
+
+    /**
+     * @param ctx Context
+     */
+    private void forgotPassword(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to restore password", e);
+        }
+    }
+
+    /**
+     * @param ctx Context
+     */
+    private void resetPassword(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to reset password", e);
+        }
+    }
+
+    /**
+     * @param ctx Context
+     */
+    private void validateToken(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to validate token", e);
+        }
     }
 }

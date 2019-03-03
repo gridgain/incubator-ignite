@@ -87,7 +87,7 @@ public class NotebooksService extends AbstractService {
                     fut.fail(e);
                 }
             },
-            new ReplyHandler(msg)
+            new ResultHandler(msg)
         );
     }
 
@@ -115,7 +115,7 @@ public class NotebooksService extends AbstractService {
                     fut.fail(e);
                 }
             },
-            new ReplyHandler(msg)
+            new ResultHandler(msg)
         );
     }
 
@@ -149,7 +149,7 @@ public class NotebooksService extends AbstractService {
                     fut.fail(e);
                 }
             },
-            new ReplyHandler(msg)
+            new ResultHandler(msg)
         );
     }
 }

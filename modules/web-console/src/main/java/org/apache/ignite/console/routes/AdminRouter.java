@@ -24,24 +24,17 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.services.AccountsService;
 
 /**
  * Admin router.
  */
 public class AdminRouter extends AbstractRouter {
-    /** */
-    private final AccountsService accSrvc;
-
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
-     * @param accSrvc Account service.
      */
-    public AdminRouter(Ignite ignite, Vertx vertx, AccountsService accSrvc) {
+    public AdminRouter(Ignite ignite, Vertx vertx) {
         super(ignite, vertx);
-
-        this.accSrvc = accSrvc;
     }
 
     /** {@inheritDoc} */
@@ -62,7 +55,7 @@ public class AdminRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                JsonArray res = accSrvc.list();
+                JsonArray res = null; // accSrvc.list();
 
                 sendResult(ctx, res);
             }
@@ -83,7 +76,7 @@ public class AdminRouter extends AbstractRouter {
                 UUID userId = UUID.fromString(requestParam(ctx, "userId"));
                 boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
 
-                accSrvc.toggle(userId, adminFlag);
+                // accSrvc.toggle(userId, adminFlag);
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to change admin status", e);

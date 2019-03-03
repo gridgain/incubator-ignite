@@ -19,14 +19,15 @@ package org.apache.ignite.console.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.time.ZonedDateTime;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.PRNG;
@@ -34,8 +35,8 @@ import io.vertx.ext.auth.User;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
@@ -53,10 +54,13 @@ public class IgniteAuth implements AuthProvider {
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
     /** */
+    private static final String E_ACCOUNT_NOT_FOUND = "Failed to find account with identity: ";
+
+    /** */
     private final Ignite ignite;
 
     /** */
-    private final AccountsService accSrvc;
+    private final Vertx vertx;
 
     /** */
     private final PRNG rnd;
@@ -65,10 +69,10 @@ public class IgniteAuth implements AuthProvider {
      * @param ignite Ignite.
      * @param vertx Vertx.
      */
-    public IgniteAuth(Ignite ignite, Vertx vertx, AccountsService accSrvc) {
+    public IgniteAuth(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
-        this.accSrvc = accSrvc;
-        
+        this.vertx = vertx;
+
         rnd = new PRNG(vertx);
 
     }
@@ -114,12 +118,34 @@ public class IgniteAuth implements AuthProvider {
         if (accId == null)
             throw new IgniteAuthenticationException("Missing account identity");
 
-        Account account = accSrvc.getById(accId);
+        try {
+            JsonObject msg = new JsonObject()
+                .put("accId", accId.toString());
 
-        if (account == null)
-            throw new IgniteAuthenticationException("Failed to find account with identity: " + accId);
+            CompletableFuture<JsonObject> fut = new CompletableFuture<>();
 
-        return account;
+            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, msg, (AsyncResult<Message<JsonObject>> asyncRes) -> {
+                if (asyncRes.succeeded())
+                    fut.complete(asyncRes.result().body());
+                else
+                    fut.completeExceptionally(asyncRes.cause());
+            });
+
+            JsonObject json = fut.get();
+
+            if (json == null)
+                throw new IgniteAuthenticationException(E_ACCOUNT_NOT_FOUND + accId);
+
+            return Account.fromJson(json);
+        }
+        catch (IgniteAuthenticationException e) {
+            throw e;
+        }
+        catch (Throwable e) {
+            ignite.log().error(E_ACCOUNT_NOT_FOUND + accId, e);
+
+            throw new IgniteAuthenticationException(E_ACCOUNT_NOT_FOUND + accId);
+        }
     }
 
     /** {@inheritDoc} */
@@ -131,10 +157,25 @@ public class IgniteAuth implements AuthProvider {
             if (F.isEmpty(email) || F.isEmpty(pwd))
                 throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
 
-            Account account = accSrvc.getByEmail(email);
+            JsonObject msg = new JsonObject()
+                .put("email", email)
+                .put("password", pwd);
 
-            if (account == null)
+            CompletableFuture<JsonObject> fut = new CompletableFuture<>();
+
+            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_EMAIL, msg, (AsyncResult<Message<JsonObject>> asyncRes) -> {
+                if (asyncRes.succeeded())
+                    fut.complete(asyncRes.result().body());
+                else
+                    fut.completeExceptionally(asyncRes.cause());
+            });
+
+            JsonObject json = fut.get();
+
+            if (json == null)
                 throw new IgniteAuthenticationException("Failed to find registered account");
+
+            Account account = Account.fromJson(json);
 
             String hash = computeHash(data.getString("password"), account.salt());
 
@@ -153,32 +194,24 @@ public class IgniteAuth implements AuthProvider {
     /**
      * @param body Sign up info.
      */
-    public Account registerAccount(JsonObject body) throws Exception {
+    public CompletableFuture<Object> registerAccount(JsonObject body) throws Exception {
         String salt = generateSalt();
         String hash = computeHash(body.getString("password"), salt);
 
-        boolean admin = accSrvc.shouldBeAdmin();
+        JsonObject msg = body
+            .put("id", UUID.randomUUID().toString())
+            .put("salt", salt)
+            .put("hash", hash);
 
-        Account account = new Account(
-            UUID.randomUUID(),
-            body.getString("email"),
-            body.getString("firstName"),
-            body.getString("lastName"),
-            body.getString("company"),
-            body.getString("country"),
-            body.getString("industry"),
-            body.getBoolean("admin", admin),
-            UUID.randomUUID().toString(),
-            UUID.randomUUID().toString(),
-            ZonedDateTime.now().toString(),
-            "",
-            "",
-            "",
-            false,
-            salt,
-            hash
-        );
+        CompletableFuture<Object> fut = new CompletableFuture<>();
 
-        return accSrvc.save(account);
+        vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, asyncRes -> {
+            if (asyncRes.succeeded())
+                fut.complete(true);
+            else
+                fut.completeExceptionally(asyncRes.cause());
+        });
+
+        return fut;
     }
 }

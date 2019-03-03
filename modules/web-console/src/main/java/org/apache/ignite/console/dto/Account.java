@@ -43,12 +43,6 @@ public class Account extends AbstractDto {
     private String industry;
 
     /** */
-    private boolean admin;
-
-    /** */
-    private boolean activated;
-
-    /** */
     private String tok;
 
     /** */
@@ -67,19 +61,57 @@ public class Account extends AbstractDto {
     private String lastEvt;
 
     /** */
-    private boolean demoCreated;
-
-    /** */
     private String salt;
 
     /** */
     private String hash;
 
+    /** */
+    private boolean admin;
+
+    /** */
+    private boolean activated;
+
+    /** */
+    private boolean demoCreated;
+
     /**
-     * Default constructor.
+     * @param json JSON data.
+     * @return New instance of Account DTO.
+     */
+    public static Account fromJson(JsonObject json) {
+        String id = json.getString("_id");
+
+        if (id == null)
+            throw new IllegalStateException("Account ID not found");
+
+        return new Account(
+            UUID.fromString(id),
+            json.getString("email"),
+            json.getString("firstName"),
+            json.getString("lastName"),
+            json.getString("company"),
+            json.getString("country"),
+            json.getString("industry"),
+            json.getString("token"),
+            json.getString("resetPasswordToken"),
+            json.getString("registered"),
+            json.getString("lastLogin"),
+            json.getString("lastActivity"),
+            json.getString("lastEvent"),
+            json.getString("salt"),
+            json.getString("hash"),
+            json.getBoolean("admin", false),
+            json.getBoolean("activated", false),
+            json.getBoolean("demoCreated", false)
+        );
+    }
+
+    /**
+     * Default constructor for serialization.
      */
     public Account() {
-        
+        // No-op.
     }
 
     /**
@@ -92,16 +124,17 @@ public class Account extends AbstractDto {
      * @param company Company name.
      * @param country Country name.
      * @param industry Industry name.
-     * @param admin Admin flag.
      * @param tok Web agent token.
      * @param resetPwdTok Reset password token.
      * @param registered Registered flag.
      * @param lastLogin Last login date.
      * @param lastActivity  Last activity date.
      * @param lastEvt  Last event date.
-     * @param demoCreated Demo created flag.
      * @param salt Password salt.
      * @param hash Password hash.
+     * @param admin Admin flag.
+     * @param activated Activated flag.
+     * @param demoCreated Demo created flag.
      */
     public Account(
         UUID id,
@@ -111,16 +144,17 @@ public class Account extends AbstractDto {
         String company,
         String country,
         String industry,
-        boolean admin,
         String tok,
         String resetPwdTok,
         String registered,
         String lastLogin,
         String lastActivity,
         String lastEvt,
-        boolean demoCreated,
         String salt,
-        String hash
+        String hash,
+        boolean admin,
+        boolean activated,
+        boolean demoCreated
     ) {
         super(id);
 
@@ -130,16 +164,21 @@ public class Account extends AbstractDto {
         this.company = company;
         this.country = country;
         this.industry = industry;
-        this.admin = admin;
+
         this.tok = tok;
         this.resetPwdTok = resetPwdTok;
+
         this.registered = registered;
         this.lastLogin = lastLogin;
         this.lastActivity = lastActivity;
         this.lastEvt = lastEvt;
-        this.demoCreated = demoCreated;
+
         this.salt = salt;
         this.hash = hash;
+
+        this.admin = admin;
+        this.activated = activated;
+        this.demoCreated = demoCreated;
     }
 
     /**
@@ -171,7 +210,7 @@ public class Account extends AbstractDto {
     }
 
     /**
-     * @return Сountry.
+     * @return Country.
      */
     public String country() {
         return country;
@@ -229,7 +268,7 @@ public class Account extends AbstractDto {
     /**
      * @return Reset password token.
      */
-    public String getResetPasswordToken() {
+    public String resetPasswordToken() {
         return resetPwdTok;
     }
 
@@ -243,12 +282,13 @@ public class Account extends AbstractDto {
             .put("company", company)
             .put("country", country)
             .put("industry", industry)
-            .put("admin", admin)
             .put("token", tok)
             .put("registered", registered)
             .put("lastLogin", lastLogin)
             .put("lastActivity", lastActivity)
             .put("lastEvent", lastEvt)
+            .put("admin", admin)
+            .put("activated", activated)
             .put("demoCreated", demoCreated);
     }
 }
