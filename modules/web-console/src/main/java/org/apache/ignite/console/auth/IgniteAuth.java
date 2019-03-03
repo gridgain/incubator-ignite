@@ -27,7 +27,6 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.PRNG;
@@ -36,6 +35,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.common.ReplyHandler;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -124,12 +124,7 @@ public class IgniteAuth implements AuthProvider {
 
             CompletableFuture<JsonObject> fut = new CompletableFuture<>();
 
-            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, msg, (AsyncResult<Message<JsonObject>> asyncRes) -> {
-                if (asyncRes.succeeded())
-                    fut.complete(asyncRes.result().body());
-                else
-                    fut.completeExceptionally(asyncRes.cause());
-            });
+            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, msg, new ReplyHandler<>(fut));
 
             JsonObject json = fut.get();
 
@@ -163,12 +158,7 @@ public class IgniteAuth implements AuthProvider {
 
             CompletableFuture<JsonObject> fut = new CompletableFuture<>();
 
-            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_EMAIL, msg, (AsyncResult<Message<JsonObject>> asyncRes) -> {
-                if (asyncRes.succeeded())
-                    fut.complete(asyncRes.result().body());
-                else
-                    fut.completeExceptionally(asyncRes.cause());
-            });
+            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_EMAIL, msg, new ReplyHandler<>(fut));
 
             JsonObject json = fut.get();
 
@@ -205,12 +195,7 @@ public class IgniteAuth implements AuthProvider {
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
-        vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, asyncRes -> {
-            if (asyncRes.succeeded())
-                fut.complete(true);
-            else
-                fut.completeExceptionally(asyncRes.cause());
-        });
+        vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, new ReplyHandler<>(fut));
 
         return fut;
     }

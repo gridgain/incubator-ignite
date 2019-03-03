@@ -19,11 +19,7 @@ package org.apache.ignite.console.routes;
 
 import java.net.HttpURLConnection;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.Vertx;
@@ -33,7 +29,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,29 +60,6 @@ public abstract class AbstractRouter implements RestApiRouter {
     protected AbstractRouter(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
         this.vertx = vertx;
-    }
-
-    /**
-     * @param json JSON object.
-     * @return ID or {@code null} if object has no ID.
-     */
-    @Nullable protected UUID getId(JsonObject json) {
-        String s = json.getString("_id");
-
-        return F.isEmpty(s) ? null : UUID.fromString(s);
-    }
-
-    /**
-     * @param user User.
-     * @return User ID.
-     */
-    protected UUID getUserId(JsonObject user) {
-        UUID userId = getId(user);
-
-        if (userId == null)
-            throw new IllegalStateException("User ID not found");
-
-        return userId;
     }
 
     /**
@@ -173,42 +145,5 @@ public abstract class AbstractRouter implements RestApiRouter {
             sendStatus(ctx, HTTP_UNAUTHORIZED);
 
         return user;
-    }
-
-    /**
-     * @param rows Number of rows.
-     * @return JSON with number of affected rows.
-     */
-    protected JsonObject rowsAffected(int rows) {
-        return new JsonObject()
-            .put("rowsAffected", rows);
-    }
-
-    /**
-     * Load short list of DTOs.
-     *
-     * @param ctx Context.
-     * @param dataSrc Data source.
-     * @param errMsg Message to show in case of error.
-     */
-    protected void loadShortList(
-        RoutingContext ctx,
-        Function<UUID, Collection<? extends DataObject>> dataSrc,
-        String errMsg) {
-        try {
-            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
-
-            Collection<? extends DataObject> items = dataSrc.apply(clusterId);
-
-            List<JsonObject> list = items
-                .stream()
-                .map(DataObject::shortView)
-                .collect(Collectors.toList());
-
-            sendResult(ctx, new JsonArray(list));
-        }
-        catch (Throwable e) {
-            sendError(ctx, errMsg, e);
-        }
     }
 }

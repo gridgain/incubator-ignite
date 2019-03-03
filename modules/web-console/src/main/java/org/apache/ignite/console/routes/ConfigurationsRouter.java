@@ -72,7 +72,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+                // UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
                 JsonObject json = null; // cfgSrvc.loadConfiguration(clusterId);
 
@@ -94,7 +94,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = getUserId(user.principal());
+                // UUID userId = getUserId(user.principal());
 
                 JsonArray clusters = null; // cfgSrvc.loadClusters(userId);
 
@@ -128,6 +128,36 @@ public class ConfigurationsRouter extends AbstractRouter {
             }
         }
     }
+
+
+//    /**
+//     * Load short list of DTOs.
+//     *
+//     * @param ctx Context.
+//     * @param dataSrc Data source.
+//     * @param errMsg Message to show in case of error.
+//     */
+//    private void loadShortList(
+//        RoutingContext ctx,
+//        Function<UUID, Collection<? extends DataObject>> dataSrc,
+//        String errMsg) {
+//        try {
+//            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+//
+//            Collection<? extends DataObject> items = dataSrc.apply(clusterId);
+//
+//            List<JsonObject> list = items
+//                .stream()
+//                .map(DataObject::shortView)
+//                .collect(Collectors.toList());
+//
+//            sendResult(ctx, new JsonArray(list));
+//        }
+//        catch (Throwable e) {
+//            sendError(ctx, errMsg, e);
+//        }
+//    }
+
 
     /**
      * Load cluster caches short list.
@@ -223,13 +253,13 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = getUserId(user.principal());
+                // UUID userId = getUserId(user.principal());
 
                 JsonObject json = ctx.getBodyAsJson();
 
                 // cfgSrvc.saveAdvancedCluster(userId, json);
 
-                sendResult(ctx, rowsAffected(1));
+                // sendResult(ctx, rowsAffected(1));
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to save cluster", e);
@@ -247,13 +277,13 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = getUserId(user.principal());
+                // UUID userId = getUserId(user.principal());
 
                 JsonObject json = ctx.getBodyAsJson();
 
                 // cfgSrvc.saveBasicCluster(userId, json);
 
-                sendResult(ctx, rowsAffected(1));
+                // sendResult(ctx, rowsAffected(1));
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to save cluster", e);
@@ -271,7 +301,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = getUserId(user.principal());
+                // UUID userId = getUserId(user.principal());
 
                 TreeSet<UUID> clusterIds = idsFromJson(ctx.getBodyAsJson(), "_id");
 
@@ -280,7 +310,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 // cfgSrvc.deleteClusters(userId, clusterIds);
 
-                sendResult(ctx, rowsAffected(clusterIds.size()));
+                // sendResult(ctx, rowsAffected(clusterIds.size()));
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to delete cluster", e);

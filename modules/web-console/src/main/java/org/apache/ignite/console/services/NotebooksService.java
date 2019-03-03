@@ -24,6 +24,7 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.common.ResultHandler;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Schemas;
 import org.apache.ignite.console.db.Table;

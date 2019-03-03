@@ -23,10 +23,7 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-
-import static org.apache.ignite.console.common.Addresses.NOTEBOOK_DELETE;
-import static org.apache.ignite.console.common.Addresses.NOTEBOOK_LIST;
-import static org.apache.ignite.console.common.Addresses.NOTEBOOK_SAVE;
+import org.apache.ignite.console.common.Addresses;
 
 /**
  * Router to handle REST API for notebooks.
@@ -60,7 +57,7 @@ public class NotebooksRouter extends AbstractRouter {
                 JsonObject msg = new JsonObject()
                     .put("user", user.principal());
 
-                vertx.eventBus().send(NOTEBOOK_LIST, msg, asyncRes -> {
+                vertx.eventBus().send(Addresses.NOTEBOOK_LIST, msg, asyncRes -> {
                     if (asyncRes.succeeded())
                         sendResult(ctx, asyncRes.result().body());
                     else
@@ -87,7 +84,7 @@ public class NotebooksRouter extends AbstractRouter {
                     .put("user", user.principal())
                     .put("notebook", ctx.getBodyAsJson());
 
-                vertx.eventBus().send(NOTEBOOK_SAVE, msg, asyncRes -> {
+                vertx.eventBus().send(Addresses.NOTEBOOK_SAVE, msg, asyncRes -> {
                     if (asyncRes.succeeded())
                         sendResult(ctx, asyncRes.result().body());
                     else
@@ -114,16 +111,7 @@ public class NotebooksRouter extends AbstractRouter {
                     .put("user", user.principal())
                     .put("notebook", ctx.getBodyAsJson());
 
-//                UUID notebookId = getId(ctx.getBodyAsJson());
-//
-//                if (notebookId == null)
-//                    throw new IllegalStateException("Notebook ID not found");
-
-//                JsonObject json = new JsonObject()
-//                    .put("userId", userId.toString())
-//                    .put("notebookId", notebookId.toString());
-
-                vertx.eventBus().send(NOTEBOOK_DELETE, msg, asyncRes -> {
+                vertx.eventBus().send(Addresses.NOTEBOOK_DELETE, msg, asyncRes -> {
                     if (asyncRes.succeeded())
                         sendResult(ctx, asyncRes.result().body());
                     else

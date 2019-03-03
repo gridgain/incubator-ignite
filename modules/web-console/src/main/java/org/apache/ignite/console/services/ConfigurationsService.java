@@ -273,8 +273,6 @@ public class ConfigurationsService extends AbstractService {
      * @return Saved cluster.
      */
     private Cluster saveCluster(UUID userId, JsonObject json) {
-        ensureTx();
-
         JsonObject jsonCluster = json.getJsonObject("cluster");
 
         Cluster newCluster = Cluster.fromJson(jsonCluster);

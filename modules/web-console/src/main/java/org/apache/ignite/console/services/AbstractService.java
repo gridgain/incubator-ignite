@@ -66,16 +66,6 @@ public abstract class AbstractService extends AbstractVerticle {
     protected abstract void initialize();
 
     /**
-     * @param json JSON object.
-     * @return ID or {@code null} if object has no ID.
-     */
-    @Nullable protected UUID getId(JsonObject json) {
-        String s = json.getString("_id");
-
-        return F.isEmpty(s) ? null : UUID.fromString(s);
-    }
-
-    /**
      *
      * @param msg JSON message.
      * @param key Property name.
@@ -91,6 +81,15 @@ public abstract class AbstractService extends AbstractVerticle {
         return json;
     }
 
+    /**
+     * @param json JSON object.
+     * @return ID or {@code null} if object has no ID.
+     */
+    @Nullable protected UUID getId(JsonObject json) {
+        String s = json.getString("_id");
+
+        return F.isEmpty(s) ? null : UUID.fromString(s);
+    }
 
     /**
      * @param msg JSON message.
@@ -128,14 +127,6 @@ public abstract class AbstractService extends AbstractVerticle {
     }
 
     /**
-     * Ensure that transaction was started explicitly.
-     */
-    protected void ensureTx() {
-        if (ignite.transactions().tx() == null)
-            throw new IllegalStateException("Transaction was not started explicitly");
-    }
-
-    /**
      * Load short list of DTOs.
      *
      * @param ownerId Owner ID.
@@ -166,7 +157,6 @@ public abstract class AbstractService extends AbstractVerticle {
     /**
      * Nested transaction.
      */
-    @SuppressWarnings("deprecation")
     private static class NestedTransaction implements Transaction {
         /** */
         private final Transaction delegate;
@@ -284,16 +274,19 @@ public abstract class AbstractService extends AbstractVerticle {
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("deprecation")
         @Override public IgniteAsyncSupport withAsync() {
             return delegate.withAsync();
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("deprecation")
         @Override public boolean isAsync() {
             return delegate.isAsync();
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("deprecation")
         @Override public <R> IgniteFuture<R> future() {
             return delegate.future();
         }
