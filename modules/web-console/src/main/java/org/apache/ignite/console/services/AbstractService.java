@@ -18,14 +18,20 @@
 package org.apache.ignite.console.services;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.function.Function;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteTransactions;
+import org.apache.ignite.console.common.BlockingHandler;
+import org.apache.ignite.console.common.ResultHandler;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
@@ -53,17 +59,41 @@ public abstract class AbstractService extends AbstractVerticle {
     /** */
     private volatile boolean ready;
 
+    /** */
+    private final Set<MessageConsumer<JsonObject>> consumers;
+
     /**
      * @param ignite Ignite.
      */
     protected AbstractService(Ignite ignite) {
         this.ignite = ignite;
+        this.consumers = new HashSet<>();
     }
 
     /**
      * Initialize caches.
      */
     protected abstract void initialize();
+
+    /**
+     * @param addr Address.
+     * @param supplier Data supplier.
+     */
+    protected <T> void addConsumer(String addr, Function<Message<JsonObject>, T> supplier) {
+        MessageConsumer<JsonObject> consumer = vertx
+            .eventBus()
+            .consumer(addr, (Message<JsonObject> msg) -> vertx.executeBlocking(
+                blockingHandler(msg, supplier),
+                resultHandler(msg)
+            ));
+
+        consumers.add(consumer);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        consumers.forEach(MessageConsumer::unregister);
+    }
 
     /**
      *
@@ -105,6 +135,23 @@ public abstract class AbstractService extends AbstractVerticle {
             throw new IllegalStateException("User ID not found");
 
         return userId;
+    }
+
+    /**
+     * @param msg Message.
+     * @param supplier Data supplier.
+     * @return Blocking handler.
+     */
+    protected <T> BlockingHandler<T> blockingHandler(Message<JsonObject> msg, Function<Message<JsonObject>, T> supplier) {
+        return new BlockingHandler<>(msg, supplier);
+    }
+
+    /**
+     * @param msg Message.
+     * @return Result handler.
+     */
+    protected <T> ResultHandler<T> resultHandler(Message<JsonObject> msg) {
+        return new ResultHandler<>(msg);
     }
 
     /**

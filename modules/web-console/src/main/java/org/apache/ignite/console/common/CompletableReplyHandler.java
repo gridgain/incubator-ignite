@@ -17,33 +17,30 @@
 
 package org.apache.ignite.console.common;
 
+import java.util.concurrent.CompletableFuture;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.JsonObject;
-
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static org.apache.ignite.console.common.Utils.errorMessage;
 
 /**
- * Result handler that send reply to event bus.
+ * Reply handler that complete specified future.
  */
-public class ResultHandler<T> implements Handler<AsyncResult<T>> {
+public class CompletableReplyHandler<T> implements Handler<AsyncResult<Message<T>>> {
     /** */
-    private final Message<JsonObject> msg;
+    private final CompletableFuture<T> fut;
 
     /**
-     * @param msg Message to send reply.
+     * @param fut Future to complete.
      */
-    public ResultHandler(Message<JsonObject> msg) {
-        this.msg = msg;
+    public CompletableReplyHandler(CompletableFuture<T> fut) {
+        this.fut = fut;
     }
 
     /** {@inheritDoc} */
-    @Override public void handle(AsyncResult<T> asyncRes) {
+    @Override public void handle(AsyncResult<Message<T>> asyncRes) {
         if (asyncRes.succeeded())
-            msg.reply(asyncRes.result());
+            fut.complete(asyncRes.result().body());
         else
-            msg.fail(HTTP_INTERNAL_ERROR, errorMessage(asyncRes.cause()));
+            fut.completeExceptionally(asyncRes.cause());
     }
 }

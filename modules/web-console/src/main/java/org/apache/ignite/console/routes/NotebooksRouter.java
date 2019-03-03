@@ -29,6 +29,15 @@ import org.apache.ignite.console.common.Addresses;
  * Router to handle REST API for notebooks.
  */
 public class NotebooksRouter extends AbstractRouter {
+    /** */
+    private static final String E_FAILED_TO_LOAD_NOTEBOOKS = "Failed to load notebooks";
+
+    /** */
+    private static final String E_FAILED_TO_SAVE_NOTEBOOK = "Failed to save notebook";
+
+    /** */
+    private static final String E_FAILED_TO_DELETE_NOTEBOOK = "Failed to delete notebook";
+
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
@@ -57,15 +66,10 @@ public class NotebooksRouter extends AbstractRouter {
                 JsonObject msg = new JsonObject()
                     .put("user", user.principal());
 
-                vertx.eventBus().send(Addresses.NOTEBOOK_LIST, msg, asyncRes -> {
-                    if (asyncRes.succeeded())
-                        sendResult(ctx, asyncRes.result().body());
-                    else
-                        sendError(ctx, "Failed to load notebooks", asyncRes.cause());
-                });
+                vertx.eventBus().send(Addresses.NOTEBOOK_LIST, msg, replyHandler(ctx, E_FAILED_TO_LOAD_NOTEBOOKS));
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to load notebooks", e);
+                replyWithError(ctx, E_FAILED_TO_LOAD_NOTEBOOKS, e);
             }
         }
     }
@@ -84,15 +88,10 @@ public class NotebooksRouter extends AbstractRouter {
                     .put("user", user.principal())
                     .put("notebook", ctx.getBodyAsJson());
 
-                vertx.eventBus().send(Addresses.NOTEBOOK_SAVE, msg, asyncRes -> {
-                    if (asyncRes.succeeded())
-                        sendResult(ctx, asyncRes.result().body());
-                    else
-                        sendError(ctx, "Failed to save notebook", asyncRes.cause());
-                });
+                vertx.eventBus().send(Addresses.NOTEBOOK_SAVE, msg, replyHandler(ctx, E_FAILED_TO_SAVE_NOTEBOOK));
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to save notebook", e);
+                replyWithError(ctx, E_FAILED_TO_SAVE_NOTEBOOK, e);
             }
         }
     }
@@ -111,15 +110,10 @@ public class NotebooksRouter extends AbstractRouter {
                     .put("user", user.principal())
                     .put("notebook", ctx.getBodyAsJson());
 
-                vertx.eventBus().send(Addresses.NOTEBOOK_DELETE, msg, asyncRes -> {
-                    if (asyncRes.succeeded())
-                        sendResult(ctx, asyncRes.result().body());
-                    else
-                        sendError(ctx, "Failed to delete notebook", asyncRes.cause());
-                });
+                vertx.eventBus().send(Addresses.NOTEBOOK_DELETE, msg, replyHandler(ctx, E_FAILED_TO_DELETE_NOTEBOOK));
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to delete notebook", e);
+                replyWithError(ctx, E_FAILED_TO_DELETE_NOTEBOOK, e);
             }
         }
     }

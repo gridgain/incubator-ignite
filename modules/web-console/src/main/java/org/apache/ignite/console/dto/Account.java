@@ -291,4 +291,33 @@ public class Account extends AbstractDto {
             .put("activated", activated)
             .put("demoCreated", demoCreated);
     }
+
+    /**
+     * @return Account as JSON object.
+     */
+    public JsonObject toJson() {
+        return new JsonObject()
+            .put("_id", id)
+            .put("email", email)
+            .put("firstName", firstName)
+            .put("lastName", lastName)
+            .put("company", company)
+            .put("country", country)
+            .put("industry", industry)
+
+            .put("token", tok)
+            .put("resetPasswordToken", resetPwdTok)
+
+            .put("registered", registered)
+            .put("lastLogin", lastLogin)
+            .put("lastActivity", lastActivity)
+            .put("lastEvent", lastEvt)
+
+            .put("salt", salt)
+            .put("hash", hash)
+
+            .put("admin", admin)
+            .put("activated", activated)
+            .put("demoCreated", demoCreated);
+    }
 }

@@ -17,31 +17,38 @@
 
 package org.apache.ignite.console.common;
 
-import java.util.concurrent.CompletableFuture;
-import io.vertx.core.AsyncResult;
+import java.util.function.Function;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 
 /**
- * Default reply handler.
+ * Blocking code handler boilerplate.
  */
-public class ReplyHandler<T> implements Handler<AsyncResult<Message<T>>> {
+public class BlockingHandler<T> implements Handler<Future<T>> {
     /** */
-    private final CompletableFuture<T> fut;
+    private final Message<JsonObject> msg;
+
+    /** */
+    private final Function<Message<JsonObject>, T> supplier;
 
     /**
-     * @param fut Future to complete.
+     * @param msg Message to process.
+     * @param supplier Data supplier.
      */
-    public ReplyHandler(CompletableFuture<T> fut) {
-        this.fut = fut;
+    public BlockingHandler(Message<JsonObject> msg, Function<Message<JsonObject>, T> supplier) {
+        this.msg = msg;
+        this.supplier = supplier;
     }
 
     /** {@inheritDoc} */
-    @Override public void handle(AsyncResult<Message<T>> asyncRes) {
-        if (asyncRes.succeeded())
-            fut.complete(asyncRes.result().body());
-        else
-            fut.completeExceptionally(asyncRes.cause());
-
+    @Override public void handle(Future<T> fut) {
+        try {
+            fut.complete(supplier.apply(msg));
+        }
+        catch (Throwable e) {
+            fut.fail(e);
+        }
     }
 }

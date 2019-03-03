@@ -34,6 +34,7 @@ import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
 
 import static org.apache.ignite.console.common.Utils.origin;
+import static org.apache.ignite.console.common.Utils.sendError;
 
 /**
  * Router to handle REST API to download Web Agent.
@@ -126,7 +127,7 @@ public class AgentDownloadRouter extends AbstractRouter {
                     .end();
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to prepare Web Agent archive for download", e);
+                replyWithError(ctx, "Failed to prepare Web Agent archive for download", e);
             }
         }
     }

@@ -17,18 +17,21 @@
 
 package org.apache.ignite.console.routes;
 
-import java.util.UUID;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.common.Addresses;
 
 /**
  * Admin router.
  */
 public class AdminRouter extends AbstractRouter {
+    /** */
+    private static final String E_FAILED_TO_LOAD_USERS = "Failed to load users list";
+
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
@@ -55,12 +58,10 @@ public class AdminRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                JsonArray res = null; // accSrvc.list();
-
-                sendResult(ctx, res);
+                vertx.eventBus().send(Addresses.ACCOUNT_LIST, "", replyHandler(ctx, E_FAILED_TO_LOAD_USERS));
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to load users list", e);
+                replyWithError(ctx, E_FAILED_TO_LOAD_USERS, e);
             }
         }
     }
@@ -73,13 +74,13 @@ public class AdminRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID userId = UUID.fromString(requestParam(ctx, "userId"));
-                boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
+//                UUID userId = UUID.fromString(requestParam(ctx, "userId"));
+//                boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
 
                 // accSrvc.toggle(userId, adminFlag);
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to change admin status", e);
+                replyWithError(ctx, "Failed to change admin status", e);
             }
         }
     }
@@ -88,27 +89,27 @@ public class AdminRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void remove(RoutingContext ctx) {
-        sendResult(ctx, "[]");
+        // sendResult(ctx, "[]");
     }
 
     /**
      * @param ctx Context.
      */
     private void become(RoutingContext ctx) {
-        sendResult(ctx, "[]");
+        // sendResult(ctx, "[]");
     }
 
     /**
      * @param ctx Context.
      */
     private void revertIdentity(RoutingContext ctx) {
-        sendResult(ctx, "[]");
+        // sendResult(ctx, "[]");
     }
 
     /**
      * @param ctx Context.
      */
     private void notifications(RoutingContext ctx) {
-        sendResult(ctx, "[]");
+        // sendResult(ctx, "[]");
     }
 }

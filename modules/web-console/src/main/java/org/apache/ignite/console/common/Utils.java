@@ -18,18 +18,27 @@ package org.apache.ignite.console.common;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
+import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
+
+import static java.net.HttpURLConnection.HTTP_OK;
 
 /**
  * Utilities.
@@ -37,6 +46,12 @@ import org.jetbrains.annotations.Nullable;
 public class Utils {
     /** */
     private static final JsonObject EMPTY_OBJ = new JsonObject();
+
+    /** */
+    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
+        HttpHeaderValues.NO_CACHE,
+        HttpHeaderValues.NO_STORE,
+        HttpHeaderValues.MUST_REVALIDATE);
 
     /**
      * @param cause Error.
@@ -76,18 +91,44 @@ public class Utils {
     }
 
     /**
-     * @param json JSON object.
-     * @param path Path.
-     * @param def the default value to use if the entry is not present.
-     * @return the value or {@code def} if no entry present.
+     * @param json JSON to travers.
+     * @param path Dot separated list of properties.
+     * @return Tuple with unwind JSON and key to extract from it.
      */
-    public static boolean getBoolean(JsonObject json, String path, boolean def) {
+    private static T2<JsonObject, String> xpath(JsonObject json, String path) {
         String[] keys = path.split("\\.");
 
         for (int i = 0; i < keys.length - 1; i++)
             json = json.getJsonObject(keys[i], EMPTY_OBJ);
 
-        return json.getBoolean(keys[keys.length - 1], def);
+        String key = keys[keys.length - 1];
+
+        if (json.containsKey(key))
+            return new T2<>(json, key);
+
+        throw new IllegalStateException("Parameter not found: " + path);
+    }
+
+    /**
+     * @param json JSON object.
+     * @param path Dot separated list of properties.
+     * @return the value or {@code def} if no entry present.
+     */
+    public static boolean boolParam(JsonObject json, String path) {
+        T2<JsonObject, String> t = xpath(json, path);
+
+        return t.getKey().getBoolean(t.getValue());
+    }
+
+    /**
+     * @param json JSON object.
+     * @param path Dot separated list of properties.
+     * @return {@link UUID} for specified path.
+     */
+    public static UUID uuidParam(JsonObject json, String path) {
+        T2<JsonObject, String> t = xpath(json, path);
+
+        return UUID.fromString(t.getKey().getString(t.getValue()));
     }
 
     /**
@@ -96,6 +137,13 @@ public class Utils {
      */
     public static JsonArray toJsonArray(Collection<? extends DataObject> data) {
         return data.stream().reduce(new JsonArray(), (a, b) -> a.add(new JsonObject(b.json())), JsonArray::addAll);
+    }
+
+    /**
+     * @return New instance of JSON object.
+     */
+    public static JsonObject emptyJson() {
+        return new JsonObject();
     }
 
     /**
@@ -137,5 +185,64 @@ public class Utils {
             host = req.host();
 
         return proto + "://" + host;
+    }
+
+    /**
+     * @param ctx Context.
+     * @param errCode Error code.
+     * @param errMsg Error message.
+     * @param e Error to send.
+     */
+    public static void sendError(RoutingContext ctx, int errCode, String errMsg, Throwable e) {
+        ctx
+            .response()
+            .setStatusCode(errCode)
+            .end(errMsg + ": " + errorMessage(e));
+    }
+
+    /**
+     * @param ctx Context.
+     * @param data Data to send.
+     */
+    public static void sendResult(RoutingContext ctx, Object data) {
+        Buffer buf;
+
+        if (data instanceof JsonObject)
+            buf = ((JsonObject)data).toBuffer();
+        else if (data instanceof JsonArray)
+            buf = ((JsonArray)data).toBuffer();
+        else
+            buf = Buffer.buffer(String.valueOf(data));
+
+        ctx
+            .response()
+            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
+            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
+            .putHeader(HttpHeaderNames.EXPIRES, "0")
+            .setStatusCode(HTTP_OK)
+            .end(buf);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param paramName Parameter name.
+     * @return Parameter value
+     */
+    protected String requestParam(RoutingContext ctx, String paramName) {
+        String param = ctx.request().getParam(paramName);
+
+        if (F.isEmpty(param))
+            throw new IllegalStateException("Parameter not found: " + paramName);
+
+        return param;
+    }
+
+    /**
+     * @param ctx Context.
+     * @param status Status to send.
+     */
+    public static void sendStatus(RoutingContext ctx, int status) {
+        ctx.response().setStatusCode(status).end();
     }
 }

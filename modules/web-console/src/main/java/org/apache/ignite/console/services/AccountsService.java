@@ -21,7 +21,6 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 import javax.cache.Cache;
-import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -29,19 +28,20 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.common.ResultHandler;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.transactions.Transaction;
 
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static org.apache.ignite.console.common.Utils.boolParam;
+import static org.apache.ignite.console.common.Utils.emptyJson;
+import static org.apache.ignite.console.common.Utils.uuidParam;
 
 /**
- * Service to handle notebooks.
+ * Service to handle accounts.
  */
 public class AccountsService extends AbstractService {
     /** Special key to check that first user should be granted admin rights. */
-    private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("75744f56-59c4-4228-b07a-fabf4babc059");
+    private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("039d28e2-133d-4eae-ae2b-29d6db6d4974");
 
     /** */
     private final Table<Account> accountsTbl;
@@ -53,7 +53,7 @@ public class AccountsService extends AbstractService {
         super(ignite);
 
         accountsTbl = new Table<Account>(ignite, "accounts")
-            .addUniqueIndex(Account::email, (acc) -> "Account with email: " + acc.email() + " already registered");
+            .addUniqueIndex(Account::email, (acc) -> "Account with email '" + acc.email() + "' already registered");
     }
 
     /** {@inheritDoc} */
@@ -61,140 +61,93 @@ public class AccountsService extends AbstractService {
         accountsTbl.cache();
     }
 
-
     /** {@inheritDoc} */
     @Override public void start() {
-        EventBus eventBus = vertx.eventBus();
-
-        eventBus.consumer(Addresses.ACCOUNT_GET_BY_ID, this::getById1);
-        eventBus.consumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail1);
-        eventBus.consumer(Addresses.ACCOUNT_REGISTER, this::register);
-        eventBus.consumer(Addresses.ACCOUNT_LIST, this::list1);
-        eventBus.consumer(Addresses.ACCOUNT_SAVE, this::save1);
-        eventBus.consumer(Addresses.ACCOUNT_DELETE, this::delete1);
-        eventBus.consumer(Addresses.ACCOUNT_TOGGLE, this::toggle1);
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void getById1(Message<JsonObject> msg) {
-        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void getByEmail1(Message<JsonObject> msg) {
-        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void register(Message<JsonObject> msg) {
-        vertx.executeBlocking(
-            fut -> {
-                try {
-                    boolean admin = shouldBeAdmin();
-
-                    JsonObject json = msg.body();
-
-                    Account account = new Account(
-                        UUID.randomUUID(),
-                        json.getString("email"),
-                        json.getString("firstName"),
-                        json.getString("lastName"),
-                        json.getString("company"),
-                        json.getString("country"),
-                        json.getString("industry"),
-                        UUID.randomUUID().toString(),
-                        UUID.randomUUID().toString(),
-                        ZonedDateTime.now().toString(),
-                        "",
-                        "",
-                        "",
-                        json.getString("salt"),
-                        json.getString("hash"),
-                        admin,
-                        false,
-                        false
-                    );
-
-                    accountsTbl.save(account);
-
-                    fut.complete();
-                }
-                catch (Throwable e) {
-                    fut.fail(e);
-                }
-            },
-            new ResultHandler(msg)
-        );
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void list1(Message<JsonObject> msg) {
-        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void save1(Message<JsonObject> msg) {
-        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void delete1(Message<JsonObject> msg) {
-        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void toggle1(Message<JsonObject> msg) {
-        msg.fail(HTTP_INTERNAL_ERROR, "Not implemented yet");
+        addConsumer(Addresses.ACCOUNT_GET_BY_ID, this::getById);
+        addConsumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
+        addConsumer(Addresses.ACCOUNT_REGISTER, this::register);
+        addConsumer(Addresses.ACCOUNT_LIST, this::list);
+        addConsumer(Addresses.ACCOUNT_SAVE, this::save);
+        addConsumer(Addresses.ACCOUNT_DELETE, this::delete);
+        addConsumer(Addresses.ACCOUNT_TOGGLE, this::toggle);
     }
 
     /**
      * Get account by ID.
      *
-     * @param accId Account ID.
+     * @param msg Message.
+     * @return Account as JSON.
      */
-    public Account getById(UUID accId) {
-        Account acc;
+    public JsonObject getById(Message<JsonObject> msg) {
+        UUID accId = uuidParam(msg.body(), "accId");
 
         try(Transaction ignored = txStart()) {
-            acc = accountsTbl.load(accId);
-        }
+            Account acc = accountsTbl.load(accId);
 
-        return acc;
+            if (acc == null)
+                throw new IllegalStateException("Account not found with ID: " + accId);
+
+            return acc.toJson();
+        }
     }
 
     /**
      * Get account by email.
      *
-     * @param email Account email.
+     * @param msg Message.
+     * @return Account as JSON.
      */
-    public Account getByEmail(String email) {
-        Account acc;
+    public JsonObject getByEmail(Message<JsonObject> msg) {
+        String email = msg.body().getString("email");
 
         try(Transaction ignored = txStart()) {
-            acc = accountsTbl.getByIndex(email);
-        }
+            Account acc = accountsTbl.getByIndex(email);
 
-        return acc;
+            if (acc == null)
+                throw new IllegalStateException("Account not found with email: " + email);
+
+            return acc.toJson();
+        }
     }
 
     /**
-     * @return List of all users.
+     * @param msg Message.
      */
-    public JsonArray list() {
+    private JsonObject register(Message<JsonObject> msg) {
+        boolean admin = shouldBeAdmin();
+
+        JsonObject json = msg.body();
+
+        Account account = new Account(
+            UUID.randomUUID(),
+            json.getString("email"),
+            json.getString("firstName"),
+            json.getString("lastName"),
+            json.getString("company"),
+            json.getString("country"),
+            json.getString("industry"),
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            ZonedDateTime.now().toString(),
+            "",
+            "",
+            "",
+            json.getString("salt"),
+            json.getString("hash"),
+            admin,
+            false,
+            false
+        );
+
+        accountsTbl.save(account);
+
+        return emptyJson();
+    }
+
+    /**
+     * @param msg Message.
+     */
+    private JsonArray list(Message<JsonObject> msg) {
         IgniteCache<UUID, Account> cache = accountsTbl.cache();
 
         List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
@@ -202,11 +155,9 @@ public class AccountsService extends AbstractService {
         JsonArray res = new JsonArray();
 
         users.forEach(entry -> {
-            Object v = entry.getValue();
+            Account user = entry.getValue();
 
-            if (v instanceof Account) {
-                Account user = (Account)v;
-
+            if (user instanceof Account) {
                 res.add(new JsonObject()
                     .put("_id", user._id())
                     .put("firstName", user.firstName())
@@ -223,8 +174,6 @@ public class AccountsService extends AbstractService {
                         .put("caches", 0)
                         .put("models", 0)
                         .put("igfs", 0))
-                    .put("activitiesTotal", 0)
-                    .put("activitiesDetail", 0)
                 );
             }
         });
@@ -233,19 +182,21 @@ public class AccountsService extends AbstractService {
     }
 
     /**
-     * Save notebook.
+     * Save account.
      *
-     * @param account Account to save.
+     * @param msg Message.
      * @return Saved account.
      */
-    public Account save(Account account) {
+    public JsonObject save(Message<JsonObject> msg) {
+        Account account = Account.fromJson(msg.body());
+
         try (Transaction tx = txStart()) {
             accountsTbl.save(account);
 
             tx.commit();
         }
 
-        return account;
+        return emptyJson();
     }
 
     /**
@@ -274,10 +225,13 @@ public class AccountsService extends AbstractService {
     /**
      * Remove account.
      *
-     * @param accId Account ID.
+     * @param msg Message.
+     * @return JSON with affected rows .
      */
-    public int delete(UUID accId) {
+    public JsonObject delete(Message<JsonObject> msg) {
         int rmvCnt = 0;
+
+        UUID accId = uuidParam(msg.body(), "accId");
 
         try (Transaction tx = txStart()) {
             Account acc = accountsTbl.delete(accId);
@@ -288,14 +242,19 @@ public class AccountsService extends AbstractService {
             tx.commit();
         }
 
-        return rmvCnt;
+        return rowsAffected(rmvCnt);
     }
 
     /**
-     * @param userId User ID.
-     * @param adminFlag Administration flag.
+     * @param msg Message.
+     * @return JSON result.
      */
-    public void toggle(UUID userId, boolean adminFlag) {
+    public JsonObject toggle(Message<JsonObject> msg) {
+        JsonObject params = msg.body();
+
+        UUID userId = uuidParam(params, "userId");
+        boolean adminFlag = boolParam(params, "adminFlag");
+
         try (Transaction tx = txStart()) {
             Account acc = accountsTbl.load(userId);
 
@@ -308,5 +267,7 @@ public class AccountsService extends AbstractService {
 
             tx.commit();
         }
+
+        return emptyJson();
     }
 }

@@ -18,24 +18,19 @@
 package org.apache.ignite.console.routes;
 
 import java.net.HttpURLConnection;
-import java.util.Arrays;
-import java.util.List;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.console.common.HttpResponseHandler;
 import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.console.common.Utils.errorMessage;
+import static org.apache.ignite.console.common.Utils.sendError;
+import static org.apache.ignite.console.common.Utils.sendResult;
+import static org.apache.ignite.console.common.Utils.sendStatus;
 
 /**
  * Base class for routers.
@@ -47,12 +42,6 @@ public abstract class AbstractRouter implements RestApiRouter {
     /** */
     protected final Vertx vertx;
 
-    /** */
-    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
-        HttpHeaderValues.NO_CACHE,
-        HttpHeaderValues.NO_STORE,
-        HttpHeaderValues.MUST_REVALIDATE);
-
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
@@ -60,75 +49,6 @@ public abstract class AbstractRouter implements RestApiRouter {
     protected AbstractRouter(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
         this.vertx = vertx;
-    }
-
-    /**
-     * @param ctx Context.
-     * @param paramName Parameter name.
-     * @return Parameter value
-     */
-    protected String requestParam(RoutingContext ctx, String paramName) {
-        String param = ctx.request().getParam(paramName);
-
-        if (F.isEmpty(param))
-            throw new IllegalStateException("Parameter not found: " + paramName);
-
-        return param;
-    }
-
-    /**
-     * @param ctx Context.
-     * @param status Status to send.
-     */
-    protected void sendStatus(RoutingContext ctx, int status) {
-        ctx.response().setStatusCode(status).end();
-    }
-
-    /**
-     * @param ctx Context.
-     * @param status Status to send.
-     * @param msg Message to send.
-     */
-    protected void sendStatus(RoutingContext ctx, int status, String msg) {
-        ctx.response().setStatusCode(status).end(msg);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param msg Error message to send.
-     * @param e Error to send.
-     */
-    protected void sendError(RoutingContext ctx, String msg, Throwable e) {
-        ignite.log().error(msg, e);
-
-        ctx
-            .response()
-            .setStatusCode(HTTP_INTERNAL_ERROR)
-            .end(msg + ": " + errorMessage(e));
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, Object data) {
-        Buffer buf;
-
-        if (data instanceof JsonObject)
-            buf = ((JsonObject)data).toBuffer();
-        else if (data instanceof JsonArray)
-            buf = ((JsonArray)data).toBuffer();
-        else
-            buf = Buffer.buffer(String.valueOf(data));
-
-        ctx
-            .response()
-            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
-            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
-            .putHeader(HttpHeaderNames.EXPIRES, "0")
-            .setStatusCode(HTTP_OK)
-            .end(buf);
     }
 
     /**
@@ -145,5 +65,48 @@ public abstract class AbstractRouter implements RestApiRouter {
             sendStatus(ctx, HTTP_UNAUTHORIZED);
 
         return user;
+    }
+
+    /**
+     * @param ctx Context.
+     * @param errMsg Error message.
+     * @return HTTP reply handler.
+     */
+    protected <T> HttpResponseHandler<T> replyHandler(RoutingContext ctx, String errMsg) {
+        return new HttpResponseHandler<>(ignite, ctx, errMsg);
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    protected void replyOk(RoutingContext ctx) {
+        sendStatus(ctx, HTTP_OK);
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    protected void replyWithResult(RoutingContext ctx, Object res) {
+        sendResult(ctx, res);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param errMsg Error message to send.
+     * @param e Error to send.
+     */
+    protected void replyWithError(RoutingContext ctx, int errCode, String errMsg, Throwable e) {
+        ignite.log().error(errMsg, e);
+
+        sendError(ctx, errCode, errMsg, e);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param errMsg Error message to send.
+     * @param e Error to send.
+     */
+    protected void replyWithError(RoutingContext ctx, String errMsg, Throwable e) {
+        replyWithError(ctx, HTTP_INTERNAL_ERROR, errMsg, e);
     }
 }

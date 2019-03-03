@@ -27,9 +27,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.auth.IgniteAuth;
 
-import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.console.common.Utils.errorMessage;
 
 /**
  * Router to handle REST API for configurations.
@@ -69,7 +67,7 @@ public class AccountRouter extends AbstractRouter {
         User user = checkUser(ctx);
 
         if (user != null)
-            sendResult(ctx, user.principal());
+            replyWithResult(ctx, user.principal());
     }
 
     /**
@@ -84,10 +82,10 @@ public class AccountRouter extends AbstractRouter {
             signIn(ctx);
         }
         catch (IgniteException e) {
-            sendError(ctx, e.getMessage(), e);
+            replyWithError(ctx, e.getMessage(), e);
         }
         catch (Throwable e) {
-            sendError(ctx, "Sign up failed", e);
+            replyWithError(ctx, "Sign up failed", e);
         }
     }
 
@@ -99,10 +97,10 @@ public class AccountRouter extends AbstractRouter {
             if (asyncRes.succeeded()) {
                 ctx.setUser(asyncRes.result());
 
-                sendStatus(ctx, HTTP_OK);
+                replyOk(ctx);
             }
             else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
+                replyWithError(ctx, HTTP_UNAUTHORIZED, "Sign in failed", asyncRes.cause());
         });
     }
 
@@ -112,7 +110,7 @@ public class AccountRouter extends AbstractRouter {
     private void logout(RoutingContext ctx) {
         ctx.clearUser();
 
-        sendStatus(ctx, HTTP_OK);
+        replyOk(ctx);
     }
 
     /**
@@ -123,7 +121,7 @@ public class AccountRouter extends AbstractRouter {
             throw new IllegalStateException("Not implemented yet");
         }
         catch (Throwable e) {
-            sendError(ctx, "Failed to restore password", e);
+            replyWithError(ctx, "Failed to restore password", e);
         }
     }
 
@@ -135,7 +133,7 @@ public class AccountRouter extends AbstractRouter {
             throw new IllegalStateException("Not implemented yet");
         }
         catch (Throwable e) {
-            sendError(ctx, "Failed to reset password", e);
+            replyWithError(ctx, "Failed to reset password", e);
         }
     }
 
@@ -147,7 +145,7 @@ public class AccountRouter extends AbstractRouter {
             throw new IllegalStateException("Not implemented yet");
         }
         catch (Throwable e) {
-            sendError(ctx, "Failed to validate token", e);
+            replyWithError(ctx, "Failed to validate token", e);
         }
     }
 }

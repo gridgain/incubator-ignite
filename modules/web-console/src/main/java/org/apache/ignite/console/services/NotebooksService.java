@@ -17,18 +17,17 @@
 
 package org.apache.ignite.console.services;
 
-import java.util.Collection;
 import java.util.UUID;
+import java.util.function.Function;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.common.ResultHandler;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Schemas;
 import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.transactions.Transaction;
 
@@ -64,93 +63,89 @@ public class NotebooksService extends AbstractService {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        EventBus eventBus = vertx.eventBus();
-
-        eventBus.consumer(Addresses.NOTEBOOK_LIST, this::load);
-        eventBus.consumer(Addresses.NOTEBOOK_SAVE, this::save);
-        eventBus.consumer(Addresses.NOTEBOOK_DELETE, this::delete);
+        this.addConsumer(Addresses.NOTEBOOK_LIST, this::load);
+        this.addConsumer(Addresses.NOTEBOOK_SAVE, this::save);
+        this.addConsumer(Addresses.NOTEBOOK_DELETE, this::delete);
     }
 
     /**
      * @param msg Message to process.
      */
-    private void load(Message<JsonObject> msg) {
+    private void loadHandler(Message<JsonObject> msg) {
         vertx.executeBlocking(
-            fut -> {
-                try {
-                    UUID userId = getUserId(msg);
-
-                    Collection<? extends DataObject> notebooks = loadList(userId, notebooksIdx, notebooksTbl);
-
-                    fut.complete(toJsonArray(notebooks));
-                }
-                catch (Throwable e) {
-                    fut.fail(e);
-                }
-            },
-            new ResultHandler(msg)
+            blockingHandler(msg, this::load),
+            resultHandler(msg)
         );
     }
 
     /**
      * @param msg Message to process.
      */
-    private void save(Message<JsonObject> msg) {
+    private void saveHandler(Message<JsonObject> msg) {
         vertx.executeBlocking(
-            fut -> {
-                try {
-                    UUID userId = getUserId(msg);
-                    Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(msg, "notebook")));
-
-                    try (Transaction tx = txStart()) {
-                        notebooksTbl.save(notebook);
-
-                        notebooksIdx.add(userId, notebook.id());
-
-                        tx.commit();
-                    }
-
-                    fut.complete();
-                }
-                catch (Throwable e) {
-                    fut.fail(e);
-                }
-            },
-            new ResultHandler(msg)
+            blockingHandler(msg, this::save),
+            resultHandler(msg)
         );
     }
 
     /**
      * @param msg Message to process.
      */
-    private void delete(Message<JsonObject> msg) {
+    private void deleteHandler(Message<JsonObject> msg) {
         vertx.executeBlocking(
-            fut -> {
-                try {
-                    UUID userId = getUserId(msg);
-                    UUID notebookId = getId(getProperty(msg, "notebook"));
-
-                    int rmvCnt = 0;
-
-                    try (Transaction tx = txStart()) {
-                        Notebook notebook = notebooksTbl.delete(notebookId);
-
-                        if (notebook != null) {
-                            notebooksIdx.remove(userId, notebookId);
-
-                            rmvCnt = 1;
-                        }
-
-                        tx.commit();
-                    }
-
-                    fut.complete(rowsAffected(rmvCnt));
-                }
-                catch (Throwable e) {
-                    fut.fail(e);
-                }
-            },
-            new ResultHandler(msg)
+            blockingHandler(msg, this::delete),
+            resultHandler(msg)
         );
+    }
+
+    /**
+     * @param msg Message to process.
+     */
+    private JsonArray load(Message<JsonObject> msg) {
+        UUID userId = getUserId(msg);
+
+        return toJsonArray(loadList(userId, notebooksIdx, notebooksTbl));
+    }
+
+    /**
+     * @param msg Message to process.
+     */
+    private JsonObject save(Message<JsonObject> msg) {
+        UUID userId = getUserId(msg);
+        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(msg, "notebook")));
+
+        try (Transaction tx = txStart()) {
+            notebooksTbl.save(notebook);
+
+            notebooksIdx.add(userId, notebook.id());
+
+            tx.commit();
+        }
+
+        return new JsonObject();
+    }
+
+    /**
+     * @param msg Message to process.
+     */
+    private JsonObject delete(Message<JsonObject> msg) {
+        UUID userId = getUserId(msg);
+        UUID notebookId = getId(getProperty(msg, "notebook"));
+
+        int rmvCnt = 0;
+
+        try (Transaction tx = txStart()) {
+            Notebook notebook = notebooksTbl.delete(notebookId);
+
+            if (notebook != null) {
+                notebooksIdx.remove(userId, notebookId);
+
+                rmvCnt = 1;
+            }
+
+            tx.commit();
+        }
+
+        return rowsAffected(rmvCnt);
     }
 }

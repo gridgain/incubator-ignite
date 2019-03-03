@@ -72,14 +72,18 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
+                JsonObject msg = new JsonObject()
+                    .put("user", user.principal());
+
+
                 // UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
                 JsonObject json = null; // cfgSrvc.loadConfiguration(clusterId);
 
-                sendResult(ctx, json);
+                replyWithResult(ctx, json);
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to load configuration", e);
+                replyWithError(ctx, "Failed to load configuration", e);
             }
         }
     }
@@ -98,10 +102,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 JsonArray clusters = null; // cfgSrvc.loadClusters(userId);
 
-                sendResult(ctx, clusters);
+                replyWithResult(ctx, clusters);
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to load clusters", e);
+                replyWithError(ctx, "Failed to load clusters", e);
             }
         }
     }
@@ -114,17 +118,17 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+                // UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
                 Cluster cluster = null; // cfgSrvc.loadCluster(clusterId);
 
-                if (cluster == null)
-                    throw new IllegalStateException("Cluster not found for ID: " + clusterId);
+//                if (cluster == null)
+//                    throw new IllegalStateException("Cluster not found for ID: " + clusterId);
 
-                sendResult(ctx, cluster.json());
+                replyWithResult(ctx, cluster.json());
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to load cluster", e);
+                replyWithError(ctx, "Failed to load cluster", e);
             }
         }
     }
@@ -151,10 +155,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 //                .map(DataObject::shortView)
 //                .collect(Collectors.toList());
 //
-//            sendResult(ctx, new JsonArray(list));
+//            replyWithResult(ctx, new JsonArray(list));
 //        }
 //        catch (Throwable e) {
-//            sendError(ctx, errMsg, e);
+//            replyWithError(ctx, errMsg, e);
 //        }
 //    }
 
@@ -194,17 +198,17 @@ public class ConfigurationsRouter extends AbstractRouter {
         checkUser(ctx);
 
         try {
-            UUID cacheId = UUID.fromString(requestParam(ctx, "id"));
+            // UUID cacheId = UUID.fromString(requestParam(ctx, "id"));
 
             Cache cache = null; // cfgSrvc.loadCache(cacheId);
 
-            if (cache == null)
-                throw new IllegalStateException("Cache not found for ID: " + cacheId);
+//            if (cache == null)
+//                throw new IllegalStateException("Cache not found for ID: " + cacheId);
 
-            sendResult(ctx, cache.json());
+            replyWithResult(ctx, cache.json());
         }
         catch (Throwable e) {
-            sendError(ctx, "Failed to get cache", e);
+            replyWithError(ctx, "Failed to get cache", e);
         }
     }
 
@@ -215,13 +219,13 @@ public class ConfigurationsRouter extends AbstractRouter {
         checkUser(ctx);
 
         try {
-            UUID mdlId = UUID.fromString(requestParam(ctx, "id"));
+//            UUID mdlId = UUID.fromString(requestParam(ctx, "id"));
 
             Model mdl = null; // cfgSrvc.loadModel(mdlId);
-            sendResult(ctx, mdl.json());
+            replyWithResult(ctx, mdl.json());
         }
         catch (Throwable e) {
-            sendError(ctx, "Failed to get model", e);
+            replyWithError(ctx, "Failed to get model", e);
         }
     }
 
@@ -232,14 +236,14 @@ public class ConfigurationsRouter extends AbstractRouter {
         checkUser(ctx);
 
         try {
-            UUID igfsId = UUID.fromString(requestParam(ctx, "id"));
+//            UUID igfsId = UUID.fromString(requestParam(ctx, "id"));
 
             Igfs igfs = null; // cfgSrvc.loadIgfs(igfsId);
 
-            sendResult(ctx, igfs.json());
+            replyWithResult(ctx, igfs.json());
         }
         catch (Throwable e) {
-            sendError(ctx, "Failed to get IGFS", e);
+            replyWithError(ctx, "Failed to get IGFS", e);
         }
     }
 
@@ -259,10 +263,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 // cfgSrvc.saveAdvancedCluster(userId, json);
 
-                // sendResult(ctx, rowsAffected(1));
+                // replyWithResult(ctx, rowsAffected(1));
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to save cluster", e);
+                replyWithError(ctx, "Failed to save cluster", e);
             }
         }
     }
@@ -283,10 +287,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 // cfgSrvc.saveBasicCluster(userId, json);
 
-                // sendResult(ctx, rowsAffected(1));
+                // replyWithResult(ctx, rowsAffected(1));
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to save cluster", e);
+                replyWithError(ctx, "Failed to save cluster", e);
             }
         }
     }
@@ -310,10 +314,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 // cfgSrvc.deleteClusters(userId, clusterIds);
 
-                // sendResult(ctx, rowsAffected(clusterIds.size()));
+                // replyWithResult(ctx, rowsAffected(clusterIds.size()));
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to delete cluster", e);
+                replyWithError(ctx, "Failed to delete cluster", e);
             }
         }
     }
