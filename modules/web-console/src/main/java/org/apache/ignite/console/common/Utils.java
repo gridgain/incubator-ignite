@@ -194,10 +194,15 @@ public class Utils {
      * @param e Error to send.
      */
     public static void sendError(RoutingContext ctx, int errCode, String errMsg, Throwable e) {
+        String err = errorMessage(e);
+
+        if (!F.isEmpty(errMsg))
+            err = errMsg + ": " + err;
+
         ctx
             .response()
             .setStatusCode(errCode)
-            .end(errMsg + ": " + errorMessage(e));
+            .end(err);
     }
 
     /**

@@ -18,9 +18,6 @@
 package org.apache.ignite.console.services;
 
 import java.util.UUID;
-import java.util.function.Function;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -31,6 +28,7 @@ import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.transactions.Transaction;
 
+import static org.apache.ignite.console.common.Utils.emptyJson;
 import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
@@ -63,56 +61,28 @@ public class NotebooksService extends AbstractService {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        this.addConsumer(Addresses.NOTEBOOK_LIST, this::load);
-        this.addConsumer(Addresses.NOTEBOOK_SAVE, this::save);
-        this.addConsumer(Addresses.NOTEBOOK_DELETE, this::delete);
+        addConsumer(Addresses.NOTEBOOK_LIST, this::load);
+        addConsumer(Addresses.NOTEBOOK_SAVE, this::save);
+        addConsumer(Addresses.NOTEBOOK_DELETE, this::delete);
     }
 
     /**
-     * @param msg Message to process.
+     * @param params Parameters in JSON format.
+     * @return List of user notebooks.
      */
-    private void loadHandler(Message<JsonObject> msg) {
-        vertx.executeBlocking(
-            blockingHandler(msg, this::load),
-            resultHandler(msg)
-        );
-    }
-
-    /**
-     * @param msg Message to process.
-     */
-    private void saveHandler(Message<JsonObject> msg) {
-        vertx.executeBlocking(
-            blockingHandler(msg, this::save),
-            resultHandler(msg)
-        );
-    }
-
-    /**
-     * @param msg Message to process.
-     */
-    private void deleteHandler(Message<JsonObject> msg) {
-        vertx.executeBlocking(
-            blockingHandler(msg, this::delete),
-            resultHandler(msg)
-        );
-    }
-
-    /**
-     * @param msg Message to process.
-     */
-    private JsonArray load(Message<JsonObject> msg) {
-        UUID userId = getUserId(msg);
+    private JsonArray load(JsonObject params) {
+        UUID userId = getUserId(params);
 
         return toJsonArray(loadList(userId, notebooksIdx, notebooksTbl));
     }
 
     /**
-     * @param msg Message to process.
+     * @param params Parameters in JSON format.
+     * @return Empty JSON.
      */
-    private JsonObject save(Message<JsonObject> msg) {
-        UUID userId = getUserId(msg);
-        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(msg, "notebook")));
+    private JsonObject save(JsonObject params) {
+        UUID userId = getUserId(params);
+        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(params, "notebook")));
 
         try (Transaction tx = txStart()) {
             notebooksTbl.save(notebook);
@@ -122,15 +92,16 @@ public class NotebooksService extends AbstractService {
             tx.commit();
         }
 
-        return new JsonObject();
+        return emptyJson();
     }
 
     /**
-     * @param msg Message to process.
+     * @param params Parameters in JSON format.
+     * @return Rows affected.
      */
-    private JsonObject delete(Message<JsonObject> msg) {
-        UUID userId = getUserId(msg);
-        UUID notebookId = getId(getProperty(msg, "notebook"));
+    private JsonObject delete(JsonObject params) {
+        UUID userId = getUserId(params);
+        UUID notebookId = getId(getProperty(params, "notebook"));
 
         int rmvCnt = 0;
 

@@ -30,8 +30,6 @@ import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteTransactions;
-import org.apache.ignite.console.common.BlockingHandler;
-import org.apache.ignite.console.common.ResultHandler;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
@@ -46,6 +44,8 @@ import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.Nullable;
 
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static org.apache.ignite.console.common.Utils.errorMessage;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
@@ -60,14 +60,15 @@ public abstract class AbstractService extends AbstractVerticle {
     private volatile boolean ready;
 
     /** */
-    private final Set<MessageConsumer<JsonObject>> consumers;
+    private final Set<MessageConsumer<?>> consumers;
 
     /**
      * @param ignite Ignite.
      */
     protected AbstractService(Ignite ignite) {
         this.ignite = ignite;
-        this.consumers = new HashSet<>();
+
+        consumers = new HashSet<>();
     }
 
     /**
@@ -79,13 +80,30 @@ public abstract class AbstractService extends AbstractVerticle {
      * @param addr Address.
      * @param supplier Data supplier.
      */
-    protected <T> void addConsumer(String addr, Function<Message<JsonObject>, T> supplier) {
-        MessageConsumer<JsonObject> consumer = vertx
+    protected <R> void addConsumer(String addr, Function<JsonObject, R> supplier) {
+        MessageConsumer<?> consumer = vertx
             .eventBus()
-            .consumer(addr, (Message<JsonObject> msg) -> vertx.executeBlocking(
-                blockingHandler(msg, supplier),
-                resultHandler(msg)
-            ));
+            .consumer(addr, (Message<JsonObject> msg) -> {
+                JsonObject params = msg.body();
+
+                vertx.executeBlocking(
+                    fut -> {
+                        try {
+                            fut.complete(supplier.apply(params));
+                        }
+                        catch (Throwable e) {
+                            fut.fail(e);
+                        }
+                    },
+                    asyncRes -> {
+                        if (asyncRes.succeeded())
+                            msg.reply(asyncRes.result());
+                        else
+                            msg.fail(HTTP_INTERNAL_ERROR, errorMessage(asyncRes.cause()));
+                    }
+                );
+
+            });
 
         consumers.add(consumer);
     }
@@ -97,18 +115,18 @@ public abstract class AbstractService extends AbstractVerticle {
 
     /**
      *
-     * @param msg JSON message.
+     * @param params Params in JSON format.
      * @param key Property name.
      * @return JSON for specified property.
      * @throws IllegalStateException If property not found.
      */
-    protected JsonObject getProperty(Message<JsonObject> msg, String key) {
-        JsonObject json = msg.body().getJsonObject(key);
+    protected JsonObject getProperty(JsonObject params, String key) {
+        JsonObject prop = params.getJsonObject(key);
 
-        if (json == null)
+        if (prop == null)
             throw new IllegalStateException("Message does not contain property: " + key);
 
-        return json;
+        return prop;
     }
 
     /**
@@ -122,12 +140,12 @@ public abstract class AbstractService extends AbstractVerticle {
     }
 
     /**
-     * @param msg JSON message.
+     * @param params Params in JSON format.
      * @return User ID.
      * @throws IllegalStateException If user ID not found.
      */
-    protected UUID getUserId(Message<JsonObject> msg) {
-        JsonObject user = getProperty(msg, "user");
+    protected UUID getUserId(JsonObject params) {
+        JsonObject user = getProperty(params, "user");
 
         UUID userId = getId(user);
 
@@ -135,23 +153,6 @@ public abstract class AbstractService extends AbstractVerticle {
             throw new IllegalStateException("User ID not found");
 
         return userId;
-    }
-
-    /**
-     * @param msg Message.
-     * @param supplier Data supplier.
-     * @return Blocking handler.
-     */
-    protected <T> BlockingHandler<T> blockingHandler(Message<JsonObject> msg, Function<Message<JsonObject>, T> supplier) {
-        return new BlockingHandler<>(msg, supplier);
-    }
-
-    /**
-     * @param msg Message.
-     * @return Result handler.
-     */
-    protected <T> ResultHandler<T> resultHandler(Message<JsonObject> msg) {
-        return new ResultHandler<>(msg);
     }
 
     /**

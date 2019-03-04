@@ -22,6 +22,7 @@ import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -57,19 +58,19 @@ public class WebConsoleLauncher extends AbstractVerticle {
         Ignite ignite = startIgnite();
 
         VertxOptions options = new VertxOptions()
-            .setBlockedThreadCheckInterval(1000L * 60L * 60L);
-//            .setClusterManager(new IgniteClusterManager(ignite));
+            .setBlockedThreadCheckInterval(1000L * 60L * 60L)
+            .setClusterManager(new IgniteClusterManager(ignite));
 
-        Vertx vertx = Vertx.vertx(options);
+//        Vertx vertx = Vertx.vertx(options);
 
-//        Vertx.clusteredVertx(options, res -> {
-//            if (res.failed()) {
-//                ignite.log().error("Failed to start clustered Vertx!");
-//
-//                return;
-//            }
-//
-//            Vertx vertx = res.result();
+        Vertx.clusteredVertx(options, res -> {
+            if (res.failed()) {
+                ignite.log().error("Failed to start clustered Vertx!");
+
+                return;
+            }
+
+            Vertx vertx = res.result();
 
             RestApiRouter accRouter = new AccountRouter(ignite, vertx);
             RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite, vertx);
@@ -94,7 +95,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
             ));
 
             System.out.println("Ignite Web Console Server started");
-//        });
+        });
     }
 
     /**

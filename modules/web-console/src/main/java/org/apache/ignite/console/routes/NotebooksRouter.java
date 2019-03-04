@@ -62,15 +62,10 @@ public class NotebooksRouter extends AbstractRouter {
         User user = checkUser(ctx);
 
         if (user != null) {
-            try {
-                JsonObject msg = new JsonObject()
-                    .put("user", user.principal());
+            JsonObject msg = new JsonObject()
+                .put("user", user.principal());
 
-                vertx.eventBus().send(Addresses.NOTEBOOK_LIST, msg, replyHandler(ctx, E_FAILED_TO_LOAD_NOTEBOOKS));
-            }
-            catch (Throwable e) {
-                replyWithError(ctx, E_FAILED_TO_LOAD_NOTEBOOKS, e);
-            }
+            send(Addresses.NOTEBOOK_LIST, msg, ctx, E_FAILED_TO_LOAD_NOTEBOOKS);
         }
     }
 
@@ -83,16 +78,11 @@ public class NotebooksRouter extends AbstractRouter {
         User user = checkUser(ctx);
 
         if (user != null) {
-            try {
-                JsonObject msg = new JsonObject()
-                    .put("user", user.principal())
-                    .put("notebook", ctx.getBodyAsJson());
+            JsonObject msg = new JsonObject()
+                .put("user", user.principal())
+                .put("notebook", ctx.getBodyAsJson());
 
-                vertx.eventBus().send(Addresses.NOTEBOOK_SAVE, msg, replyHandler(ctx, E_FAILED_TO_SAVE_NOTEBOOK));
-            }
-            catch (Throwable e) {
-                replyWithError(ctx, E_FAILED_TO_SAVE_NOTEBOOK, e);
-            }
+            send(Addresses.NOTEBOOK_SAVE, msg, ctx, E_FAILED_TO_SAVE_NOTEBOOK);
         }
     }
 
@@ -105,16 +95,11 @@ public class NotebooksRouter extends AbstractRouter {
         User user = checkUser(ctx);
 
         if (user != null) {
-            try {
-                JsonObject msg = new JsonObject()
-                    .put("user", user.principal())
-                    .put("notebook", ctx.getBodyAsJson());
+            JsonObject msg = new JsonObject()
+                .put("user", user.principal())
+                .put("notebook", ctx.getBodyAsJson());
 
-                vertx.eventBus().send(Addresses.NOTEBOOK_DELETE, msg, replyHandler(ctx, E_FAILED_TO_DELETE_NOTEBOOK));
-            }
-            catch (Throwable e) {
-                replyWithError(ctx, E_FAILED_TO_DELETE_NOTEBOOK, e);
-            }
+            send(Addresses.NOTEBOOK_DELETE, msg, ctx, E_FAILED_TO_DELETE_NOTEBOOK);
         }
     }
 }

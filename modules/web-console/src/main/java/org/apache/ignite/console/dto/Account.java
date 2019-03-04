@@ -297,7 +297,7 @@ public class Account extends AbstractDto {
      */
     public JsonObject toJson() {
         return new JsonObject()
-            .put("_id", id)
+            .put("_id", id.toString())
             .put("email", email)
             .put("firstName", firstName)
             .put("lastName", lastName)

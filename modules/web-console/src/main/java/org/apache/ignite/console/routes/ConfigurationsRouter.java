@@ -20,12 +20,12 @@ package org.apache.ignite.console.routes;
 import java.util.TreeSet;
 import java.util.UUID;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Cache;
 import org.apache.ignite.console.dto.Cluster;
 import org.apache.ignite.console.dto.Igfs;
@@ -38,6 +38,12 @@ import static org.apache.ignite.console.common.Utils.idsFromJson;
  * Router to handle REST API for configurations.
  */
 public class ConfigurationsRouter extends AbstractRouter {
+    /** */
+    private static final String E_FAILED_TO_LOAD_CONFIGURATION = "Failed to load configuration";
+
+    /** */
+    private static final String E_FAILED_TO_LOAD_CLUSTERS = "Failed to load clusters";
+
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
@@ -48,16 +54,16 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        router.get("/api/v1/configuration/:id").handler(this::loadConfiguration);
+        router.get("/api/v1/configuration/:clusterId").handler(this::loadConfiguration);
         router.get("/api/v1/configuration/clusters").handler(this::loadClustersShortList);
-        router.get("/api/v1/configuration/clusters/:id").handler(this::loadCluster);
-        router.get("/api/v1/configuration/clusters/:id/caches").handler(this::loadCachesShortList);
-        router.get("/api/v1/configuration/clusters/:id/models").handler(this::loadModelsShortList);
-        router.get("/api/v1/configuration/clusters/:id/igfss").handler(this::loadIgfssShortList);
+        router.get("/api/v1/configuration/clusters/:clusterId").handler(this::loadCluster);
+        router.get("/api/v1/configuration/clusters/:clusterId/caches").handler(this::loadCachesShortList);
+        router.get("/api/v1/configuration/clusters/:clusterId/models").handler(this::loadModelsShortList);
+        router.get("/api/v1/configuration/clusters/:clusterId/igfss").handler(this::loadIgfssShortList);
 
-        router.get("/api/v1/configuration/caches/:id").handler(this::loadCache);
-        router.get("/api/v1/configuration/domains/:id").handler(this::loadModel);
-        router.get("/api/v1/configuration/igfs/:id").handler(this::loadIgfs);
+        router.get("/api/v1/configuration/caches/:clusterId").handler(this::loadCache);
+        router.get("/api/v1/configuration/domains/:clusterId").handler(this::loadModel);
+        router.get("/api/v1/configuration/igfs/:clusterId").handler(this::loadIgfs);
 
         router.put("/api/v1/configuration/clusters").handler(this::saveAdvancedCluster);
         router.put("/api/v1/configuration/clusters/basic").handler(this::saveBasicCluster);
@@ -70,22 +76,8 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadConfiguration(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            try {
-                JsonObject msg = new JsonObject()
-                    .put("user", user.principal());
-
-
-                // UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
-
-                JsonObject json = null; // cfgSrvc.loadConfiguration(clusterId);
-
-                replyWithResult(ctx, json);
-            }
-            catch (Throwable e) {
-                replyWithError(ctx, "Failed to load configuration", e);
-            }
-        }
+        if (user != null)
+            send(Addresses.CONFIGURATION_LOAD, requestParams(ctx), ctx, E_FAILED_TO_LOAD_CONFIGURATION);
     }
 
     /**
@@ -97,16 +89,10 @@ public class ConfigurationsRouter extends AbstractRouter {
         User user = checkUser(ctx);
 
         if (user != null) {
-            try {
-                // UUID userId = getUserId(user.principal());
+            JsonObject msg = new JsonObject()
+                .put("user", user.principal());
 
-                JsonArray clusters = null; // cfgSrvc.loadClusters(userId);
-
-                replyWithResult(ctx, clusters);
-            }
-            catch (Throwable e) {
-                replyWithError(ctx, "Failed to load clusters", e);
-            }
+            send(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, msg, ctx, E_FAILED_TO_LOAD_CLUSTERS);
         }
     }
 
@@ -120,7 +106,7 @@ public class ConfigurationsRouter extends AbstractRouter {
             try {
                 // UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
-                Cluster cluster = null; // cfgSrvc.loadCluster(clusterId);
+                Cluster cluster = null; // loadCluster(clusterId);
 
 //                if (cluster == null)
 //                    throw new IllegalStateException("Cluster not found for ID: " + clusterId);
@@ -169,7 +155,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCachesShortList(RoutingContext ctx) {
-        // loadShortList(ctx, cfgSrvc::loadCaches, "Failed to load cluster caches");
+        // loadShortList(ctx, ::loadCaches, "Failed to load cluster caches");
     }
 
     /**
@@ -178,7 +164,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModelsShortList(RoutingContext ctx) {
-        // loadShortList(ctx, cfgSrvc::loadModels, "Failed to load cluster models");
+        // loadShortList(ctx, ::loadModels, "Failed to load cluster models");
     }
 
     /**
@@ -187,7 +173,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfssShortList(RoutingContext ctx) {
-        // loadShortList(ctx, cfgSrvc::loadIgfss, "Failed to load cluster models");
+        // loadShortList(ctx, ::loadIgfss, "Failed to load cluster models");
     }
 
 
@@ -200,7 +186,7 @@ public class ConfigurationsRouter extends AbstractRouter {
         try {
             // UUID cacheId = UUID.fromString(requestParam(ctx, "id"));
 
-            Cache cache = null; // cfgSrvc.loadCache(cacheId);
+            Cache cache = null; // loadCache(cacheId);
 
 //            if (cache == null)
 //                throw new IllegalStateException("Cache not found for ID: " + cacheId);
@@ -221,7 +207,7 @@ public class ConfigurationsRouter extends AbstractRouter {
         try {
 //            UUID mdlId = UUID.fromString(requestParam(ctx, "id"));
 
-            Model mdl = null; // cfgSrvc.loadModel(mdlId);
+            Model mdl = null; // loadModel(mdlId);
             replyWithResult(ctx, mdl.json());
         }
         catch (Throwable e) {
@@ -238,7 +224,7 @@ public class ConfigurationsRouter extends AbstractRouter {
         try {
 //            UUID igfsId = UUID.fromString(requestParam(ctx, "id"));
 
-            Igfs igfs = null; // cfgSrvc.loadIgfs(igfsId);
+            Igfs igfs = null; // loadIgfs(igfsId);
 
             replyWithResult(ctx, igfs.json());
         }
@@ -261,7 +247,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 JsonObject json = ctx.getBodyAsJson();
 
-                // cfgSrvc.saveAdvancedCluster(userId, json);
+                // saveAdvancedCluster(userId, json);
 
                 // replyWithResult(ctx, rowsAffected(1));
             }
@@ -285,7 +271,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 JsonObject json = ctx.getBodyAsJson();
 
-                // cfgSrvc.saveBasicCluster(userId, json);
+                // saveBasicCluster(userId, json);
 
                 // replyWithResult(ctx, rowsAffected(1));
             }
@@ -312,7 +298,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                 if (F.isEmpty(clusterIds))
                     throw new IllegalStateException("Cluster IDs not found");
 
-                // cfgSrvc.deleteClusters(userId, clusterIds);
+                // deleteClusters(userId, clusterIds);
 
                 // replyWithResult(ctx, rowsAffected(clusterIds.size()));
             }

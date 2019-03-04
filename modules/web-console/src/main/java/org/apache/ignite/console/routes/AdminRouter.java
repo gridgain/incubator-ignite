@@ -18,12 +18,14 @@
 package org.apache.ignite.console.routes;
 
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
+
+import static org.apache.ignite.console.common.Utils.emptyJson;
 
 /**
  * Admin router.
@@ -56,14 +58,8 @@ public class AdminRouter extends AbstractRouter {
     private void list(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            try {
-                vertx.eventBus().send(Addresses.ACCOUNT_LIST, "", replyHandler(ctx, E_FAILED_TO_LOAD_USERS));
-            }
-            catch (Throwable e) {
-                replyWithError(ctx, E_FAILED_TO_LOAD_USERS, e);
-            }
-        }
+        if (user != null)
+            send(Addresses.ACCOUNT_LIST, emptyJson(), ctx, E_FAILED_TO_LOAD_USERS);
     }
 
     /**
@@ -74,10 +70,12 @@ public class AdminRouter extends AbstractRouter {
 
         if (user != null) {
             try {
+                JsonObject msg = new JsonObject();
+
 //                UUID userId = UUID.fromString(requestParam(ctx, "userId"));
 //                boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
 
-                // accSrvc.toggle(userId, adminFlag);
+                // .toggle(userId, adminFlag);
             }
             catch (Throwable e) {
                 replyWithError(ctx, "Failed to change admin status", e);
@@ -89,27 +87,27 @@ public class AdminRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void remove(RoutingContext ctx) {
-        // sendResult(ctx, "[]");
+        replyWithResult(ctx, "[]");
     }
 
     /**
      * @param ctx Context.
      */
     private void become(RoutingContext ctx) {
-        // sendResult(ctx, "[]");
+        replyWithResult(ctx, "[]");
     }
 
     /**
      * @param ctx Context.
      */
     private void revertIdentity(RoutingContext ctx) {
-        // sendResult(ctx, "[]");
+        replyWithResult(ctx, "[]");
     }
 
     /**
      * @param ctx Context.
      */
     private void notifications(RoutingContext ctx) {
-        // sendResult(ctx, "[]");
+        replyWithResult(ctx, "[]");
     }
 }

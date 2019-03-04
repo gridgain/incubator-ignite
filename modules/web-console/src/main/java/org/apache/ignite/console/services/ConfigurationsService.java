@@ -22,8 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -42,6 +40,7 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.console.common.Utils.diff;
 import static org.apache.ignite.console.common.Utils.idsFromJson;
 import static org.apache.ignite.console.common.Utils.toJsonArray;
+import static org.apache.ignite.console.common.Utils.uuidParam;
 
 /**
  * Service to handle notebooks.
@@ -105,23 +104,30 @@ public class ConfigurationsService extends AbstractService {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        EventBus eventBus = vertx.eventBus();
+        addConsumer(Addresses.CONFIGURATION_LOAD, this::loadConfiguration);
+        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, this::loadClusters);
 
-        eventBus.consumer(Addresses.CONFIGURATION_LOAD, this::loadConfiguration1);
+//        addConsumer(Addresses.CONFIGURATION_LOAD_CLUSTER, this::loadCluster);
+//        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, loadShortCaches);
+//        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, loadShortModels);
+//        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, this::loadShortIgfss);
+//
+//        addConsumer(Addresses.CONFIGURATION_LOAD_CACHE, this::loadCache);
+//        addConsumer(Addresses.CONFIGURATION_LOAD_MODEL, this::loadModel);
+//        addConsumer(Addresses.CONFIGURATION_LOAD_IGFS, this::loadIgfs);
+//
+//        addConsumer(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, this::saveAdvancedCluster);
+//        addConsumer(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, this::saveBasicCluster);
+//        addConsumer(Addresses.CONFIGURATION_DELETE_CLUSTER, this::deleteClusters);
     }
 
     /**
-     * @param msg Message.
-     */
-    private void loadConfiguration1(Message<JsonObject> msg) {
-        msg.fail(500, "Not implemented yet");
-    }
-
-    /**
-     * @param clusterId Cluster ID.
+     * @param params Parameters.
      * @return Configuration.
      */
-    public JsonObject loadConfiguration(UUID clusterId) {
+    protected JsonObject loadConfiguration(JsonObject params) {
+        UUID clusterId = uuidParam(params, "clusterId");
+
         try (Transaction ignored = txStart()) {
             Cluster cluster = clustersTbl.load(clusterId);
 
@@ -141,13 +147,40 @@ public class ConfigurationsService extends AbstractService {
     }
 
     /**
+     * @param params Parameters.
+     * @return List of user clusters.
+     */
+    private JsonArray loadClusters(JsonObject params) {
+        UUID userId = getUserId(params);
+
+        try (Transaction ignored = txStart()) {
+            TreeSet<UUID> clusterIds = clustersIdx.load(userId);
+
+            Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
+
+            JsonArray shortList = new JsonArray();
+
+            clusters.forEach(cluster -> shortList.add(shortCluster(cluster)));
+
+            return shortList;
+        }
+    }
+
+    /**
      * @param clusterId Cluster ID.
      * @return Cluster.
      */
-    public Cluster loadCluster(UUID clusterId) {
+    public JsonObject loadCluster(UUID clusterId) {
+        Cluster cluster;
+
         try (Transaction ignored = txStart()) {
-            return clustersTbl.load(clusterId);
+            cluster = clustersTbl.load(clusterId);
         }
+
+        if (cluster == null)
+            throw new IllegalStateException("Cluster not found for ID: " + clusterId);
+
+        return new JsonObject(cluster.json());
     }
 
     /**
@@ -168,24 +201,6 @@ public class ConfigurationsService extends AbstractService {
             .put("cachesCount", cachesCnt)
             .put("modelsCount", modelsCnt)
             .put("igfsCount", igfsCnt);
-    }
-
-    /**
-     * @param userId User ID.
-     * @return List of user clusters.
-     */
-    public JsonArray loadClusters(UUID userId) {
-        try (Transaction ignored = txStart()) {
-            TreeSet<UUID> clusterIds = clustersIdx.load(userId);
-
-            Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
-
-            JsonArray shortList = new JsonArray();
-
-            clusters.forEach(cluster -> shortList.add(shortCluster(cluster)));
-
-            return shortList;
-        }
     }
 
     /**

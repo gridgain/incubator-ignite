@@ -21,7 +21,6 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 import javax.cache.Cache;
-import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -75,11 +74,11 @@ public class AccountsService extends AbstractService {
     /**
      * Get account by ID.
      *
-     * @param msg Message.
+     * @param params Parameters in JSON format.
      * @return Account as JSON.
      */
-    public JsonObject getById(Message<JsonObject> msg) {
-        UUID accId = uuidParam(msg.body(), "accId");
+    public JsonObject getById(JsonObject params) {
+        UUID accId = uuidParam(params, "_id");
 
         try(Transaction ignored = txStart()) {
             Account acc = accountsTbl.load(accId);
@@ -87,18 +86,18 @@ public class AccountsService extends AbstractService {
             if (acc == null)
                 throw new IllegalStateException("Account not found with ID: " + accId);
 
-            return acc.toJson();
+            return acc.principal();
         }
     }
 
     /**
      * Get account by email.
      *
-     * @param msg Message.
+     * @param params Parameters in JSON format.
      * @return Account as JSON.
      */
-    public JsonObject getByEmail(Message<JsonObject> msg) {
-        String email = msg.body().getString("email");
+    public JsonObject getByEmail(JsonObject params) {
+        String email = params.getString("email");
 
         try(Transaction ignored = txStart()) {
             Account acc = accountsTbl.getByIndex(email);
@@ -111,29 +110,27 @@ public class AccountsService extends AbstractService {
     }
 
     /**
-     * @param msg Message.
+     * @param params Parameters in JSON format.
      */
-    private JsonObject register(Message<JsonObject> msg) {
+    private JsonObject register(JsonObject params) {
         boolean admin = shouldBeAdmin();
-
-        JsonObject json = msg.body();
 
         Account account = new Account(
             UUID.randomUUID(),
-            json.getString("email"),
-            json.getString("firstName"),
-            json.getString("lastName"),
-            json.getString("company"),
-            json.getString("country"),
-            json.getString("industry"),
+            params.getString("email"),
+            params.getString("firstName"),
+            params.getString("lastName"),
+            params.getString("company"),
+            params.getString("country"),
+            params.getString("industry"),
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             ZonedDateTime.now().toString(),
             "",
             "",
             "",
-            json.getString("salt"),
-            json.getString("hash"),
+            params.getString("salt"),
+            params.getString("hash"),
             admin,
             false,
             false
@@ -145,9 +142,9 @@ public class AccountsService extends AbstractService {
     }
 
     /**
-     * @param msg Message.
+     * @param params Parameters in JSON format.
      */
-    private JsonArray list(Message<JsonObject> msg) {
+    private JsonArray list(JsonObject params) {
         IgniteCache<UUID, Account> cache = accountsTbl.cache();
 
         List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
@@ -184,11 +181,11 @@ public class AccountsService extends AbstractService {
     /**
      * Save account.
      *
-     * @param msg Message.
+     * @param params Parameters in JSON format.
      * @return Saved account.
      */
-    public JsonObject save(Message<JsonObject> msg) {
-        Account account = Account.fromJson(msg.body());
+    public JsonObject save(JsonObject params) {
+        Account account = Account.fromJson(params);
 
         try (Transaction tx = txStart()) {
             accountsTbl.save(account);
@@ -225,13 +222,13 @@ public class AccountsService extends AbstractService {
     /**
      * Remove account.
      *
-     * @param msg Message.
+     * @param params Parameters in JSON format.
      * @return JSON with affected rows .
      */
-    public JsonObject delete(Message<JsonObject> msg) {
+    public JsonObject delete(JsonObject params) {
         int rmvCnt = 0;
 
-        UUID accId = uuidParam(msg.body(), "accId");
+        UUID accId = uuidParam(params, "_id");
 
         try (Transaction tx = txStart()) {
             Account acc = accountsTbl.delete(accId);
@@ -246,12 +243,10 @@ public class AccountsService extends AbstractService {
     }
 
     /**
-     * @param msg Message.
+     * @param params Parameters in JSON format.
      * @return JSON result.
      */
-    public JsonObject toggle(Message<JsonObject> msg) {
-        JsonObject params = msg.body();
-
+    public JsonObject toggle(JsonObject params) {
         UUID userId = uuidParam(params, "userId");
         boolean adminFlag = boolParam(params, "adminFlag");
 

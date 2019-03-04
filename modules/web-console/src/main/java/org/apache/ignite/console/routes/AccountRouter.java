@@ -24,8 +24,8 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.UserSessionHandler;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.common.Addresses;
 
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
@@ -33,6 +33,12 @@ import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
  * Router to handle REST API for configurations.
  */
 public class AccountRouter extends AbstractRouter {
+    /** */
+    private static final String E_SIGN_UP_FAILED = "Sign up failed";
+
+    /** */
+    private static final String E_FAILED_TO_GET_USER = "Failed to get user";
+
     /** */
     private final IgniteAuth authProvider;
 
@@ -50,7 +56,7 @@ public class AccountRouter extends AbstractRouter {
     @Override public void install(Router router) {
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        router.post("/api/v1/user").handler(this::getAccount);
+        router.post("/api/v1/user").handler(this::getUser);
         router.post("/api/v1/signup").handler(this::signUp);
         router.post("/api/v1/signin").handler(this::signIn);
         router.post("/api/v1/logout").handler(this::logout);
@@ -63,11 +69,11 @@ public class AccountRouter extends AbstractRouter {
     /**
      * @param ctx Context
      */
-    private void getAccount(RoutingContext ctx) {
+    private void getUser(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null)
-            replyWithResult(ctx, user.principal());
+            send(Addresses.ACCOUNT_GET_BY_ID, user.principal(), ctx, E_FAILED_TO_GET_USER);
     }
 
     /**
@@ -77,15 +83,15 @@ public class AccountRouter extends AbstractRouter {
         try {
             JsonObject body = ctx.getBodyAsJson();
 
-            authProvider.registerAccount(body).get();
-
-            signIn(ctx);
-        }
-        catch (IgniteException e) {
-            replyWithError(ctx, e.getMessage(), e);
+            authProvider.registerAccount(body, asyncRes -> {
+                if (asyncRes.succeeded())
+                    signIn(ctx);
+                else
+                    replyWithError(ctx, E_SIGN_UP_FAILED, asyncRes.cause());
+            });
         }
         catch (Throwable e) {
-            replyWithError(ctx, "Sign up failed", e);
+            replyWithError(ctx, E_SIGN_UP_FAILED, e);
         }
     }
 

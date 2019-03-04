@@ -18,11 +18,12 @@
 package org.apache.ignite.console.routes;
 
 import java.net.HttpURLConnection;
+import java.util.Map;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.HttpResponseHandler;
 import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -69,11 +70,33 @@ public abstract class AbstractRouter implements RestApiRouter {
 
     /**
      * @param ctx Context.
-     * @param errMsg Error message.
-     * @return HTTP reply handler.
+     * @return Request params.
      */
-    protected <T> HttpResponseHandler<T> replyHandler(RoutingContext ctx, String errMsg) {
-        return new HttpResponseHandler<>(ignite, ctx, errMsg);
+    protected JsonObject requestParams(RoutingContext ctx) {
+        JsonObject params = new JsonObject();
+
+        for (Map.Entry<String, String> entry : ctx.request().params().entries())
+            params.put(entry.getKey(), entry.getValue());
+
+        return params;
+    }
+
+    /**
+     * @param addr Address where to send message.
+     * @param msg Message to send.
+     * @param ctx Context.
+     * @param errMsg Error message.
+     */
+    public <T> void send(String addr, Object msg, RoutingContext ctx, String errMsg) {
+        vertx.eventBus().send(addr, msg, asyncRes -> {
+            if (asyncRes.succeeded())
+                sendResult(ctx, asyncRes.result().body());
+            else {
+                ignite.log().error(errMsg, asyncRes.cause());
+
+                sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
+            }
+        });
     }
 
     /**

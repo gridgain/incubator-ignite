@@ -34,7 +34,6 @@ import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
 
 import static org.apache.ignite.console.common.Utils.origin;
-import static org.apache.ignite.console.common.Utils.sendError;
 
 /**
  * Router to handle REST API to download Web Agent.
