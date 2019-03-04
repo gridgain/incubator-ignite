@@ -120,6 +120,7 @@ import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Before;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_EVENT_DRIVEN_SERVICE_PROCESSOR_ENABLED;
 import static org.apache.ignite.IgniteSystemProperties.getBoolean;
@@ -502,16 +503,14 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
         return true;
     }
 
-    /** {@inheritDoc} */
-    @Override public void setUp() throws Exception {
-        // Disable SSL hostname verifier.
+    /** Disable SSL hostname verifier. */
+    @Before
+    public void disableSSLVerifier(){
         HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
             @Override public boolean verify(String s, SSLSession sslSes) {
                 return true;
             }
         });
-
-        super.setUp();
     }
 
     /** {@inheritDoc} */

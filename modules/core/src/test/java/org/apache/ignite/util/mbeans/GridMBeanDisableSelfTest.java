@@ -27,24 +27,26 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
  * Disabling MBeans test.
  */
 public class GridMBeanDisableSelfTest extends GridCommonAbstractTest {
-    /** {@inheritDoc} */
-    @Override public void setUp() throws Exception {
+    /** Before test class. */
+    @BeforeClass
+    public static void disableMBeans() {
         IgniteUtils.IGNITE_MBEANS_DISABLED = true;
-
-        super.setUp();
     }
 
-    /** {@inheritDoc} */
-    @Override public void tearDown() throws Exception {
+    /** After test class. */
+    @AfterClass
+    public static void allowMBeans(){
         IgniteUtils.IGNITE_MBEANS_DISABLED = false;
-
-        super.tearDown();
     }
 
     /**
