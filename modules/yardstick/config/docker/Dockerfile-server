@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-FROM openjdk:8-alpine
+FROM openjdk:8-jdk-slim-stretch
