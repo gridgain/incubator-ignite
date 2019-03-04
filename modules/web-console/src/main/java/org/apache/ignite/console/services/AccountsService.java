@@ -77,7 +77,7 @@ public class AccountsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Account as JSON.
      */
-    public JsonObject getById(JsonObject params) {
+    private JsonObject getById(JsonObject params) {
         UUID accId = uuidParam(params, "_id");
 
         try(Transaction ignored = txStart()) {
@@ -96,7 +96,7 @@ public class AccountsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Account as JSON.
      */
-    public JsonObject getByEmail(JsonObject params) {
+    private JsonObject getByEmail(JsonObject params) {
         String email = params.getString("email");
 
         try(Transaction ignored = txStart()) {
@@ -152,9 +152,11 @@ public class AccountsService extends AbstractService {
         JsonArray res = new JsonArray();
 
         users.forEach(entry -> {
-            Account user = entry.getValue();
+            Object v = entry.getValue();
 
-            if (user instanceof Account) {
+            if (v instanceof Account) {
+                Account user = (Account)v;
+
                 res.add(new JsonObject()
                     .put("_id", user._id())
                     .put("firstName", user.firstName())
@@ -184,7 +186,7 @@ public class AccountsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Saved account.
      */
-    public JsonObject save(JsonObject params) {
+    private JsonObject save(JsonObject params) {
         Account account = Account.fromJson(params);
 
         try (Transaction tx = txStart()) {
@@ -225,7 +227,7 @@ public class AccountsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return JSON with affected rows .
      */
-    public JsonObject delete(JsonObject params) {
+    private JsonObject delete(JsonObject params) {
         int rmvCnt = 0;
 
         UUID accId = uuidParam(params, "_id");
@@ -246,7 +248,7 @@ public class AccountsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return JSON result.
      */
-    public JsonObject toggle(JsonObject params) {
+    private JsonObject toggle(JsonObject params) {
         UUID userId = uuidParam(params, "userId");
         boolean adminFlag = boolParam(params, "adminFlag");
 

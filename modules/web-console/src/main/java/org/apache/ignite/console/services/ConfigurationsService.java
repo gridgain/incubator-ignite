@@ -19,9 +19,11 @@ package org.apache.ignite.console.services;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -35,7 +37,6 @@ import org.apache.ignite.console.dto.Igfs;
 import org.apache.ignite.console.dto.Model;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
-import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.console.common.Utils.diff;
 import static org.apache.ignite.console.common.Utils.idsFromJson;
@@ -107,22 +108,22 @@ public class ConfigurationsService extends AbstractService {
         addConsumer(Addresses.CONFIGURATION_LOAD, this::loadConfiguration);
         addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, this::loadClusters);
 
-//        addConsumer(Addresses.CONFIGURATION_LOAD_CLUSTER, this::loadCluster);
-//        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, loadShortCaches);
-//        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, loadShortModels);
-//        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, this::loadShortIgfss);
-//
-//        addConsumer(Addresses.CONFIGURATION_LOAD_CACHE, this::loadCache);
-//        addConsumer(Addresses.CONFIGURATION_LOAD_MODEL, this::loadModel);
-//        addConsumer(Addresses.CONFIGURATION_LOAD_IGFS, this::loadIgfs);
-//
-//        addConsumer(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, this::saveAdvancedCluster);
-//        addConsumer(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, this::saveBasicCluster);
-//        addConsumer(Addresses.CONFIGURATION_DELETE_CLUSTER, this::deleteClusters);
+        addConsumer(Addresses.CONFIGURATION_LOAD_CLUSTER, this::loadCluster);
+        addConsumer(Addresses.CONFIGURATION_LOAD_CACHE, this::loadCache);
+        addConsumer(Addresses.CONFIGURATION_LOAD_MODEL, this::loadModel);
+        addConsumer(Addresses.CONFIGURATION_LOAD_IGFS, this::loadIgfs);
+
+        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, this::loadShortCaches);
+        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, this::loadShortModels);
+        addConsumer(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, this::loadShortIgfss);
+
+        addConsumer(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, this::saveAdvancedCluster);
+        addConsumer(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, this::saveBasicCluster);
+        addConsumer(Addresses.CONFIGURATION_DELETE_CLUSTER, this::deleteClusters);
     }
 
     /**
-     * @param params Parameters.
+     * @param params Parameters in JSON format.
      * @return Configuration.
      */
     protected JsonObject loadConfiguration(JsonObject params) {
@@ -147,43 +148,6 @@ public class ConfigurationsService extends AbstractService {
     }
 
     /**
-     * @param params Parameters.
-     * @return List of user clusters.
-     */
-    private JsonArray loadClusters(JsonObject params) {
-        UUID userId = getUserId(params);
-
-        try (Transaction ignored = txStart()) {
-            TreeSet<UUID> clusterIds = clustersIdx.load(userId);
-
-            Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
-
-            JsonArray shortList = new JsonArray();
-
-            clusters.forEach(cluster -> shortList.add(shortCluster(cluster)));
-
-            return shortList;
-        }
-    }
-
-    /**
-     * @param clusterId Cluster ID.
-     * @return Cluster.
-     */
-    public JsonObject loadCluster(UUID clusterId) {
-        Cluster cluster;
-
-        try (Transaction ignored = txStart()) {
-            cluster = clustersTbl.load(clusterId);
-        }
-
-        if (cluster == null)
-            throw new IllegalStateException("Cluster not found for ID: " + clusterId);
-
-        return new JsonObject(cluster.json());
-    }
-
-    /**
      * @param cluster Cluster DTO.
      * @return Short view of cluster DTO as JSON object.
      */
@@ -204,56 +168,124 @@ public class ConfigurationsService extends AbstractService {
     }
 
     /**
-     * @param cacheId Cache ID.
+     * @param params Parameters in JSON format.
+     * @return List of user clusters.
+     */
+    private JsonArray loadClusters(JsonObject params) {
+        UUID userId = getUserId(params);
+
+        try (Transaction ignored = txStart()) {
+            TreeSet<UUID> clusterIds = clustersIdx.load(userId);
+
+            Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
+
+            JsonArray shortList = new JsonArray();
+
+            clusters.forEach(cluster -> shortList.add(shortCluster(cluster)));
+
+            return shortList;
+        }
+    }
+
+    /**
+     * @param params Parameters in JSON format.
+     * @return Cluster.
+     */
+    private JsonObject loadObject(JsonObject params, String paramName, Table<? extends DataObject> tbl, String objName) {
+        UUID id = uuidParam(params, paramName);
+
+        DataObject obj;
+
+        try (Transaction ignored = txStart()) {
+            obj = tbl.load(id);
+        }
+
+        if (obj == null)
+            throw new IllegalStateException(objName + " not found for ID: " + id);
+
+        return new JsonObject(obj.json());
+    }
+
+    /**
+     * @param params Parameters in JSON format.
+     * @return Cluster.
+     */
+    private JsonObject loadCluster(JsonObject params) {
+        return loadObject(params, "clusterId", clustersTbl, "Cluster");
+    }
+
+    /**
+     * @param params Parameters in JSON format.
      * @return Cache.
      */
-    @Nullable public Cache loadCache(UUID cacheId) {
-        try (Transaction ignored = txStart()) {
-            return cachesTbl.load(cacheId);
-        }
+    private JsonObject loadCache(JsonObject params) {
+        return loadObject(params, "cacheId", cachesTbl, "Cache");
     }
 
     /**
-     * @param clusterId Cluster ID.
-     * @return Collection of cluster caches.
+     * @param params Parameters in JSON format.
+     * @return Model.
      */
-    public Collection<? extends DataObject> loadCaches(UUID clusterId) {
-        return loadList(clusterId, cachesIdx, cachesTbl);
+    private JsonObject loadModel(JsonObject params) {
+        return loadObject(params, "modelId", modelsTbl, "Model");
     }
 
     /**
-     * @param clusterId Cluster ID.
-     * @return Collection of cluster models.
-     */
-    public Collection<? extends DataObject> loadModels(UUID clusterId) {
-        return loadList(clusterId, modelsIdx, modelsTbl);
-    }
-
-    /**
-     * @param clusterId Cluster ID.
-     * @return Collection of cluster IGFSs.
-     */
-    public Collection<? extends DataObject> loadIgfss(UUID clusterId) {
-        return loadList(clusterId, igfssIdx, igfssTbl);
-    }
-
-    /**
-     * @param mdlId Model ID.
-     */
-    @Nullable public Model loadModel(UUID mdlId) {
-        try (Transaction ignored = txStart()) {
-             return modelsTbl.load(mdlId);
-        }
-    }
-
-    /**
-     * @param igfsId IGFS ID.
+     * @param params Parameters in JSON format.
      * @return IGFS.
      */
-    @Nullable public Igfs loadIgfs(UUID igfsId) {
-        try (Transaction ignored = txStart()) {
-            return igfssTbl.load(igfsId);
-        }
+    private JsonObject loadIgfs(JsonObject params) {
+        return loadObject(params, "igfsId", modelsTbl, "IGFS");
+    }
+
+
+    /**
+     * Load short list of DTOs.
+     *
+     * @param params Parameters in JSON format.
+     * @param ownerIdx Index with DTOs IDs.
+     * @param tbl Table with DTOs.
+     * @return List of short objects.
+     */
+    private JsonArray loadShortList(
+        JsonObject params,
+        OneToManyIndex ownerIdx,
+        Table<? extends DataObject> tbl
+    ) {
+        UUID clusterId = uuidParam(params, "clusterId");
+
+        Collection<? extends DataObject> items = loadList(clusterId, ownerIdx, tbl);
+
+        List<JsonObject> list = items
+            .stream()
+            .map(DataObject::shortView)
+            .collect(Collectors.toList());
+
+        return new JsonArray(list);
+    }
+
+    /**
+     * @param params Parameters in JSON format.
+     * @return Collection of cluster caches.
+     */
+    private JsonArray loadShortCaches(JsonObject params) {
+        return loadShortList(params, cachesIdx, cachesTbl);
+    }
+
+    /**
+     * @param params Parameters in JSON format.
+     * @return Collection of cluster models.
+     */
+    private JsonArray loadShortModels(JsonObject params) {
+        return loadShortList(params, modelsIdx, modelsTbl);
+    }
+
+    /**
+     * @param params Parameters in JSON format.
+     * @return Collection of cluster IGFSs.
+     */
+    private JsonArray loadShortIgfss(JsonObject params) {
+        return loadShortList(params, igfssIdx, igfssTbl);
     }
 
     /**
@@ -405,10 +437,13 @@ public class ConfigurationsService extends AbstractService {
     /**
      * Save full cluster.
      *
-     * @param userId User ID.
-     * @param json JSON data.
+     * @param params Parameters in JSON format.
+     * @return Affected rows.
      */
-    public void saveAdvancedCluster(UUID userId, JsonObject json) {
+    private JsonObject saveAdvancedCluster(JsonObject params) {
+        UUID userId = getUserId(params);
+        JsonObject json = getProperty(params, "cluster");
+
         try (Transaction tx = txStart()) {
             Cluster cluster = saveCluster(userId, json);
 
@@ -418,15 +453,20 @@ public class ConfigurationsService extends AbstractService {
 
             tx.commit();
         }
+
+        return rowsAffected(1);
     }
 
     /**
      * Save basic cluster.
      *
-     * @param userId User ID.
-     * @param json JSON data.
+     * @param params Parameters in JSON format.
+     * @return Affected rows.
      */
-    public void saveBasicCluster(UUID userId, JsonObject json) {
+    private JsonObject saveBasicCluster(JsonObject params) {
+        UUID userId = getUserId(params);
+        JsonObject json = getProperty(params, "cluster");
+
         try (Transaction tx = txStart()) {
             Cluster cluster = saveCluster(userId, json);
 
@@ -434,6 +474,8 @@ public class ConfigurationsService extends AbstractService {
 
             tx.commit();
         }
+
+        return rowsAffected(1);
     }
 
     /**
@@ -448,9 +490,13 @@ public class ConfigurationsService extends AbstractService {
     /**
      * Delete clusters.
      *
-     * @param userId User ID.
+     * @param params Parameters in JSON format.
+     * @return Affected rows.
      */
-    public void deleteClusters(UUID userId, TreeSet<UUID> clusterIds) {
+    protected JsonObject deleteClusters(JsonObject params) {
+        UUID userId = getUserId(params);
+        TreeSet<UUID> clusterIds = idsFromJson(getProperty(params, "cluster"), "_id");
+
         try (Transaction tx = txStart()) {
             Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
 
@@ -468,5 +514,7 @@ public class ConfigurationsService extends AbstractService {
 
             tx.commit();
         }
+
+        return rowsAffected(clusterIds.size());
     }
 }

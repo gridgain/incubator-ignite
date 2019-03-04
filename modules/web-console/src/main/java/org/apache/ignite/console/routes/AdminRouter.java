@@ -34,6 +34,9 @@ public class AdminRouter extends AbstractRouter {
     /** */
     private static final String E_FAILED_TO_LOAD_USERS = "Failed to load users list";
 
+    /** */
+    private static final String E_FAILED_TO_CHANGE_ADMIN_STATUS = "Failed to change admin status";
+
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
@@ -69,17 +72,11 @@ public class AdminRouter extends AbstractRouter {
         User user = checkUser(ctx);
 
         if (user != null) {
-            try {
-                JsonObject msg = new JsonObject();
+            JsonObject msg = new JsonObject()
+                .put("user", user.principal())
+                .put("admin", requestParams(ctx));
 
-//                UUID userId = UUID.fromString(requestParam(ctx, "userId"));
-//                boolean adminFlag = Boolean.parseBoolean(requestParam(ctx, "adminFlag"));
-
-                // .toggle(userId, adminFlag);
-            }
-            catch (Throwable e) {
-                replyWithError(ctx, "Failed to change admin status", e);
-            }
+            send(Addresses.ACCOUNT_TOGGLE, msg, ctx, E_FAILED_TO_CHANGE_ADMIN_STATUS);
         }
     }
 
