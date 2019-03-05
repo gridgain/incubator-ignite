@@ -28,7 +28,6 @@ import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.transactions.Transaction;
 
-import static org.apache.ignite.console.common.Utils.emptyJson;
 import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
@@ -92,7 +91,7 @@ public class NotebooksService extends AbstractService {
             tx.commit();
         }
 
-        return emptyJson();
+        return rowsAffected(1);
     }
 
     /**

@@ -52,16 +52,13 @@ public interface Addresses {
     public static final String ACCOUNT_REGISTER = "account:register";
 
     /** */
-    public static final String ACCOUNT_LIST = "account:list";
+    public static final String ADMIN_LOAD_ACCOUNTS = "admin: load:accounts";
 
     /** */
-    public static final String ACCOUNT_SAVE = "account:save";
+    public static final String ADMIN_DELETE_ACCOUNT = "admin:delete:account";
 
     /** */
-    public static final String ACCOUNT_DELETE = "account:delete";
-
-    /** */
-    public static final String ACCOUNT_TOGGLE = "account:toggle";
+    public static final String ADMIN_CHANGE_ADMIN_STATUS = "admin:change:adminStatus";
 
     /** */
     public static final String CONFIGURATION_LOAD = "configuration:load";

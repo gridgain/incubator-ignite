@@ -18,21 +18,15 @@
 package org.apache.ignite.console.services;
 
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.UUID;
-import javax.cache.Cache;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.transactions.Transaction;
 
-import static org.apache.ignite.console.common.Utils.boolParam;
-import static org.apache.ignite.console.common.Utils.emptyJson;
 import static org.apache.ignite.console.common.Utils.uuidParam;
 
 /**
@@ -65,10 +59,6 @@ public class AccountsService extends AbstractService {
         addConsumer(Addresses.ACCOUNT_GET_BY_ID, this::getById);
         addConsumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
         addConsumer(Addresses.ACCOUNT_REGISTER, this::register);
-        addConsumer(Addresses.ACCOUNT_LIST, this::list);
-        addConsumer(Addresses.ACCOUNT_SAVE, this::save);
-        addConsumer(Addresses.ACCOUNT_DELETE, this::delete);
-        addConsumer(Addresses.ACCOUNT_TOGGLE, this::toggle);
     }
 
     /**
@@ -111,9 +101,24 @@ public class AccountsService extends AbstractService {
 
     /**
      * @param params Parameters in JSON format.
+     * @return Rows affected.
      */
+    @SuppressWarnings("unchecked")
     private JsonObject register(JsonObject params) {
-        boolean admin = shouldBeAdmin();
+        boolean admin;
+
+        try(Transaction tx = txStart()) {
+            IgniteCache cache = accountsTbl.cache();
+
+            Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
+
+            admin = firstUserMarker == null;
+
+            if (admin)
+                cache.put(FIRST_USER_MARKER_KEY, FIRST_USER_MARKER_KEY);
+
+            tx.commit();
+        }
 
         Account account = new Account(
             UUID.randomUUID(),
@@ -138,133 +143,6 @@ public class AccountsService extends AbstractService {
 
         accountsTbl.save(account);
 
-        return emptyJson();
-    }
-
-    /**
-     * @param params Parameters in JSON format.
-     */
-    private JsonArray list(JsonObject params) {
-        IgniteCache<UUID, Account> cache = accountsTbl.cache();
-
-        List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
-
-        JsonArray res = new JsonArray();
-
-        users.forEach(entry -> {
-            Object v = entry.getValue();
-
-            if (v instanceof Account) {
-                Account user = (Account)v;
-
-                res.add(new JsonObject()
-                    .put("_id", user._id())
-                    .put("firstName", user.firstName())
-                    .put("lastName", user.lastName())
-                    .put("admin", user.admin())
-                    .put("email", user.email())
-                    .put("company", user.company())
-                    .put("country", user.country())
-                    .put("lastLogin", user.lastLogin())
-                    .put("lastActivity", user.lastActivity())
-                    .put("activated", user.activated())
-                    .put("counters", new JsonObject()
-                        .put("clusters", 0)
-                        .put("caches", 0)
-                        .put("models", 0)
-                        .put("igfs", 0))
-                );
-            }
-        });
-
-        return res;
-    }
-
-    /**
-     * Save account.
-     *
-     * @param params Parameters in JSON format.
-     * @return Saved account.
-     */
-    private JsonObject save(JsonObject params) {
-        Account account = Account.fromJson(params);
-
-        try (Transaction tx = txStart()) {
-            accountsTbl.save(account);
-
-            tx.commit();
-        }
-
-        return emptyJson();
-    }
-
-    /**
-     * @return {@code true} if first user should be granted with admin permissions.
-     */
-    @SuppressWarnings("unchecked")
-    private boolean shouldBeAdmin() {
-        boolean admin;
-
-        try(Transaction tx = txStart()) {
-            IgniteCache cache = accountsTbl.cache();
-
-            Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
-
-            admin = firstUserMarker == null;
-
-            if (admin)
-                cache.put(FIRST_USER_MARKER_KEY, FIRST_USER_MARKER_KEY);
-
-            tx.commit();
-        }
-
-        return admin;
-    }
-
-    /**
-     * Remove account.
-     *
-     * @param params Parameters in JSON format.
-     * @return JSON with affected rows .
-     */
-    private JsonObject delete(JsonObject params) {
-        int rmvCnt = 0;
-
-        UUID accId = uuidParam(params, "_id");
-
-        try (Transaction tx = txStart()) {
-            Account acc = accountsTbl.delete(accId);
-
-            if (acc != null)
-                rmvCnt = 1;
-
-            tx.commit();
-        }
-
-        return rowsAffected(rmvCnt);
-    }
-
-    /**
-     * @param params Parameters in JSON format.
-     * @return JSON result.
-     */
-    private JsonObject toggle(JsonObject params) {
-        UUID userId = uuidParam(params, "userId");
-        boolean adminFlag = boolParam(params, "adminFlag");
-
-        try (Transaction tx = txStart()) {
-            Account acc = accountsTbl.load(userId);
-
-            if (acc == null)
-                throw new IllegalStateException("Account not found for id: " + userId);
-
-            acc.admin(adminFlag);
-
-            accountsTbl.save(acc);
-
-            tx.commit();
-        }
-
-        return emptyJson();
+        return rowsAffected(1);
     }
 }

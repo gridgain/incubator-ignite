@@ -37,6 +37,7 @@ import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.services.AdminService;
 import org.apache.ignite.console.services.ConfigurationsService;
 import org.apache.ignite.console.services.NotebooksService;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -61,8 +62,6 @@ public class WebConsoleLauncher extends AbstractVerticle {
             .setBlockedThreadCheckInterval(1000L * 60L * 60L)
             .setClusterManager(new IgniteClusterManager(ignite));
 
-//        Vertx vertx = Vertx.vertx(options);
-
         Vertx.clusteredVertx(options, res -> {
             if (res.failed()) {
                 ignite.log().error("Failed to start clustered Vertx!");
@@ -83,6 +82,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
             vertx.deployVerticle(new AccountsService(ignite));
             vertx.deployVerticle(new ConfigurationsService(ignite));
             vertx.deployVerticle(new NotebooksService(ignite));
+            vertx.deployVerticle(new AdminService(ignite));
 
             vertx.deployVerticle(new WebConsoleServer(
                 cfg,

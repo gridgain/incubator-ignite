@@ -25,8 +25,6 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 
-import static org.apache.ignite.console.common.Utils.emptyJson;
-
 /**
  * Admin router.
  */
@@ -61,8 +59,11 @@ public class AdminRouter extends AbstractRouter {
     private void list(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null)
-            send(Addresses.ACCOUNT_LIST, emptyJson(), ctx, E_FAILED_TO_LOAD_USERS);
+        if (user != null) {
+            JsonObject msg = new JsonObject();
+
+            send(Addresses.ADMIN_LOAD_ACCOUNTS, msg, ctx, E_FAILED_TO_LOAD_USERS);
+        }
     }
 
     /**
@@ -76,7 +77,7 @@ public class AdminRouter extends AbstractRouter {
                 .put("user", user.principal())
                 .put("admin", requestParams(ctx));
 
-            send(Addresses.ACCOUNT_TOGGLE, msg, ctx, E_FAILED_TO_CHANGE_ADMIN_STATUS);
+            send(Addresses.ADMIN_CHANGE_ADMIN_STATUS, msg, ctx, E_FAILED_TO_CHANGE_ADMIN_STATUS);
         }
     }
 
@@ -84,27 +85,27 @@ public class AdminRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void remove(RoutingContext ctx) {
-        replyWithResult(ctx, "[]");
+        replyWithError(ctx, "Failed to remove user", new IllegalStateException("Not implemented yet"));
     }
 
     /**
      * @param ctx Context.
      */
     private void become(RoutingContext ctx) {
-        replyWithResult(ctx, "[]");
+        replyWithError(ctx, "Failed to become user", new IllegalStateException("Not implemented yet"));
     }
 
     /**
      * @param ctx Context.
      */
     private void revertIdentity(RoutingContext ctx) {
-        replyWithResult(ctx, "[]");
+        replyWithError(ctx, "Failed to revert to your identity", new IllegalStateException("Not implemented yet"));
     }
 
     /**
      * @param ctx Context.
      */
     private void notifications(RoutingContext ctx) {
-        replyWithResult(ctx, "[]");
+        replyWithError(ctx, "Failed to change notifications", new IllegalStateException("Not implemented yet"));
     }
 }

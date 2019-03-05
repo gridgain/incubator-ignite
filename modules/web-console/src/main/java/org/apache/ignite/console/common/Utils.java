@@ -140,13 +140,6 @@ public class Utils {
     }
 
     /**
-     * @return New instance of JSON object.
-     */
-    public static JsonObject emptyJson() {
-        return new JsonObject();
-    }
-
-    /**
      * @param path Path to JKS file.
      * @param pwd Optional password.
      * @return Java key store options or {@code null}.
