@@ -72,26 +72,26 @@ public class WebConsoleLauncher extends AbstractVerticle {
             Vertx vertx = res.result();
 
             RestApiRouter accRouter = new AccountRouter(ignite, vertx);
+            RestApiRouter adminRouter = new AdminRouter(ignite, vertx);
             RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite, vertx);
             RestApiRouter notebooksRouter = new NotebooksRouter(ignite, vertx);
             RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, vertx, "/your/path", "ignite-web-agent-x.y.z");
-            RestApiRouter adminRouter = new AdminRouter(ignite, vertx);
 
             WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
             vertx.deployVerticle(new AccountsService(ignite));
+            vertx.deployVerticle(new AdminService(ignite));
             vertx.deployVerticle(new ConfigurationsService(ignite));
             vertx.deployVerticle(new NotebooksService(ignite));
-            vertx.deployVerticle(new AdminService(ignite));
 
             vertx.deployVerticle(new WebConsoleServer(
                 cfg,
                 ignite,
                 accRouter,
+                adminRouter,
                 cfgsRouter,
                 notebooksRouter,
-                downloadRouter,
-                adminRouter
+                downloadRouter
             ));
 
             System.out.println("Ignite Web Console Server started");

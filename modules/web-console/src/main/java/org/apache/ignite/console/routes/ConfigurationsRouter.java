@@ -25,6 +25,10 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 
+import static io.vertx.core.http.HttpMethod.GET;
+import static io.vertx.core.http.HttpMethod.POST;
+import static io.vertx.core.http.HttpMethod.PUT;
+
 /**
  * Router to handle REST API for configurations.
  */
@@ -72,20 +76,20 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        router.get("/api/v1/configuration/:clusterId").handler(this::loadConfiguration);
-        router.get("/api/v1/configuration/clusters").handler(this::loadClustersShortList);
-        router.get("/api/v1/configuration/clusters/:clusterId").handler(this::loadCluster);
-        router.get("/api/v1/configuration/clusters/:clusterId/caches").handler(this::loadCachesShortList);
-        router.get("/api/v1/configuration/clusters/:clusterId/models").handler(this::loadModelsShortList);
-        router.get("/api/v1/configuration/clusters/:clusterId/igfss").handler(this::loadIgfssShortList);
+        registerRout(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
+        registerRout(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
+        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
+        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
+        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
+        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
 
-        router.get("/api/v1/configuration/caches/:cacheId").handler(this::loadCache);
-        router.get("/api/v1/configuration/domains/:modelId").handler(this::loadModel);
-        router.get("/api/v1/configuration/igfs/:igfsId").handler(this::loadIgfs);
+        registerRout(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
+        registerRout(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
+        registerRout(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
 
-        router.put("/api/v1/configuration/clusters").handler(this::saveAdvancedCluster);
-        router.put("/api/v1/configuration/clusters/basic").handler(this::saveBasicCluster);
-        router.post("/api/v1/configuration/clusters/remove").handler(this::deleteClusters);
+        registerRout(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
+        registerRout(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
+        registerRout(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
     }
 
     /**
@@ -106,12 +110,10 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadClustersShortList(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal());
 
-            send(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, msg, ctx, E_FAILED_TO_LOAD_CLUSTERS);
-        }
+        send(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, msg, ctx, E_FAILED_TO_LOAD_CLUSTERS);
     }
 
     /**
@@ -120,12 +122,10 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadCluster(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("cluster", requestParams(ctx));
+        JsonObject msg = new JsonObject()
+            .put("cluster", requestParams(ctx));
 
-            send(Addresses.CONFIGURATION_LOAD_CLUSTER, msg, ctx, E_FAILED_TO_LOAD_CLUSTER);
-        }
+        send(Addresses.CONFIGURATION_LOAD_CLUSTER, msg, ctx, E_FAILED_TO_LOAD_CLUSTER);
     }
 
     /**
@@ -136,12 +136,10 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadCachesShortList(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("cluster", requestParams(ctx));
+        JsonObject msg = new JsonObject()
+            .put("cluster", requestParams(ctx));
 
-            send(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_CACHES);
-        }
+        send(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_CACHES);
     }
 
     /**
@@ -152,12 +150,10 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadModelsShortList(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("cluster", requestParams(ctx));
+        JsonObject msg = new JsonObject()
+            .put("cluster", requestParams(ctx));
 
-            send(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_MODELS);
-        }
+        send(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_MODELS);
     }
 
     /**
@@ -168,12 +164,10 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadIgfssShortList(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("cluster", requestParams(ctx));
+        JsonObject msg = new JsonObject()
+            .put("cluster", requestParams(ctx));
 
-            send(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_IGFSS);
-        }
+        send(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_IGFSS);
     }
 
     /**
@@ -182,11 +176,9 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadCache(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = requestParams(ctx);
+        JsonObject msg = requestParams(ctx);
 
-            send(Addresses.CONFIGURATION_LOAD_CACHE, msg, ctx, E_FAILED_TO_LOAD_CACHE);
-        }
+        send(Addresses.CONFIGURATION_LOAD_CACHE, msg, ctx, E_FAILED_TO_LOAD_CACHE);
     }
 
     /**
@@ -195,11 +187,9 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadModel(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = requestParams(ctx);
+        JsonObject msg = requestParams(ctx);
 
-            send(Addresses.CONFIGURATION_LOAD_MODEL, msg, ctx, E_FAILED_TO_LOAD_MODEL);
-        }
+        send(Addresses.CONFIGURATION_LOAD_MODEL, msg, ctx, E_FAILED_TO_LOAD_MODEL);
     }
 
     /**
@@ -208,11 +198,9 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void loadIgfs(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = requestParams(ctx);
+        JsonObject msg = requestParams(ctx);
 
-            send(Addresses.CONFIGURATION_LOAD_IGFS, msg, ctx, E_FAILED_TO_LOAD_IGFS);
-        }
+        send(Addresses.CONFIGURATION_LOAD_IGFS, msg, ctx, E_FAILED_TO_LOAD_IGFS);
     }
 
     /**
@@ -223,13 +211,11 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void saveAdvancedCluster(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal())
-                .put("cluster", ctx.getBodyAsJson());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("cluster", ctx.getBodyAsJson());
 
-            send(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
-        }
+        send(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
     }
 
     /**
@@ -240,13 +226,11 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void saveBasicCluster(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal())
-                .put("cluster", ctx.getBodyAsJson());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("cluster", ctx.getBodyAsJson());
 
-            send(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
-        }
+        send(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
     }
 
     /**
@@ -257,13 +241,11 @@ public class ConfigurationsRouter extends AbstractRouter {
     private void deleteClusters(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal())
-                .put("cluster", ctx.getBodyAsJson());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("cluster", ctx.getBodyAsJson());
 
-            send(Addresses.CONFIGURATION_DELETE_CLUSTER, msg, ctx, E_FAILED_TO_DELETE_CLUSTER);
-        }
+        send(Addresses.CONFIGURATION_DELETE_CLUSTER, msg, ctx, E_FAILED_TO_DELETE_CLUSTER);
     }
 }
 

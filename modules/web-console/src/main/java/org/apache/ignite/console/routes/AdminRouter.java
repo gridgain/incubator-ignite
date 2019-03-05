@@ -25,6 +25,10 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 
+import static io.vertx.core.http.HttpMethod.GET;
+import static io.vertx.core.http.HttpMethod.POST;
+import static io.vertx.core.http.HttpMethod.PUT;
+
 /**
  * Admin router.
  */
@@ -45,12 +49,12 @@ public class AdminRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        router.post("/api/v1/admin/list").handler(this::list);
-        router.post("/api/v1/admin/remove").handler(this::remove);
-        router.post("/api/v1/admin/toggle").handler(this::toggle);
-        router.get("/api/v1/admin/become").handler(this::become);
-        router.get("/api/v1/admin/revert/identity").handler(this::revertIdentity);
-        router.put("/api/v1/admin/notifications").handler(this::notifications);
+        registerRout(router, POST, "/api/v1/admin/list", this::list);
+        registerRout(router, POST, "/api/v1/admin/remove", this::remove);
+        registerRout(router, POST, "/api/v1/admin/toggle", this::toggle);
+        registerRout(router, GET, "/api/v1/admin/become", this::become);
+        registerRout(router, GET, "/api/v1/admin/revert/identity", this::revertIdentity);
+        registerRout(router, PUT, "/api/v1/admin/notifications", this::notifications);
     }
 
     /**
@@ -59,11 +63,9 @@ public class AdminRouter extends AbstractRouter {
     private void list(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject();
+        JsonObject msg = new JsonObject();
 
-            send(Addresses.ADMIN_LOAD_ACCOUNTS, msg, ctx, E_FAILED_TO_LOAD_USERS);
-        }
+        send(Addresses.ADMIN_LOAD_ACCOUNTS, msg, ctx, E_FAILED_TO_LOAD_USERS);
     }
 
     /**
@@ -72,13 +74,11 @@ public class AdminRouter extends AbstractRouter {
     private void toggle(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal())
-                .put("admin", requestParams(ctx));
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("admin", requestParams(ctx));
 
-            send(Addresses.ADMIN_CHANGE_ADMIN_STATUS, msg, ctx, E_FAILED_TO_CHANGE_ADMIN_STATUS);
-        }
+        send(Addresses.ADMIN_CHANGE_ADMIN_STATUS, msg, ctx, E_FAILED_TO_CHANGE_ADMIN_STATUS);
     }
 
     /**

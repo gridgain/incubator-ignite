@@ -27,6 +27,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
 
+import static io.vertx.core.http.HttpMethod.POST;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 /**
@@ -56,14 +57,14 @@ public class AccountRouter extends AbstractRouter {
     @Override public void install(Router router) {
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        router.post("/api/v1/user").handler(this::getUser);
-        router.post("/api/v1/signup").handler(this::signUp);
-        router.post("/api/v1/signin").handler(this::signIn);
-        router.post("/api/v1/logout").handler(this::logout);
+        registerRout(router, POST, "/api/v1/user", this::getUser);
+        registerRout(router, POST, "/api/v1/signup", this::signUp);
+        registerRout(router, POST, "/api/v1/signin", this::signIn);
+        registerRout(router, POST, "/api/v1/logout", this::logout);
 
-        router.post("/api/v1/password/forgot").handler(this::forgotPassword);
-        router.post("/api/v1/password/reset").handler(this::resetPassword);
-        router.post("/api/v1/password/validate/token").handler(this::validateToken);
+        registerRout(router, POST, "/api/v1/password/forgot", this::forgotPassword);
+        registerRout(router, POST, "/api/v1/password/reset", this::resetPassword);
+        registerRout(router, POST, "/api/v1/password/validate/token", this::validateToken);
     }
 
     /**
@@ -72,8 +73,7 @@ public class AccountRouter extends AbstractRouter {
     private void getUser(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null)
-            send(Addresses.ACCOUNT_GET_BY_ID, user.principal(), ctx, E_FAILED_TO_GET_USER);
+        send(Addresses.ACCOUNT_GET_BY_ID, user.principal(), ctx, E_FAILED_TO_GET_USER);
     }
 
     /**
@@ -99,7 +99,7 @@ public class AccountRouter extends AbstractRouter {
      * @param ctx Context
      */
     private void signIn(RoutingContext ctx) {
-        authProvider.authenticate(ctx.getBody().toJsonObject(), asyncRes -> {
+        authProvider.authenticate(ctx.getBodyAsJson(), asyncRes -> {
             if (asyncRes.succeeded()) {
                 ctx.setUser(asyncRes.result());
 

@@ -25,6 +25,9 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 
+import static io.vertx.core.http.HttpMethod.GET;
+import static io.vertx.core.http.HttpMethod.POST;
+
 /**
  * Router to handle REST API for notebooks.
  */
@@ -48,9 +51,9 @@ public class NotebooksRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        router.get("/api/v1/notebooks").handler(this::load);
-        router.post("/api/v1/notebooks/save").handler(this::save);
-        router.post("/api/v1/notebooks/remove").handler(this::delete);
+        registerRout(router, GET, "/api/v1/notebooks", this::load);
+        registerRout(router, POST, "/api/v1/notebooks/save", this::save);
+        registerRout(router, POST, "/api/v1/notebooks/remove", this::delete);
     }
 
     /**
@@ -61,12 +64,10 @@ public class NotebooksRouter extends AbstractRouter {
     private void load(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal());
 
-            send(Addresses.NOTEBOOK_LIST, msg, ctx, E_FAILED_TO_LOAD_NOTEBOOKS);
-        }
+        send(Addresses.NOTEBOOK_LIST, msg, ctx, E_FAILED_TO_LOAD_NOTEBOOKS);
     }
 
     /**
@@ -77,13 +78,11 @@ public class NotebooksRouter extends AbstractRouter {
     private void save(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal())
-                .put("notebook", ctx.getBodyAsJson());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("notebook", ctx.getBodyAsJson());
 
-            send(Addresses.NOTEBOOK_SAVE, msg, ctx, E_FAILED_TO_SAVE_NOTEBOOK);
-        }
+        send(Addresses.NOTEBOOK_SAVE, msg, ctx, E_FAILED_TO_SAVE_NOTEBOOK);
     }
 
     /**
@@ -94,12 +93,10 @@ public class NotebooksRouter extends AbstractRouter {
     private void delete(RoutingContext ctx) {
         User user = checkUser(ctx);
 
-        if (user != null) {
-            JsonObject msg = new JsonObject()
-                .put("user", user.principal())
-                .put("notebook", ctx.getBodyAsJson());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("notebook", ctx.getBodyAsJson());
 
-            send(Addresses.NOTEBOOK_DELETE, msg, ctx, E_FAILED_TO_DELETE_NOTEBOOK);
-        }
+        send(Addresses.NOTEBOOK_DELETE, msg, ctx, E_FAILED_TO_DELETE_NOTEBOOK);
     }
 }

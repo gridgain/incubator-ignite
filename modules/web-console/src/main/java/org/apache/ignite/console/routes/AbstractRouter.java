@@ -19,12 +19,16 @@ package org.apache.ignite.console.routes;
 
 import java.net.HttpURLConnection;
 import java.util.Map;
+import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.web.Route;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.console.common.NotAuthorizedException;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -53,17 +57,40 @@ public abstract class AbstractRouter implements RestApiRouter {
     }
 
     /**
+     * @param router Router.
+     * @param mtd Method.
+     * @param path Path.
+     * @param reqHnd Request handler.
+     */
+    protected Route registerRout(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
+        return router.route(mtd, path).handler(reqHnd).failureHandler(this:: failureHandler);
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    protected void failureHandler(RoutingContext ctx) {
+        Throwable cause = ctx.failure();
+
+        if (cause instanceof NotAuthorizedException)
+            sendStatus(ctx, HTTP_UNAUTHORIZED);
+        else
+            sendError(ctx, HTTP_INTERNAL_ERROR, "Unhandled error", cause);
+    }
+
+    /**
      * Get the authenticated user (if any).
      * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
      *
      * @param ctx Context
-     * @return User or {@code null} if the current user is not authenticated.
+     * @return Current authenticated user.
+     * @throws NotAuthorizedException If current user not found in context.
      */
-    @Nullable protected User checkUser(RoutingContext ctx) {
+    protected User checkUser(RoutingContext ctx) throws NotAuthorizedException {
         User user = ctx.user();
 
         if (user == null)
-            sendStatus(ctx, HTTP_UNAUTHORIZED);
+            throw new NotAuthorizedException();
 
         return user;
     }
