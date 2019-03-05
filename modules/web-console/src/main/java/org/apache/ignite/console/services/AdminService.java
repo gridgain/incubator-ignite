@@ -89,7 +89,7 @@ public class AdminService extends AbstractService {
      * Remove account.
      *
      * @param params Parameters in JSON format.
-     * @return JSON with affected rows .
+     * @return Affected rows JSON object.
      */
     private JsonObject delete(JsonObject params) {
         int rmvCnt;
@@ -111,7 +111,7 @@ public class AdminService extends AbstractService {
 
     /**
      * @param params Parameters in JSON format.
-     * @return JSON result.
+     * @return Affected rows JSON object.
      */
     private JsonObject toggle(JsonObject params) {
         UUID accId = uuidParam(params, "userId");

@@ -58,13 +58,12 @@ public class NotebooksService extends AbstractService {
     private JsonArray load(JsonObject params) {
         UUID userId = getUserId(params);
 
-        //return toJsonArray();
         return toJsonArray(notebooksRepo.list(userId));
     }
 
     /**
      * @param params Parameters in JSON format.
-     * @return Empty JSON.
+     * @return Affected rows JSON object.
      */
     private JsonObject save(JsonObject params) {
         UUID userId = getUserId(params);
@@ -77,7 +76,7 @@ public class NotebooksService extends AbstractService {
 
     /**
      * @param params Parameters in JSON format.
-     * @return Rows affected.
+     * @return Affected rows JSON object.
      */
     private JsonObject delete(JsonObject params) {
         UUID userId = getUserId(params);

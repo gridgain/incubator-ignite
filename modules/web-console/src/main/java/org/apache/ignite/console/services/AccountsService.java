@@ -76,7 +76,7 @@ public class AccountsService extends AbstractService {
 
     /**
      * @param params Parameters in JSON format.
-     * @return Rows affected.
+     * @return Affected rows JSON object.
      */
     private JsonObject register(JsonObject params) {
         Account account = new Account(

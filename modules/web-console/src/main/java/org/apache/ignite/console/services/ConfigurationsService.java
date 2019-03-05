@@ -82,7 +82,7 @@ public class ConfigurationsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return List of user clusters.
      */
-    private JsonArray loadClusters(JsonObject params) {
+    protected JsonArray loadClusters(JsonObject params) {
         UUID userId = getUserId(params);
 
         return cfgsRepo.loadClusters(userId);
@@ -172,7 +172,7 @@ public class ConfigurationsService extends AbstractService {
      * Save full cluster.
      *
      * @param params Parameters in JSON format.
-     * @return Affected rows.
+     * @return Affected rows JSON object.
      */
     private JsonObject saveAdvancedCluster(JsonObject params) {
         UUID userId = getUserId(params);
@@ -187,7 +187,7 @@ public class ConfigurationsService extends AbstractService {
      * Save basic cluster.
      *
      * @param params Parameters in JSON format.
-     * @return Affected rows.
+     * @return Affected rows JSON object.
      */
     private JsonObject saveBasicCluster(JsonObject params) {
         UUID userId = getUserId(params);
@@ -211,9 +211,9 @@ public class ConfigurationsService extends AbstractService {
      * Delete clusters.
      *
      * @param params Parameters in JSON format.
-     * @return Affected rows.
+     * @return Affected rows JSON object.
      */
-    private JsonObject deleteClusters(JsonObject params) {
+    protected JsonObject deleteClusters(JsonObject params) {
         UUID userId = getUserId(params);
         TreeSet<UUID> clusterIds = idsFromJson(getProperty(params, "cluster"), "_id");
 
