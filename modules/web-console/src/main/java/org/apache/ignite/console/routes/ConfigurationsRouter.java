@@ -120,7 +120,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Cluster.
      */
     private void loadCluster(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -134,7 +134,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCachesShortList(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -148,7 +148,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModelsShortList(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -162,7 +162,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfssShortList(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -174,7 +174,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCache(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -185,7 +185,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModel(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -196,7 +196,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfs(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = requestParams(ctx);
 

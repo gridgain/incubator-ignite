@@ -61,7 +61,7 @@ public class AdminRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void list(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        checkUser(ctx);
 
         JsonObject msg = new JsonObject();
 

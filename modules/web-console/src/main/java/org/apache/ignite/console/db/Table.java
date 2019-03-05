@@ -42,7 +42,7 @@ import static java.util.stream.Collectors.toSet;
  */
 public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     /** Unique indexes. */
-    private List<UniqueIndex<T>> uniqueIndexes = new ArrayList<>();
+    private final List<UniqueIndex<T>> uniqueIndexes = new ArrayList<>();
 
     /**
      * @param ignite Ignite.

@@ -22,11 +22,9 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Schemas;
-import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.console.repositories.NotebooksRepository;
 
 import static org.apache.ignite.console.common.Utils.toJsonArray;
 
@@ -35,10 +33,7 @@ import static org.apache.ignite.console.common.Utils.toJsonArray;
  */
 public class NotebooksService extends AbstractService {
     /** */
-    private final Table<Notebook> notebooksTbl;
-
-    /** */
-    private final OneToManyIndex notebooksIdx;
+    private final NotebooksRepository notebooksRepo;
 
     /**
      * @param ignite Ignite.
@@ -46,20 +41,11 @@ public class NotebooksService extends AbstractService {
     public NotebooksService(Ignite ignite) {
         super(ignite);
 
-        notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
-            .addUniqueIndex(Notebook::name, (notebook) -> "Notebook '" + notebook.name() + "' already exits");
-
-        notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
+        notebooksRepo = new NotebooksRepository(ignite);
     }
 
     /** {@inheritDoc} */
-    @Override protected void initialize() {
-        notebooksTbl.cache();
-        notebooksIdx.cache();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void start() {
+    @Override protected void initEventBus() {
         addConsumer(Addresses.NOTEBOOK_LIST, this::load);
         addConsumer(Addresses.NOTEBOOK_SAVE, this::save);
         addConsumer(Addresses.NOTEBOOK_DELETE, this::delete);
@@ -72,7 +58,8 @@ public class NotebooksService extends AbstractService {
     private JsonArray load(JsonObject params) {
         UUID userId = getUserId(params);
 
-        return toJsonArray(loadList(userId, notebooksIdx, notebooksTbl));
+        //return toJsonArray();
+        return toJsonArray(notebooksRepo.list(userId));
     }
 
     /**
@@ -83,13 +70,7 @@ public class NotebooksService extends AbstractService {
         UUID userId = getUserId(params);
         Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(params, "notebook")));
 
-        try (Transaction tx = txStart()) {
-            notebooksTbl.save(notebook);
-
-            notebooksIdx.add(userId, notebook.id());
-
-            tx.commit();
-        }
+        notebooksRepo.save(userId, notebook);
 
         return rowsAffected(1);
     }
@@ -102,19 +83,7 @@ public class NotebooksService extends AbstractService {
         UUID userId = getUserId(params);
         UUID notebookId = getId(getProperty(params, "notebook"));
 
-        int rmvCnt = 0;
-
-        try (Transaction tx = txStart()) {
-            Notebook notebook = notebooksTbl.delete(notebookId);
-
-            if (notebook != null) {
-                notebooksIdx.remove(userId, notebookId);
-
-                rmvCnt = 1;
-            }
-
-            tx.commit();
-        }
+        int rmvCnt = notebooksRepo.delete(userId, notebookId);
 
         return rowsAffected(rmvCnt);
     }

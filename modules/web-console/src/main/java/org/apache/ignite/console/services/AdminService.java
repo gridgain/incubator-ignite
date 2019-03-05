@@ -19,26 +19,23 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
-import javax.cache.Cache;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
-import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.transactions.Transaction;
 
 import static org.apache.ignite.console.common.Utils.boolParam;
 import static org.apache.ignite.console.common.Utils.uuidParam;
 
 /**
- * Service to handle administaror actions.
+ * Service to handle administrator actions.
  */
 public class AdminService extends AbstractService {
     /** */
-    private final Table<Account> accountsTbl;
+    private final AccountsRepository accountsRepo;
 
     /**
      * @param ignite Ignite.
@@ -46,17 +43,11 @@ public class AdminService extends AbstractService {
     public AdminService(Ignite ignite) {
         super(ignite);
 
-        accountsTbl = new Table<Account>(ignite, "accounts")
-            .addUniqueIndex(Account::email, (acc) -> "Account with email '" + acc.email() + "' already registered");
+        accountsRepo = new AccountsRepository(ignite);
     }
 
     /** {@inheritDoc} */
-    @Override protected void initialize() {
-        accountsTbl.cache();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void start() {
+    @Override protected void initEventBus() {
         addConsumer(Addresses.ADMIN_LOAD_ACCOUNTS, this::list);
         addConsumer(Addresses.ADMIN_DELETE_ACCOUNT, this::delete);
         addConsumer(Addresses.ADMIN_CHANGE_ADMIN_STATUS, this::toggle);
@@ -65,38 +56,31 @@ public class AdminService extends AbstractService {
     /**
      * @param params Parameters in JSON format.
      */
+    @SuppressWarnings("unused")
     private JsonArray list(JsonObject params) {
-        IgniteCache<UUID, Account> cache = accountsTbl.cache();
-
-        List<Cache.Entry<UUID, Account>> users = cache.query(new ScanQuery<UUID, Account>()).getAll();
+        List<Account> accounts = accountsRepo.list();
 
         JsonArray res = new JsonArray();
 
-        users.forEach(entry -> {
-            Object v = entry.getValue();
-
-            if (v instanceof Account) {
-                Account user = (Account)v;
-
-                res.add(new JsonObject()
-                    .put("_id", user._id())
-                    .put("firstName", user.firstName())
-                    .put("lastName", user.lastName())
-                    .put("admin", user.admin())
-                    .put("email", user.email())
-                    .put("company", user.company())
-                    .put("country", user.country())
-                    .put("lastLogin", user.lastLogin())
-                    .put("lastActivity", user.lastActivity())
-                    .put("activated", user.activated())
-                    .put("counters", new JsonObject()
-                        .put("clusters", 0)
-                        .put("caches", 0)
-                        .put("models", 0)
-                        .put("igfs", 0))
-                );
-            }
-        });
+        accounts.forEach(account ->
+            res.add(new JsonObject()
+                .put("_id", account._id())
+                .put("firstName", account.firstName())
+                .put("lastName", account.lastName())
+                .put("admin", account.admin())
+                .put("email", account.email())
+                .put("company", account.company())
+                .put("country", account.country())
+                .put("lastLogin", account.lastLogin())
+                .put("lastActivity", account.lastActivity())
+                .put("activated", account.activated())
+                .put("counters", new JsonObject()
+                    .put("clusters", 0)
+                    .put("caches", 0)
+                    .put("models", 0)
+                    .put("igfs", 0))
+            )
+        );
 
         return res;
     }
@@ -108,15 +92,16 @@ public class AdminService extends AbstractService {
      * @return JSON with affected rows .
      */
     private JsonObject delete(JsonObject params) {
-        int rmvCnt = 0;
+        int rmvCnt;
 
         UUID accId = uuidParam(params, "_id");
 
-        try (Transaction tx = txStart()) {
-            Account acc = accountsTbl.delete(accId);
+        try (Transaction tx = accountsRepo.txStart()) {
+            rmvCnt = accountsRepo.delete(accId);
 
-            if (acc != null)
-                rmvCnt = 1;
+//            if (rmvCnt > 0) {
+//                // TODO WC-935 Delete all dependent entities.
+//            }
 
             tx.commit();
         }
@@ -129,18 +114,15 @@ public class AdminService extends AbstractService {
      * @return JSON result.
      */
     private JsonObject toggle(JsonObject params) {
-        UUID userId = uuidParam(params, "userId");
+        UUID accId = uuidParam(params, "userId");
         boolean adminFlag = boolParam(params, "adminFlag");
 
-        try (Transaction tx = txStart()) {
-            Account acc = accountsTbl.load(userId);
+        try (Transaction tx = accountsRepo.txStart()) {
+            Account account = accountsRepo.getById(accId);
 
-            if (acc == null)
-                throw new IllegalStateException("Account not found for id: " + userId);
+            account.admin(adminFlag);
 
-            acc.admin(adminFlag);
-
-            accountsTbl.save(acc);
+            accountsRepo.save(account);
 
             tx.commit();
         }

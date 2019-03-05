@@ -272,8 +272,10 @@ public class Account extends AbstractDto {
         return resetPwdTok;
     }
 
-    /** {@inheritDoc} */
-    public JsonObject principal() {
+    /**
+     * @return JSON object with public fields.
+     */
+    public JsonObject publicView() {
         return new JsonObject()
             .put("_id", id.toString())
             .put("email", email)

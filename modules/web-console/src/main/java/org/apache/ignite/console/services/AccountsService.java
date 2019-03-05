@@ -21,11 +21,9 @@ import java.time.ZonedDateTime;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.console.repositories.AccountsRepository;
 
 import static org.apache.ignite.console.common.Utils.uuidParam;
 
@@ -33,11 +31,8 @@ import static org.apache.ignite.console.common.Utils.uuidParam;
  * Service to handle accounts.
  */
 public class AccountsService extends AbstractService {
-    /** Special key to check that first user should be granted admin rights. */
-    private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("039d28e2-133d-4eae-ae2b-29d6db6d4974");
-
     /** */
-    private final Table<Account> accountsTbl;
+    private final AccountsRepository accountsRepo;
 
     /**
      * @param ignite Ignite.
@@ -45,17 +40,11 @@ public class AccountsService extends AbstractService {
     public AccountsService(Ignite ignite) {
         super(ignite);
 
-        accountsTbl = new Table<Account>(ignite, "accounts")
-            .addUniqueIndex(Account::email, (acc) -> "Account with email '" + acc.email() + "' already registered");
+        accountsRepo = new AccountsRepository(ignite);
     }
 
     /** {@inheritDoc} */
-    @Override protected void initialize() {
-        accountsTbl.cache();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void start() {
+    @Override protected void initEventBus() {
         addConsumer(Addresses.ACCOUNT_GET_BY_ID, this::getById);
         addConsumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
         addConsumer(Addresses.ACCOUNT_REGISTER, this::register);
@@ -65,19 +54,12 @@ public class AccountsService extends AbstractService {
      * Get account by ID.
      *
      * @param params Parameters in JSON format.
-     * @return Account as JSON.
+     * @return Public fields of account as JSON.
      */
     private JsonObject getById(JsonObject params) {
         UUID accId = uuidParam(params, "_id");
 
-        try(Transaction ignored = txStart()) {
-            Account acc = accountsTbl.load(accId);
-
-            if (acc == null)
-                throw new IllegalStateException("Account not found with ID: " + accId);
-
-            return acc.principal();
-        }
+        return accountsRepo.getById(accId).publicView();
     }
 
     /**
@@ -89,37 +71,14 @@ public class AccountsService extends AbstractService {
     private JsonObject getByEmail(JsonObject params) {
         String email = params.getString("email");
 
-        try(Transaction ignored = txStart()) {
-            Account acc = accountsTbl.getByIndex(email);
-
-            if (acc == null)
-                throw new IllegalStateException("Account not found with email: " + email);
-
-            return acc.toJson();
-        }
+        return accountsRepo.getByEmail(email).toJson();
     }
 
     /**
      * @param params Parameters in JSON format.
      * @return Rows affected.
      */
-    @SuppressWarnings("unchecked")
     private JsonObject register(JsonObject params) {
-        boolean admin;
-
-        try(Transaction tx = txStart()) {
-            IgniteCache cache = accountsTbl.cache();
-
-            Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
-
-            admin = firstUserMarker == null;
-
-            if (admin)
-                cache.put(FIRST_USER_MARKER_KEY, FIRST_USER_MARKER_KEY);
-
-            tx.commit();
-        }
-
         Account account = new Account(
             UUID.randomUUID(),
             params.getString("email"),
@@ -136,12 +95,12 @@ public class AccountsService extends AbstractService {
             "",
             params.getString("salt"),
             params.getString("hash"),
-            admin,
+            false,
             false,
             false
         );
 
-        accountsTbl.save(account);
+        accountsRepo.save(account);
 
         return rowsAffected(1);
     }

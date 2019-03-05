@@ -17,10 +17,8 @@
 
 package org.apache.ignite.console.services;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Function;
 import io.vertx.core.AbstractVerticle;
@@ -28,36 +26,21 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteException;
-import org.apache.ignite.IgniteTransactions;
-import org.apache.ignite.console.db.OneToManyIndex;
-import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.internal.util.future.IgniteFinishedFutureImpl;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.lang.IgniteAsyncSupport;
-import org.apache.ignite.lang.IgniteFuture;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.transactions.Transaction;
-import org.apache.ignite.transactions.TransactionConcurrency;
-import org.apache.ignite.transactions.TransactionIsolation;
-import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static org.apache.ignite.console.common.Utils.errorMessage;
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Base class for routers.
  */
 public abstract class AbstractService extends AbstractVerticle {
     /** */
-    protected final Ignite ignite;
+    protected final String name;
 
     /** */
-    private volatile boolean ready;
+    protected final Ignite ignite;
 
     /** */
     private final Set<MessageConsumer<?>> consumers;
@@ -68,13 +51,28 @@ public abstract class AbstractService extends AbstractVerticle {
     protected AbstractService(Ignite ignite) {
         this.ignite = ignite;
 
+        name = getClass().getSimpleName();
         consumers = new HashSet<>();
     }
 
     /**
-     * Initialize caches.
+     * Initialize event bus.
      */
-    protected abstract void initialize();
+    protected abstract void initEventBus();
+
+    /** {@inheritDoc} */
+    @Override public final void start() {
+        initEventBus();
+
+        ignite.log().info("Service started: " + name);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        consumers.forEach(MessageConsumer::unregister);
+
+        ignite.log().info("Service stopped: " + name);
+    }
 
     /**
      * @param addr Address.
@@ -106,11 +104,6 @@ public abstract class AbstractService extends AbstractVerticle {
             });
 
         consumers.add(consumer);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void stop() {
-        consumers.forEach(MessageConsumer::unregister);
     }
 
     /**
@@ -156,187 +149,11 @@ public abstract class AbstractService extends AbstractVerticle {
     }
 
     /**
-     * Start transaction.
-     *
-     * @return Transaction.
-     */
-    protected Transaction txStart() {
-        if (!ready) {
-            initialize();
-
-            ready = true;
-        }
-
-        IgniteTransactions txs = ignite.transactions();
-
-        Transaction tx = txs.tx();
-
-        return tx == null ? txs.txStart(PESSIMISTIC, REPEATABLE_READ) : new NestedTransaction(tx);
-    }
-
-    /**
-     * Load short list of DTOs.
-     *
-     * @param ownerId Owner ID.
-     * @param ownerIdx Index with DTOs IDs.
-     * @param tbl Table with DTOs.
-     */
-    protected Collection<? extends DataObject> loadList(
-        UUID ownerId,
-        OneToManyIndex ownerIdx,
-        Table<? extends DataObject> tbl
-    ) {
-        try (Transaction ignored = txStart()) {
-            TreeSet<UUID> ids = ownerIdx.load(ownerId);
-
-            return tbl.loadAll(ids);
-        }
-    }
-
-    /**
      * @param rows Number of rows.
      * @return JSON with number of affected rows.
      */
     protected JsonObject rowsAffected(int rows) {
         return new JsonObject()
             .put("rowsAffected", rows);
-    }
-
-    /**
-     * Nested transaction.
-     */
-    private static class NestedTransaction implements Transaction {
-        /** */
-        private final Transaction delegate;
-
-        /**
-         * @param delegate Real transaction.
-         */
-        NestedTransaction(Transaction delegate) {
-            this.delegate = delegate;
-        }
-
-        /** {@inheritDoc} */
-        @Override public IgniteUuid xid() {
-            return delegate.xid();
-        }
-
-        /** {@inheritDoc} */
-        @Override public UUID nodeId() {
-            return delegate.nodeId();
-        }
-
-        /** {@inheritDoc} */
-        @Override public long threadId() {
-            return delegate.threadId();
-        }
-
-        /** {@inheritDoc} */
-        @Override public long startTime() {
-            return delegate.startTime();
-        }
-
-        /** {@inheritDoc} */
-        @Override public TransactionIsolation isolation() {
-            return delegate.isolation();
-        }
-
-        /** {@inheritDoc} */
-        @Override public TransactionConcurrency concurrency() {
-            return delegate.concurrency();
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean implicit() {
-            return delegate.implicit();
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean isInvalidate() {
-            return delegate.isInvalidate();
-        }
-
-        /** {@inheritDoc} */
-        @Override public TransactionState state() {
-            return delegate.state();
-        }
-
-        /** {@inheritDoc} */
-        @Override public long timeout() {
-            return delegate.timeout();
-        }
-
-        /** {@inheritDoc} */
-        @Override public long timeout(long timeout) {
-            return delegate.timeout(timeout);
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean setRollbackOnly() {
-            return delegate.setRollbackOnly();
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean isRollbackOnly() {
-            return delegate.isRollbackOnly();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void commit() throws IgniteException {
-            // Nested transaction do nothing.
-        }
-
-        /** {@inheritDoc} */
-        @Override public IgniteFuture<Void> commitAsync() throws IgniteException {
-            return new IgniteFinishedFutureImpl<>();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void close() throws IgniteException {
-            // Nested transaction do nothing.
-        }
-
-        /** {@inheritDoc} */
-        @Override public void rollback() throws IgniteException {
-            // Nested transaction do nothing.
-        }
-
-        /** {@inheritDoc} */
-        @Override public IgniteFuture<Void> rollbackAsync() throws IgniteException {
-            return new IgniteFinishedFutureImpl<>();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void resume() throws IgniteException {
-            throw new UnsupportedOperationException("Resume is not supported for nested transaction");
-        }
-
-        /** {@inheritDoc} */
-        @Override public void suspend() throws IgniteException {
-            throw new UnsupportedOperationException("Suspend is not supported for nested transaction");
-        }
-
-        /** {@inheritDoc} */
-        @Override public @Nullable String label() {
-            return delegate.label();
-        }
-
-        /** {@inheritDoc} */
-        @SuppressWarnings("deprecation")
-        @Override public IgniteAsyncSupport withAsync() {
-            return delegate.withAsync();
-        }
-
-        /** {@inheritDoc} */
-        @SuppressWarnings("deprecation")
-        @Override public boolean isAsync() {
-            return delegate.isAsync();
-        }
-
-        /** {@inheritDoc} */
-        @SuppressWarnings("deprecation")
-        @Override public <R> IgniteFuture<R> future() {
-            return delegate.future();
-        }
     }
 }
