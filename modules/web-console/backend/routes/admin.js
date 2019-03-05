@@ -23,7 +23,7 @@ const express = require('express');
 
 module.exports = {
     implements: 'routes/admin',
-    inject: ['settings', 'mongo', 'services/spaces', 'services/mails', 'services/sessions', 'services/users', 'services/notifications']
+    inject: ['settings', 'mongo', 'services/spaces', 'services/sessions', 'services/users', 'services/notifications']
 };
 
 /**
