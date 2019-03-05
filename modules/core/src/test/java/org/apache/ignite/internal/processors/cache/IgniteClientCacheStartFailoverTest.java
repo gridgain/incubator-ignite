@@ -51,8 +51,6 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -62,7 +60,6 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 /**
  *
  */
-@RunWith(JUnit4.class)
 public class IgniteClientCacheStartFailoverTest extends GridCommonAbstractTest {
     /** */
     private boolean client;
@@ -575,8 +572,7 @@ public class IgniteClientCacheStartFailoverTest extends GridCommonAbstractTest {
             cache.putAll(map);
         }
 
-        //TODO: uncomment TRANSACTIONAL_SNAPSHOT cache creation when IGNITE-9470 will be fixed.
-       /* for (int i = 0; i < 3; i++) {
+       for (int i = 0; i < 3; i++) {
             CacheConfiguration<Object, Object> ccfg = cacheConfiguration("mvcc-" + i, TRANSACTIONAL_SNAPSHOT, i);
 
             IgniteCache<Object, Object> cache = node.createCache(ccfg);
@@ -584,7 +580,7 @@ public class IgniteClientCacheStartFailoverTest extends GridCommonAbstractTest {
             cacheNames.add(ccfg.getName());
 
             cache.putAll(map);
-        }*/
+        }
 
 
         return cacheNames;
