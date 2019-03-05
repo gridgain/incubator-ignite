@@ -189,7 +189,7 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
         @Override public void evaluate() throws Throwable {
             assert getName() != null : "getName returned null";
 
-            GridAbstractTestWithAssumption.handleAssumption(() -> runTestCase(base), log());
+            GridAbstractTestWithAssumption.handleAssumption(() -> runTest(base), log());
         }
     };
 
