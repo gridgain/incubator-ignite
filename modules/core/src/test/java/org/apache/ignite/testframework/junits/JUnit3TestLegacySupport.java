@@ -44,14 +44,8 @@ public abstract class JUnit3TestLegacySupport extends JUnitAssertAware {
         return nameRule.getMethodName();
     }
 
-    /** This method is called before a test is executed. */
-    abstract void setUp() throws Exception;
-
     /** Runs test code in between {@code setUp} and {@code tearDown}. */
     abstract void runTest(Statement testRoutine) throws Throwable;
-
-    /** This method is called after a test is executed. */
-    abstract void tearDown() throws Exception;
 
     /**
      * Runs the bare test sequence like in JUnit 3 class TestCase.
@@ -60,19 +54,14 @@ public abstract class JUnit3TestLegacySupport extends JUnitAssertAware {
      */
     protected final void runTestCase(Statement testRoutine) throws Throwable {
         Throwable e = null;
-        setUp();
         try {
             runTest(testRoutine);
-        } catch (Throwable running) {
-            e = running;
-        } finally {
-            try {
-                tearDown();
-            } catch (Throwable tearingDown) {
-                if (e == null) e = tearingDown;
-            }
         }
-        if (e != null) throw e;
+        catch (Throwable running) {
+            e = running;
+        }
+        if (e != null)
+            throw e;
     }
 
     /**

@@ -569,14 +569,11 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
     }
 
     /**
-     * {@inheritDoc}
-     * <p>
-     * Do not annotate with Before in overriding methods.</p>
-     * @deprecated This method is deprecated. Instead of invoking or overriding it, it is recommended to make your own
-     * method with {@code @Before} annotation.
+     * Called before execution of every test method in class.
+     * This method is similar to {@link JUnit3TestLegacySupport#afterTest()} but with additional logic.
      */
-    @Deprecated
-    @Override protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
         stopGridErr = false;
 
         clsLdr = Thread.currentThread().getContextClassLoader();
@@ -593,13 +590,6 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
             beforeTest();
         }
         catch (Exception | Error t) {
-            try {
-                tearDown();
-            }
-            catch (Exception e) {
-                log.error("Failed to tear down test after exception was thrown in beforeTest (will ignore)", e);
-            }
-
             throw t;
         }
 
@@ -633,14 +623,6 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
         }
         catch (Exception | Error t) {
             t.printStackTrace();
-
-            try {
-                tearDown();
-            }
-            catch (Exception e) {
-                log.error("Failed to tear down test after exception was thrown in beforeTestsStarted (will " +
-                    "ignore)", e);
-            }
 
             throw t;
         }
@@ -1790,14 +1772,11 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
     }
 
     /**
-     * {@inheritDoc}
-     * <p>
-     * Do not annotate with After in overriding methods.</p>
-     * @deprecated This method is deprecated. Instead of invoking or overriding it, it is recommended to make your own
-     * method with {@code @After} annotation.
+     * Called after execution of each method.
+     * This method is similar to {@link JUnit3TestLegacySupport#afterTest()} but with additional logic.
      */
-    @Deprecated
-    @Override protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         long dur = System.currentTimeMillis() - ts;
 
         info(">>> Stopping test: " + testDescription() + " in " + dur + " ms <<<");
