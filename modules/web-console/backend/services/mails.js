@@ -77,6 +77,7 @@ module.exports.factory = (settings) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.res,
+                host,
                 activationLink: `${host}/signin?activationToken=${user.activationToken}`,
                 resetLink: `${host}/password/reset?token=${user.resetPasswordToken}`
             };
