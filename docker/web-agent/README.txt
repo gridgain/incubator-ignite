@@ -6,11 +6,11 @@ for building docker image of Web Agent.
 
 Build image
 ===========
-1) Build Apache Ignite Web Console module
+1) Build Apache Ignite Web Console Agent module
 
         mvn clean install -T 2C \
                           -Pall-java,all-scala,licenses,web-console \
-                          -pl :ignite-web-console -am \
+                          -pl :ignite-web-console-agent -am \
                           -DskipTests
 
 2) Go to Apache Ignite Web Console Docker module directory and copy Apache

@@ -32,9 +32,11 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.ClientAuth;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
+import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
@@ -47,9 +49,16 @@ import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
+import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.console.routes.AccountRouter;
+import org.apache.ignite.console.routes.AgentDownloadRouter;
+import org.apache.ignite.console.routes.ConfigurationsRouter;
+import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
 
@@ -80,31 +89,37 @@ public class WebConsoleServer extends AbstractVerticle {
     protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /** */
-    protected final WebConsoleConfiguration cfg;
+    protected WebConsoleConfiguration cfg;
 
     /** */
-    protected final Ignite ignite;
-
-    /** */
-    private final RestApiRouter[] routers;
-
-    /**
-     * @param cfg Configuration.
-     * @param ignite Ignite.
-     * @param routers REST API routers.
-     */
-    public WebConsoleServer(
-        WebConsoleConfiguration cfg,
-        Ignite ignite,
-        RestApiRouter... routers
-    ) {
-        this.cfg = cfg;
-        this.ignite = ignite;
-        this.routers = routers;
-    }
+    protected Ignite ignite;
 
     /** {@inheritDoc} */
     @Override public void start() throws Exception {
+        cfg = new WebConsoleConfiguration();
+
+        // TODO Remove this code after WC-950 will be implemented.
+        // Uncomment if you need Vertx to handle static resources.
+        // cfg.setWebRoot("modules/web-console/frontend/build");
+
+        // TODO Remove this code after WC-950 will be implemented.
+        // Uncomment if you need SSL.
+        // cfg
+        //    .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
+        //    .setKeyStorePassword("123456")
+        //    .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
+        //    .setTrustStorePassword("123456");
+
+        if (getVertx() instanceof VertxInternal) {
+            ClusterManager mgmt = ((VertxInternal)getVertx()).getClusterManager();
+
+            if (mgmt instanceof IgniteClusterManager)
+                ignite = ((IgniteClusterManager)mgmt).getIgniteInstance();
+        }
+
+        if (ignite == null)
+            throw new IllegalStateException("Verticle to find Ignite node");
+
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
         BridgeOptions allAccessOptions =
@@ -226,7 +241,7 @@ public class WebConsoleServer extends AbstractVerticle {
      *
      * @param router Router.
      */
-    private void registerRestRoutes(Router router) {
+    protected void registerRestRoutes(Router router) {
         router.route("/api/v1/activation/resend").handler(this::handleDummy);
         router.route("/api/v1/activities/page").handler(this::handleDummy);
 
@@ -237,8 +252,10 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
 
-        for (RestApiRouter r : routers)
-            r.install(router);
+        new AccountRouter(ignite, vertx).install(router);
+        new ConfigurationsRouter(ignite).install(router);
+        new NotebooksRouter(ignite).install(router);
+        new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z").install(router);
     }
 
     /**

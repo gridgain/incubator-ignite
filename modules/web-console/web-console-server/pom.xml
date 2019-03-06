@@ -30,28 +30,19 @@
         <relativePath>../../../parent</relativePath>
     </parent>
 
-    <artifactId>ignite-web-console-agent</artifactId>
-    <packaging>jar</packaging>
+    <artifactId>ignite-web-console-server</artifactId>
     <version>2.8.0-SNAPSHOT</version>
     <url>http://ignite.apache.org</url>
+
+    <properties>
+        <commons.compress.version>1.18</commons.compress.version>
+    </properties>
 
     <dependencies>
         <!-- Ignite dependencies -->
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-indexing</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-rest-http</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -77,11 +68,23 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-slf4j</artifactId>
+            <artifactId>ignite-kubernetes</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Third-party dependencies -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>${commons.codec.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>${commons.compress.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
@@ -90,31 +93,65 @@
 
         <dependency>
             <groupId>io.vertx</groupId>
-            <artifactId>vertx-web-client</artifactId>
+            <artifactId>vertx-ignite</artifactId>
+            <version>${vertx.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.ignite</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-web</artifactId>
             <version>${vertx.version}</version>
         </dependency>
 
+        <!-- Test dependencies -->
         <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-json-org</artifactId>
-            <version>${jackson.version}</version>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-hadoop</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.beust</groupId>
-            <artifactId>jcommander</artifactId>
-            <version>1.58</version>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-aws</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jul-to-slf4j</artifactId>
-            <version>${slf4j.version}</version>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-hibernate_4.2</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-urideploy</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
-        <finalName>ignite-web-agent-${project.version}</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/java</directory>
+                <excludes>
+                    <exclude>**/*.java</exclude>
+                </excludes>
+            </resource>
+
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
 
         <testResources>
             <testResource>
@@ -145,39 +182,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.4</version>
-                <inherited>false</inherited>
-
-                <executions>
-                    <execution>
-                        <id>release-web-console-agent</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <descriptors>
-                                <descriptor>../assembly/release-web-console-agent.xml</descriptor>
-                            </descriptors>
-                            <finalName>ignite-web-agent-${project.version}</finalName>
-                            <outputDirectory>target</outputDirectory>
-                            <appendAssemblyId>false</appendAssemblyId>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
             </plugin>
 
             <plugin>

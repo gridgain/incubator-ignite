@@ -20,6 +20,7 @@ package org.apache.ignite.test;
 import java.io.File;
 import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
@@ -66,33 +67,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
             Vertx vertx = res.result();
 
-            RestApiRouter accRouter = new AccountRouter(ignite, vertx);
-            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
-            RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
-            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
-
-            WebConsoleConfiguration cfg = new WebConsoleConfiguration();
-
-            // TODO Remove this code after WC-950 will be implemented.
-            // Uncomment if you need Vertx to handle static resources.
-            // cfg.setWebRoot("modules/web-console/frontend/build");
-
-            // TODO Remove this code after WC-950 will be implemented.
-            // Uncomment if you need SSL.
-            // cfg
-            //    .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
-            //    .setKeyStorePassword("123456")
-            //    .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
-            //    .setTrustStorePassword("123456");
-
-            vertx.deployVerticle(new WebConsoleServer(
-                cfg,
-                ignite,
-                accRouter,
-                cfgsRouter,
-                notebooksRouter,
-                downloadRouter
-            ));
+            vertx.deployVerticle(new WebConsoleServer());
 
             System.out.println("Ignite Web Console Server started");
         });
