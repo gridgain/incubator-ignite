@@ -30,6 +30,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.NotAuthorizedException;
 
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -75,7 +76,7 @@ public abstract class AbstractRouter implements RestApiRouter {
         if (cause instanceof NotAuthorizedException)
             sendStatus(ctx, HTTP_UNAUTHORIZED);
         else
-            sendError(ctx, HTTP_INTERNAL_ERROR, "Unhandled error", cause);
+            replyWithError(ctx, HTTP_INTERNAL_ERROR, "Unhandled error", cause);
     }
 
     /**
@@ -115,14 +116,23 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @param errMsg Error message.
      */
     public <T> void send(String addr, Object msg, RoutingContext ctx, String errMsg) {
-        vertx.eventBus().send(addr, msg, asyncRes -> {
-            if (asyncRes.succeeded())
-                sendResult(ctx, asyncRes.result().body());
-            else {
-                ignite.log().error(errMsg, asyncRes.cause());
+        User user = checkUser(ctx);
 
-                sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
+        user.isAuthorized(addr, authRes -> {
+            if (authRes.succeeded()) {
+                if (authRes.result()) {
+                    vertx.eventBus().send(addr, msg, asyncRes -> {
+                        if (asyncRes.succeeded())
+                            sendResult(ctx, asyncRes.result().body());
+                        else
+                            replyWithError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
+                    });
+                }
+                else
+                    sendStatus(ctx, HTTP_FORBIDDEN);
             }
+            else
+                replyWithError(ctx, HTTP_INTERNAL_ERROR, errMsg, authRes.cause());
         });
     }
 

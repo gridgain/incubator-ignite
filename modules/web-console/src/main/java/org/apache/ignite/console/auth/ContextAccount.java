@@ -25,7 +25,7 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AbstractUser;
 import io.vertx.ext.auth.AuthProvider;
-import io.vertx.ext.auth.User;
+import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.IgniteUuidCache;
@@ -39,9 +39,6 @@ public class ContextAccount extends AbstractUser {
 
     /** Cached principal. */
     private JsonObject cachedPrincipal;
-
-    /** Cached account. */
-    private Account cachedAccount;
 
     /** Auth provider. */
     private IgniteAuth authProvider;
@@ -58,14 +55,14 @@ public class ContextAccount extends AbstractUser {
      */
     ContextAccount(Account account) {
         accId = account.id();
-
-        cachedAccount = account;
     }
 
     /** {@inheritDoc} */
-    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> asyncResHnd) {
-        // TODO IGNITE-5617 Implements permissions checks.
-        asyncResHnd.handle(Future.succeededFuture(true));
+    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> authCb) {
+        if (accId == null)
+            authCb.handle(Future.failedFuture(new IgniteAuthenticationException("Missing account identity")));
+        else
+            authProvider.checkPermissionsAsync(perm, accId, authCb);
     }
 
     /** {@inheritDoc} */
@@ -74,13 +71,6 @@ public class ContextAccount extends AbstractUser {
             cachedPrincipal = new JsonObject().put("_id", accId.toString());
 
         return cachedPrincipal;
-    }
-
-    /** {@inheritDoc} */
-    @Override public User clearCache() {
-        cachedAccount = null;
-
-        return super.clearCache();
     }
 
     /** {@inheritDoc} */

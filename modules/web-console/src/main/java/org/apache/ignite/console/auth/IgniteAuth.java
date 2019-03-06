@@ -173,4 +173,35 @@ public class IgniteAuth implements AuthProvider {
 
         vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, replyHnd);
     }
+
+    /**
+     * Check permissions asynchronously.
+     *
+     * @param perm Permissions to check.
+     * @param accId Account ID.
+     * @param authCb Authorization callback.
+     */
+    public void checkPermissionsAsync(String perm, UUID accId, Handler<AsyncResult<Boolean>> authCb) {
+        if (perm.startsWith("admin:")) {
+            JsonObject msg = new JsonObject()
+                .put("id", accId.toString());
+
+            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, msg, (AsyncResult<Message<JsonObject>> asyncRes) -> {
+                if (asyncRes.succeeded()) {
+                    try {
+                        Account account = Account.fromJson(asyncRes.result().body());
+
+                        authCb.handle(Future.succeededFuture(account.admin()));
+                    }
+                    catch (Throwable e) {
+                        authCb.handle(Future.failedFuture(e));
+                    }
+                }
+                else
+                    authCb.handle(Future.failedFuture(asyncRes.cause()));
+            });
+        }
+        else
+            authCb.handle(Future.succeededFuture(true));
+    }
 }
