@@ -150,7 +150,6 @@ public class IgniteAuth implements AuthProvider {
                 else
                     asyncResHnd.handle(Future.failedFuture(asyncRes.cause()));
             });
-
         }
         catch (Throwable e) {
             ignite.log().error(E_ACCOUNT_AUTH_FAILED, e);

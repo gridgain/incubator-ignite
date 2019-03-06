@@ -84,6 +84,8 @@ public abstract class AbstractService extends AbstractVerticle {
             .consumer(addr, (Message<JsonObject> msg) -> {
                 JsonObject params = msg.body();
 
+                ignite.log().info("Received message [from=" + msg.address() + ", params=" + params + "]");
+
                 vertx.executeBlocking(
                     fut -> {
                         try {

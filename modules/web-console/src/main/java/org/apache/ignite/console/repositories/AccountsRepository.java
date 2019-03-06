@@ -139,12 +139,15 @@ public class AccountsRepository extends AbstractRepository {
     public List<Account> list() {
         IgniteCache<UUID, Account> cache = accountsTbl.cache();
 
-        return cache
-            .query(new ScanQuery<UUID, Account>())
+        List<Account> list = cache
+            .query(new ScanQuery<UUID, Object>())
             .getAll()
             .stream()
             .map(Cache.Entry::getValue)
             .filter(item -> item instanceof Account)
+            .map(item -> (Account)item)
             .collect(Collectors.toList());
+
+        return list;
     }
 }

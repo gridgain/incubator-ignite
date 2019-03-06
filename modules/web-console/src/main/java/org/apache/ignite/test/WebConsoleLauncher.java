@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.console.repositories.ConfigurationsRepository;
 import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AdminRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
@@ -81,7 +82,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
             vertx.deployVerticle(new AccountsService(ignite));
             vertx.deployVerticle(new AdminService(ignite));
-            vertx.deployVerticle(new ConfigurationsService(ignite));
+            vertx.deployVerticle(new ConfigurationsService(ignite, new ConfigurationsRepository(ignite)));
             vertx.deployVerticle(new NotebooksService(ignite));
 
             vertx.deployVerticle(new WebConsoleServer(
