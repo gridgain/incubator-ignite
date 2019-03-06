@@ -153,7 +153,7 @@ public class WebConsoleConfiguration implements Serializable {
      * @param activationCfg Account configuration.
      * @return {@code this} for chaining.
      */
-    public WebConsoleConfiguration setActivationConfiguration(AccountConfiguration activationCfg) {
+    public WebConsoleConfiguration setAccountConfiguration(AccountConfiguration activationCfg) {
         this.accountCfg = activationCfg;
 
         return this;

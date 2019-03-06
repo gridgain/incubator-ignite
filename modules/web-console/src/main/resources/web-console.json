@@ -1,0 +1,5 @@
+{
+  "port": 3000,
+  "agentFolderName":  "/path/to/agent/binaries",
+  "agentFileName": "ignite-web-agent-x.y.z"
+}

@@ -29,17 +29,16 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
+import org.apache.ignite.console.common.Utils;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
-import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-
-import static org.apache.ignite.console.common.Utils.loadConfiguration;
 
 /**
  * Web Console Launcher.
@@ -64,9 +63,19 @@ public class WebConsoleLauncher extends AbstractVerticle {
                 Vertx vertx = res.result();
 
                 try {
-                    WebConsoleConfiguration cfg = loadConfiguration(
-                        "modules/web-console/src/main/resources/web-console.xml",
-                        "web-console-config"
+//                    WebConsoleConfiguration cfg = loadConfigurationFromXml(
+//                        "modules/web-console/src/main/resources/web-console.xml",
+//                        "web-console-config"
+//                    );
+
+//                    WebConsoleConfiguration cfg = Utils.loadConfigurationFromFile(
+//                        "json",
+//                        "modules/web-console/src/main/resources/web-console.json"
+//                    );
+
+                    WebConsoleConfiguration cfg = Utils.loadConfigurationFromFile(
+                        "properties",
+                        "modules/web-console/src/main/resources/web-console.properties"
                     );
 
                     RestApiRouter accRouter = new AccountRouter(ignite, vertx);

@@ -24,11 +24,14 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import io.vertx.config.ConfigRetriever;
+import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -150,9 +153,25 @@ public class Utils {
      * @return Web Console configuration.
      * @throws MalformedURLException If failed to load configuration.
      */
-    public static <T> T loadConfiguration(String path, String beanName) throws MalformedURLException {
+    public static <T> T loadConfigurationFromXml(String path, String beanName) throws MalformedURLException {
         URL url = new File(path).toURI().toURL();
 
         return Ignition.loadSpringBean(url, beanName);
+    }
+
+    /**
+     * @param fmt File format: JSON or properties.
+     * @param path Path to configuration file.
+     * @return Web Console configuration.
+     */
+    public static WebConsoleConfiguration loadConfigurationFromFile(String fmt, String path) {
+        ConfigStoreOptions file = new ConfigStoreOptions()
+            .setType("file")
+            .setFormat(fmt)
+            .setConfig(new JsonObject().put("path", path));
+
+        ConfigRetriever cfgRetriever =
+
+        return cfg.mapTo(WebConsoleConfiguration.class);
     }
 }
