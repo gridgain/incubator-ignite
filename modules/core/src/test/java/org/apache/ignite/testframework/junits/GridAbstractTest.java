@@ -586,12 +586,7 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
 
         info(">>> Starting test: " + testDescription() + " <<<");
 
-        try {
-            beforeTest();
-        }
-        catch (Exception | Error t) {
-            throw t;
-        }
+        beforeTest();
 
         ts = System.currentTimeMillis();
     }
