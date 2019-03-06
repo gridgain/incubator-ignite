@@ -115,7 +115,7 @@ public class AdminService extends AbstractService {
      */
     private JsonObject toggle(JsonObject params) {
         UUID accId = uuidParam(params, "userId");
-        boolean adminFlag = boolParam(params, "adminFlag");
+        boolean adminFlag = boolParam(params, "adminFlag", false);
 
         try (Transaction tx = accountsRepo.txStart()) {
             Account account = accountsRepo.getById(accId);

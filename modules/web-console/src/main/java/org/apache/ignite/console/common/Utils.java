@@ -113,12 +113,13 @@ public class Utils {
     /**
      * @param json JSON object.
      * @param path Dot separated list of properties.
+     * @param def Default value.
      * @return the value or {@code def} if no entry present.
      */
-    public static boolean boolParam(JsonObject json, String path) {
+    public static boolean boolParam(JsonObject json, String path, boolean def) {
         T2<JsonObject, String> t = xpath(json, path);
 
-        return t.getKey().getBoolean(t.getValue());
+        return t.getKey().getBoolean(t.getValue(), def);
     }
 
     /**

@@ -38,15 +38,23 @@ import static org.apache.ignite.console.common.Utils.uuidParam;
  */
 public class ConfigurationsService extends AbstractService {
     /** */
-    private final ConfigurationsRepository cfgsRepo;
+    private ConfigurationsRepository cfgsRepo;
 
     /**
      * @param ignite Ignite.
      */
     public ConfigurationsService(Ignite ignite) {
         super(ignite);
+    }
 
-        cfgsRepo = new ConfigurationsRepository(ignite);
+    /**
+     * @return Repository to work with DB.
+     */
+    protected synchronized ConfigurationsRepository repository() {
+        if (cfgsRepo == null)
+            cfgsRepo = new ConfigurationsRepository(ignite);
+
+        return cfgsRepo;
     }
 
     /** {@inheritDoc} */
@@ -72,20 +80,20 @@ public class ConfigurationsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Configuration.
      */
-    protected JsonObject loadConfiguration(JsonObject params) {
+    private JsonObject loadConfiguration(JsonObject params) {
         UUID clusterId = uuidParam(params, "clusterId");
 
-        return cfgsRepo.loadConfiguration(clusterId);
+        return repository().loadConfiguration(clusterId);
     }
 
     /**
      * @param params Parameters in JSON format.
      * @return List of user clusters.
      */
-    protected JsonArray loadClusters(JsonObject params) {
+    private JsonArray loadClusters(JsonObject params) {
         UUID userId = getUserId(params);
 
-        return cfgsRepo.loadClusters(userId);
+        return repository().loadClusters(userId);
     }
 
     /**
@@ -95,7 +103,7 @@ public class ConfigurationsService extends AbstractService {
     private JsonObject loadCluster(JsonObject params) {
         UUID clusterId = uuidParam(params, "clusterId");
 
-        return new JsonObject(cfgsRepo.loadCluster(clusterId).json());
+        return new JsonObject(repository().loadCluster(clusterId).json());
     }
 
     /**
@@ -105,7 +113,7 @@ public class ConfigurationsService extends AbstractService {
     private JsonObject loadCache(JsonObject params) {
         UUID cacheId = uuidParam(params, "cacheId");
 
-        return new JsonObject(cfgsRepo.loadCluster(cacheId).json());
+        return new JsonObject(repository().loadCluster(cacheId).json());
     }
 
     /**
@@ -115,7 +123,7 @@ public class ConfigurationsService extends AbstractService {
     private JsonObject loadModel(JsonObject params) {
         UUID mdlId = uuidParam(params, "modelId");
 
-        return new JsonObject(cfgsRepo.loadCluster(mdlId).json());
+        return new JsonObject(repository().loadCluster(mdlId).json());
     }
 
     /**
@@ -125,7 +133,7 @@ public class ConfigurationsService extends AbstractService {
     private JsonObject loadIgfs(JsonObject params) {
         UUID igfsId = uuidParam(params, "igfsId");
 
-        return new JsonObject(cfgsRepo.loadCluster(igfsId).json());
+        return new JsonObject(repository().loadCluster(igfsId).json());
     }
 
     /**
@@ -145,7 +153,7 @@ public class ConfigurationsService extends AbstractService {
     private JsonArray loadShortCaches(JsonObject params) {
         UUID clusterId = uuidParam(params, "clusterId");
 
-        return toShortList(cfgsRepo.loadCaches(clusterId));
+        return toShortList(repository().loadCaches(clusterId));
     }
 
     /**
@@ -155,7 +163,7 @@ public class ConfigurationsService extends AbstractService {
     private JsonArray loadShortModels(JsonObject params) {
         UUID clusterId = uuidParam(params, "clusterId");
 
-        return toShortList(cfgsRepo.loadModels(clusterId));
+        return toShortList(repository().loadModels(clusterId));
     }
 
     /**
@@ -165,7 +173,7 @@ public class ConfigurationsService extends AbstractService {
     private JsonArray loadShortIgfss(JsonObject params) {
         UUID clusterId = uuidParam(params, "clusterId");
 
-        return toShortList(cfgsRepo.loadIgfss(clusterId));
+        return toShortList(repository().loadIgfss(clusterId));
     }
 
     /**
@@ -178,7 +186,7 @@ public class ConfigurationsService extends AbstractService {
         UUID userId = getUserId(params);
         JsonObject json = getProperty(params, "cluster");
 
-        cfgsRepo.saveAdvancedCluster(userId, json);
+        repository().saveAdvancedCluster(userId, json);
 
         return rowsAffected(1);
     }
@@ -193,7 +201,7 @@ public class ConfigurationsService extends AbstractService {
         UUID userId = getUserId(params);
         JsonObject json = getProperty(params, "cluster");
 
-        cfgsRepo.saveBasicCluster(userId, json);
+        repository().saveBasicCluster(userId, json);
 
         return rowsAffected(1);
     }
@@ -213,11 +221,11 @@ public class ConfigurationsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Affected rows JSON object.
      */
-    protected JsonObject deleteClusters(JsonObject params) {
+    private JsonObject deleteClusters(JsonObject params) {
         UUID userId = getUserId(params);
         TreeSet<UUID> clusterIds = idsFromJson(getProperty(params, "cluster"), "_id");
 
-        int rmvCnt = cfgsRepo.deleteClusters(userId, clusterIds);
+        int rmvCnt = repository().deleteClusters(userId, clusterIds);
 
         return rowsAffected(rmvCnt);
     }
