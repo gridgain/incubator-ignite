@@ -414,12 +414,27 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
+     * Delete objects that relates to cluster.
+     *
      * @param clusterId Cluster ID.
+     * @param fkIdx Foreign key.
+     * @param tbl Table with children.
      */
-    private void removeClusterObjects(UUID clusterId, Table<? extends DataObject> tbl, OneToManyIndex idx) {
-        TreeSet<UUID> ids = idx.delete(clusterId);
+    private void deleteClusterObjects(UUID clusterId, OneToManyIndex fkIdx, Table<? extends DataObject> tbl) {
+        TreeSet<UUID> ids = fkIdx.delete(clusterId);
 
         tbl.deleteAll(ids);
+    }
+
+    /**
+     * Delete all objects that relates to cluster.
+     *
+     * @param clusterId Cluster ID.
+     */
+    protected void deleteAllClusterObjects(UUID clusterId) {
+        deleteClusterObjects(clusterId, cachesIdx, cachesTbl);
+        deleteClusterObjects(clusterId, modelsIdx, modelsTbl);
+        deleteClusterObjects(clusterId, igfssIdx, igfssTbl);
     }
 
     /**
@@ -429,25 +444,33 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param clusterIds Cluster IDs to delete.
      * @return Number of deleted clusters.
      */
-    public int deleteClusters( UUID userId, TreeSet<UUID> clusterIds) {
+    public int deleteClusters(UUID userId, TreeSet<UUID> clusterIds) {
         try (Transaction tx = txStart()) {
-            Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
-
-            clusters.forEach(cluster -> {
-                UUID clusterId = cluster.id();
-
-                clustersIdx.remove(userId, clusterId);
-
-                removeClusterObjects(clusterId, cachesTbl, cachesIdx);
-                removeClusterObjects(clusterId, modelsTbl, modelsIdx);
-                removeClusterObjects(clusterId, igfssTbl, igfssIdx);
-            });
+            clusterIds.forEach(this::deleteAllClusterObjects);
 
             clustersTbl.deleteAll(clusterIds);
+            clustersIdx.removeAll(userId, clusterIds);
 
             tx.commit();
         }
 
         return clusterIds.size();
+    }
+
+    /**
+     * Delete all configurations for specified user.
+     *
+     * @param userId User ID.
+     */
+    public void deleteAll(UUID userId) {
+        try (Transaction tx = txStart()) {
+            TreeSet<UUID> clusterIds = clustersIdx.delete(userId);
+
+            clusterIds.forEach(this::deleteAllClusterObjects);
+
+            clustersTbl.deleteAll(clusterIds);
+
+            tx.commit();
+        }
     }
 }

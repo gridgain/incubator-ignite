@@ -37,10 +37,10 @@ public class AccountsService extends AbstractService {
     /**
      * @param ignite Ignite.
      */
-    public AccountsService(Ignite ignite) {
+    public AccountsService(Ignite ignite, AccountsRepository accountsRepo) {
         super(ignite);
 
-        accountsRepo = new AccountsRepository(ignite);
+        this.accountsRepo = accountsRepo;
     }
 
     /** {@inheritDoc} */

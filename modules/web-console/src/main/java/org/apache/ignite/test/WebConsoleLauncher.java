@@ -30,7 +30,9 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.repositories.ConfigurationsRepository;
+import org.apache.ignite.console.repositories.NotebooksRepository;
 import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AdminRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
@@ -80,10 +82,14 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
             WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
-            vertx.deployVerticle(new AccountsService(ignite));
-            vertx.deployVerticle(new AdminService(ignite));
-            vertx.deployVerticle(new ConfigurationsService(ignite, new ConfigurationsRepository(ignite)));
-            vertx.deployVerticle(new NotebooksService(ignite));
+            AccountsRepository accountsRepo = new AccountsRepository(ignite);
+            ConfigurationsRepository cfgsRepo = new ConfigurationsRepository(ignite);
+            NotebooksRepository notebooksRepo = new NotebooksRepository(ignite);
+
+            vertx.deployVerticle(new AccountsService(ignite, accountsRepo));
+            vertx.deployVerticle(new AdminService(ignite, accountsRepo, cfgsRepo, notebooksRepo));
+            vertx.deployVerticle(new ConfigurationsService(ignite, cfgsRepo));
+            vertx.deployVerticle(new NotebooksService(ignite, notebooksRepo));
 
             vertx.deployVerticle(new WebConsoleServer(
                 cfg,

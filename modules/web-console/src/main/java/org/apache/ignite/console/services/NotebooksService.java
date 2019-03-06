@@ -37,11 +37,12 @@ public class NotebooksService extends AbstractService {
 
     /**
      * @param ignite Ignite.
+     * @param notebooksRepo Repository to work with notebooks.
      */
-    public NotebooksService(Ignite ignite) {
+    public NotebooksService(Ignite ignite, NotebooksRepository notebooksRepo) {
         super(ignite);
 
-        notebooksRepo = new NotebooksRepository(ignite);
+        this.notebooksRepo = notebooksRepo;
     }
 
     /** {@inheritDoc} */

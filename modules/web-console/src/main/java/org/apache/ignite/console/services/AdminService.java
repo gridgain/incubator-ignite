@@ -25,6 +25,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.console.repositories.ConfigurationsRepository;
+import org.apache.ignite.console.repositories.NotebooksRepository;
 import org.apache.ignite.transactions.Transaction;
 
 import static org.apache.ignite.console.common.Utils.boolParam;
@@ -37,13 +39,28 @@ public class AdminService extends AbstractService {
     /** */
     private final AccountsRepository accountsRepo;
 
+    /** */
+    private final ConfigurationsRepository cfgsRepo;
+
+    /** */
+    private final NotebooksRepository notebooksRepo;
+
     /**
      * @param ignite Ignite.
+     * @param accountsRepo Repository to work with accounts.
+     * @param notebooksRepo Repository to work with notebooks.
      */
-    public AdminService(Ignite ignite) {
+    public AdminService(
+        Ignite ignite,
+        AccountsRepository accountsRepo,
+        ConfigurationsRepository cfgsRepo,
+        NotebooksRepository notebooksRepo
+    ) {
         super(ignite);
 
-        accountsRepo = new AccountsRepository(ignite);
+        this.accountsRepo = accountsRepo;
+        this.cfgsRepo = cfgsRepo;
+        this.notebooksRepo = notebooksRepo;
     }
 
     /** {@inheritDoc} */
@@ -99,9 +116,8 @@ public class AdminService extends AbstractService {
         try (Transaction tx = accountsRepo.txStart()) {
             rmvCnt = accountsRepo.delete(accId);
 
-//            if (rmvCnt > 0) {
-//                // TODO WC-935 Delete all dependent entities.
-//            }
+            notebooksRepo.deleteAll(accId);
+            cfgsRepo.deleteAll(accId);
 
             tx.commit();
         }

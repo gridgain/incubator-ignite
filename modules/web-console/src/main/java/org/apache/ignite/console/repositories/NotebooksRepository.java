@@ -18,6 +18,7 @@
 package org.apache.ignite.console.repositories;
 
 import java.util.Collection;
+import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
@@ -101,5 +102,20 @@ public class NotebooksRepository extends AbstractRepository {
         }
 
         return rmvCnt;
+    }
+
+    /**
+     * Delete all notebook for specified user.
+     *
+     * @param userId User ID.
+     */
+    public void deleteAll(UUID userId) {
+        try(Transaction tx = txStart()) {
+            TreeSet<UUID> ids = notebooksIdx.delete(userId);
+
+            notebooksTbl.deleteAll(ids);
+
+            tx.commit();
+        }
     }
 }

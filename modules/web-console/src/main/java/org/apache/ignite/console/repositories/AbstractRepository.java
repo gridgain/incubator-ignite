@@ -67,9 +67,12 @@ public abstract class AbstractRepository {
 
         IgniteTransactions txs = ignite.transactions();
 
-        Transaction tx = txs.tx();
+        Transaction curTx = txs.tx();
 
-        return tx == null ? txs.txStart(PESSIMISTIC, REPEATABLE_READ) : new NestedTransaction(tx);
+        if (curTx instanceof NestedTransaction)
+            return curTx;
+
+        return curTx == null ? txs.txStart(PESSIMISTIC, REPEATABLE_READ) : new NestedTransaction(curTx);
     }
 
     /**
