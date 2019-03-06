@@ -19,9 +19,11 @@ package org.apache.ignite.test;
 
 import java.io.File;
 import java.util.Collections;
+import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.json.JsonObject;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
@@ -29,8 +31,8 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
-import org.apache.ignite.console.common.Utils;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.console.config.WebConsoleConfigurationHelper;
 import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
@@ -58,48 +60,55 @@ public class WebConsoleLauncher extends AbstractVerticle {
             .setBlockedThreadCheckInterval(1000L * 60L * 60L)
             .setClusterManager(new IgniteClusterManager(ignite));
 
-        Vertx.clusteredVertx(options, res -> {
-            if (res.succeeded()) {
-                Vertx vertx = res.result();
+        Vertx.clusteredVertx(options, asyncVertx -> {
+            if (asyncVertx.succeeded()) {
+                Vertx vertx = asyncVertx.result();
 
                 try {
-//                    WebConsoleConfiguration cfg = loadConfigurationFromXml(
-//                        "modules/web-console/src/main/resources/web-console.xml",
-//                        "web-console-config"
-//                    );
-
-//                    WebConsoleConfiguration cfg = Utils.loadConfigurationFromFile(
-//                        "json",
-//                        "modules/web-console/src/main/resources/web-console.json"
-//                    );
-
-                    WebConsoleConfiguration cfg = Utils.loadConfigurationFromFile(
-                        "properties",
-                        "modules/web-console/src/main/resources/web-console.properties"
+                    ConfigRetriever cfgRetriever = WebConsoleConfigurationHelper.loadConfiguration(
+                        vertx,
+                        WebConsoleConfigurationHelper.Format.XML,
+//                        WebConsoleConfigurationHelper.Format.JSON,
+//                        WebConsoleConfigurationHelper.Format.PROPERTIES,
+                        "modules/web-console/src/main/resources/web-console.xml",
+//                        "modules/web-console/src/main/resources/web-console.json",
+//                        "modules/web-console/src/main/resources/web-console.properties",
+                        "web-console-config" // Optional, needed only for XML.
                     );
 
-                    RestApiRouter accRouter = new AccountRouter(ignite, vertx);
-                    RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
-                    RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
-                    RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, cfg);
+                    cfgRetriever.getConfig(asyncCfg -> {
+                        if (asyncCfg.succeeded()) {
+                            JsonObject json = asyncCfg.result();
 
-                    vertx.deployVerticle(new WebConsoleServer(
-                        cfg,
-                        ignite,
-                        accRouter,
-                        cfgsRouter,
-                        notebooksRouter,
-                        downloadRouter
-                    ));
+                            WebConsoleConfiguration cfg = json.mapTo(WebConsoleConfiguration.class);
 
-                    System.out.println("Ignite Web Console Server started");
+                            RestApiRouter accRouter = new AccountRouter(ignite, vertx);
+                            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
+                            RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+                            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, cfg);
+
+                            vertx.deployVerticle(new WebConsoleServer(
+                                cfg,
+                                ignite,
+                                accRouter,
+                                cfgsRouter,
+                                notebooksRouter,
+                                downloadRouter
+                            ));
+
+                            System.out.println("Ignite Web Console Server started");
+                        }
+                        else
+                            ignite.log().error("Failed to start Web Console", asyncCfg.cause());
+
+                    });
                 }
                 catch (Throwable e) {
                     ignite.log().error("Failed to start Web Console", e);
                 }
             }
             else
-               ignite.log().error("Failed to start Web Console", res.cause());
+               ignite.log().error("Failed to start Web Console", asyncVertx.cause());
         });
     }
 
