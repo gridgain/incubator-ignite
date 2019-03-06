@@ -38,13 +38,18 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
@@ -64,8 +69,8 @@ import static java.net.URLEncoder.encode;
 /**
  * This class is responsible for notification about new version availability.
  * <p>
- * Note also that this connectivity is not necessary to successfully start the system as it will
- * gracefully ignore any errors occurred during notification and verification process.</p>
+ * Note also that this connectivity is not necessary to successfully start the system as it will gracefully ignore any
+ * errors occurred during notification and verification process.</p>
  * <p>
  * TODO GG-14736 rework this for GridGain Community versions.</p>
  */
@@ -148,7 +153,6 @@ class GridUpdateNotifier {
     static {
         PROPS_TO_EXCLUDE.add("sun.boot.library.path");
         PROPS_TO_EXCLUDE.add("sun.boot.class.path");
-        PROPS_TO_EXCLUDE.add("java.class.path");
         PROPS_TO_EXCLUDE.add("java.endorsed.dirs");
         PROPS_TO_EXCLUDE.add("java.library.path");
         PROPS_TO_EXCLUDE.add("java.home");
@@ -159,6 +163,15 @@ class GridUpdateNotifier {
         PROPS_TO_EXCLUDE.add("IGNITE_HOME");
         PROPS_TO_EXCLUDE.add("IGNITE_CONFIG_URL");
     }
+
+    /** Key for java classpath in system parameters. */
+    private static final String JAVA_CLASSPATH_KEY = "java.class.path";
+
+    /** Key for jars from classpath. */
+    private static final String JAVA_CLASSPATH_JARS_KEY = "java.class.path.jars";
+
+    /** Pattern for extracting jars from classpath. */
+    private static final Pattern JAVA_CLASSPATH_JAR_PATTERN = Pattern.compile("(?<=/)[^/]*?\\.jar");
 
     /**
      * Creates new notifier with default values.
@@ -277,6 +290,10 @@ class GridUpdateNotifier {
                 for (String toExclude : PROPS_TO_EXCLUDE)
                     snapshot.remove(toExclude);
 
+                String classpath = (String) snapshot.remove(JAVA_CLASSPATH_KEY);
+                String jarsFromClassPath = extractJarsFromClasspath(classpath);
+                snapshot.setProperty(JAVA_CLASSPATH_JARS_KEY, jarsFromClassPath);
+
                 snapshot.store(new PrintWriter(sw), "");
             }
             catch (IOException ignore) {
@@ -288,6 +305,20 @@ class GridUpdateNotifier {
         catch (SecurityException ignore) {
             return null;
         }
+    }
+
+    /**
+     * Extracts jar names from classpath string.
+     *
+     * @param classpath Classpath.
+     * @return extracted jar names from classpath.
+     */
+    private static String extractJarsFromClasspath(String classpath) {
+        List<String> jars = new ArrayList<>();
+        Matcher matcher = JAVA_CLASSPATH_JAR_PATTERN.matcher(classpath);
+        while (matcher.find())
+            jars.add(matcher.group());
+        return jars.stream().collect(Collectors.joining(","));
     }
 
     /**
