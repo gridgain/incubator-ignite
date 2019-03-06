@@ -44,9 +44,6 @@ public abstract class JUnit3TestLegacySupport extends JUnitAssertAware {
         return nameRule.getMethodName();
     }
 
-    /** Runs test code. */
-    abstract void runTest(Statement testRoutine) throws Throwable;
-
     /**
      * Called before execution of every test method in class.
      * <p>
