@@ -13,6 +13,7 @@ xcuserdata/
 *.obj
 .deps
 atlassian-ide-plugin.xml
+*.ipr
 *.iml
 target
 /libs/
