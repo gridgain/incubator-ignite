@@ -356,7 +356,7 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context
      */
-    private void handleDummy(RoutingContext ctx) {
+    protected void handleDummy(RoutingContext ctx) {
         ignite.log().info("Dummy: " + ctx.request().path());
 
         sendStatus(ctx, HTTP_OK, "[]");

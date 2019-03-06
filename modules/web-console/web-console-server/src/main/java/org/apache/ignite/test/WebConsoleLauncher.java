@@ -43,7 +43,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 /**
  * Web Console Launcher.
  */
-public class WebConsoleLauncher extends AbstractVerticle {
+public class WebConsoleLauncher {
     /**
      * Main entry point.
      *
