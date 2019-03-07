@@ -23,6 +23,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.json.JsonObject;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
@@ -30,12 +31,6 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
-import org.apache.ignite.console.routes.AccountRouter;
-import org.apache.ignite.console.routes.AgentDownloadRouter;
-import org.apache.ignite.console.config.WebConsoleConfiguration;
-import org.apache.ignite.console.routes.ConfigurationsRouter;
-import org.apache.ignite.console.routes.NotebooksRouter;
-import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -58,18 +53,18 @@ public class WebConsoleLauncher {
             .setBlockedThreadCheckInterval(1000L * 60L * 60L)
             .setClusterManager(new IgniteClusterManager(ignite));
 
-        Vertx.clusteredVertx(options, res -> {
-            if (res.failed()) {
-                ignite.log().error("Failed to start clustered Vertx!");
+        Vertx.clusteredVertx(options, asyncVertx -> {
+            if (asyncVertx.succeeded()) {
+                Vertx vertx = asyncVertx.result();
 
-                return;
+                DeploymentOptions depOpts = new DeploymentOptions()
+                    .setConfig(new JsonObject()
+                        .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
+
+                vertx.deployVerticle(new WebConsoleServer(), depOpts);
             }
-
-            Vertx vertx = res.result();
-
-            vertx.deployVerticle(new WebConsoleServer());
-
-            System.out.println("Ignite Web Console Server started");
+            else
+               ignite.log().error("Failed to start Web Console", asyncVertx.cause());
         });
     }
 
