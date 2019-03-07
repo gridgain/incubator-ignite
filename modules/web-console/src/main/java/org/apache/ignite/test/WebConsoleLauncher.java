@@ -20,8 +20,10 @@ package org.apache.ignite.test;
 import java.io.File;
 import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.json.JsonObject;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
@@ -29,16 +31,9 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
-import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.repositories.ConfigurationsRepository;
 import org.apache.ignite.console.repositories.NotebooksRepository;
-import org.apache.ignite.console.routes.AccountRouter;
-import org.apache.ignite.console.routes.AdminRouter;
-import org.apache.ignite.console.routes.AgentDownloadRouter;
-import org.apache.ignite.console.routes.ConfigurationsRouter;
-import org.apache.ignite.console.routes.NotebooksRouter;
-import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.console.services.AdminService;
 import org.apache.ignite.console.services.ConfigurationsService;
@@ -65,43 +60,27 @@ public class WebConsoleLauncher extends AbstractVerticle {
             .setBlockedThreadCheckInterval(1000L * 60L * 60L)
             .setClusterManager(new IgniteClusterManager(ignite));
 
-        Vertx.clusteredVertx(options, res -> {
-            if (res.failed()) {
-                ignite.log().error("Failed to start clustered Vertx!");
+        Vertx.clusteredVertx(options, asyncVertx -> {
+            if (asyncVertx.succeeded()) {
+                Vertx vertx = asyncVertx.result();
 
-                return;
+                DeploymentOptions depOpts = new DeploymentOptions()
+                    .setConfig(new JsonObject()
+                        .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
+
+                AccountsRepository accountsRepo = new AccountsRepository(ignite);
+                ConfigurationsRepository cfgsRepo = new ConfigurationsRepository(ignite);
+                NotebooksRepository notebooksRepo = new NotebooksRepository(ignite);
+
+                vertx.deployVerticle(new AccountsService(ignite, accountsRepo));
+                vertx.deployVerticle(new AdminService(ignite, accountsRepo, cfgsRepo, notebooksRepo));
+                vertx.deployVerticle(new ConfigurationsService(ignite, cfgsRepo));
+                vertx.deployVerticle(new NotebooksService(ignite, notebooksRepo));
+
+                vertx.deployVerticle(new WebConsoleServer(ignite), depOpts);
             }
-
-            Vertx vertx = res.result();
-
-            RestApiRouter accRouter = new AccountRouter(ignite, vertx);
-            RestApiRouter adminRouter = new AdminRouter(ignite, vertx);
-            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite, vertx);
-            RestApiRouter notebooksRouter = new NotebooksRouter(ignite, vertx);
-            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, vertx, "/your/path", "ignite-web-agent-x.y.z");
-
-            WebConsoleConfiguration cfg = new WebConsoleConfiguration();
-
-            AccountsRepository accountsRepo = new AccountsRepository(ignite);
-            ConfigurationsRepository cfgsRepo = new ConfigurationsRepository(ignite);
-            NotebooksRepository notebooksRepo = new NotebooksRepository(ignite);
-
-            vertx.deployVerticle(new AccountsService(ignite, accountsRepo));
-            vertx.deployVerticle(new AdminService(ignite, accountsRepo, cfgsRepo, notebooksRepo));
-            vertx.deployVerticle(new ConfigurationsService(ignite, cfgsRepo));
-            vertx.deployVerticle(new NotebooksService(ignite, notebooksRepo));
-
-            vertx.deployVerticle(new WebConsoleServer(
-                cfg,
-                ignite,
-                accRouter,
-                adminRouter,
-                cfgsRouter,
-                notebooksRouter,
-                downloadRouter
-            ));
-
-            System.out.println("Ignite Web Console Server started");
+            else
+               ignite.log().error("Failed to start Web Console", asyncVertx.cause());
         });
     }
 
