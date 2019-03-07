@@ -113,36 +113,29 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** {@inheritDoc} */
     @Override public void start(Future<Void> startFut) {
-            configRetriever().getConfig(cfgRes -> {
-                if (cfgRes.succeeded()) {
-                    try {
-                        cfg = createConfiguration(cfgRes.result());
+        ConfigRetriever.create(vertx, buildConfigRetrieverOptions())
+            .setConfigurationProcessor(new HierarchicalConfigurationProcessor())
+            .getConfig(cfgRes -> {
+                try {
+                    if (cfgRes.failed())
+                        throw cfgRes.cause();
 
-                        startHttpServer();
+                    cfg = cfgRes.result().mapTo(WebConsoleConfiguration.class);
 
-                        startFut.complete();
-                    }
-                    catch (Throwable e) {
-                        startFut.fail(e);
-                    }
+                    startHttpServer();
+
+                    startFut.complete();
                 }
-                else
-                    startFut.fail(cfgRes.cause());
+                catch (Throwable e) {
+                    startFut.fail(e);
+                }
             });
     }
 
     /**
-     * @param json JSON object.
-     * @return Web console configuration as POJO.
+     * @return Configuration retriever options.
      */
-    protected WebConsoleConfiguration createConfiguration(JsonObject json) {
-        return json.mapTo(WebConsoleConfiguration.class);
-    }
-
-    /**
-     * @return Configuration retriever.
-     */
-    protected ConfigRetriever configRetriever() {
+    protected ConfigRetrieverOptions buildConfigRetrieverOptions() {
         ConfigRetrieverOptions cfgOpts = new ConfigRetrieverOptions();
 
         cfgOpts.addStore(new ConfigStoreOptions()
@@ -151,18 +144,14 @@ public class WebConsoleServer extends AbstractVerticle {
         String cfgPath = config().getString("configPath");
 
         if (!F.isEmpty(cfgPath)) {
-            String fmt = cfgPath.toLowerCase().endsWith(".properties") ? "properties" : "json";
-
             cfgOpts.addStore(new ConfigStoreOptions()
                 .setType("file")
-                .setFormat(fmt)
-                .setConfig(new JsonObject()
-                    .put("path", cfgPath))
+                .setFormat("properties")
+                .setConfig(new JsonObject().put("path", cfgPath))
             );
         }
 
-        return ConfigRetriever.create(vertx, cfgOpts)
-            .setConfigurationProcessor(new HierarchicalConfigurationProcessor());
+        return cfgOpts;
     }
 
     /**
@@ -364,14 +353,6 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context.
      * @param status Status to send.
-     */
-    private void sendStatus(RoutingContext ctx, int status) {
-        ctx.response().setStatusCode(status).end();
-    }
-
-    /**
-     * @param ctx Context.
-     * @param status Status to send.
      * @param msg Message to send.
      */
     private void sendStatus(RoutingContext ctx, int status, String msg) {
@@ -391,25 +372,6 @@ public class WebConsoleServer extends AbstractVerticle {
             .putHeader(HttpHeaderNames.EXPIRES, "0")
             .setStatusCode(HTTP_OK)
             .end(data);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    private void sendResult(RoutingContext ctx, JsonObject data) {
-        sendResult(ctx, data.toBuffer());
-    }
-
-    /**
-     * @param ctx Context.
-     * @param msg Error message to send.
-     * @param e Error to send.
-     */
-    private void sendError(RoutingContext ctx, String msg, Throwable e) {
-        ignite.log().error(msg, e);
-
-        sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
     }
 
     /**
