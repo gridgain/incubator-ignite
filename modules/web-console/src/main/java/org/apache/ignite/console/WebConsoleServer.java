@@ -60,6 +60,7 @@ import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.config.SslConfiguration;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.AccountRouter;
+import org.apache.ignite.console.routes.AdminRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
@@ -299,6 +300,7 @@ public class WebConsoleServer extends AbstractVerticle {
         registerDummyRoutes(router);
 
         new AccountRouter(ignite, vertx).install(router);
+        new AdminRouter(ignite, vertx).install(router);
         new ConfigurationsRouter(ignite, vertx).install(router);
         new NotebooksRouter(ignite, vertx).install(router);
         new AgentDownloadRouter(ignite, vertx, cfg).install(router);

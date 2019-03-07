@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console.routes;
 
-import java.net.HttpURLConnection;
 import java.util.Map;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -80,7 +79,6 @@ public abstract class AbstractRouter implements RestApiRouter {
 
     /**
      * Get the authenticated user (if any).
-     * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
      *
      * @param ctx Context
      * @return Current authenticated user.
