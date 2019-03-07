@@ -114,6 +114,7 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuerySplitter;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.h2.sys.SqlSystemTableEngine;
+import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemView;
 import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemViewBaselineNodes;
 import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemViewNodeAttributes;
 import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemViewNodeMetrics;
@@ -121,7 +122,6 @@ import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemViewNode
 import org.apache.ignite.internal.processors.query.h2.twostep.GridMapQueryExecutor;
 import org.apache.ignite.internal.processors.query.h2.twostep.GridReduceQueryExecutor;
 import org.apache.ignite.internal.processors.query.h2.twostep.MapQueryLazyWorker;
-import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemView;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitor;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitorClosure;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitorImpl;
@@ -129,24 +129,25 @@ import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.sql.SqlParseException;
 import org.apache.ignite.internal.sql.SqlParser;
 import org.apache.ignite.internal.sql.command.SqlAlterTableCommand;
-import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlAlterUserCommand;
 import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlCommand;
 import org.apache.ignite.internal.sql.command.SqlCreateIndexCommand;
 import org.apache.ignite.internal.sql.command.SqlCreateUserCommand;
 import org.apache.ignite.internal.sql.command.SqlDropIndexCommand;
-import org.apache.ignite.internal.sql.command.SqlSetStreamingCommand;
 import org.apache.ignite.internal.sql.command.SqlDropUserCommand;
+import org.apache.ignite.internal.sql.command.SqlSetStreamingCommand;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
 import org.apache.ignite.internal.util.GridEmptyCloseableIterator;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.GridPlainRunnable;
 import org.apache.ignite.internal.util.lang.IgniteInClosure2X;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiClosure;
@@ -166,6 +167,7 @@ import org.h2.command.dml.NoOperation;
 import org.h2.engine.Session;
 import org.h2.engine.SysProperties;
 import org.h2.index.Index;
+import org.h2.jdbc.JdbcResultSet;
 import org.h2.jdbc.JdbcStatement;
 import org.h2.server.web.WebServer;
 import org.h2.table.IndexColumn;
@@ -1254,7 +1256,23 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         long start = U.currentTimeMillis();
 
         try {
+
+            if (log.isInfoEnabled()) {
+                String msg = "Executing query sql=" + sql + '\'' +
+                    ", parameters=" + (params == null ? "[]" : Arrays.deepToString(params.toArray())) + "]" +
+                    ", lazy=" + (MapQueryLazyWorker.currentWorker() != null) ;
+
+                log.info(msg);
+            }
+
             ResultSet rs = executeSqlQuery(conn, stmt, timeoutMillis, cancel);
+
+            if (log.isInfoEnabled()) {
+                if (rs instanceof JdbcResultSet)
+                    log.info(" ResultSet: " + S.toString(JdbcResultSet.class, (JdbcResultSet)rs));
+                else
+                    log.info(" ResultSet class: " + rs.getClass());
+            }
 
             long time = U.currentTimeMillis() - start;
 
@@ -1303,6 +1321,19 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     /** {@inheritDoc} */
     @Override public FieldsQueryCursor<List<?>> queryLocalSqlFields(String schemaName, SqlFieldsQuery qry,
         final boolean keepBinary, IndexingQueryFilter filter, GridQueryCancel cancel) throws IgniteCheckedException {
+
+        if (log.isInfoEnabled()) {
+            GridStringBuilder sb = new GridStringBuilder("Local query stack trace:");
+
+            U.printStackTrace(
+                Thread.currentThread().getId(),
+                sb);
+
+            String msg = sb.toString();
+
+            log.info(msg);
+        }
+
         String sql = qry.getSql();
         Object[] args = qry.getArgs();
 
@@ -1804,13 +1835,16 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         }
 
         if (twoStepQry != null) {
-            if (log.isDebugEnabled())
-                log.debug("Parsed query: `" + sqlQry + "` into two step query: " + twoStepQry);
+            if (log.isInfoEnabled())
+                log.info("Executing query distributed: '" + qry + "' into two step query: " + twoStepQry);
 
             checkQueryType(qry, true);
 
             return Collections.singletonList(doRunDistributedQuery(schemaName, qry, twoStepQry, meta, keepBinary,
                 cancel));
+        } else {
+            if (log.isInfoEnabled())
+                log.info("Executing query local: '" + qry+ "'");
         }
 
         // We've encountered a local query, let's just run it.
