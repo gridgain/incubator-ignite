@@ -52,10 +52,11 @@ public class AgentDownloadRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      * @param cfg Web Console configuration.
      */
-    public AgentDownloadRouter(Ignite ignite, WebConsoleConfiguration cfg) {
-        super(ignite);
+    public AgentDownloadRouter(Ignite ignite, Vertx vertx, WebConsoleConfiguration cfg) {
+        super(ignite, vertx);
 
         this.agentFileName = cfg.getAgentFileName();
 

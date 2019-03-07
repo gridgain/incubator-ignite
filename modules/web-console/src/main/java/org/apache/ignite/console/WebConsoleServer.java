@@ -299,9 +299,9 @@ public class WebConsoleServer extends AbstractVerticle {
         registerDummyRoutes(router);
 
         new AccountRouter(ignite, vertx).install(router);
-        new ConfigurationsRouter(ignite).install(router);
-        new NotebooksRouter(ignite).install(router);
-        new AgentDownloadRouter(ignite, cfg).install(router);
+        new ConfigurationsRouter(ignite, vertx).install(router);
+        new NotebooksRouter(ignite, vertx).install(router);
+        new AgentDownloadRouter(ignite, vertx, cfg).install(router);
     }
 
     /**
