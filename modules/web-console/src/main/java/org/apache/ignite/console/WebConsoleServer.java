@@ -59,11 +59,20 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.config.SslConfiguration;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.console.repositories.ConfigurationsRepository;
+import org.apache.ignite.console.repositories.NotebooksRepository;
 import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AdminRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
+import org.apache.ignite.console.routes.RestApiRouter;
+import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.services.AdminService;
+import org.apache.ignite.console.services.ConfigurationsService;
+import org.apache.ignite.console.services.NotebooksService;
+import org.apache.ignite.console.services.Service;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
@@ -102,6 +111,12 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** */
     protected final Ignite ignite;
+
+    /** */
+    protected List<RestApiRouter> restRoutes;
+
+    /** */
+    protected List<Service> services;
 
     /**
      * @param ignite Ignite.
@@ -299,11 +314,26 @@ public class WebConsoleServer extends AbstractVerticle {
     protected void registerRestRoutes(Router router) {
         registerDummyRoutes(router);
 
-        new AccountRouter(ignite, vertx).install(router);
-        new AdminRouter(ignite, vertx).install(router);
-        new ConfigurationsRouter(ignite, vertx).install(router);
-        new NotebooksRouter(ignite, vertx).install(router);
-        new AgentDownloadRouter(ignite, vertx, cfg).install(router);
+        restRoutes = Arrays.asList(
+            new AccountRouter(ignite, vertx),
+            new AdminRouter(ignite, vertx),
+            new ConfigurationsRouter(ignite, vertx),
+            new NotebooksRouter(ignite, vertx),
+            new AgentDownloadRouter(ignite, vertx, cfg)
+        );
+
+        restRoutes.forEach(route -> route.install(router));
+
+        AccountsRepository accountsRepo = new AccountsRepository(ignite);
+        ConfigurationsRepository cfgsRepo = new ConfigurationsRepository(ignite);
+        NotebooksRepository notebooksRepo = new NotebooksRepository(ignite);
+
+        services = Arrays.asList(
+            new AccountsService(ignite, vertx, accountsRepo),
+            new AdminService(ignite, vertx, accountsRepo, cfgsRepo, notebooksRepo),
+            new ConfigurationsService(ignite, vertx, cfgsRepo),
+            new NotebooksService(ignite, vertx, notebooksRepo)
+        );
     }
 
     /**

@@ -21,7 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
@@ -35,7 +35,7 @@ import static org.apache.ignite.console.common.Utils.errorMessage;
 /**
  * Base class for routers.
  */
-public abstract class AbstractService extends AbstractVerticle {
+public abstract class AbstractService implements Service, AutoCloseable {
     /** */
     protected final String name;
 
@@ -43,13 +43,17 @@ public abstract class AbstractService extends AbstractVerticle {
     protected final Ignite ignite;
 
     /** */
+    protected final Vertx vertx;
+
+    /** */
     private final Set<MessageConsumer<?>> consumers;
 
     /**
      * @param ignite Ignite.
      */
-    protected AbstractService(Ignite ignite) {
+    protected AbstractService(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
+        this.vertx = vertx;
 
         name = getClass().getSimpleName();
         consumers = new HashSet<>();
@@ -60,15 +64,17 @@ public abstract class AbstractService extends AbstractVerticle {
      */
     protected abstract void initEventBus();
 
-    /** {@inheritDoc} */
-    @Override public final void start() {
+    /**
+     * Start service.
+     */
+    public final void start() {
         initEventBus();
 
         ignite.log().info("Service started: " + name);
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
+    @Override public void close() {
         consumers.forEach(MessageConsumer::unregister);
 
         ignite.log().info("Service stopped: " + name);

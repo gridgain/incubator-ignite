@@ -76,20 +76,20 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRout(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
-        registerRout(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
+        registerRoute(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
+        registerRoute(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
 
-        registerRout(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
-        registerRout(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
-        registerRout(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
+        registerRoute(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
+        registerRoute(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
+        registerRoute(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
 
-        registerRout(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
-        registerRout(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
-        registerRout(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
+        registerRoute(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
+        registerRoute(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
+        registerRoute(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
     }
 
     /**

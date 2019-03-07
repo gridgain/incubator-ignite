@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -42,10 +43,11 @@ public class ConfigurationsService extends AbstractService {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertex.
      * @param cfgsRepo Repository to work with configurations. 
      */
-    public ConfigurationsService(Ignite ignite, ConfigurationsRepository cfgsRepo) {
-        super(ignite);
+    public ConfigurationsService(Ignite ignite, Vertx vertx, ConfigurationsRepository cfgsRepo) {
+        super(ignite, vertx);
         
         this.cfgsRepo = cfgsRepo;
     }

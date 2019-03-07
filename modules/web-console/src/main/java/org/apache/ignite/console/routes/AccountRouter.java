@@ -57,14 +57,14 @@ public class AccountRouter extends AbstractRouter {
     @Override public void install(Router router) {
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        registerRout(router, POST, "/api/v1/user", this::getUser);
-        registerRout(router, POST, "/api/v1/signup", this::signUp);
-        registerRout(router, POST, "/api/v1/signin", this::signIn);
-        registerRout(router, POST, "/api/v1/logout", this::logout);
+        registerRoute(router, POST, "/api/v1/user", this::getUser);
+        registerRoute(router, POST, "/api/v1/signup", this::signUp);
+        registerRoute(router, POST, "/api/v1/signin", this::signIn);
+        registerRoute(router, POST, "/api/v1/logout", this::logout);
 
-        registerRout(router, POST, "/api/v1/password/forgot", this::forgotPassword);
-        registerRout(router, POST, "/api/v1/password/reset", this::resetPassword);
-        registerRout(router, POST, "/api/v1/password/validate/token", this::validateToken);
+        registerRoute(router, POST, "/api/v1/password/forgot", this::forgotPassword);
+        registerRoute(router, POST, "/api/v1/password/reset", this::resetPassword);
+        registerRoute(router, POST, "/api/v1/password/validate/token", this::validateToken);
     }
 
     /**

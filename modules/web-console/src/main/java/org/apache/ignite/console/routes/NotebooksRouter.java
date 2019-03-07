@@ -51,9 +51,9 @@ public class NotebooksRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRout(router, GET, "/api/v1/notebooks", this::load);
-        registerRout(router, POST, "/api/v1/notebooks/save", this::save);
-        registerRout(router, POST, "/api/v1/notebooks/remove", this::delete);
+        registerRoute(router, GET, "/api/v1/notebooks", this::load);
+        registerRoute(router, POST, "/api/v1/notebooks/save", this::save);
+        registerRoute(router, POST, "/api/v1/notebooks/remove", this::delete);
     }
 
     /**

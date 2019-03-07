@@ -49,12 +49,12 @@ public class AdminRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRout(router, POST, "/api/v1/admin/list", this::list);
-        registerRout(router, POST, "/api/v1/admin/remove", this::remove);
-        registerRout(router, POST, "/api/v1/admin/toggle", this::toggle);
-        registerRout(router, GET, "/api/v1/admin/become", this::become);
-        registerRout(router, GET, "/api/v1/admin/revert/identity", this::revertIdentity);
-        registerRout(router, PUT, "/api/v1/admin/notifications", this::notifications);
+        registerRoute(router, POST, "/api/v1/admin/list", this::list);
+        registerRoute(router, POST, "/api/v1/admin/remove", this::remove);
+        registerRoute(router, POST, "/api/v1/admin/toggle", this::toggle);
+        registerRoute(router, GET, "/api/v1/admin/become", this::become);
+        registerRoute(router, GET, "/api/v1/admin/revert/identity", this::revertIdentity);
+        registerRoute(router, PUT, "/api/v1/admin/notifications", this::notifications);
     }
 
     /**

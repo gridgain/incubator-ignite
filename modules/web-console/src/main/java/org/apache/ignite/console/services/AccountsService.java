@@ -19,6 +19,7 @@ package org.apache.ignite.console.services;
 
 import java.time.ZonedDateTime;
 import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
@@ -36,9 +37,11 @@ public class AccountsService extends AbstractService {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
+     * @param accountsRepo Repository to work with accounts.
      */
-    public AccountsService(Ignite ignite, AccountsRepository accountsRepo) {
-        super(ignite);
+    public AccountsService(Ignite ignite, Vertx vertx, AccountsRepository accountsRepo) {
+        super(ignite, vertx);
 
         this.accountsRepo = accountsRepo;
     }

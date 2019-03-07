@@ -18,6 +18,7 @@
 package org.apache.ignite.console.services;
 
 import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -37,10 +38,11 @@ public class NotebooksService extends AbstractService {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      * @param notebooksRepo Repository to work with notebooks.
      */
-    public NotebooksService(Ignite ignite, NotebooksRepository notebooksRepo) {
-        super(ignite);
+    public NotebooksService(Ignite ignite, Vertx vertx,NotebooksRepository notebooksRepo) {
+        super(ignite, vertx);
 
         this.notebooksRepo = notebooksRepo;
     }

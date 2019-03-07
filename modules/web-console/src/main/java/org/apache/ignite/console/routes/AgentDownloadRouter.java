@@ -65,7 +65,7 @@ public class AgentDownloadRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRout(router, GET, "/api/v1/downloads/agent", this::load);
+        registerRoute(router, GET, "/api/v1/downloads/agent", this::load);
     }
 
     /**

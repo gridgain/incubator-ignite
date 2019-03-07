@@ -61,7 +61,7 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @param path Path.
      * @param reqHnd Request handler.
      */
-    protected Route registerRout(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
+    protected Route registerRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
         return router.route(mtd, path).handler(reqHnd).failureHandler(this:: failureHandler);
     }
 

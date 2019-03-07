@@ -31,13 +31,6 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
-import org.apache.ignite.console.repositories.AccountsRepository;
-import org.apache.ignite.console.repositories.ConfigurationsRepository;
-import org.apache.ignite.console.repositories.NotebooksRepository;
-import org.apache.ignite.console.services.AccountsService;
-import org.apache.ignite.console.services.AdminService;
-import org.apache.ignite.console.services.ConfigurationsService;
-import org.apache.ignite.console.services.NotebooksService;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -57,7 +50,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
         Ignite ignite = startIgnite();
 
         VertxOptions options = new VertxOptions()
-            .setBlockedThreadCheckInterval(1000L * 60L * 60L)
+            .setBlockedThreadCheckInterval(1000L * 60L * 60L) // TODO IGNITE-5617 Only for debug!
             .setClusterManager(new IgniteClusterManager(ignite));
 
         Vertx.clusteredVertx(options, asyncVertx -> {
@@ -67,15 +60,6 @@ public class WebConsoleLauncher extends AbstractVerticle {
                 DeploymentOptions depOpts = new DeploymentOptions()
                     .setConfig(new JsonObject()
                         .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
-
-                AccountsRepository accountsRepo = new AccountsRepository(ignite);
-                ConfigurationsRepository cfgsRepo = new ConfigurationsRepository(ignite);
-                NotebooksRepository notebooksRepo = new NotebooksRepository(ignite);
-
-                vertx.deployVerticle(new AccountsService(ignite, accountsRepo));
-                vertx.deployVerticle(new AdminService(ignite, accountsRepo, cfgsRepo, notebooksRepo));
-                vertx.deployVerticle(new ConfigurationsService(ignite, cfgsRepo));
-                vertx.deployVerticle(new NotebooksService(ignite, notebooksRepo));
 
                 vertx.deployVerticle(new WebConsoleServer(ignite), depOpts);
             }

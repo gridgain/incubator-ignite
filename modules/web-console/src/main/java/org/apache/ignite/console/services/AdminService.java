@@ -19,6 +19,7 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -47,16 +48,19 @@ public class AdminService extends AbstractService {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      * @param accountsRepo Repository to work with accounts.
+     * @param cfgsRepo Repository to work with configurations.
      * @param notebooksRepo Repository to work with notebooks.
      */
     public AdminService(
         Ignite ignite,
+        Vertx vertx,
         AccountsRepository accountsRepo,
         ConfigurationsRepository cfgsRepo,
         NotebooksRepository notebooksRepo
     ) {
-        super(ignite);
+        super(ignite, vertx);
 
         this.accountsRepo = accountsRepo;
         this.cfgsRepo = cfgsRepo;
