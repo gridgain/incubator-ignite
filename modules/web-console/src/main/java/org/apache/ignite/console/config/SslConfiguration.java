@@ -17,16 +17,12 @@
 
 package org.apache.ignite.console.config;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * SSL configuration.
  */
-public class SslConfiguration implements Serializable {
-    /** */
-    private static final long serialVersionUID = 0L;
-
+public class SslConfiguration {
     /** SSL enabled flag. */
     private boolean enabled;
 

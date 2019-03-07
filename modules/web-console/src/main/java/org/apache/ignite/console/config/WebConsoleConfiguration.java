@@ -17,16 +17,12 @@
 
 package org.apache.ignite.console.config;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Configuration of Web Console.
  */
-public class WebConsoleConfiguration implements Serializable {
-    /** */
-    private static final long serialVersionUID = 0L;
-
+public class WebConsoleConfiguration {
     /** */
     private static final int DFLT_PORT = 3000;
 
@@ -42,13 +38,13 @@ public class WebConsoleConfiguration implements Serializable {
     /** Web Agent file name. */
     private String agentFileName;
 
-    /** */
+    /** Accounts configuration. */
     private AccountConfiguration accountCfg;
 
-    /** */
+    /** Mail configuration. */
     private MailConfiguration mailCfg;
 
-    /** */
+    /** SSL configuration. */
     private SslConfiguration sslCfg;
 
     /**

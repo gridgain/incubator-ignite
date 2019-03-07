@@ -17,16 +17,12 @@
 
 package org.apache.ignite.console.config;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Account configuration.
  */
-public class AccountConfiguration implements Serializable {
-    /** */
-    private static final long serialVersionUID = 0L;
-
+public class AccountConfiguration {
     /** By default activation link will be available for 24 hours. */
     private static final long DFLT_TIMEOUT = 24 * 60 * 60 * 1000;
 
@@ -42,7 +38,7 @@ public class AccountConfiguration implements Serializable {
     /** Activation send email throttle. */
     private long sndTimeout = DFLT_SEND_TIMEOUT;
 
-    /** */
+    /** Flag if sign up disabled and new accounts can be created only by administrator. */
     private boolean disableSignup;
 
     /**

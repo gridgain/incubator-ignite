@@ -23,15 +23,23 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Stream;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
+import io.vertx.config.ConfigRetriever;
+import io.vertx.config.ConfigRetrieverOptions;
+import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.ClientAuth;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
@@ -51,12 +59,18 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.config.SslConfiguration;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
-import org.apache.ignite.console.routes.RestApiRouter;
+import org.apache.ignite.console.routes.AccountRouter;
+import org.apache.ignite.console.routes.AgentDownloadRouter;
+import org.apache.ignite.console.routes.ConfigurationsRouter;
+import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 import static java.net.HttpURLConnection.HTTP_OK;
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.console.common.Utils.errorMessage;
 import static org.apache.ignite.console.common.Utils.jksOptions;
 import static org.apache.ignite.console.common.Utils.origin;
@@ -74,6 +88,10 @@ public class WebConsoleServer extends AbstractVerticle {
         HttpHeaderValues.NO_STORE,
         HttpHeaderValues.MUST_REVALIDATE);
 
+    static {
+        Json.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
     /** */
     protected final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
 
@@ -81,31 +99,76 @@ public class WebConsoleServer extends AbstractVerticle {
     protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /** */
-    protected final WebConsoleConfiguration cfg;
+    protected WebConsoleConfiguration cfg;
 
     /** */
     protected final Ignite ignite;
 
-    /** */
-    private final RestApiRouter[] routers;
-
     /**
-     * @param cfg Configuration.
      * @param ignite Ignite.
-     * @param routers REST API routers.
      */
-    public WebConsoleServer(
-        WebConsoleConfiguration cfg,
-        Ignite ignite,
-        RestApiRouter... routers
-    ) {
-        this.cfg = cfg;
+    public WebConsoleServer(Ignite ignite) {
         this.ignite = ignite;
-        this.routers = routers;
     }
 
     /** {@inheritDoc} */
-    @Override public void start() throws Exception {
+    @Override public void start(Future<Void> startFut) {
+            configRetriever().getConfig(cfgRes -> {
+                if (cfgRes.succeeded()) {
+                    try {
+                        cfg = createConfiguration(cfgRes.result());
+
+                        startHttpServer();
+
+                        startFut.complete();
+                    }
+                    catch (Throwable e) {
+                        startFut.fail(e);
+                    }
+                }
+                else
+                    startFut.fail(cfgRes.cause());
+            });
+    }
+
+    /**
+     * @param json JSON object.
+     * @return Web console configuration as POJO.
+     */
+    protected WebConsoleConfiguration createConfiguration(JsonObject json) {
+        return json.mapTo(WebConsoleConfiguration.class);
+    }
+
+    /**
+     * @return Configuration retriever.
+     */
+    protected ConfigRetriever configRetriever() {
+        ConfigRetrieverOptions cfgOpts = new ConfigRetrieverOptions();
+
+        cfgOpts.addStore(new ConfigStoreOptions()
+            .setType("env"));
+
+        String cfgPath = config().getString("configPath");
+
+        if (!F.isEmpty(cfgPath)) {
+            String fmt = cfgPath.toLowerCase().endsWith(".properties") ? "properties" : "json";
+
+            cfgOpts.addStore(new ConfigStoreOptions()
+                .setType("file")
+                .setFormat(fmt)
+                .setConfig(new JsonObject()
+                    .put("path", cfgPath))
+            );
+        }
+
+        return ConfigRetriever.create(vertx, cfgOpts)
+            .setConfigurationProcessor(new HierarchicalConfigurationProcessor());
+    }
+
+    /**
+     * @throws Exception If failed to start HTTP server.
+     */
+    protected void startHttpServer() throws Exception {
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
         BridgeOptions allAccessOptions =
@@ -225,11 +288,10 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
-     * Register REST routes.
-     *
+     * TODO IGNITE-5617 Replace with REAL routes!
      * @param router Router.
      */
-    private void registerRestRoutes(Router router) {
+    protected void registerDummyRoutes(Router router) {
         router.route("/api/v1/activation/resend").handler(this::handleDummy);
         router.route("/api/v1/activities/page").handler(this::handleDummy);
 
@@ -239,9 +301,20 @@ public class WebConsoleServer extends AbstractVerticle {
 
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
+    }
 
-        for (RestApiRouter r : routers)
-            r.install(router);
+    /**
+     * Register REST routes.
+     *
+     * @param router Router.
+     */
+    protected void registerRestRoutes(Router router) {
+        registerDummyRoutes(router);
+
+        new AccountRouter(ignite, vertx).install(router);
+        new ConfigurationsRouter(ignite).install(router);
+        new NotebooksRouter(ignite).install(router);
+        new AgentDownloadRouter(ignite, cfg).install(router);
     }
 
     /**
@@ -342,7 +415,7 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context
      */
-    private void handleDummy(RoutingContext ctx) {
+    protected void handleDummy(RoutingContext ctx) {
         ignite.log().info("Dummy: " + ctx.request().path());
 
         sendStatus(ctx, HTTP_OK, "[]");
@@ -476,6 +549,83 @@ public class WebConsoleServer extends AbstractVerticle {
          */
         public String[] getArgumentsClasses() {
             return argCls;
+        }
+    }
+
+    /**
+     * Configuration processor that convert flat JSON to hierarchical.
+     */
+    private static class HierarchicalConfigurationProcessor implements Function<JsonObject, JsonObject> {
+        /** {@inheritDoc} */
+        @Override public JsonObject apply(JsonObject src) {
+            return src
+                .stream()
+                .map(entry -> {
+                    String key = entry.getKey();
+                    Object val = entry.getValue();
+
+                    if (val instanceof String)
+                        val = tryParse((String)val);
+
+                    List<String> paths = asList(key.split("\\."));
+
+                    JsonObject json = new JsonObject();
+
+                    if (paths.size() == 1)
+                        json.put(key, val);
+                    else
+                        json.put(paths.get(0), toJson(paths.subList(1, paths.size()), val));
+
+                    return json;
+                })
+                .reduce((json, other) -> json.mergeIn(other, true))
+                .orElse(new JsonObject());
+        }
+
+        /**
+         * Convert to hierarchical JSON.
+         * @param paths Path.
+         * @param val Property value.
+         * @return JSON.
+         */
+        private JsonObject toJson(List<String> paths, Object val) {
+            if (paths.isEmpty())
+                return new JsonObject();
+
+            if (paths.size() == 1)
+                return new JsonObject().put(paths.get(0), val);
+
+            String path = paths.get(0);
+
+            JsonObject jsonVal = toJson(paths.subList(1, paths.size()), val);
+
+            return new JsonObject().put(path, jsonVal);
+        }
+
+        /**
+         * @param raw Raw value.
+         * @return Parsed value.
+         */
+        private Object tryParse(String raw) {
+            if (raw.contains(",")) {
+                return Stream.of(raw.split(","))
+                    .map(this::tryParse)
+                    .collect(collectingAndThen(toList(), JsonArray::new));
+            }
+
+            if ("true".equals(raw))
+                return true;
+
+            if ("false".equals(raw))
+                return false;
+
+            if (raw.matches("^\\d+\\.\\d+$"))
+                return Double.parseDouble(raw);
+
+            if (raw.matches("^\\d+$"))
+                return Integer.parseInt(raw);
+
+            return raw;
         }
     }
 }

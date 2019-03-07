@@ -17,32 +17,28 @@
 
 package org.apache.ignite.console.config;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Mail configuration.
  */
-public class MailConfiguration implements Serializable {
-    /** */
-    private static final long serialVersionUID = 0L;
-
-    /** */
+public class MailConfiguration {
+    /** Text to show in mail header. */
     private String greeting;
 
-    /** */
+    /** Text to show in mail footer. */
     private String sign;
 
-    /** */
+    /** Address mail will be send from. */
     private String from;
 
-    /** */
+    /** Mail server host. */
     private String host;
 
-    /** */
+    /** User name that will be used to authenticate on mail server. */
     private String user;
 
-    /** */
+    /** Password that will be used to authenticate on mail server. */
     private String pwd;
 
     /**
