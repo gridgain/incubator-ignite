@@ -135,12 +135,12 @@ public class NestedTransaction implements Transaction {
 
     /** {@inheritDoc} */
     @Override public void resume() throws IgniteException {
-        throw new UnsupportedOperationException("Resume is not supported for nested transaction");
+        delegate.resume();
     }
 
     /** {@inheritDoc} */
     @Override public void suspend() throws IgniteException {
-        throw new UnsupportedOperationException("Suspend is not supported for nested transaction");
+        delegate.suspend();
     }
 
     /** {@inheritDoc} */

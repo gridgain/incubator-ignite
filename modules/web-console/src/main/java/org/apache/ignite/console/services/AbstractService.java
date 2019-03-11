@@ -35,56 +35,37 @@ import static org.apache.ignite.console.common.Utils.errorMessage;
 /**
  * Base class for routers.
  */
-public abstract class AbstractService implements Service, AutoCloseable {
-    /** */
-    protected final String name;
-
+public abstract class AbstractService implements AutoCloseable {
     /** */
     protected final Ignite ignite;
 
     /** */
-    protected final Vertx vertx;
-
-    /** */
-    private final Set<MessageConsumer<?>> consumers;
+    private final Set<MessageConsumer<?>> consumers = new HashSet<>();
 
     /**
      * @param ignite Ignite.
      */
-    protected AbstractService(Ignite ignite, Vertx vertx) {
+    protected AbstractService(Ignite ignite) {
         this.ignite = ignite;
-        this.vertx = vertx;
-
-        name = getClass().getSimpleName();
-        consumers = new HashSet<>();
     }
 
     /**
      * Initialize event bus.
      */
-    protected abstract void initEventBus();
-
-    /**
-     * Start service.
-     */
-    public final void start() {
-        initEventBus();
-
-        ignite.log().info("Service started: " + name);
-    }
+    public abstract AbstractService install(Vertx vertx);
 
     /** {@inheritDoc} */
     @Override public void close() {
         consumers.forEach(MessageConsumer::unregister);
 
-        ignite.log().info("Service stopped: " + name);
+        ignite.log().info("Service stopped: " + getClass().getSimpleName());
     }
 
     /**
      * @param addr Address.
      * @param supplier Data supplier.
      */
-    protected <R> void addConsumer(String addr, Function<JsonObject, R> supplier) {
+    protected <R> void addConsumer(Vertx vertx, String addr, Function<JsonObject, R> supplier) {
         MessageConsumer<?> consumer = vertx
             .eventBus()
             .consumer(addr, (Message<JsonObject> msg) -> {

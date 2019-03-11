@@ -33,25 +33,34 @@ import static org.apache.ignite.console.common.Utils.toJsonArray;
  * Service to handle notebooks.
  */
 public class NotebooksService extends AbstractService {
-    /** */
+    /** Repository to work with notebooks. */
     private final NotebooksRepository notebooksRepo;
 
     /**
      * @param ignite Ignite.
-     * @param vertx Vertx.
-     * @param notebooksRepo Repository to work with notebooks.
      */
-    public NotebooksService(Ignite ignite, Vertx vertx,NotebooksRepository notebooksRepo) {
-        super(ignite, vertx);
+    public NotebooksService(Ignite ignite) {
+        super(ignite);
 
-        this.notebooksRepo = notebooksRepo;
+        this.notebooksRepo = new NotebooksRepository(ignite);
     }
 
     /** {@inheritDoc} */
-    @Override protected void initEventBus() {
-        addConsumer(Addresses.NOTEBOOK_LIST, this::load);
-        addConsumer(Addresses.NOTEBOOK_SAVE, this::save);
-        addConsumer(Addresses.NOTEBOOK_DELETE, this::delete);
+    @Override public NotebooksService install(Vertx vertx) {
+        addConsumer(vertx, Addresses.NOTEBOOK_LIST, this::load);
+        addConsumer(vertx, Addresses.NOTEBOOK_SAVE, this::save);
+        addConsumer(vertx, Addresses.NOTEBOOK_DELETE, this::delete);
+
+        return this;
+    }
+
+    /**
+     * Delete all notebook for specified user.
+     *
+     * @param accId Account ID.
+     */
+    void deleteByAccount(UUID accId) {
+        notebooksRepo.deleteByAccount(accId);
     }
 
     /**

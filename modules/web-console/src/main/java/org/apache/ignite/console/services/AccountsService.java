@@ -18,39 +18,43 @@
 package org.apache.ignite.console.services;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.UUID;
 import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.transactions.Transaction;
 
+import static org.apache.ignite.console.common.Utils.boolParam;
 import static org.apache.ignite.console.common.Utils.uuidParam;
 
 /**
  * Service to handle accounts.
  */
 public class AccountsService extends AbstractService {
-    /** */
+    /** Repository to work with accounts. */
     private final AccountsRepository accountsRepo;
 
     /**
      * @param ignite Ignite.
-     * @param vertx Vertx.
-     * @param accountsRepo Repository to work with accounts.
      */
-    public AccountsService(Ignite ignite, Vertx vertx, AccountsRepository accountsRepo) {
-        super(ignite, vertx);
+    public AccountsService(Ignite ignite) {
+        super(ignite);
 
-        this.accountsRepo = accountsRepo;
+        this.accountsRepo = new AccountsRepository(ignite);
     }
 
     /** {@inheritDoc} */
-    @Override protected void initEventBus() {
-        addConsumer(Addresses.ACCOUNT_GET_BY_ID, this::getById);
-        addConsumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
-        addConsumer(Addresses.ACCOUNT_REGISTER, this::register);
+    @Override public AccountsService install(Vertx vertx) {
+        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_ID, this::getById);
+        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
+        addConsumer(vertx, Addresses.ACCOUNT_REGISTER, this::register);
+
+        return this;
     }
 
     /**
@@ -106,5 +110,42 @@ public class AccountsService extends AbstractService {
         accountsRepo.save(account);
 
         return rowsAffected(1);
+    }
+
+    /**
+     * Delete account by ID.
+     * @return All registered accounts.
+     */
+    List<Account> list() {
+        return accountsRepo.list();
+    }
+
+    /**
+     * Delete account by ID.
+     *
+     * @param accId Account ID.
+     */
+    void delete(UUID accId) {
+        accountsRepo.delete(accId);
+    }
+
+    /**
+     * Update account permission.
+     *
+     * @param accId Account ID.
+     * @param adminFlag New value for admin flag.
+     */
+    void updatePermission(UUID accId, boolean adminFlag) {
+        try (Transaction tx = accountsRepo.txStart()) {
+            Account account = accountsRepo.getById(accId);
+
+            if (account.admin() != adminFlag) {
+                account.admin(adminFlag);
+
+                accountsRepo.save(account);
+
+                tx.commit();
+            }
+        }
     }
 }
