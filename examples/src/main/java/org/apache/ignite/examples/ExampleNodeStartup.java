@@ -17,8 +17,14 @@
 
 package org.apache.ignite.examples;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CachePeekMode;
 
 /**
  * Starts up an empty node with example compute configuration.
@@ -30,7 +36,35 @@ public class ExampleNodeStartup {
      * @param args Command line arguments, none required.
      * @throws IgniteException If failed.
      */
-    public static void main(String[] args) throws IgniteException {
-        Ignition.start("examples/config/example-ignite.xml");
+    public static void main(String[] args) throws Exception {
+        Ignite ignite = Cluster.ignite("Initiator", false);
+
+        ignite.cluster().active(true);
+
+        IgniteCache<Integer, UUID> cache = ignite.getOrCreateCache(Cluster.CACHE);
+
+        UUID uid = UUID.randomUUID();
+
+        for (int i = 0; i < 5_000; ++i)
+            cache.put(i, uid);
+
+        int i = 0;
+        while (true) {
+            if (ignite.cluster().active()) {
+                if (cache == null)
+                    cache = ignite.cache(Cluster.CACHE);
+
+                int all = cache.size(CachePeekMode.ALL);
+                int primary = cache.size(CachePeekMode.PRIMARY);
+                int backup = cache.size(CachePeekMode.BACKUP);
+
+                System.out.format("%s :: [%d] all=%d, primary=%d, backup=%d%n",
+                    LocalDateTime.now(), i, all, primary, backup);
+
+                i++;
+            }
+
+            TimeUnit.SECONDS.sleep(10);
+        }
     }
 }

@@ -519,6 +519,8 @@ public final class DataStructuresProcessor extends GridProcessorAdapter implemen
         IgniteInternalCache<GridCacheInternalKey, AtomicDataStructureValue> cache0 = ctx.cache().cache(cacheName);
 
         if (cache0 == null) {
+            log.info(">>>>>> There is no cache for the name: " + cacheName + ", therefore a new instance will be started.");
+
             if (!create && ctx.cache().cacheDescriptor(cacheName) == null)
                 return null;
 
@@ -535,6 +537,9 @@ public final class DataStructuresProcessor extends GridProcessorAdapter implemen
 
             assert cache0 != null;
         }
+        else {
+            log.info(">>>>>> Datastructure cache is found for the given name: " + cacheName);
+        }
 
         final IgniteInternalCache<GridCacheInternalKey, AtomicDataStructureValue> cache = cache0;
 
@@ -545,8 +550,14 @@ public final class DataStructuresProcessor extends GridProcessorAdapter implemen
         // Check type of structure received by key from local cache.
         T dataStructure = cast(dsMap.get(key), cls);
 
-        if (dataStructure != null)
+        if (dataStructure != null) {
+            log.info(">>>>>> Datastructure is already created [key=" + key + ']');
+
             return dataStructure;
+        }
+        else {
+            log.info(">>>>>> Trying to create a new instance of datastructure [key=" + key + ']');
+        }
 
         return retryTopologySafe(new IgniteOutClosureX<T>() {
             @Override public T applyx() throws IgniteCheckedException {

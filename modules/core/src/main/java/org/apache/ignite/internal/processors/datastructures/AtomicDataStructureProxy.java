@@ -154,11 +154,15 @@ public abstract class AtomicDataStructureProxy<V extends AtomicDataStructureValu
 
     /** {@inheritDoc} */
     @Override public boolean onRemoved() {
+        U.dumpStack(log, ">>>>>> AtomicDataStructureProxy::onRemoved rmvd=true, rmvCheck=" + rmvCheck);
+
         return rmvd = true;
     }
 
     /** {@inheritDoc} */
     @Override public void needCheckNotRemoved() {
+        U.dumpStack(log, ">>>>>> AtomicDataStructureProxy::needCheckNotRemoved rmvd=" + rmvd + ", rmvCheck=true");
+
         rmvCheck = true;
     }
 
@@ -169,6 +173,8 @@ public abstract class AtomicDataStructureProxy<V extends AtomicDataStructureValu
 
     /** {@inheritDoc} */
     @Override public void restart(IgniteInternalCache cache) {
+        U.dumpStack(log, ">>>>>> AtomicDataStructureProxy::restart cache=" + cache.name());
+
         invalidateLocalState();
 
         cacheView = cache;

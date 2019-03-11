@@ -17,20 +17,28 @@
 package org.apache.ignite.internal.processors.cache;
 
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteAtomicLong;
+import org.apache.ignite.IgniteClientDisconnectedException;
+import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.AtomicConfiguration;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.datastructures.GridCacheInternalKey;
+import org.apache.ignite.internal.processors.datastructures.GridCacheInternalKeyImpl;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeAddedMessage;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
@@ -94,12 +102,12 @@ public class IgniteDiscoveryDataHandlingInNewClusterTest extends GridCommonAbstr
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        if (igniteInstanceName.contains(NODE_1_CONS_ID)) {
-            failingOnNodeJoinSpi.setIpFinder(ipFinder);
-            failingOnNodeJoinSpi.setJoinTimeout(60_000);
-
-            cfg.setDiscoverySpi(failingOnNodeJoinSpi);
-        }
+//        if (igniteInstanceName.contains(NODE_1_CONS_ID)) {
+//            failingOnNodeJoinSpi.setIpFinder(ipFinder);
+//            failingOnNodeJoinSpi.setJoinTimeout(60_000);
+//
+//            cfg.setDiscoverySpi(failingOnNodeJoinSpi);
+//        }
 
         cfg.setConsistentId(igniteInstanceName);
 
@@ -112,17 +120,22 @@ public class IgniteDiscoveryDataHandlingInNewClusterTest extends GridCommonAbstr
                         new DataRegionConfiguration()
                             .setInitialSize(10500000)
                             .setMaxSize(6659883008L)
-                            .setPersistenceEnabled(false)
+                            .setPersistenceEnabled(true)
                     )
             );
         }
 
-        CacheConfiguration staticCacheCfg = new CacheConfiguration(STATIC_CACHE_NAME)
-            .setGroupName(GROUP_WITH_STATIC_CACHES)
-            .setAffinity(new RendezvousAffinityFunction(false, 32))
-            .setNodeFilter(nodeFilter);
+//        CacheConfiguration staticCacheCfg = new CacheConfiguration(STATIC_CACHE_NAME)
+//            .setGroupName(GROUP_WITH_STATIC_CACHES)
+//            .setAffinity(new RendezvousAffinityFunction(false, 32))
+//            .setNodeFilter(nodeFilter);
+//
+//        cfg.setCacheConfiguration(staticCacheCfg);
 
-        cfg.setCacheConfiguration(staticCacheCfg);
+        cfg.setAtomicConfiguration(new AtomicConfiguration()
+            .setCacheMode(CacheMode.PARTITIONED)
+            .setBackups(1)
+            .setAffinity(new RendezvousAffinityFunction(false, 32)));
 
         return cfg;
     }
@@ -151,6 +164,257 @@ public class IgniteDiscoveryDataHandlingInNewClusterTest extends GridCommonAbstr
         Ignite client = startGrid("client01");
 
         verifyCachesAndGroups(client);
+    }
+
+    private volatile boolean stop;
+    private CountDownLatch end = new CountDownLatch(1);
+
+    public void testA() throws Exception {
+        final int nodeCnt = 5;
+
+        startGrids(nodeCnt);
+
+        Ignite client = startGrid("client");
+
+        GridTestUtils.runAsync(() -> {
+            int idx = 0;
+
+            try {
+                while (!stop) {
+                    try {
+                        // restart node.
+                        grid(idx).close();
+
+                        startGrid(idx);
+
+                        idx = (idx + 1) % nodeCnt;
+
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+
+                        return;
+
+                    }
+
+                }
+
+            }
+            finally {
+                System.out.println(">>>>> idx=" + idx);
+
+                end.countDown();
+
+            }
+
+        });
+
+        IgniteAtomicLong atomic = client.atomicLong("TestAtomicLong", 0, true);
+
+        for (int i = 0; i < 50; ++i) {
+            long value = atomic.incrementAndGet();
+
+            System.out.println("value=" + value);
+
+            doSleep(500);
+
+        }
+
+        stop = true;
+
+        end.await();
+
+    }
+
+    public void testB() throws Exception {
+        final int nodeCnt = 5;
+
+        startGrids(nodeCnt);
+
+        Ignite client = startGrid("client");
+
+        IgniteAtomicLong at = client.atomicLong("TestAtomicLong", 0, true);
+
+        GridTestUtils.runAsync(() -> {
+            int idx = 0;
+
+            try {
+                while (!stop) {
+                    try {
+                        // restart node.
+                        grid(idx).close();
+
+                        startGrid(idx);
+
+                        idx = (idx + 1) % nodeCnt;
+
+                        if (idx == 0) {
+                            System.out.println(">>>>> cluster restarted idx=" + idx);
+
+                        }
+
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+
+                        return;
+
+                    }
+                }
+
+            }
+            finally {
+                System.out.println(">>>>> idx=" + idx);
+
+                end.countDown();
+
+            }
+
+        });
+
+        for (int j = 0; j < 10; ++j) {
+            IgniteAtomicLong atomic = client.atomicLong("TestAtomicLong-" + j, 0, true);
+
+            for (int i = 0; i < 50; ++i) {
+                long value = atomic.incrementAndGet();
+
+                System.out.println("value=" + value);
+
+                doSleep(1500);
+
+            }
+
+            doSleep(2_000);
+
+        }
+
+        stop = true;
+
+        end.await();
+    }
+
+    public void testC() throws Exception {
+        final int nodeCnt = 5;
+        final int atomicCnt = 1;
+        final int atomicInc = 10;
+        int attempts = 1;
+
+        startGrid(0);
+
+        Ignite client = startGrid("client");
+
+        for (int i = 1; i < nodeCnt; ++i)
+            startGrid(i);
+
+        grid(0).cluster().active(true);
+
+        for (int j = 0; j < atomicCnt; ++j) {
+            System.out.println(">>>>> Creating " + "TestAtomicLong-" + j + "...");
+            IgniteAtomicLong atomic = client.atomicLong("TestAtomicLong-" + j, 0, true);
+        }
+
+        while (attempts >= 0) {
+            System.out.println("Starting a new attempt " + attempts);
+
+            for (int j = 0; j < atomicCnt; ++j) {
+                System.out.println("Update " + "TestAtomicLong-" + j);
+                IgniteAtomicLong atomic;
+                try {
+                    atomic = client.atomicLong("TestAtomicLong-" + j, 0, false);
+                }
+                catch (IgniteClientDisconnectedException e) {
+                    e.reconnectFuture().get();
+
+                    atomic = client.atomicLong("TestAtomicLong-" + j, 0, true);
+                }
+
+                for (int i = 0; i < atomicInc; ++i) {
+                    long value = atomic.incrementAndGet();
+
+                    System.out.println("\tvalue=" + value);
+                }
+            }
+
+            roundRestart(nodeCnt);
+
+            attempts--;
+
+            doSleep(5_000);
+
+            //awaitPartitionMapExchange(false, false, grid(0).cluster().forServers().nodes());
+        }
+    }
+
+    public void testD() throws Exception {
+        final int nodeCnt = 5;
+
+        startGrids(nodeCnt);
+
+        grid(0).cluster().active(true);
+
+        Ignite client = startGrid("client");
+
+        int attempts = 5;
+
+        while (attempts >= 0) {
+            System.out.println("Starting a new attempt " + attempts);
+
+            for (int j = 0; j < 3; ++j) {
+                final GridCacheInternalKey key = new GridCacheInternalKeyImpl("TestAtomicLong-" + j, "default-ds-group");
+
+                String cacheName = "ignite-sys-atomic-cache@default-ds-group";
+
+                IgniteAtomicLong atomic = null;
+
+                try {
+                    atomic = client.atomicLong("TestAtomicLong-" + j, 0, true);
+                }
+                catch (IgniteClientDisconnectedException e) {
+                    e.reconnectFuture().get();
+
+                    atomic = client.atomicLong("TestAtomicLong-" + j, 0, true);
+                }
+
+                int partId = grid(0).cachex(cacheName).affinity().partition(key);
+
+                System.out.println("Update " + "TestAtomicLong-" + j + ", part=" + partId);
+
+                for (int i = 0; i < 3; ++i) {
+                    long value = atomic.incrementAndGet();
+
+                    System.out.println("\tvalue=" + value);
+                }
+            }
+
+            roundRestart(nodeCnt);
+
+            attempts--;
+
+            doSleep(5_000);
+
+            //awaitPartitionMapExchange(false, false, grid(0).cluster().forServers().nodes());
+        }
+
+        client.close();
+    }
+
+    private void roundRestart(int nodecnt) throws Exception {
+        for (int i = 0; i < nodecnt; ++i) {
+            final int nodeIdx = i;
+
+            grid(nodeIdx).close();
+
+            GridTestUtils.runAsync(() -> {
+                try {
+                    startGrid(nodeIdx);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+            doSleep(3_000);
+        }
     }
 
     /** */
