@@ -434,6 +434,22 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         read(grpId, pageId, pageBuf, false);
     }
 
+    public FilePageStore standaloneStore(boolean isGrp, String cacheOrGrpName, int partId) throws IgniteCheckedException {
+        FilePageStoreFactory pageStoreFactory = new FileVersionCheckingFactory(
+            pageStoreFileIoFactory, pageStoreV1FileIoFactory, igniteCfg.getDataStorageConfiguration());
+
+        Path path = getPath(isGrp, cacheOrGrpName, partId);
+
+        return pageStoreFactory.createPageStore(
+            partId == PageIdAllocator.INDEX_PARTITION ? PageMemory.FLAG_IDX : PageMemory.FLAG_DATA,
+            path.toFile(),
+            new AllocatedPageTracker() {
+                @Override public void updateTotalAllocatedPages(long delta) {
+
+                }
+            });
+    }
+
     /**
      * Will preserve crc in buffer if keepCrc is true.
      *
