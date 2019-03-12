@@ -1391,6 +1391,9 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
         if (canCalculateAffinity(desc, aff, fut))
             calculateAndInit(evts, aff, evts.topologyVersion());
         else {
+            if (desc.groupId() == CU.cacheId("test2")) {
+                log.error("!!GridDhtAssignmentFetchFuture", new Throwable());
+            }
             GridDhtAssignmentFetchFuture fetchFut = new GridDhtAssignmentFetchFuture(cctx,
                 desc.groupId(),
                 evts.topologyVersion(),
