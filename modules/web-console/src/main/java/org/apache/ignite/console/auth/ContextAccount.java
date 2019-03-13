@@ -40,9 +40,6 @@ public class ContextAccount extends AbstractUser {
     /** Cached principal. */
     private JsonObject cachedPrincipal;
 
-    /** Cached account. */
-    private Account cachedAccount;
-
     /** Auth provider. */
     private IgniteAuth authProvider;
 
@@ -58,8 +55,6 @@ public class ContextAccount extends AbstractUser {
      */
     ContextAccount(Account account) {
         accId = account.id();
-
-        cachedAccount = account;
     }
 
     /** {@inheritDoc} */
@@ -68,19 +63,19 @@ public class ContextAccount extends AbstractUser {
         asyncResHnd.handle(Future.succeededFuture(true));
     }
 
+    /**
+     * @return Account Id.
+     */
+    public String accountId() {
+        return accId.toString();
+    }
+
     /** {@inheritDoc} */
     @Override public JsonObject principal() {
         if (cachedPrincipal == null)
             cachedPrincipal = new JsonObject().put("_id", accId.toString());
 
         return cachedPrincipal;
-    }
-
-    /** {@inheritDoc} */
-    @Override public User clearCache() {
-        cachedAccount = null;
-
-        return super.clearCache();
     }
 
     /** {@inheritDoc} */

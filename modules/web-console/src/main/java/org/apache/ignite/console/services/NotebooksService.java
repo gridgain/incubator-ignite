@@ -59,7 +59,7 @@ public class NotebooksService extends AbstractService {
      *
      * @param accId Account ID.
      */
-    void deleteByAccount(UUID accId) {
+    void deleteByAccountId(UUID accId) {
         notebooksRepo.deleteByAccount(accId);
     }
 

@@ -125,6 +125,22 @@ public class Utils {
     /**
      * @param json JSON object.
      * @param path Dot separated list of properties.
+     * @return the value or {@code def} if no entry present.
+     */
+    public static boolean boolParam(JsonObject json, String path) throws IllegalArgumentException {
+        T2<JsonObject, String> t = xpath(json, path);
+
+        Boolean val = t.getKey().getBoolean(t.getValue());
+
+        if (val == null)
+            throw new IllegalArgumentException(missingParameter(path));
+
+        return val;
+    }
+
+    /**
+     * @param json JSON object.
+     * @param path Dot separated list of properties.
      * @return {@link UUID} for specified path.
      */
     public static UUID uuidParam(JsonObject json, String path) {
@@ -225,15 +241,25 @@ public class Utils {
     }
 
     /**
+     * Return missing parameter error message.
+     *
+     * @param param Parameter name.
+     * @return Missing parameter error message.
+     */
+    public static String missingParameter(String param) {
+        return "Failed to find mandatory parameter in request: " + param;
+    }
+
+    /**
      * @param ctx Context.
      * @param paramName Parameter name.
      * @return Parameter value
      */
-    protected String requestParam(RoutingContext ctx, String paramName) {
+    public static String pathParam(RoutingContext ctx, String paramName) {
         String param = ctx.request().getParam(paramName);
 
         if (F.isEmpty(param))
-            throw new IllegalStateException("Parameter not found: " + paramName);
+            throw new IllegalArgumentException(missingParameter(paramName));
 
         return param;
     }

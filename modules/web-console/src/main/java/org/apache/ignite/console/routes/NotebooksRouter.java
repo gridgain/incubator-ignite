@@ -62,7 +62,7 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal());
@@ -76,7 +76,7 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void save(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())
@@ -91,7 +91,7 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void delete(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())

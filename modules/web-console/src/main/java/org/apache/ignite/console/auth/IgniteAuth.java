@@ -120,11 +120,7 @@ public class IgniteAuth implements AuthProvider {
             return;
         }
 
-        JsonObject msg = new JsonObject()
-            .put("email", email)
-            .put("password", pwd);
-
-        vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_EMAIL, msg, (AsyncResult<Message<JsonObject>> accRes) -> {
+        vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_EMAIL, email, (AsyncResult<Message<JsonObject>> accRes) -> {
             if (accRes.failed()) {
                 ignite.log().error("Failed to receive account by email", accRes.cause());
 
@@ -161,15 +157,21 @@ public class IgniteAuth implements AuthProvider {
      * @param body Sign up info.
      * @param replyHnd Handler to execute after account registration.
      */
-    public void registerAccount(JsonObject body, Handler<AsyncResult<Message<JsonObject>>> replyHnd) throws Exception {
-        String salt = generateSalt();
-        String hash = computeHash(body.getString("password"), salt);
+    public void registerAccount(JsonObject body, Handler<AsyncResult<Message<JsonObject>>> replyHnd) {
+        try {
+            String salt = generateSalt();
+            String hash = computeHash(body.getString("password"), salt);
 
-        JsonObject msg = body.copy()
-            .put("id", UUID.randomUUID().toString())
-            .put("salt", salt)
-            .put("hash", hash);
+            JsonObject msg = body.copy()
+                .put("_id", UUID.randomUUID().toString())
+                .put("salt", salt)
+                .put("hash", hash);
 
-        vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, replyHnd);
+            vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, replyHnd);
+        } catch (Throwable e) {
+            ignite.log().error("Sign up failed", e);
+
+            replyHnd.handle(Future.failedFuture(new IgniteAuthenticationException("Failed to register account")));
+        }
     }
 }

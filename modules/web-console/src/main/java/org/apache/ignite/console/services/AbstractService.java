@@ -65,11 +65,11 @@ public abstract class AbstractService implements AutoCloseable {
      * @param addr Address.
      * @param supplier Data supplier.
      */
-    protected <R> void addConsumer(Vertx vertx, String addr, Function<JsonObject, R> supplier) {
+    protected <T, R> void addConsumer(Vertx vertx, String addr, Function<T, R> supplier) {
         MessageConsumer<?> consumer = vertx
             .eventBus()
-            .consumer(addr, (Message<JsonObject> msg) -> {
-                JsonObject params = msg.body();
+            .consumer(addr, (Message<T> msg) -> {
+                T params = msg.body();
 
                 ignite.log().info("Received message [from=" + msg.address() + ", params=" + params + "]");
 

@@ -72,12 +72,12 @@ public class ConfigurationsService extends AbstractService {
     }
 
     /**
-     * Delete all notebook for specified user.
+     * Delete all notebook for specified account.
      *
      * @param accId Account ID.
      */
-    void deleteByAccount(UUID accId) {
-        cfgsRepo.deleteByAccount(accId);
+    void deleteByAccountId(UUID accId) {
+        cfgsRepo.deleteByAccountId(accId);
     }
 
     /**

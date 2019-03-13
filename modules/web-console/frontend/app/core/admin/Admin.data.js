@@ -35,48 +35,48 @@ export default class IgniteAdminData {
      * @param {string} viewedUserId
      */
     becomeUser(viewedUserId) {
-        return this.$http.get('/api/v1/admin/become', {
-            params: {viewedUserId}
-        })
-        .catch(this.Messages.showError);
+        return this.$http.get(`/api/v1/admin/become/${viewedUserId}`)
+            .catch(this.Messages.showError);
     }
 
     /**
      * @param {import('app/modules/user/User.service').User} user
      */
     removeUser(user) {
-        return this.$http.post('/api/v1/admin/remove', {
-            userId: user._id
-        })
-        .then(() => {
-            this.Messages.showInfo(`User has been removed: "${user.userName}"`);
-        })
-        .catch(({data, status}) => {
-            if (status === 503)
-                this.Messages.showInfo(data);
-            else
-                this.Messages.showError('Failed to remove user: ', data);
-        });
+        return this.$http.delete(`/api/v1/admin/account/${user._id}`)
+            .then(() => {
+                this.Messages.showInfo(`User has been removed: "${user.userName}"`);
+            })
+            .catch(({data, status}) => {
+                if (status === 503)
+                    this.Messages.showInfo(data);
+                else
+                    this.Messages.showError('Failed to remove user: ', data);
+            });
     }
 
     /**
      * @param {import('app/modules/user/User.service').User} user
      */
     toggleAdmin(user) {
-        const adminFlag = !user.admin;
+        const admin = !user.admin;
 
-        return this.$http.post('/api/v1/admin/toggle', {
-            userId: user._id,
-            adminFlag
+        return this.$http({
+            method: 'PATCH',
+            url: `/api/v1/admin/account/${user._id}`,
+            headers: {
+                'Content-Type': 'application/merge-patch+json'
+            },
+            data: {admin}
         })
-        .then(() => {
-            user.admin = adminFlag;
+            .then(() => {
+                user.admin = admin;
 
-            this.Messages.showInfo(`Admin rights was successfully ${adminFlag ? 'granted' : 'revoked'} for user: "${user.userName}"`);
-        })
-        .catch((res) => {
-            this.Messages.showError(`Failed to ${adminFlag ? 'grant' : 'revoke'} admin rights for user: "${user.userName}"`, res);
-        });
+                this.Messages.showInfo(`Admin rights was successfully ${admin ? 'granted' : 'revoked'} for user: "${user.userName}"`);
+            })
+            .catch((res) => {
+                this.Messages.showError(`Failed to ${admin ? 'grant' : 'revoke'} admin rights for user: "${user.userName}"`, res);
+            });
     }
 
     /**
@@ -94,7 +94,7 @@ export default class IgniteAdminData {
     }
 
     loadUsers(params) {
-        return this.$http.post('/api/v1/admin/list', params)
+        return this.$http.get('/api/v1/admin/account', params)
             .then(({ data }) => data)
             .then((users) => _.map(users, this.prepareUsers.bind(this)))
             .catch(this.Messages.showError);

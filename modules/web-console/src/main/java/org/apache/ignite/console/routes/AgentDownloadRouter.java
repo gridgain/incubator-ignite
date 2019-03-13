@@ -72,7 +72,7 @@ public class AgentDownloadRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         try {
             if (!Files.exists(pathToAgentZip))

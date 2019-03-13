@@ -19,16 +19,21 @@ package org.apache.ignite.console.routes;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.UserSessionHandler;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.auth.ContextAccount;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.internal.util.typedef.F;
 
+import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import static org.apache.ignite.console.common.Utils.sendError;
+import static org.apache.ignite.console.common.Utils.sendResult;
 
 /**
  * Router to handle REST API for configurations.
@@ -57,7 +62,7 @@ public class AccountRouter extends AbstractRouter {
     @Override public void install(Router router) {
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        registerRoute(router, POST, "/api/v1/user", this::getUser);
+        registerRoute(router, GET, "/api/v1/user", this::getAccount);
         registerRoute(router, POST, "/api/v1/signup", this::signUp);
         registerRoute(router, POST, "/api/v1/signin", this::signIn);
         registerRoute(router, POST, "/api/v1/logout", this::logout);
@@ -70,29 +75,47 @@ public class AccountRouter extends AbstractRouter {
     /**
      * @param ctx Context
      */
-    private void getUser(RoutingContext ctx) {
-        User user = checkUser(ctx);
+    private void getAccount(RoutingContext ctx) {
+        ContextAccount acc = getContextAccount(ctx);
 
-        send(Addresses.ACCOUNT_GET_BY_ID, user.principal(), ctx, E_FAILED_TO_GET_USER);
+        String viewedAccountId = ctx.session().get("viewedAccountId");
+
+        if (F.isEmpty(viewedAccountId)) {
+            send(Addresses.ACCOUNT_GET_BY_ID, acc.accountId(), ctx, E_FAILED_TO_GET_USER);
+            
+            return;
+        }
+
+        acc.isAuthorized("admin", isAdminHandler -> {
+            if (isAdminHandler.failed() && isAdminHandler.result() == Boolean.FALSE) {
+                send(Addresses.ACCOUNT_GET_BY_ID, acc.accountId(), ctx, E_FAILED_TO_GET_USER);
+                
+                return;
+            }
+
+            this.<JsonObject, JsonObject>send(Addresses.ACCOUNT_GET_BY_ID, viewedAccountId, ctx, E_FAILED_TO_GET_USER, viewedAccount -> {
+                viewedAccount.put("becomeUsed", true);
+                
+                return viewedAccount;
+            });
+        });
     }
 
     /**
      * @param ctx Context
      */
     private void signUp(RoutingContext ctx) {
-        try {
-            JsonObject body = ctx.getBodyAsJson();
+        JsonObject body = ctx.getBodyAsJson();
 
-            authProvider.registerAccount(body, asyncRes -> {
-                if (asyncRes.succeeded())
-                    signIn(ctx);
-                else
-                    replyWithError(ctx, E_SIGN_UP_FAILED, asyncRes.cause());
-            });
-        }
-        catch (Throwable e) {
-            replyWithError(ctx, E_SIGN_UP_FAILED, e);
-        }
+        authProvider.registerAccount(body, asyncRes -> {
+            if (asyncRes.failed()) {
+                replyWithError(ctx, E_SIGN_UP_FAILED, asyncRes.cause());
+
+                return;
+            }
+
+            signIn(ctx);
+        });
     }
 
     /**
@@ -100,13 +123,15 @@ public class AccountRouter extends AbstractRouter {
      */
     private void signIn(RoutingContext ctx) {
         authProvider.authenticate(ctx.getBodyAsJson(), asyncRes -> {
-            if (asyncRes.succeeded()) {
-                ctx.setUser(asyncRes.result());
-
-                replyOk(ctx);
-            }
-            else
+            if (asyncRes.failed()) {
                 replyWithError(ctx, HTTP_UNAUTHORIZED, "Sign in failed", asyncRes.cause());
+
+                return;
+            }
+
+            ctx.setUser(asyncRes.result());
+
+            replyOk(ctx);
         });
     }
 

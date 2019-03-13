@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
@@ -93,9 +94,12 @@ public class AccountsRepository extends AbstractRepository {
      * @param account Account to save.
      */
     @SuppressWarnings("unchecked")
-    public void save(Account account) {
-        try(Transaction tx = txStart()) {
+    public void create(Account account) {
+        try (Transaction tx = txStart()) {
             IgniteCache cache = accountsTbl.cache();
+
+            if (accountsTbl.getByIndex(account.id()) != null)
+                throw new IgniteException("Account with email already exists: " + account.email());
 
             Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
 
@@ -106,6 +110,20 @@ public class AccountsRepository extends AbstractRepository {
 
             account.admin(admin);
 
+            save(account);
+
+            tx.commit();
+        }
+    }
+
+    /**
+     * Save account.
+     *
+     * @param account Account to save.
+     */
+    @SuppressWarnings("unchecked")
+    public void save(Account account) {
+        try(Transaction tx = txStart()) {
             accountsTbl.save(account);
 
             tx.commit();

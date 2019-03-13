@@ -18,6 +18,8 @@
 package org.apache.ignite.console.routes;
 
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
@@ -27,6 +29,7 @@ import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.auth.ContextAccount;
 import org.apache.ignite.console.common.NotAuthorizedException;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -84,13 +87,13 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @return Current authenticated user.
      * @throws NotAuthorizedException If current user not found in context.
      */
-    protected User checkUser(RoutingContext ctx) throws NotAuthorizedException {
+    protected ContextAccount getContextAccount(RoutingContext ctx) throws NotAuthorizedException {
         User user = ctx.user();
 
-        if (user == null)
-            throw new NotAuthorizedException();
+        if (user instanceof ContextAccount)
+            return (ContextAccount)user;
 
-        return user;
+        throw new NotAuthorizedException();
     }
 
     /**
@@ -104,6 +107,24 @@ public abstract class AbstractRouter implements RestApiRouter {
             params.put(entry.getKey(), entry.getValue());
 
         return params;
+    }
+
+    /**
+     * @param addr Address where to send message.
+     * @param msg Message to send.
+     * @param ctx Context.
+     * @param errMsg Error message.
+     */
+    public <T, R> void send(String addr, Object msg, RoutingContext ctx, String errMsg, Function<T, R> mapper) {
+        vertx.eventBus().<T>send(addr, msg, asyncRes -> {
+            if (asyncRes.succeeded())
+                sendResult(ctx, mapper.apply(asyncRes.result().body()));
+            else {
+                ignite.log().error(errMsg, asyncRes.cause());
+
+                sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
+            }
+        });
     }
 
     /**

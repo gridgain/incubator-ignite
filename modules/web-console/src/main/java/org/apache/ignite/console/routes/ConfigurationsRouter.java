@@ -96,7 +96,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadConfiguration(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         if (user != null)
             send(Addresses.CONFIGURATION_LOAD, requestParams(ctx), ctx, E_FAILED_TO_LOAD_CONFIGURATION);
@@ -108,7 +108,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadClustersShortList(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal());
@@ -120,7 +120,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Cluster.
      */
     private void loadCluster(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -134,7 +134,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCachesShortList(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -148,7 +148,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModelsShortList(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -162,7 +162,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfssShortList(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -174,7 +174,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCache(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -185,7 +185,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModel(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -196,7 +196,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfs(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -209,7 +209,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void saveAdvancedCluster(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())
@@ -224,7 +224,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void saveBasicCluster(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())
@@ -239,7 +239,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void deleteClusters(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())

@@ -108,22 +108,24 @@ public class AdminService extends AbstractService {
     /**
      * Remove account.
      *
-     * @param params Parameters in JSON format.
+     * @param accId Account Id.
      * @return Affected rows JSON object.
      */
-    private JsonObject delete(JsonObject params) {
-        UUID accId = uuidParam(params, "_id");
+    private JsonObject delete(String accId) {
+        UUID id = UUID.fromString(accId);
+
+        int rows;
 
         try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-            cfgsSvc.deleteByAccount(accId);
-            notebooksSvc.deleteByAccount(accId);
+            cfgsSvc.deleteByAccountId(id);
+            notebooksSvc.deleteByAccountId(id);
 
-            accountsSvc.delete(accId);
+            rows = accountsSvc.delete(id);
 
             tx.commit();
         }
 
-        return rowsAffected(1);
+        return rowsAffected(rows);
     }
 
     /**
@@ -131,7 +133,7 @@ public class AdminService extends AbstractService {
      * @return Affected rows JSON object.
      */
     private JsonObject toggle(JsonObject params) {
-        accountsSvc.updatePermission(uuidParam(params, "userId"), boolParam(params, "adminFlag", false));
+        accountsSvc.updatePermission(uuidParam(params, "accountId"), boolParam(params, "admin", false));
 
         return rowsAffected(1);
     }
