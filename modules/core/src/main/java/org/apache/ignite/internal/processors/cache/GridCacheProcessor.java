@@ -1981,6 +1981,8 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         Collection<StartCacheInfo> startCacheInfos,
         StartCacheFailHandler<StartCacheInfo, Void> cacheStartFailHandler
     ) throws IgniteCheckedException {
+        log.warning("!!!Start caches " + startCacheInfos);
+
         if (!IGNITE_ALLOW_START_CACHES_IN_PARALLEL || startCacheInfos.size() <= 1) {
             for (StartCacheInfo startCacheInfo : startCacheInfos) {
                 cacheStartFailHandler.handle(

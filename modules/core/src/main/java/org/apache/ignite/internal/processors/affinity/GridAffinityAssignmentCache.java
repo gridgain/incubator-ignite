@@ -39,8 +39,8 @@ import org.apache.ignite.cache.affinity.AffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.internal.GridKernalContext;
-import org.apache.ignite.internal.cluster.NodeOrderComparator;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.cluster.NodeOrderComparator;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.processors.cache.ExchangeDiscoveryEvents;
 import org.apache.ignite.internal.processors.cluster.BaselineTopology;
@@ -195,6 +195,11 @@ public class GridAffinityAssignmentCache {
      * @param affAssignment Affinity assignment for topology version.
      */
     public void initialize(AffinityTopologyVersion topVer, List<List<ClusterNode>> affAssignment) {
+        if (grpId == CU.cacheId("test2")) {
+            log.error("INITIALIZEEE ", new Throwable());
+        }
+
+
         assert topVer.compareTo(lastVersion()) >= 0 : "[topVer = " + topVer + ", last=" + lastVersion() + ']';
 
         assert idealAssignment != null;
@@ -449,6 +454,10 @@ public class GridAffinityAssignmentCache {
 
         head.set(assignmentCpy);
 
+        if (grpId == CU.cacheId("test2")) {
+            log.error("INITIALIZEEE CLIENT", new Throwable());
+        }
+
         for (Map.Entry<AffinityTopologyVersion, AffinityReadyFuture> entry : readyFuts.entrySet()) {
             if (entry.getKey().compareTo(topVer) <= 0) {
                 if (log.isDebugEnabled())
@@ -613,6 +622,10 @@ public class GridAffinityAssignmentCache {
                     ", history=" + affCache.keySet() +
                     ']');
             }
+        }
+
+        if (grpId == CU.cacheId("test2")) {
+            log.warning("COOOOL, topVer=" + topVer);
         }
 
         return cache;

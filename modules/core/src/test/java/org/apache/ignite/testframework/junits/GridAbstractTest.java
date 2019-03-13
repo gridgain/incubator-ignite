@@ -967,7 +967,7 @@ public abstract class GridAbstractTest extends TestCase {
      */
     protected Ignite startRemoteGrid(String igniteInstanceName, IgniteConfiguration cfg, GridSpringResourceContext ctx)
         throws Exception {
-        return startRemoteGrid(igniteInstanceName, cfg, ctx, grid(0), true);
+        return startRemoteGrid(igniteInstanceName, cfg, ctx,true);
     }
 
     /**
@@ -1038,13 +1038,12 @@ public abstract class GridAbstractTest extends TestCase {
      * @param igniteInstanceName Ignite instance name.
      * @param cfg Ignite configuration.
      * @param ctx Spring context.
-     * @param locNode Local node.
      * @param resetDiscovery Reset DiscoverySpi.
      * @return Started grid.
      * @throws Exception If failed.
      */
     protected Ignite startRemoteGrid(String igniteInstanceName, IgniteConfiguration cfg, GridSpringResourceContext ctx,
-        IgniteEx locNode, boolean resetDiscovery)
+        boolean resetDiscovery)
         throws Exception {
         if (ctx != null)
             throw new UnsupportedOperationException("Starting of grid at another jvm by context doesn't supported.");
@@ -1053,6 +1052,8 @@ public abstract class GridAbstractTest extends TestCase {
             cfg = optimize(getConfiguration(igniteInstanceName));
 
         checkConfiguration(cfg);
+
+        IgniteEx locNode = grid(0);
 
         if (locNode != null) {
             DiscoverySpi discoverySpi = locNode.configuration().getDiscoverySpi();
@@ -1074,7 +1075,7 @@ public abstract class GridAbstractTest extends TestCase {
             }
         }
 
-        return new IgniteProcessProxy(cfg, log, locNode, resetDiscovery, additionalRemoteJvmArgs());
+        return new IgniteProcessProxy(cfg, log, (x) -> grid(0), resetDiscovery, additionalRemoteJvmArgs());
     }
 
     /**
@@ -1140,14 +1141,19 @@ public abstract class GridAbstractTest extends TestCase {
 
             assert ignite != null : "Ignite returned null grid for name: " + igniteInstanceName;
 
-            UUID id = ignite instanceof IgniteProcessProxy ? ignite.localNode().id() : ignite.context().localNodeId();
+            UUID id = ignite instanceof IgniteProcessProxy ? ((IgniteProcessProxy)ignite).getId() : ignite.context().localNodeId();
 
             info(">>> Stopping grid [name=" + ignite.name() + ", id=" + id + ']');
 
             if (!isRemoteJvm(igniteInstanceName))
                 G.stop(igniteInstanceName, cancel);
             else
-                IgniteProcessProxy.stop(igniteInstanceName, cancel);
+                try {
+                    IgniteProcessProxy.stop(igniteInstanceName, cancel);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
 
             if (awaitTop)
                 awaitTopologyChange();

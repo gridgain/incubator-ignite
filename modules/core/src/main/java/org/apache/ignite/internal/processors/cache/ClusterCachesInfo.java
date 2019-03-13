@@ -1197,6 +1197,8 @@ class ClusterCachesInfo {
 
         CacheNodeCommonDiscoveryData cachesData = (CacheNodeCommonDiscoveryData)data.commonData();
 
+        log.warning("RECEIVED! " + cachesData);
+
         // CacheGroup configurations that were created from local node configuration.
         Map<Integer, CacheGroupDescriptor> locCacheGrps = new HashMap<>(registeredCacheGroups());
 
@@ -1472,7 +1474,11 @@ class ClusterCachesInfo {
 
             boolean active = ctx.state().clusterState().active();
 
-            for (DynamicCacheDescriptor desc : orderedCaches(CacheComparators.DIRECT)) {
+            Collection<DynamicCacheDescriptor> descriptors = orderedCaches(CacheComparators.DIRECT);
+
+            log.warning("!!!orderedCaches=" + descriptors);
+
+            for (DynamicCacheDescriptor desc : descriptors) {
                 if (firstNode && !joinDiscoData.caches().containsKey(desc.cacheName()))
                     continue;
 
@@ -1516,7 +1522,16 @@ class ClusterCachesInfo {
                     else
                         locCfgsForActivation.put(desc.cacheName(), new T2<>(desc.cacheConfiguration(), nearCfg));
                 }
+                else {
+                    if (desc.cacheName().equals("test2"))
+                        log.warning("!!!OOPS: locCfg=" + locCfg +
+                            ", joinDiscoData.startCaches()=" + joinDiscoData.startCaches() + ", affinityNode? " +
+                            CU.affinityNode(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter()) + ", cId=" + ctx.discovery().consistentId() +
+                            ", nodeFilter=" + desc.groupDescriptor().config().getNodeFilter().getClass().getName());
+                }
             }
+
+            log.warning("!!!locJoinStartCaches=" + locJoinStartCaches);
 
             locJoinCachesCtx = new LocalJoinCachesContext(
                 locJoinStartCaches,
