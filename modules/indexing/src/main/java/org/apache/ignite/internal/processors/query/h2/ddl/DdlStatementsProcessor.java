@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteCluster;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
@@ -99,6 +100,8 @@ public class DdlStatementsProcessor {
     private static final boolean handleUuidAsByte =
             IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SQL_UUID_DDL_BYTE_FORMAT, false);
 
+    private IgniteLogger log;
+
     /**
      * Initialize message handlers and this' fields needed for further operation.
      *
@@ -108,6 +111,7 @@ public class DdlStatementsProcessor {
     public void start(final GridKernalContext ctx, IgniteH2Indexing idx) {
         this.ctx = ctx;
         this.idx = idx;
+        this.log = ctx.log(DdlStatementsProcessor.class);
     }
 
     /**
@@ -244,6 +248,14 @@ public class DdlStatementsProcessor {
             return H2Utils.zeroCursor();
         }
         catch (SchemaOperationException e) {
+            if(log != null)
+                log.error("FD10013", e);
+            else {
+                System.err.println("FD10013");
+
+                e.printStackTrace();
+            }
+
             throw convert(e);
         }
         catch (IgniteSQLException e) {
