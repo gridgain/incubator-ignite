@@ -22,6 +22,7 @@ import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.auth.User;
@@ -33,6 +34,7 @@ import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 
+import static io.vertx.core.http.HttpMethod.GET;
 import static org.apache.ignite.console.common.Utils.origin;
 
 /**
@@ -50,10 +52,11 @@ public class AgentDownloadRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      * @param cfg Web Console configuration.
      */
-    public AgentDownloadRouter(Ignite ignite, WebConsoleConfiguration cfg) {
-        super(ignite);
+    public AgentDownloadRouter(Ignite ignite, Vertx vertx, WebConsoleConfiguration cfg) {
+        super(ignite, vertx);
 
         this.agentFileName = cfg.getAgentFileName();
 
@@ -61,76 +64,69 @@ public class AgentDownloadRouter extends AbstractRouter {
     }
 
     /** {@inheritDoc} */
-    @Override protected void initializeCaches() {
-        // No-op so far.
-    }
-
-    /** {@inheritDoc} */
     @Override public void install(Router router) {
-        router.get("/api/v1/downloads/agent").handler(this::load);
+        registerRoute(router, GET, "/api/v1/downloads/agent", this::load);
     }
 
     /**
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
-        if (user != null) {
-            try {
-                if (!Files.exists(pathToAgentZip))
-                    throw new FileNotFoundException("Missing agent zip on server");
+        try {
+            if (!Files.exists(pathToAgentZip))
+                throw new FileNotFoundException("Missing agent zip on server");
 
-                ZipFile zip = new ZipFile(pathToAgentZip.toFile());
+            ZipFile zip = new ZipFile(pathToAgentZip.toFile());
 
-                ByteArrayOutputStream baos = new ByteArrayOutputStream(BUFFER_SZ);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(BUFFER_SZ);
 
-                ZipArchiveOutputStream zos = new ZipArchiveOutputStream(baos);
+            ZipArchiveOutputStream zos = new ZipArchiveOutputStream(baos);
 
-                // Make a copy of agent ZIP.
-                zip.copyRawEntries(zos, rawEntry -> true);
+            // Make a copy of agent ZIP.
+            zip.copyRawEntries(zos, rawEntry -> true);
 
-                // Append "default.properties" to agent ZIP.
-                zos.putArchiveEntry(new ZipArchiveEntry(agentFileName + "/default.properties"));
+            // Append "default.properties" to agent ZIP.
+            zos.putArchiveEntry(new ZipArchiveEntry(agentFileName + "/default.properties"));
 
-                String content = String.join("\n",
-                    "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
-                    "server-uri=" + origin(ctx.request()),
-                    "#Uncomment following options if needed:",
-                    "#node-uri=http://localhost:8080",
-                    "#node-login=ignite",
-                    "#node-password=ignite",
-                    "#driver-folder=./jdbc-drivers",
-                    "#Uncomment and configure following SSL options if needed:",
-                    "#node-key-store=client.jks",
-                    "#node-key-store-password=MY_PASSWORD",
-                    "#node-trust-store=ca.jks",
-                    "#node-trust-store-password=MY_PASSWORD",
-                    "#server-key-store=client.jks",
-                    "#server-key-store-password=MY_PASSWORD",
-                    "#server-trust-store=ca.jks",
-                    "#server-trust-store-password=MY_PASSWORD",
-                    "#cipher-suites=CIPHER1,CIPHER2,CIPHER3"
-                );
+            String content = String.join("\n",
+                "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
+                "server-uri=" + origin(ctx.request()),
+                "#Uncomment following options if needed:",
+                "#node-uri=http://localhost:8080",
+                "#node-login=ignite",
+                "#node-password=ignite",
+                "#driver-folder=./jdbc-drivers",
+                "#Uncomment and configure following SSL options if needed:",
+                "#node-key-store=client.jks",
+                "#node-key-store-password=MY_PASSWORD",
+                "#node-trust-store=ca.jks",
+                "#node-trust-store-password=MY_PASSWORD",
+                "#server-key-store=client.jks",
+                "#server-key-store-password=MY_PASSWORD",
+                "#server-trust-store=ca.jks",
+                "#server-trust-store-password=MY_PASSWORD",
+                "#cipher-suites=CIPHER1,CIPHER2,CIPHER3"
+            );
 
-                zos.write(content.getBytes());
-                zos.closeArchiveEntry();
-                zos.close();
+            zos.write(content.getBytes());
+            zos.closeArchiveEntry();
+            zos.close();
 
-                byte[] data = baos.toByteArray();
+            byte[] data = baos.toByteArray();
 
-                ctx.response()
-                    .setChunked(true)
-                    .putHeader(HttpHeaders.CONTENT_TYPE, "application/zip")
-                    .putHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + agentFileName + ".zip\"")
-                    .putHeader(HttpHeaders.TRANSFER_ENCODING, HttpHeaders.CHUNKED)
-                    .putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(data.length))
-                    .write(Buffer.buffer(data))
-                    .end();
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to prepare Web Agent archive for download", e);
-            }
+            ctx.response()
+                .setChunked(true)
+                .putHeader(HttpHeaders.CONTENT_TYPE, "application/zip")
+                .putHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + agentFileName + ".zip\"")
+                .putHeader(HttpHeaders.TRANSFER_ENCODING, HttpHeaders.CHUNKED)
+                .putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(data.length))
+                .write(Buffer.buffer(data))
+                .end();
+        }
+        catch (Throwable e) {
+            replyWithError(ctx, "Failed to prepare Web Agent archive for download", e);
         }
     }
 }

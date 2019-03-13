@@ -23,6 +23,7 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -32,7 +33,6 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
@@ -127,7 +127,7 @@ public class RestExecutor implements AutoCloseable {
     }
 
     /** */
-    private void parseResponse(Future<RestResult> fut, AsyncResult<HttpResponse<Buffer>> asyncRes) {
+    private void parseResponse(CompletableFuture<RestResult> fut, AsyncResult<HttpResponse<Buffer>> asyncRes) {
         if (asyncRes.succeeded()) {
             HttpResponse<Buffer> response = asyncRes.result();
 
@@ -143,7 +143,7 @@ public class RestExecutor implements AutoCloseable {
                             : RestResult.fail(status, holder.getError()));
                     }
                     catch (IOException e) {
-                        fut.fail(e);
+                        fut.completeExceptionally(e);
                     }
 
                     break;
@@ -165,12 +165,12 @@ public class RestExecutor implements AutoCloseable {
             }
         }
         else
-            fut.fail(asyncRes.cause());
+            fut.completeExceptionally(asyncRes.cause());
     }
 
     /** */
     private RestResult sendRequest(String url, JsonObject params) throws Throwable {
-        Future<RestResult> fut = Future.future();
+        CompletableFuture<RestResult> fut = new CompletableFuture<>();
 
         URI uri = new URI(url);
 
@@ -181,19 +181,7 @@ public class RestExecutor implements AutoCloseable {
 
         req.send(asyncRes -> parseResponse(fut, asyncRes));
 
-        while (!fut.isComplete()) {
-            try {
-                Thread.sleep(10);
-            }
-            catch (InterruptedException e) {
-                return RestResult.fail(STATUS_FAILED, e.getMessage());
-            }
-        }
-
-        if (fut.failed())
-            throw fut.cause();
-
-        return fut.result();
+        return fut.get();
     }
 
     /**

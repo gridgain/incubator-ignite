@@ -25,9 +25,6 @@ import io.vertx.core.json.JsonObject;
  */
 public abstract class DataObject extends AbstractDto {
     /** */
-    private UUID space;
-
-    /** */
     private String json;
 
     /**
@@ -41,21 +38,12 @@ public abstract class DataObject extends AbstractDto {
      * Full constructor.
      *
      * @param id ID.
-     * @param space User space.
      * @param json JSON encoded payload.
      */
-    protected DataObject(UUID id, UUID space, String json) {
+    protected DataObject(UUID id, String json) {
         super(id);
 
-        this.space = space;
         this.json = json;
-    }
-
-    /**
-     * @return User space.
-     */
-    public UUID space() {
-        return space;
     }
 
     /**

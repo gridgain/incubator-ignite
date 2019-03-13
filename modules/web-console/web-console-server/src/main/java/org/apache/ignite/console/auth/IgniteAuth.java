@@ -19,37 +19,32 @@ package org.apache.ignite.console.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.time.ZonedDateTime;
 import java.util.UUID;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.PRNG;
 import io.vertx.ext.auth.User;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteAuthenticationException;
-import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.console.db.Table;
+import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.transactions.Transaction;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Authentication with storing user information in Ignite.
  */
 public class IgniteAuth implements AuthProvider {
     /** */
-    private static final int ITERATIONS = 25000;
+    private static final int ITERATIONS = 10;
 
     /** */
     private static final int KEY_LEN = 512 * 8;
@@ -58,11 +53,11 @@ public class IgniteAuth implements AuthProvider {
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
     /** */
-    private final Table<Account> accountsTbl;
+    private final Ignite ignite;
 
     /** */
-    private Ignite ignite;
-    
+    private final Vertx vertx;
+
     /** */
     private final PRNG rnd;
 
@@ -72,11 +67,10 @@ public class IgniteAuth implements AuthProvider {
      */
     public IgniteAuth(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
-        
+        this.vertx = vertx;
+
         rnd = new PRNG(vertx);
 
-        accountsTbl = new Table<Account>(ignite, "accounts")
-            .addUniqueIndex(Account::email, (acc) -> "Account with email: " + acc.email() + " already registered");
     }
 
     /**
@@ -99,7 +93,7 @@ public class IgniteAuth implements AuthProvider {
      * @throws GeneralSecurityException If failed to compute hash.
      */
     private String computeHash(String pwd, String salt) throws Exception {
-        // TODO IGNITE-5617: How about re-hash on first successful compare.
+        // TODO IGNITE-5617: How about to re-hash on first successful compare?
         PBEKeySpec spec = new PBEKeySpec(
             pwd.toCharArray(),
             salt.getBytes(StandardCharsets.UTF_8), // For compatibility with hashing data imported from NodeJS.
@@ -113,88 +107,71 @@ public class IgniteAuth implements AuthProvider {
         return U.byteArray2HexString(hash);
     }
 
-    /**
-     * @param accId Account id.
-     */
-    Account account(UUID accId) throws IgniteAuthenticationException {
-        if (accId == null)
-            throw new IgniteAuthenticationException("Missing account identity");
-
-        IgniteCache<UUID, Account> cache = accountsTbl.cache();
-
-        Account account = cache.get(accId);
-
-        if (account == null)
-            throw new IgniteAuthenticationException("Failed to find account with identity: " + accId);
-
-        return account;
-    }
-
     /** {@inheritDoc} */
-    @Override public void authenticate(JsonObject data, Handler<AsyncResult<User>> asyncResHnd) throws IgniteException {
-        try {
-            String email = data.getString("email");
-            String pwd = data.getString("password");
+    @Override public void authenticate(JsonObject data, Handler<AsyncResult<User>> authRes) throws IgniteException {
+        String email = data.getString("email");
+        String pwd = data.getString("password");
 
-            if (F.isEmpty(email) || F.isEmpty(pwd))
-                throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
+        if (F.isEmpty(email) || F.isEmpty(pwd)) {
+            ignite.log().error("Failed to authenticate, no email or password provided in request body");
 
-            Account account;
+            authRes.handle(Future.failedFuture(new IgniteAuthenticationException(E_INVALID_CREDENTIALS)));
+            
+            return;
+        }
 
-            try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                account = accountsTbl.getByIndex(email);
+        vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_EMAIL, email, (AsyncResult<Message<JsonObject>> accRes) -> {
+            if (accRes.failed()) {
+                ignite.log().error("Failed to receive account by email", accRes.cause());
+
+                authRes.handle(Future.failedFuture(accRes.cause()));
+
+                return;
             }
 
-            if (account == null)
-                throw new IgniteAuthenticationException("Failed to find registered account");
+            try {
+                JsonObject json = accRes.result().body();
 
-            String hash = computeHash(data.getString("password"), account.salt());
+                if (json == null)
+                    throw new IgniteAuthenticationException("Failed to find registered account");
 
-            if (!account.hash().equals(hash))
-                throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
+                Account account = Account.fromJson(json);
 
-            asyncResHnd.handle(Future.succeededFuture(new ContextAccount(account)));
-        }
-        catch (Throwable e) {
-            ignite.log().error("Failed to authenticate account", e);
+                String hash = computeHash(data.getString("password"), account.salt());
 
-            asyncResHnd.handle(Future.failedFuture(e));
-        }
+                if (!account.hash().equals(hash))
+                    throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
+
+                authRes.handle(Future.succeededFuture(new ContextAccount(account)));
+
+            }
+            catch (Throwable e) {
+                ignite.log().error("Failed to authenticate", e);
+
+                authRes.handle(Future.failedFuture(e));
+            }
+        });
     }
 
     /**
      * @param body Sign up info.
+     * @param replyHnd Handler to execute after account registration.
      */
-    public Account registerAccount(JsonObject body) throws Exception {
-        String salt = generateSalt();
-        String hash = computeHash(body.getString("password"), salt);
+    public void registerAccount(JsonObject body, Handler<AsyncResult<Message<JsonObject>>> replyHnd) {
+        try {
+            String salt = generateSalt();
+            String hash = computeHash(body.getString("password"), salt);
 
-        Account account = new Account(
-            UUID.randomUUID(),
-            body.getString("email"),
-            body.getString("firstName"),
-            body.getString("lastName"),
-            body.getString("company"),
-            body.getString("country"),
-            body.getString("industry"),
-            body.getBoolean("admin", false),
-            UUID.randomUUID().toString(),
-            UUID.randomUUID().toString(),
-            ZonedDateTime.now().toString(),
-            "",
-            "",
-            "",
-            false,
-            salt,
-            hash
-        );
+            JsonObject msg = body.copy()
+                .put("_id", UUID.randomUUID().toString())
+                .put("salt", salt)
+                .put("hash", hash);
 
-        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-            accountsTbl.save(account);
+            vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, replyHnd);
+        } catch (Throwable e) {
+            ignite.log().error("Sign up failed", e);
 
-            tx.commit();
-
-            return account;
+            replyHnd.handle(Future.failedFuture(new IgniteAuthenticationException("Failed to register account")));
         }
     }
 }

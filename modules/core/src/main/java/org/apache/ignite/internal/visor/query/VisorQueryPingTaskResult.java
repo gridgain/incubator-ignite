@@ -15,57 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.internal.visor.query;
 
-import java.util.UUID;
-import io.vertx.core.json.JsonObject;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
 
 /**
- * DTO for User space.
+ * Result for cache query ping tasks.
  */
-public class Space extends AbstractDto {
+public class VisorQueryPingTaskResult extends VisorDataTransferObject {
     /** */
-    private String name;
-
-    /** */
-    private UUID owner;
-
-    /** */
-    private boolean demo;
+    private static final long serialVersionUID = 0L;
 
     /**
      * Default constructor.
      */
-    public Space() {
+    public VisorQueryPingTaskResult() {
         // No-op.
     }
 
-    /**
-     * Full constructor.
-     *
-     * @param id Space ID.
-     * @param name Space name.
-     * @param owner Reference to owner account.
-     * @param demo Flag of demo space.
-     */
-    public Space(
-        UUID id,
-        String name,
-        UUID owner,
-        boolean demo
-    ) {
-        this.id = id;
-        this.name = name;
-        this.owner = owner;
-        this.demo = demo;
-    }
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {}
 
     /** {@inheritDoc} */
-    public JsonObject toJson() {
-        return new JsonObject()
-            .put("_id", id.toString())
-            .put("name", name)
-            .put("owner", owner.toString())
-            .put("demo", demo);
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {}
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(VisorQueryPingTaskResult.class, this);
     }
 }

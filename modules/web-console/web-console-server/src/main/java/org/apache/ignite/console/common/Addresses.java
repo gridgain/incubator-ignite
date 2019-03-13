@@ -32,4 +32,67 @@ public interface Addresses {
 
     /** */
     public static final String CLUSTER_TOPOLOGY = "cluster:topology";
+
+    /** */
+    public static final String NOTEBOOK_LIST = "notebook:list";
+
+    /** */
+    public static final String NOTEBOOK_SAVE = "notebook:save";
+
+    /** */
+    public static final String NOTEBOOK_DELETE = "notebook:delete";
+
+    /** */
+    public static final String ACCOUNT_GET_BY_ID = "account:get:byId";
+
+    /** */
+    public static final String ACCOUNT_GET_BY_EMAIL = "account:get:byEmail";
+
+    /** */
+    public static final String ACCOUNT_REGISTER = "account:register";
+
+    /** */
+    public static final String ADMIN_LOAD_ACCOUNTS = "admin: load:accounts";
+
+    /** */
+    public static final String ADMIN_DELETE_ACCOUNT = "admin:delete:account";
+
+    /** */
+    public static final String ADMIN_CHANGE_ADMIN_STATUS = "admin:change:adminStatus";
+
+    /** */
+    public static final String CONFIGURATION_LOAD = "configuration:load";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_SHORT_CLUSTERS = "configuration:load:shortClusters";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_CLUSTER = "configuration:load:cluster";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_SHORT_CACHES = "configuration:load:shortCaches";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_SHORT_MODELS = "configuration:load:shortModels";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_SHORT_IGFSS = "configuration:load:shortIgfss";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_CACHE = "configuration:load:cache";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_MODEL = "configuration:load:model";
+
+    /** */
+    public static final String CONFIGURATION_LOAD_IGFS = "configuration:load:igfs";
+
+    /** */
+    public static final String CONFIGURATION_SAVE_CLUSTER_ADVANCED = "configuration:save:cluster:advanced";
+
+    /** */
+    public static final String CONFIGURATION_SAVE_CLUSTER_BASIC = "configuration:save:cluster:basic";
+
+    /** */
+    public static final String CONFIGURATION_DELETE_CLUSTER = "configuration:delete:cluster";
 }

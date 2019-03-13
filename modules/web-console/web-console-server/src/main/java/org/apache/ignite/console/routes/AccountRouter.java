@@ -19,102 +19,119 @@ package org.apache.ignite.console.routes;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.UserSessionHandler;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteException;
+import org.apache.ignite.console.auth.ContextAccount;
 import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.internal.util.typedef.F;
 
+import static io.vertx.core.http.HttpMethod.GET;
+import static io.vertx.core.http.HttpMethod.POST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.console.common.Utils.errorMessage;
-import static org.apache.ignite.console.common.Utils.getBoolean;
+import static org.apache.ignite.console.common.Utils.sendError;
+import static org.apache.ignite.console.common.Utils.sendResult;
 
 /**
  * Router to handle REST API for configurations.
  */
 public class AccountRouter extends AbstractRouter {
     /** */
+    private static final String E_SIGN_UP_FAILED = "Sign up failed";
+
+    /** */
+    private static final String E_FAILED_TO_GET_USER = "Failed to get user";
+
+    /** */
     private final IgniteAuth authProvider;
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      */
-    public AccountRouter(Ignite ignite, Vertx vertx ) {
-        super(ignite);
+    public AccountRouter(Ignite ignite, Vertx vertx) {
+        super(ignite, vertx);
 
         authProvider = new IgniteAuth(ignite, vertx);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initializeCaches() {
-
     }
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        router.route("/api/v1/user").handler(this::getAccount);
-        router.route("/api/v1/signup").handler(this::signUp);
-        router.route("/api/v1/signin").handler(this::signIn);
-        router.route("/api/v1/logout").handler(this::logout);
+        registerRoute(router, GET, "/api/v1/user", this::getAccount);
+        registerRoute(router, POST, "/api/v1/signup", this::signUp);
+        registerRoute(router, POST, "/api/v1/signin", this::signIn);
+        registerRoute(router, POST, "/api/v1/logout", this::logout);
 
-//        router.route("/api/v1/password/forgot").handler(this::handleDummy);
-//        router.route("/api/v1/password/reset").handler(this::handleDummy);
-//        router.route("/api/v1/password/validate/token").handler(this::handleDummy);
+        registerRoute(router, POST, "/api/v1/password/forgot", this::forgotPassword);
+        registerRoute(router, POST, "/api/v1/password/reset", this::resetPassword);
+        registerRoute(router, POST, "/api/v1/password/validate/token", this::validateToken);
     }
 
     /**
      * @param ctx Context
      */
     private void getAccount(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        ContextAccount acc = getContextAccount(ctx);
 
-        if (user != null)
-            sendResult(ctx, user.principal());
+        String viewedAccountId = ctx.session().get("viewedAccountId");
+
+        if (F.isEmpty(viewedAccountId)) {
+            send(Addresses.ACCOUNT_GET_BY_ID, acc.accountId(), ctx, E_FAILED_TO_GET_USER);
+            
+            return;
+        }
+
+        acc.isAuthorized("admin", isAdminHandler -> {
+            if (isAdminHandler.failed() && isAdminHandler.result() == Boolean.FALSE) {
+                send(Addresses.ACCOUNT_GET_BY_ID, acc.accountId(), ctx, E_FAILED_TO_GET_USER);
+                
+                return;
+            }
+
+            this.<JsonObject, JsonObject>send(Addresses.ACCOUNT_GET_BY_ID, viewedAccountId, ctx, E_FAILED_TO_GET_USER, viewedAccount -> {
+                viewedAccount.put("becomeUsed", true);
+                
+                return viewedAccount;
+            });
+        });
     }
 
     /**
      * @param ctx Context
      */
     private void signUp(RoutingContext ctx) {
-        try {
-            JsonObject body = ctx.getBodyAsJson();
+        JsonObject body = ctx.getBodyAsJson();
 
-            if (getBoolean(body, "user.admin", false)) {
-                sendResult(ctx, authProvider.registerAccount(body).principal());
+        authProvider.registerAccount(body, asyncRes -> {
+            if (asyncRes.failed()) {
+                replyWithError(ctx, E_SIGN_UP_FAILED, asyncRes.cause());
 
                 return;
             }
 
-            authProvider.registerAccount(body);
-
             signIn(ctx);
-        }
-        catch (IgniteException e) {
-            sendStatus(ctx, HTTP_INTERNAL_ERROR, e.getMessage());
-        }
-        catch (Throwable ignored) {
-            sendStatus(ctx, HTTP_INTERNAL_ERROR);
-        }
+        });
     }
 
     /**
      * @param ctx Context
      */
     private void signIn(RoutingContext ctx) {
-        authProvider.authenticate(ctx.getBody().toJsonObject(), asyncRes -> {
-            if (asyncRes.succeeded()) {
-                ctx.setUser(asyncRes.result());
+        authProvider.authenticate(ctx.getBodyAsJson(), asyncRes -> {
+            if (asyncRes.failed()) {
+                replyWithError(ctx, HTTP_UNAUTHORIZED, "Sign in failed", asyncRes.cause());
 
-                sendStatus(ctx, HTTP_OK);
+                return;
             }
-            else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
+
+            ctx.setUser(asyncRes.result());
+
+            replyOk(ctx);
         });
     }
 
@@ -124,6 +141,42 @@ public class AccountRouter extends AbstractRouter {
     private void logout(RoutingContext ctx) {
         ctx.clearUser();
 
-        sendStatus(ctx, HTTP_OK);
+        replyOk(ctx);
+    }
+
+    /**
+     * @param ctx Context
+     */
+    private void forgotPassword(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            replyWithError(ctx, "Failed to restore password", e);
+        }
+    }
+
+    /**
+     * @param ctx Context
+     */
+    private void resetPassword(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            replyWithError(ctx, "Failed to reset password", e);
+        }
+    }
+
+    /**
+     * @param ctx Context
+     */
+    private void validateToken(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            replyWithError(ctx, "Failed to validate token", e);
+        }
     }
 }

@@ -17,35 +17,27 @@
 
 package org.apache.ignite.console.routes;
 
-import java.net.HttpURLConnection;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.TreeSet;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpHeaderValues;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonArray;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.web.Route;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.OneToManyIndex;
-import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.transactions.Transaction;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.console.auth.ContextAccount;
+import org.apache.ignite.console.common.NotAuthorizedException;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.console.common.Utils.errorMessage;
-import static org.apache.ignite.console.common.Utils.toJsonArray;
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
+import static org.apache.ignite.console.common.Utils.sendError;
+import static org.apache.ignite.console.common.Utils.sendResult;
+import static org.apache.ignite.console.common.Utils.sendStatus;
 
 /**
  * Base class for routers.
@@ -55,253 +47,135 @@ public abstract class AbstractRouter implements RestApiRouter {
     protected final Ignite ignite;
 
     /** */
-    private volatile boolean ready;
-
-    /** */
-    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
-        HttpHeaderValues.NO_CACHE,
-        HttpHeaderValues.NO_STORE,
-        HttpHeaderValues.MUST_REVALIDATE);
+    protected final Vertx vertx;
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      */
-    protected AbstractRouter(Ignite ignite) {
+    protected AbstractRouter(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
+        this.vertx = vertx;
     }
 
     /**
-     * Initialize caches.
+     * @param router Router.
+     * @param mtd Method.
+     * @param path Path.
+     * @param reqHnd Request handler.
      */
-    protected abstract void initializeCaches();
-
-    /**
-     * Start transaction.
-     *
-     * @return Transaction.
-     */
-    protected Transaction txStart() {
-        if (!ready) {
-            initializeCaches();
-
-            ready = true;
-        }
-
-        return ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
-    }
-
-    /**
-     * @param json JSON object.
-     * @return ID or {@code null} if object has no ID.
-     */
-    @Nullable protected UUID getId(JsonObject json) {
-        String s = json.getString("_id");
-
-        return F.isEmpty(s) ? null : UUID.fromString(s);
-    }
-
-    /**
-     * Ensure that object has ID.
-     * If not, ID will be generated and added to object.
-     *
-     * @param json JSON object.
-     * @return Object ID.
-     */
-    protected UUID ensureId(JsonObject json) {
-        UUID id = getId(json);
-
-        if (id == null) {
-            id = UUID.randomUUID();
-
-            json.put("_id", id.toString());
-        }
-
-        return id;
-    }
-
-    /**
-     * @param user User.
-     * @return User ID.
-     */
-    protected UUID getUserId(JsonObject user) {
-        UUID userId = getId(user);
-
-        if (userId == null)
-            throw new IllegalStateException("User ID not found");
-
-        return userId;
+    protected Route registerRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
+        return router.route(mtd, path).handler(reqHnd).failureHandler(this:: failureHandler);
     }
 
     /**
      * @param ctx Context.
-     * @param paramName Parameter name.
-     * @return Parameter value
      */
-    protected String requestParam(RoutingContext ctx, String paramName) {
-        String param = ctx.request().getParam(paramName);
+    protected void failureHandler(RoutingContext ctx) {
+        Throwable cause = ctx.failure();
 
-        if (F.isEmpty(param))
-            throw new IllegalStateException("Parameter not found: " + paramName);
-
-        return param;
-    }
-
-    /**
-     * @param ctx Context.
-     * @param status Status to send.
-     */
-    protected void sendStatus(RoutingContext ctx, int status) {
-        ctx.response().setStatusCode(status).end();
-    }
-
-    /**
-     * @param ctx Context.
-     * @param status Status to send.
-     * @param msg Message to send.
-     */
-    protected void sendStatus(RoutingContext ctx, int status, String msg) {
-        ctx.response().setStatusCode(status).end(msg);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param msg Error message to send.
-     * @param e Error to send.
-     */
-    protected void sendError(RoutingContext ctx, String msg, Throwable e) {
-        ignite.log().error(msg, e);
-
-        ctx
-            .response()
-            .setStatusCode(HTTP_INTERNAL_ERROR)
-            .end(msg + ": " + errorMessage(e));
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, Buffer data) {
-        ctx
-            .response()
-            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
-            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
-            .putHeader(HttpHeaderNames.EXPIRES, "0")
-            .setStatusCode(HTTP_OK)
-            .end(data);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, JsonObject data) {
-        sendResult(ctx, data.toBuffer());
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, JsonArray data) {
-        sendResult(ctx, data.toBuffer());
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    protected void sendResult(RoutingContext ctx, String data) {
-        sendResult(ctx, Buffer.buffer(data));
+        if (cause instanceof NotAuthorizedException)
+            sendStatus(ctx, HTTP_UNAUTHORIZED);
+        else
+            sendError(ctx, HTTP_INTERNAL_ERROR, "Unhandled error", cause);
     }
 
     /**
      * Get the authenticated user (if any).
-     * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
      *
      * @param ctx Context
-     * @return User or {@code null} if the current user is not authenticated.
+     * @return Current authenticated user.
+     * @throws NotAuthorizedException If current user not found in context.
      */
-    @Nullable protected User checkUser(RoutingContext ctx) {
+    protected ContextAccount getContextAccount(RoutingContext ctx) throws NotAuthorizedException {
         User user = ctx.user();
 
-        if (user == null)
-            sendStatus(ctx, HTTP_UNAUTHORIZED);
+        if (user instanceof ContextAccount)
+            return (ContextAccount)user;
 
-        return user;
+        throw new NotAuthorizedException();
     }
 
     /**
-     * @param rows Number of rows.
-     * @return JSON with number of affected rows.
-     */
-    protected JsonObject rowsAffected(int rows) {
-        return new JsonObject()
-            .put("rowsAffected", rows);
-    }
-
-    /**
-     * Ensure that transaction was started explicitly.
-     */
-    protected void ensureTx() {
-        if (ignite.transactions().tx() == null)
-            throw new IllegalStateException("Transaction was not started explicitly");
-    }
-
-    /**
-     * Load short list of DTOs.
-     *
      * @param ctx Context.
-     * @param tbl Table with DTOs.
-     * @param idx Index with DTOs IDs.
-     * @param errMsg Message to show in case of error.
+     * @return Request params.
      */
-    protected void loadList(RoutingContext ctx, Table<? extends DataObject> tbl, OneToManyIndex idx, String errMsg) {
-        try {
-            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+    protected JsonObject requestParams(RoutingContext ctx) {
+        JsonObject params = new JsonObject();
 
-            try (Transaction tx = txStart()) {
-                TreeSet<UUID> ids = idx.load(clusterId);
+        for (Map.Entry<String, String> entry : ctx.request().params().entries())
+            params.put(entry.getKey(), entry.getValue());
 
-                Collection<? extends DataObject> items = tbl.loadAll(ids);
-
-                tx.commit();
-
-                sendResult(ctx, toJsonArray(items));
-            }
-        }
-        catch (Throwable e) {
-            sendError(ctx, errMsg, e);
-        }
+        return params;
     }
 
     /**
-     * Load short list of DTOs.
-     *
+     * @param addr Address where to send message.
+     * @param msg Message to send.
      * @param ctx Context.
-     * @param tbl Table with DTOs.
-     * @param idx Index with DTOs IDs.
-     * @param errMsg Message to show in case of error.
+     * @param errMsg Error message.
      */
-    protected void loadShortList(RoutingContext ctx, Table<? extends DataObject> tbl, OneToManyIndex idx, String errMsg) {
-        try {
-            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+    public <T, R> void send(String addr, Object msg, RoutingContext ctx, String errMsg, Function<T, R> mapper) {
+        vertx.eventBus().<T>send(addr, msg, asyncRes -> {
+            if (asyncRes.succeeded())
+                sendResult(ctx, mapper.apply(asyncRes.result().body()));
+            else {
+                ignite.log().error(errMsg, asyncRes.cause());
 
-            try (Transaction tx = txStart()) {
-                TreeSet<UUID> ids = idx.load(clusterId);
-
-                Collection<? extends DataObject> items = tbl.loadAll(ids);
-
-                tx.commit();
-
-                JsonArray res = new JsonArray(items.stream().map(DataObject::shortView).collect(Collectors.toList()));
-
-                sendResult(ctx, res);
+                sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
             }
-        }
-        catch (Throwable e) {
-            sendError(ctx, errMsg, e);
-        }
+        });
+    }
+
+    /**
+     * @param addr Address where to send message.
+     * @param msg Message to send.
+     * @param ctx Context.
+     * @param errMsg Error message.
+     */
+    public <T> void send(String addr, Object msg, RoutingContext ctx, String errMsg) {
+        vertx.eventBus().send(addr, msg, asyncRes -> {
+            if (asyncRes.succeeded())
+                sendResult(ctx, asyncRes.result().body());
+            else {
+                ignite.log().error(errMsg, asyncRes.cause());
+
+                sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
+            }
+        });
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    protected void replyOk(RoutingContext ctx) {
+        sendStatus(ctx, HTTP_OK);
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    protected void replyWithResult(RoutingContext ctx, Object res) {
+        sendResult(ctx, res);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param errMsg Error message to send.
+     * @param e Error to send.
+     */
+    protected void replyWithError(RoutingContext ctx, int errCode, String errMsg, Throwable e) {
+        ignite.log().error(errMsg, e);
+
+        sendError(ctx, errCode, errMsg, e);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param errMsg Error message to send.
+     * @param e Error to send.
+     */
+    protected void replyWithError(RoutingContext ctx, String errMsg, Throwable e) {
+        replyWithError(ctx, HTTP_INTERNAL_ERROR, errMsg, e);
     }
 }
