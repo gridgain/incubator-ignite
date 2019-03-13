@@ -66,12 +66,6 @@
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-kubernetes</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <!-- Third-party dependencies -->
         <dependency>
             <groupId>commons-codec</groupId>

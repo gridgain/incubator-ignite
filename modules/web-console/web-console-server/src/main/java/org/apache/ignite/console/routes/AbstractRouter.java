@@ -18,7 +18,6 @@
 package org.apache.ignite.console.routes;
 
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.function.Function;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;

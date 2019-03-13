@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.test;
+package org.apache.ignite.console;
 
 import java.io.File;
 import java.util.Collections;
