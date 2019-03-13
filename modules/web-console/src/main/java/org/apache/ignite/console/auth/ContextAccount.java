@@ -26,11 +26,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AbstractUser;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
-import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.IgniteUuidCache;
-import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Account saved in session.
@@ -39,8 +37,8 @@ public class ContextAccount extends AbstractUser {
     /** Account id. */
     private UUID accId;
 
-    /** Cached account. */
-    private Account cachedAccount;
+    /** Cached principal. */
+    private JsonObject cachedPrincipal;
 
     /** Auth provider. */
     private IgniteAuth authProvider;
@@ -56,41 +54,28 @@ public class ContextAccount extends AbstractUser {
      * @param account Account.
      */
     ContextAccount(Account account) {
-        this.accId = account.id();
-
-        this.cachedAccount = account;
-    }
-
-    /**
-     * @return Account.
-     */
-    public Account account() throws IgniteAuthenticationException {
-        if (cachedAccount != null)
-            return cachedAccount;
-
-        return cachedAccount = authProvider.account(accId);
+        accId = account.id();
     }
 
     /** {@inheritDoc} */
     @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> asyncResHnd) {
+        // TODO IGNITE-5617 Implements permissions checks.
         asyncResHnd.handle(Future.succeededFuture(true));
     }
 
-    /** {@inheritDoc} */
-    @Override public JsonObject principal() throws IgniteException {
-        try {
-            return account().principal();
-        }
-        catch (IgniteAuthenticationException e) {
-            throw U.convertException(e);
-        }
+    /**
+     * @return Account Id.
+     */
+    public String accountId() {
+        return accId.toString();
     }
 
     /** {@inheritDoc} */
-    @Override public User clearCache() {
-        cachedAccount = null;
+    @Override public JsonObject principal() {
+        if (cachedPrincipal == null)
+            cachedPrincipal = new JsonObject().put("_id", accId.toString());
 
-        return super.clearCache();
+        return cachedPrincipal;
     }
 
     /** {@inheritDoc} */

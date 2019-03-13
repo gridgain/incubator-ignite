@@ -50,7 +50,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
         Ignite ignite = startIgnite();
 
         VertxOptions options = new VertxOptions()
-            .setBlockedThreadCheckInterval(1000L * 60L * 60L)
+            .setBlockedThreadCheckInterval(1000L * 60L * 60L) // TODO IGNITE-5617 Only for debug!
             .setClusterManager(new IgniteClusterManager(ignite));
 
         Vertx.clusteredVertx(options, asyncVertx -> {

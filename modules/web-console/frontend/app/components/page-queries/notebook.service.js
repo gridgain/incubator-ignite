@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+import _ from 'lodash';
+import uuidv4 from 'uuid/v4';
+
 export default class Notebook {
     static $inject = ['$state', 'IgniteConfirm', 'IgniteMessages', 'IgniteNotebookData'];
 
@@ -36,7 +39,7 @@ export default class Notebook {
     }
 
     create(name) {
-        return this.NotebookData.save({name});
+        return this.NotebookData.save({_id: uuidv4(), name});
     }
 
     save(notebook) {

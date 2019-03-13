@@ -45,7 +45,6 @@ public class Model extends DataObject {
 
         return new Model(
             UUID.fromString(id),
-            null,
             false, // TODO IGNITE-5617 DETECT INDEXES !!!
             json.getString("keyType"),
             json.getString("valueType"),
@@ -57,14 +56,13 @@ public class Model extends DataObject {
      * Full constructor.
      *
      * @param id ID.
-     * @param space Space ID.
      * @param hasIdx Model has at least one index.
      * @param keyType Key type name.
      * @param valType Value type name.
      * @param json JSON payload.
      */
-    protected Model(UUID id, UUID space, boolean hasIdx, String keyType, String valType, String json) {
-        super(id, space, json);
+    protected Model(UUID id, boolean hasIdx, String keyType, String valType, String json) {
+        super(id, json);
 
         this.hasIdx = hasIdx;
         this.keyType = keyType;

@@ -53,7 +53,6 @@ public class Cache extends DataObject {
 
         return new Cache(
             UUID.fromString(id),
-            null,
             json.getString("name"),
             CacheMode.valueOf(json.getString("cacheMode", PARTITIONED.name())),
             CacheAtomicityMode.valueOf(json.getString("atomicityMode", ATOMIC.name())),
@@ -66,20 +65,18 @@ public class Cache extends DataObject {
      * Full constructor.
      *
      * @param id ID.
-     * @param space Space ID.
      * @param name Cache name.
      * @param json JSON payload.
      */
-    protected Cache(
+    public Cache(
         UUID id,
-        UUID space,
         String name,
         CacheMode cacheMode,
         CacheAtomicityMode atomicityMode,
         int backups,
         String json
     ) {
-        super(id, space, json);
+        super(id, json);
 
         this.name = name;
         this.cacheMode = cacheMode;

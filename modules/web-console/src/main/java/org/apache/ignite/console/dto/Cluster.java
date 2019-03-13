@@ -53,7 +53,6 @@ public class Cluster extends DataObject {
 
         return new Cluster(
             UUID.fromString(clusterId),
-            null,
             name,
             discovery,
             json.encode()
@@ -64,13 +63,12 @@ public class Cluster extends DataObject {
      * Full constructor.
      *
      * @param id ID.
-     * @param space Space ID.
      * @param name Cluster name.
      * @param discovery Cluster discovery.
      * @param json JSON payload.
      */
-    protected Cluster(UUID id, UUID space, String name, String discovery, String json) {
-        super(id, space, json);
+    public Cluster(UUID id, String name, String discovery, String json) {
+        super(id, json);
 
         this.name = name;
         this.discovery = discovery;

@@ -26,15 +26,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.ClientAuth;
 import io.vertx.core.http.HttpHeaders;
@@ -60,9 +57,15 @@ import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.config.SslConfiguration;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.AccountRouter;
+import org.apache.ignite.console.routes.AdminRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
+import org.apache.ignite.console.routes.RestApiRouter;
+import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.services.AdminService;
+import org.apache.ignite.console.services.ConfigurationsService;
+import org.apache.ignite.console.services.NotebooksService;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
@@ -80,12 +83,6 @@ public class WebConsoleServer extends AbstractVerticle {
     /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
 
-    /** */
-    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
-        HttpHeaderValues.NO_CACHE,
-        HttpHeaderValues.NO_STORE,
-        HttpHeaderValues.MUST_REVALIDATE);
-
     static {
         Json.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
@@ -101,6 +98,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** */
     protected final Ignite ignite;
+
+    /** */
+    protected List<RestApiRouter> restRoutes;
 
     /**
      * @param ignite Ignite.
@@ -119,6 +119,8 @@ public class WebConsoleServer extends AbstractVerticle {
                         throw cfgRes.cause();
 
                     cfg = cfgRes.result().mapTo(WebConsoleConfiguration.class);
+
+                    registerServices();
 
                     startHttpServer();
 
@@ -164,8 +166,6 @@ public class WebConsoleServer extends AbstractVerticle {
                 .addOutboundPermitted(new PermittedOptions());
 
         sockJsHnd.bridge(allAccessOptions, this::handleNodeVisorMessages);
-
-        registerEventBusConsumers();
 
         SslConfiguration sslCfg = cfg.getSslConfiguration();
 
@@ -248,30 +248,14 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * Register event bus consumers.
      */
-    protected void registerEventBusConsumers() {
-        EventBus evtBus = vertx.eventBus();
+    protected void registerServices() {
+        vertx.eventBus().consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
 
-        evtBus.consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
+        AccountsService accountsSvc = new AccountsService(ignite).install(vertx);
+        ConfigurationsService cfgsSvc = new ConfigurationsService(ignite).install(vertx);
+        NotebooksService notebooksSvc = new NotebooksService(ignite).install(vertx);
 
-        vertx.setPeriodic(3000, this::refreshTop);
-    }
-
-    /**
-     * @param tid Timer ID.
-     */
-    @SuppressWarnings("unused")
-    private void refreshTop(long tid) {
-        JsonObject json = new JsonObject()
-            .put("count", 1)
-            .put("hasDemo", false);
-
-        JsonArray zz = new JsonArray(); // TODO IGNITE-5617 temporary hack
-
-        clusters.forEach((k, v) -> zz.add(v));
-
-        json.put("clusters", zz);
-
-        vertx.eventBus().send(Addresses.AGENTS_STATUS, json);
+        new AdminService(ignite, accountsSvc, cfgsSvc, notebooksSvc).install(vertx);
     }
 
     /**
@@ -298,10 +282,15 @@ public class WebConsoleServer extends AbstractVerticle {
     protected void registerRestRoutes(Router router) {
         registerDummyRoutes(router);
 
-        new AccountRouter(ignite, vertx).install(router);
-        new ConfigurationsRouter(ignite).install(router);
-        new NotebooksRouter(ignite).install(router);
-        new AgentDownloadRouter(ignite, cfg).install(router);
+        restRoutes = Arrays.asList(
+            new AccountRouter(ignite, vertx),
+            new AdminRouter(ignite, vertx),
+            new ConfigurationsRouter(ignite, vertx),
+            new NotebooksRouter(ignite, vertx),
+            new AgentDownloadRouter(ignite, vertx, cfg)
+        );
+
+        restRoutes.forEach(route -> route.install(router));
     }
 
     /**
@@ -355,21 +344,6 @@ public class WebConsoleServer extends AbstractVerticle {
      */
     private void sendStatus(RoutingContext ctx, int status, String msg) {
         ctx.response().setStatusCode(status).end(msg);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    private void sendResult(RoutingContext ctx, Buffer data) {
-        ctx
-            .response()
-            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
-            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
-            .putHeader(HttpHeaderNames.EXPIRES, "0")
-            .setStatusCode(HTTP_OK)
-            .end(data);
     }
 
     /**

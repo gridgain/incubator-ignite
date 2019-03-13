@@ -17,51 +17,43 @@
 
 package org.apache.ignite.console.routes;
 
-import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.db.OneToManyIndex;
-import org.apache.ignite.console.db.Schemas;
-import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.console.common.Addresses;
+
+import static io.vertx.core.http.HttpMethod.GET;
+import static io.vertx.core.http.HttpMethod.POST;
 
 /**
  * Router to handle REST API for notebooks.
  */
 public class NotebooksRouter extends AbstractRouter {
     /** */
-    private final Table<Notebook> notebooksTbl;
+    private static final String E_FAILED_TO_LOAD_NOTEBOOKS = "Failed to load notebooks";
 
     /** */
-    private final OneToManyIndex notebooksIdx;
+    private static final String E_FAILED_TO_SAVE_NOTEBOOK = "Failed to save notebook";
+
+    /** */
+    private static final String E_FAILED_TO_DELETE_NOTEBOOK = "Failed to delete notebook";
 
     /**
      * @param ignite Ignite.
+     * @param vertx Vertx.
      */
-    public NotebooksRouter(Ignite ignite) {
-        super(ignite);
-
-        notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
-            .addUniqueIndex(Notebook::name, (notebook) -> "Notebook '" + notebook.name() + "' already exits");
-
-        notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initializeCaches() {
-        notebooksIdx.cache();
+    public NotebooksRouter(Ignite ignite, Vertx vertx) {
+        super(ignite, vertx);
     }
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        router.get("/api/v1/notebooks").handler(this::load);
-        router.post("/api/v1/notebooks/save").handler(this::save);
-        router.post("/api/v1/notebooks/remove").handler(this::delete);
+        registerRoute(router, GET, "/api/v1/notebooks", this::load);
+        registerRoute(router, POST, "/api/v1/notebooks/save", this::save);
+        registerRoute(router, POST, "/api/v1/notebooks/remove", this::delete);
     }
 
     /**
@@ -70,7 +62,12 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        loadList(ctx, notebooksTbl, notebooksIdx, "Failed to load notebooks");
+        User user = getContextAccount(ctx);
+
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal());
+
+        send(Addresses.NOTEBOOK_LIST, msg, ctx, E_FAILED_TO_LOAD_NOTEBOOKS);
     }
 
     /**
@@ -79,37 +76,13 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void save(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
-        if (user != null) {
-            try {
-                UUID userId = getUserId(user.principal());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("notebook", ctx.getBodyAsJson());
 
-                JsonObject json = Schemas.sanitize(Notebook.class, ctx.getBodyAsJson());
-
-                UUID notebookId = ensureId(json);
-
-                String name = json.getString("name");
-
-                if (F.isEmpty(name))
-                    throw new IllegalStateException("Notebook name is empty");
-
-                Notebook notebook = new Notebook(notebookId, null, name, json.encode());
-
-                try (Transaction tx = txStart()) {
-                    notebooksTbl.save(notebook);
-
-                    notebooksIdx.add(userId, notebookId);
-
-                    tx.commit();
-                }
-
-                sendResult(ctx, json);
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to save notebook", e);
-            }
-        }
+        send(Addresses.NOTEBOOK_SAVE, msg, ctx, E_FAILED_TO_SAVE_NOTEBOOK);
     }
 
     /**
@@ -118,36 +91,12 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void delete(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
-        if (user != null) {
-            try {
-                UUID userId = getUserId(user.principal());
+        JsonObject msg = new JsonObject()
+            .put("user", user.principal())
+            .put("notebook", ctx.getBodyAsJson());
 
-                UUID notebookId = getId(ctx.getBodyAsJson());
-
-                if (notebookId == null)
-                    throw new IllegalStateException("Notebook ID not found");
-
-                int rmvCnt = 0;
-
-                try (Transaction tx = txStart()) {
-                    Notebook notebook = notebooksTbl.delete(notebookId);
-
-                    if (notebook != null) {
-                        notebooksIdx.remove(userId, notebookId);
-
-                        rmvCnt = 1;
-                    }
-
-                    tx.commit();
-                }
-
-                sendResult(ctx, rowsAffected(rmvCnt));
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to delete notebook", e);
-            }
-        }
+        send(Addresses.NOTEBOOK_DELETE, msg, ctx, E_FAILED_TO_DELETE_NOTEBOOK);
     }
 }

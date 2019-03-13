@@ -33,7 +33,7 @@ import static org.apache.ignite.console.db.PropertyType.UUID;
  */
 public class Properties {
     /** */
-    private Map<String, Object> props = new HashMap<>();
+    private final Map<String, Object> props = new HashMap<>();
 
     /**
      * Add property.

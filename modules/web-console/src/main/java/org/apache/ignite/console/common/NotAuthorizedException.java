@@ -15,53 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.common;
 
-import java.util.UUID;
-import io.vertx.core.json.JsonObject;
+import org.apache.ignite.IgniteException;
 
 /**
- * Abstract data object.
+ * A runtime exception indicating request authorization failure.
  */
-public abstract class DataObject extends AbstractDto {
+public class NotAuthorizedException extends IgniteException {
     /** */
-    private String json;
+    private static final long serialVersionUID = 0L;
 
     /**
-     * Default constructor.
+     * Create empty exception.
      */
-    protected DataObject() {
+    public NotAuthorizedException() {
         // No-op.
     }
 
     /**
-     * Full constructor.
+     * Creates new exception with given error message.
      *
-     * @param id ID.
-     * @param json JSON encoded payload.
+     * @param msg Error message.
      */
-    protected DataObject(UUID id, String json) {
-        super(id);
-
-        this.json = json;
+    public NotAuthorizedException(String msg) {
+        super(msg);
     }
-
-    /**
-     * @return JSON encoded payload.
-     */
-    public String json() {
-        return json;
-    }
-
-    /**
-     * @param json JSON encoded payload.
-     */
-    public void json(String json) {
-        this.json = json;
-    }
-
-    /**
-     * @return JSON value suitable for short lists.
-     */
-    public abstract JsonObject shortView();
 }
