@@ -151,7 +151,7 @@ import static org.apache.ignite.testframework.config.GridTestProperties.IGNITE_C
     "TransientFieldInNonSerializableClass",
     "ProhibitedExceptionDeclared"
 })
-public abstract class GridAbstractTest extends TestConditionsAdapter {
+public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
     /**************************************************************
      * DO NOT REMOVE TRANSIENT - THIS OBJECT MIGHT BE TRANSFERRED *
      *                  TO ANOTHER NODE.                          *
@@ -182,15 +182,6 @@ public abstract class GridAbstractTest extends TestConditionsAdapter {
             return ClassRuleWrapper.evaluate(base, desc.getTestClass(), 60);
         }
     };
-
-//    /** Manages test execution and reporting. */
-//    @Rule public transient TestRule runRule = (base, description) -> new Statement() {
-//        @Override public void evaluate() throws Throwable {
-//            assert getName() != null : "getName returned null";
-//
-//            GridAbstractTestWithAssumption.handleAssumption(() -> runTestCase(base), log());
-//        }
-//    };
 
     /** */
     private static transient boolean startGrid;
@@ -568,11 +559,9 @@ public abstract class GridAbstractTest extends TestConditionsAdapter {
     }
 
     /**
-     * {@inheritDoc}
-     * <p>
-     * Do not annotate with Before in overriding methods.</p>
-     * @deprecated This method is deprecated. Instead of invoking or overriding it, it is recommended to make your own
-     * method with {@code @Before} annotation.
+     * Runs before each test.
+     *
+     * @throws Exception If failed.
      */
     @Before
     public void setUp() throws Exception {
@@ -591,6 +580,31 @@ public abstract class GridAbstractTest extends TestConditionsAdapter {
         beforeTest();
 
         ts = System.currentTimeMillis();
+    }
+
+    /**
+     * Runs after each test.
+     *
+     * @throws Exception If failed.
+     */
+    @After
+    public void tearDown() throws Exception {
+        long dur = System.currentTimeMillis() - ts;
+
+        info(">>> Stopping test: " + testDescription() + " in " + dur + " ms <<<");
+
+        try {
+            afterTest();
+        }
+        finally {
+            serializedObj.clear();
+
+            Thread.currentThread().setContextClassLoader(clsLdr);
+
+            clsLdr = null;
+
+            cleanReferences();
+        }
     }
 
     /** */
