@@ -128,6 +128,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -180,6 +181,15 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
     @ClassRule public static final TestRule firstLastTestRule = new TestRule() {
         @Override public Statement apply(Statement base, Description desc) {
             return ClassRuleWrapper.evaluate(base, desc.getTestClass(), 60);
+        }
+    };
+
+    /** Manages test execution and reporting. */
+    @Rule public transient TestRule runRule = (base, description) -> new Statement() {
+        @Override public void evaluate() throws Throwable {
+            assert getName() != null : "getName returned null";
+
+            GridAbstractTestWithAssumption.handleAssumption(() -> runTest(base), log());
         }
     };
 
@@ -679,31 +689,6 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
         }
 
         sysProps.clear();
-    }
-
-    /**
-     * Runs after each test.
-     *
-     * @throws Exception If failed.
-     */
-    @After
-    public void tearDown() throws Exception {
-        long dur = System.currentTimeMillis() - ts;
-
-        info(">>> Stopping test: " + testDescription() + " in " + dur + " ms <<<");
-
-        try {
-            afterTest();
-        }
-        finally {
-            serializedObj.clear();
-
-            Thread.currentThread().setContextClassLoader(clsLdr);
-
-            clsLdr = null;
-
-            cleanReferences();
-        }
     }
 
     /**
@@ -2076,7 +2061,7 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
         return new IgniteTestResources(cfg);
     }
 
-    /** {@inheritDoc} */
+    /** Runs test with the provided scenario. */
     private void runTest(Statement testRoutine) throws Throwable {
         final AtomicReference<Throwable> ex = new AtomicReference<>();
 
