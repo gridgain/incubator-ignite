@@ -25,7 +25,6 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.Assume;
-import org.junit.Before;
 import org.junit.Test;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 
@@ -33,10 +32,11 @@ import org.apache.ignite.testframework.MvccFeatureChecker;
  * Test remove all method.
  */
 public class CacheRemoveAllSelfTest extends GridCacheAbstractSelfTest {
-    /** Before each test. */
-    @Before
-    public void skipForcedMvcc(){
+    /** {@inheritDoc} */
+    @Override public void setUp() throws Exception {
         Assume.assumeFalse("https://issues.apache.org/jira/browse/IGNITE-10082", MvccFeatureChecker.forcedMvcc());
+
+        super.setUp();
     }
 
     /** {@inheritDoc} */

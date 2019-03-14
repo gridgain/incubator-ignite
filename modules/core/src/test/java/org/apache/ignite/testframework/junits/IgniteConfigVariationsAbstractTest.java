@@ -50,6 +50,7 @@ import org.junit.runners.model.Statement;
  */
 public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstractTest {
     /** Manages test execution and reporting. */
+    @Rule
     private final TestRule rulePrivate = (base, description) -> new Statement() {
         @Override public void evaluate() {
             assert getName() != null : "getName returned null";
@@ -58,9 +59,9 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
         }
     };
 
-    /** Manages first and last test execution. */
-    @Rule public RuleChain runRule
-        = RuleChain.outerRule(rulePrivate).around(super.runRule);
+//    /** Manages first and last test execution. */
+//    @Rule public RuleChain runRule
+//        = RuleChain.outerRule(rulePrivate).around(super.runRule);
 
     /** */
     protected static final int SERVER_NODE_IDX = 0;

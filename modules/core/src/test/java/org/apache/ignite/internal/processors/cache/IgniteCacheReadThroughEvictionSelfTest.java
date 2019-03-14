@@ -36,7 +36,6 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.IgniteCacheConfigVariationsAbstractTest;
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -50,10 +49,11 @@ public class IgniteCacheReadThroughEvictionSelfTest extends IgniteCacheConfigVar
     /** */
     private static final int KEYS = 100;
 
-    /** Before each test. */
-    @Before
-    public void skipMvccCacheStore(){
+    /** {@inheritDoc} */
+    @Override public void setUp() throws Exception {
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.CACHE_STORE);
+
+        super.setUp();
     }
 
     /** {@inheritDoc} */

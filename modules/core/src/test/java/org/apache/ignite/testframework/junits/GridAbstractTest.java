@@ -125,8 +125,9 @@ import org.apache.log4j.Priority;
 import org.apache.log4j.RollingFileAppender;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -150,7 +151,7 @@ import static org.apache.ignite.testframework.config.GridTestProperties.IGNITE_C
     "TransientFieldInNonSerializableClass",
     "ProhibitedExceptionDeclared"
 })
-public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
+public abstract class GridAbstractTest extends TestConditionsAdapter {
     /**************************************************************
      * DO NOT REMOVE TRANSIENT - THIS OBJECT MIGHT BE TRANSFERRED *
      *                  TO ANOTHER NODE.                          *
@@ -182,14 +183,14 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
         }
     };
 
-    /** Manages test execution and reporting. */
-    @Rule public transient TestRule runRule = (base, description) -> new Statement() {
-        @Override public void evaluate() throws Throwable {
-            assert getName() != null : "getName returned null";
-
-            GridAbstractTestWithAssumption.handleAssumption(() -> runTestCase(base), log());
-        }
-    };
+//    /** Manages test execution and reporting. */
+//    @Rule public transient TestRule runRule = (base, description) -> new Statement() {
+//        @Override public void evaluate() throws Throwable {
+//            assert getName() != null : "getName returned null";
+//
+//            GridAbstractTestWithAssumption.handleAssumption(() -> runTestCase(base), log());
+//        }
+//    };
 
     /** */
     private static transient boolean startGrid;
@@ -566,6 +567,32 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
         U.resolveWorkDirectory(U.defaultWorkDirectory(), "binary_meta", true);
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Do not annotate with Before in overriding methods.</p>
+     * @deprecated This method is deprecated. Instead of invoking or overriding it, it is recommended to make your own
+     * method with {@code @Before} annotation.
+     */
+    @Before
+    public void setUp() throws Exception {
+        stopGridErr = false;
+
+        clsLdr = Thread.currentThread().getContextClassLoader();
+
+        // Change it to the class one.
+        Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+
+        // Clear log throttle.
+        LT.clear();
+
+        info(">>> Starting test: " + testDescription() + " <<<");
+
+        beforeTest();
+
+        ts = System.currentTimeMillis();
+    }
+
     /** */
     private void beforeFirstTest() throws Exception {
         sharedStaticIpFinder = new TcpDiscoveryVmIpFinder(true);
@@ -581,29 +608,12 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
             G.start(cfg);
         }
 
-        try {
-            List<Integer> jvmIds = IgniteNodeRunner.killAll();
+        List<Integer> jvmIds = IgniteNodeRunner.killAll();
 
-            if (!jvmIds.isEmpty())
-                log.info("Next processes of IgniteNodeRunner were killed: " + jvmIds);
+        if (!jvmIds.isEmpty())
+            log.info("Next processes of IgniteNodeRunner were killed: " + jvmIds);
 
-            resolveWorkDirectory();
-
-            beforeTestsStarted();
-        }
-        catch (Exception | Error t) {
-            t.printStackTrace();
-
-            try {
-                tearDown();
-            }
-            catch (Exception e) {
-                log.error("Failed to tear down test after exception was thrown in beforeTestsStarted (will " +
-                    "ignore)", e);
-            }
-
-            throw t;
-        }
+        resolveWorkDirectory();
     }
 
     /** */
@@ -658,9 +668,11 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
     }
 
     /**
-     * Called after execution of each method. This method is similar to {@link JUnit3TestLegacySupport#afterTest()} but
-     * with additional logic.
+     * Runs after each test.
+     *
+     * @throws Exception If failed.
      */
+    @After
     public void tearDown() throws Exception {
         long dur = System.currentTimeMillis() - ts;
 
@@ -2050,69 +2062,8 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
         return new IgniteTestResources(cfg);
     }
 
-    /**
-     * Runs the test sequence under the rule.
-     *
-     * @throws Throwable if any exception is thrown
-     */
-    protected final void runTestCase(Statement testRoutine) throws Throwable {
-        Throwable e = null;
-        setUp();
-        try {
-            runTest(testRoutine);
-        }
-        catch (Throwable running) {
-            e = running;
-        }
-        finally {
-            try {
-                tearDown();
-            }
-            catch (Throwable tearingDown) {
-                if (e == null)
-                    e = tearingDown;
-            }
-        }
-        if (e != null)
-            throw e;
-    }
-
-    /**
-     * Called before execution of every test method in class. This method is similar to {@link
-     * JUnit3TestLegacySupport#afterTest()} but with additional logic.
-     */
-    public void setUp() throws Exception {
-        stopGridErr = false;
-
-        clsLdr = Thread.currentThread().getContextClassLoader();
-
-        // Change it to the class one.
-        Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
-
-        // Clear log throttle.
-        LT.clear();
-
-        info(">>> Starting test: " + testDescription() + " <<<");
-
-        try {
-            beforeTest();
-        }
-        catch (Exception | Error t) {
-            try {
-                tearDown();
-            }
-            catch (Exception e) {
-                log.error("Failed to tear down test after exception was thrown in beforeTest (will ignore)", e);
-            }
-
-            throw t;
-        }
-
-        ts = System.currentTimeMillis();
-    }
-
-    /** Runs test code. */
-    void runTest(Statement testRoutine) throws Throwable {
+    /** {@inheritDoc} */
+    private void runTest(Statement testRoutine) throws Throwable {
         final AtomicReference<Throwable> ex = new AtomicReference<>();
 
         Thread runner = new IgniteThread(getTestIgniteInstanceName(), "test-runner", new Runnable() {

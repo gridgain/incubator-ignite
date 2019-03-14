@@ -54,7 +54,6 @@ import org.apache.ignite.testframework.junits.GridAbstractTest;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.spi.GridSpiTestConfig.ConfigType;
 import org.jetbrains.annotations.Nullable;
-import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
@@ -144,6 +143,19 @@ public abstract class GridSpiAbstractTest<T extends IgniteSpi> extends GridAbstr
      */
     private void resetTestData() throws Exception {
         tests.put(getClass(), new TestData<T>());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Override public final void setUp() throws Exception {
+        // Need to change classloader here, although it also handled in the parent class
+        // the current test initialisation procedure doesn't allow us to setUp the parent first.
+        cl = Thread.currentThread().getContextClassLoader();
+
+        Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+
+        super.setUp();
     }
 
     /** */
@@ -492,10 +504,11 @@ public abstract class GridSpiAbstractTest<T extends IgniteSpi> extends GridAbstr
     }
 
     /**
-     * After each test.
+     * @throws Exception If failed.
      */
-    @After
-    public final void setClassloader() {
+    @Override public final void tearDown() throws Exception {
+        super.tearDown();
+
         Thread.currentThread().setContextClassLoader(cl);
     }
 

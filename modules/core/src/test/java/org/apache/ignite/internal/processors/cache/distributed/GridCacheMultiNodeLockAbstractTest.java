@@ -38,7 +38,6 @@ import org.apache.ignite.testframework.GridTestThread;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVTS_CACHE;
@@ -60,11 +59,12 @@ public abstract class GridCacheMultiNodeLockAbstractTest extends GridCommonAbstr
     /** Listeners. */
     private static Collection<IgnitePredicate<Event>> lsnrs = new ArrayList<>();
 
-    /** Before each test. */
-    @Before
-    public void skipMvccFeatures(){
+    /** {@inheritDoc} */
+    @Override public void setUp() throws Exception {
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.ENTRY_LOCK);
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.CACHE_EVENTS);
+
+        super.setUp();
     }
 
     /**
