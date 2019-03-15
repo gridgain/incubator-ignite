@@ -83,7 +83,6 @@ import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.VisorTaskArgument;
-import org.apache.ignite.internal.visor.baseline.VisorBaselineAutoAdjustSettings;
 import org.apache.ignite.internal.visor.baseline.VisorBaselineNode;
 import org.apache.ignite.internal.visor.baseline.VisorBaselineOperation;
 import org.apache.ignite.internal.visor.baseline.VisorBaselineTask;
@@ -1221,11 +1220,17 @@ public class CommandHandler {
      * @return Task argument.
      */
     private VisorBaselineTaskArg toVisorArguments(BaselineArguments args) {
-        VisorBaselineAutoAdjustSettings settings = args.getCmd() == BaselineCommand.AUTO_ADJUST
-            ? new VisorBaselineAutoAdjustSettings(args.getEnableAutoAdjust(), args.getSoftBaselineTimeout())
-            : null;
+        if (args.getCmd() == BaselineCommand.AUTO_ADJUST) {
+            return new VisorBaselineTaskArg(
+                toVisorOperation(args.getCmd()),
+                args.getTopVer(),
+                args.getConsistentIds(),
+                args.getEnableAutoAdjust(),
+                args.getSoftBaselineTimeout()
+            );
+        }
 
-        return new VisorBaselineTaskArg(toVisorOperation(args.getCmd()), args.getTopVer(), args.getConsistentIds(), settings);
+        return new VisorBaselineTaskArg(toVisorOperation(args.getCmd()), args.getTopVer(), args.getConsistentIds());
     }
 
     /**
@@ -1277,15 +1282,14 @@ public class CommandHandler {
     private void baselinePrint0(VisorBaselineTaskResult res) {
         log("Cluster state: " + (res.isActive() ? "active" : "inactive"));
         log("Current topology version: " + res.getTopologyVersion());
-        VisorBaselineAutoAdjustSettings autoAdjustSettings = res.getAutoAdjustSettings();
 
-        if (autoAdjustSettings != null) {
-            log("Baseline auto adjustment " + (TRUE.equals(autoAdjustSettings.getEnabled()) ? "enabled" : "disabled")
-                + ": softTimeout=" + autoAdjustSettings.getSoftTimeout()
+        if (res.isAutoAdjustEnabled() != null) {
+            log("Baseline auto adjustment " + (TRUE.equals(res.isAutoAdjustEnabled()) ? "enabled" : "disabled") +
+                ": softTimeout=" + res.getAutoAdjustAwaitingTime()
             );
         }
 
-        if (autoAdjustSettings.enabled) {
+        if (res.isAutoAdjustEnabled()) {
             if (res.isBaselineAdjustInProgress())
                 log("Baseline auto-adjust is in progress");
             else if (res.getRemainingTimeToBaselineAdjust() < 0)

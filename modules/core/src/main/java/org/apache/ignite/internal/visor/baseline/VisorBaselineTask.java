@@ -23,11 +23,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.BaselineNode;
 import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.internal.cluster.DistributedBaselineConfiguration;
 import org.apache.ignite.internal.cluster.DetachedClusterNode;
 import org.apache.ignite.internal.cluster.IgniteClusterEx;
 import org.apache.ignite.internal.processors.cluster.baseline.autoadjust.BaselineAutoAdjustStatistic;
@@ -35,7 +33,6 @@ import org.apache.ignite.internal.processors.task.GridInternal;
 import org.apache.ignite.internal.processors.task.GridVisorManagementTask;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.VisorJob;
 import org.apache.ignite.internal.visor.VisorOneNodeTask;
 import org.jetbrains.annotations.Nullable;
@@ -81,11 +78,6 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
 
             Collection<? extends BaselineNode> srvrs = cluster.forServers().nodes();
 
-            VisorBaselineAutoAdjustSettings autoAdjustSettings = new VisorBaselineAutoAdjustSettings(
-                cluster.isBaselineAutoAdjustEnabled(),
-                cluster.baselineAutoAdjustTimeout()
-            );
-
             BaselineAutoAdjustStatistic adjustStatistic = ignite.context().cluster().baselineAutoAdjustStatistic();
 
             return new VisorBaselineTaskResult(
@@ -93,7 +85,8 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
                 cluster.topologyVersion(),
                 F.isEmpty(baseline) ? null : baseline,
                 srvrs,
-                autoAdjustSettings,
+                cluster.isBaselineAutoAdjustEnabled(),
+                cluster.baselineAutoAdjustTimeout(),
                 adjustStatistic.getBaselineAdjustTimeout(),
                 adjustStatistic.getTaskState() == BaselineAutoAdjustStatistic.TaskState.IN_PROGRESS
             );
@@ -229,12 +222,9 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
          * @param settings Baseline autoAdjustment settings.
          * @return New baseline.
          */
-        private VisorBaselineTaskResult updateAutoAdjustmentSettings(VisorBaselineAutoAdjustSettings settings) {
-            if (settings.getSoftTimeout() != null)
-                ignite.cluster().baselineAutoAdjustTimeout(settings.getSoftTimeout());
-
-            if (settings.getEnabled() != null)
-                ignite.cluster().baselineAutoAdjustEnabled(settings.getEnabled());
+        private VisorBaselineTaskResult updateAutoAdjustmentSettings(VisorBaselineTaskArg settings) {
+            ignite.cluster().baselineAutoAdjustEnabled(settings.isAutoAdjustEnabled());
+            ignite.cluster().baselineAutoAdjustTimeout(settings.getAutoAdjustAwaitingTime());
 
             return collect();
         }
@@ -255,7 +245,7 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
                     return version(arg.getTopologyVersion());
 
                 case AUTOADJUST:
-                    return updateAutoAdjustmentSettings(arg.getAutoAdjustSettings());
+                    return updateAutoAdjustmentSettings(arg);
 
                 default:
                     return collect();
