@@ -55,7 +55,6 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.events.CacheQueryExecutedEvent;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryFuture;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryType;
@@ -1831,6 +1831,9 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
         if (desc == null)
             return;
+
+        if (CacheDataRowAdapter.INDEX_DEBUG_ENABLED)
+            log.error("@@@ GridQueryProcessor.store, cacheId=" + newRow.cacheId() + ", key=" + newRow.key().hashCode());
 
         idx.store(cctx, desc, newRow, prevRow, prevRowAvailable);
     }

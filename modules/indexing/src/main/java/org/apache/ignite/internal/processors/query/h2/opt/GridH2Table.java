@@ -24,14 +24,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteInterruptedException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.query.QueryTable;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.QueryField;
@@ -75,6 +76,7 @@ public class GridH2Table extends TableBase {
 
     /** */
     private final GridH2RowDescriptor desc;
+    private final IgniteLogger log;
 
     /** */
     private volatile ArrayList<Index> idxs;
@@ -136,6 +138,7 @@ public class GridH2Table extends TableBase {
 
         this.desc = desc;
         this.cctx = cctx;
+        this.log = cctx.logger(GridH2Table.class);
 
         if (desc.context() != null && !desc.context().customAffinityMapper()) {
             boolean affinityColExists = true;
@@ -480,13 +483,23 @@ public class GridH2Table extends TableBase {
                 for (int i = pkIndexPos + 1, len = idxs.size(); i < len; i++) {
                     Index idx = idxs.get(i);
 
-                    if (idx instanceof GridH2IndexBase)
+                    if (idx instanceof GridH2IndexBase) {
                         addToIndex((GridH2IndexBase)idx, row0, prevRow0);
+
+                        if (CacheDataRowAdapter.INDEX_DEBUG_ENABLED)
+                            log.error("@@@ GridH2Table.update, cacheId=" + row0.cacheId() +
+                                    ", key=" + row0.key().hashCode() + ", index=" + idx.getName());
+                    }
                 }
 
                 if (!tmpIdxs.isEmpty()) {
-                    for (GridH2IndexBase idx : tmpIdxs.values())
+                    for (GridH2IndexBase idx : tmpIdxs.values()) {
                         addToIndex(idx, row0, prevRow0);
+
+                        if (CacheDataRowAdapter.INDEX_DEBUG_ENABLED)
+                            log.error("@@@ GridH2Table.updateTmpIdx, cacheId=" + row0.cacheId() +
+                                ", key=" + row0.key().hashCode() + ", index=" + idx.getName());
+                    }
                 }
             }
             finally {
