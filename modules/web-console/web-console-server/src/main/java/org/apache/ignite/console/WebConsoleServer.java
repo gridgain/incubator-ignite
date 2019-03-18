@@ -22,11 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
@@ -42,7 +40,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
 import io.vertx.core.spi.cluster.ClusterManager;
-import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -50,7 +47,6 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.handler.StaticHandler;
-import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
@@ -70,7 +66,6 @@ import org.apache.ignite.console.services.AdminService;
 import org.apache.ignite.console.services.AgentService;
 import org.apache.ignite.console.services.ConfigurationsService;
 import org.apache.ignite.console.services.NotebooksService;
-import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
@@ -160,15 +155,6 @@ public class WebConsoleServer extends AbstractVerticle {
      * @throws Exception If failed to start HTTP server.
      */
     protected void startHttpServer() throws Exception {
-        SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
-
-        BridgeOptions allAccessOptions =
-            new BridgeOptions()
-                .addInboundPermitted(new PermittedOptions())
-                .addOutboundPermitted(new PermittedOptions());
-
-        sockJsHnd.bridge(allAccessOptions, this::handleNodeVisorMessages);
-
         SslConfiguration sslCfg = cfg.getSslConfiguration();
 
         boolean ssl = sslCfg != null && sslCfg.isEnabled();
@@ -203,7 +189,16 @@ public class WebConsoleServer extends AbstractVerticle {
         if (!F.isEmpty(cfg.getWebRoot()))
             router.route().handler(StaticHandler.create(cfg.getWebRoot()));
 
-        router.route("/eventbus/*").handler(sockJsHnd);
+        // Allow events for the designated addresses in/out of the event bus bridge
+        BridgeOptions opts = new BridgeOptions()
+            .addOutboundPermitted(new PermittedOptions())
+            .addInboundPermitted(new PermittedOptions());
+
+        router.route("/eventbus/*").handler(SockJSHandler.create(vertx).bridge(opts, event -> {
+            ignite.log().info("A websocket event occurred [type=" + event.type() + ", body=" + event.getRawMessage() + "]");
+            
+            event.complete(true);
+        }));
 
         registerRestRoutes(router);
 
