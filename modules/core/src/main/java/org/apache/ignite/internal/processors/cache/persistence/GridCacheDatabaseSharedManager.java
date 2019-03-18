@@ -2160,6 +2160,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                             if (pageMem == null)
                                 break;
 
+                            if (skipRemovedIndexUpdates(grpId, pageId))
+                                break;
+
                             long page = pageMem.acquirePage(grpId, pageId, true);
 
                             try {
@@ -2230,6 +2233,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                             if (pageMem == null)
                                 break;
 
+                            if (skipRemovedIndexUpdates(grpId, pageId))
+                                break;
+
                             // Here we do not require tag check because we may be applying memory changes after
                             // several repetitive restarts and the same pages may have changed several times.
                             long page = pageMem.acquirePage(grpId, pageId, true);
@@ -2275,6 +2281,14 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         cpHistory.initialize(retreiveHistory());
 
         return lastReadPtr != null ? lastReadPtr.next() : null;
+    }
+
+    /**
+     * @param grpId Group id.
+     * @param pageId Page id.
+     */
+    private boolean skipRemovedIndexUpdates(int grpId, long pageId) {
+        return (PageIdUtils.partId(pageId) == PageIdAllocator.INDEX_PARTITION) && !storeMgr.hasIndexStore(grpId);
     }
 
     /**
