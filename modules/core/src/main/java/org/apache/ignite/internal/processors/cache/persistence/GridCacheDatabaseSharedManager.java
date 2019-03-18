@@ -1992,15 +1992,11 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
             CheckpointStatus status = readCheckpointStatus();
 
-            IgniteCacheDatabaseSharedManager.gprIds = storeMgr.grpsWithoutIdx;
-
             RestoreLogicalState logicalState = applyLogicalUpdates(
                     status,
                     g -> !initiallyGlobalWalDisabledGrps.contains(g) && !initiallyLocalWalDisabledGrps.contains(g),
                     true
             );
-
-            IgniteCacheDatabaseSharedManager.gprIds = null;
 
             // Restore state for all groups.
             restorePartitionStates(cctx.cache().cacheGroups(), logicalState.partitionRecoveryStates);
