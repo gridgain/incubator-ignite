@@ -638,6 +638,8 @@ public abstract class GridAbstractTest extends JUnit3TestLegacySupport {
             log.info("Next processes of IgniteNodeRunner were killed: " + jvmIds);
 
         resolveWorkDirectory();
+
+        beforeTestsStarted();
     }
 
     /** */
