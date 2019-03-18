@@ -147,7 +147,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     private final long metaPageId = PageIdUtils.pageId(-1, PageMemory.FLAG_IDX, 0);
 
     /** */
-    private final Set<Integer> grpsWithoutIdx = Collections.newSetFromMap(new ConcurrentHashMap<Integer, Boolean>());
+    public final Set<Integer> grpsWithoutIdx = Collections.newSetFromMap(new ConcurrentHashMap<Integer, Boolean>());
 
     /** */
     private final GridStripedReadWriteLock initDirLock =
