@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.persistence;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
@@ -47,6 +48,8 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
  * Cache data row adapter.
  */
 public class CacheDataRowAdapter implements CacheDataRow {
+    public static final boolean INDEX_DEBUG_ENABLED = IgniteSystemProperties.getBoolean("INDEX_DEBUG_ENABLED", false);
+
     /** */
     @GridToStringExclude
     protected long link;

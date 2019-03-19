@@ -681,10 +681,10 @@ public abstract class GridAbstractTest extends TestCase {
      * @return First started grid.
      * @throws Exception If failed.
      */
-    protected final Ignite startGrids(int cnt) throws Exception {
+    protected final IgniteEx startGrids(int cnt) throws Exception {
         assert cnt > 0;
 
-        Ignite ignite = null;
+        IgniteEx ignite = null;
 
         for (int i = 0; i < cnt; i++)
             if (ignite == null)
@@ -929,7 +929,7 @@ public abstract class GridAbstractTest extends TestCase {
             }
         }
         else
-            return startRemoteGrid(igniteInstanceName, null, ctx);
+            return startRemoteGrid(igniteInstanceName, cfg, ctx);
     }
 
     /**
@@ -1148,12 +1148,7 @@ public abstract class GridAbstractTest extends TestCase {
             if (!isRemoteJvm(igniteInstanceName))
                 G.stop(igniteInstanceName, cancel);
             else
-                try {
-                    IgniteProcessProxy.stop(igniteInstanceName, cancel);
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
-                }
+                IgniteProcessProxy.stop(igniteInstanceName, cancel);
 
             if (awaitTop)
                 awaitTopologyChange();

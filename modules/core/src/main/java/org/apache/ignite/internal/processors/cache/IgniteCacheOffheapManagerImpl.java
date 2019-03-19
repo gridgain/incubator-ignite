@@ -47,6 +47,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.topology.Grid
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
+import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
@@ -1503,7 +1504,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             int cacheId = grp.sharedGroup() ? cctx.cacheId() : CU.UNDEFINED_CACHE_ID;
 
-            if (qryMgr.enabled())
+            Set<Integer> ids = IgniteCacheDatabaseSharedManager.gprIds;
+
+            if (qryMgr.enabled() && (ids == null || !ids.contains(grp.groupId())))
                 qryMgr.store(newRow, oldRow, true);
 
             if (oldRow != null) {

@@ -37,7 +37,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.X;
-import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
@@ -200,10 +199,6 @@ public class GridDhtAssignmentFetchFuture extends GridFutureAdapter<GridDhtAffin
                     if (log0.isDebugEnabled())
                         log0.debug("Sending affinity fetch request to remote node [locNodeId=" + ctx.localNodeId() +
                             ", node=" + node + ']');
-
-                    if (grpId == CU.cacheId("test2")) {
-                        log.error("!!!requestFromNextNode", new Throwable(node.toString()));
-                    }
 
                     ctx.io().send(node,
                         new GridDhtAffinityAssignmentRequest(id, grpId, topVer, needPartState),

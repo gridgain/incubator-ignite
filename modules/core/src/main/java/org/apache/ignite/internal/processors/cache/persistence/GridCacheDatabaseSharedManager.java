@@ -1992,11 +1992,15 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
             CheckpointStatus status = readCheckpointStatus();
 
+            IgniteCacheDatabaseSharedManager.gprIds = storeMgr.grpsWithoutIdx;
+
             RestoreLogicalState logicalState = applyLogicalUpdates(
                     status,
                     g -> !initiallyGlobalWalDisabledGrps.contains(g) && !initiallyLocalWalDisabledGrps.contains(g),
                     true
             );
+
+            IgniteCacheDatabaseSharedManager.gprIds = null;
 
             // Restore state for all groups.
             restorePartitionStates(cctx.cache().cacheGroups(), logicalState.partitionRecoveryStates);
@@ -2160,6 +2164,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                             if (pageMem == null)
                                 break;
 
+                            if (skipRemovedIndexUpdates(grpId, pageId))
+                                break;
+
                             long page = pageMem.acquirePage(grpId, pageId, true);
 
                             try {
@@ -2225,6 +2232,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
                             long pageId = r.pageId();
 
+                            if (skipRemovedIndexUpdates(grpId, pageId))
+                                break;
+
                             PageMemoryEx pageMem = getPageMemoryForCacheGroup(grpId);
 
                             if (pageMem == null)
@@ -2275,6 +2285,14 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         cpHistory.initialize(retreiveHistory());
 
         return lastReadPtr != null ? lastReadPtr.next() : null;
+    }
+
+    /**
+     * @param grpId Group id.
+     * @param pageId Page id.
+     */
+    private boolean skipRemovedIndexUpdates(int grpId, long pageId) {
+        return (PageIdUtils.partId(pageId) == PageIdAllocator.INDEX_PARTITION) && !storeMgr.hasIndexStore(grpId);
     }
 
     /**

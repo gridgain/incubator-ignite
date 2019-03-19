@@ -75,9 +75,10 @@ import org.apache.ignite.internal.processors.cache.IgniteCacheExpiryPolicy;
 import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtUnreservedPartitionException;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.datastructures.DataStructuresProcessor;
 import org.apache.ignite.internal.processors.datastructures.GridSetQueryPredicate;
 import org.apache.ignite.internal.processors.datastructures.SetItemKey;
@@ -389,6 +390,9 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
             throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
 
         try {
+            if (CacheDataRowAdapter.INDEX_DEBUG_ENABLED)
+                log.error("@@@ GridCacheQueryManager.store, cacheId=" + newRow.cacheId() + ", key=" + newRow.key().hashCode() + ", indexing=" + isIndexingSpiEnabled());
+
             if (isIndexingSpiEnabled()) {
                 CacheObjectContext coctx = cctx.cacheObjectContext();
 
@@ -401,7 +405,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
             if (qryProcEnabled)
                 qryProc.store(cctx, newRow, prevRow, prevRowAvailable);
-        }
+            }
         finally {
             invalidateResultCache();
 

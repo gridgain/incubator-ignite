@@ -358,6 +358,8 @@ public class IgniteProcessProxy implements IgniteEx {
                 throw t;
             }
 
+            proxy.getProcess().kill();
+
             gridProxies.remove(igniteInstanceName, proxy);
         }
     }

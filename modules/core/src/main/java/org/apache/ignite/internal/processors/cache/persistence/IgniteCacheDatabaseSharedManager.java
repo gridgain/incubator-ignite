@@ -84,6 +84,8 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
     /** DataRegionConfiguration name reserved for internal caches. */
     public static final String SYSTEM_DATA_REGION_NAME = "sysMemPlc";
 
+    public static volatile Set<Integer> gprIds = null;
+
     /** Minimum size of memory chunk */
     private static final long MIN_PAGE_MEMORY_SIZE = 10 * 1024 * 1024;
 
