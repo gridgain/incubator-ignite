@@ -768,18 +768,22 @@ public class GridDhtPartitionDemander {
                                             break;
 
                                         GridCacheEntryInfo entry = infos.next();
+                                        try {
+                                            if (!preloadEntry(node, p, entry, topVer)) {
+                                                if (log.isTraceEnabled())
+                                                    log.trace("Got entries for invalid partition during " +
+                                                        "preloading (will skip) [p=" + p + ", entry=" + entry + ']');
 
-                                        if (!preloadEntry(node, p, entry, topVer)) {
-                                            if (log.isTraceEnabled())
-                                                log.trace("Got entries for invalid partition during " +
-                                                    "preloading (will skip) [p=" + p + ", entry=" + entry + ']');
+                                                break;
+                                            }
 
-                                            break;
-                                        }
-
-                                        for (GridCacheContext cctx : grp.caches()) {
-                                            if (cctx.statisticsEnabled())
-                                                cctx.cache().metrics0().onRebalanceKeyReceived();
+                                            for (GridCacheContext cctx : grp.caches()) {
+                                                if (cctx.statisticsEnabled())
+                                                    cctx.cache().metrics0().onRebalanceKeyReceived();
+                                            }
+                                        } catch (Throwable t) {
+                                            log.error("!!! error on preload entry=" + entry, t);
+                                            throw t;
                                         }
                                     }
                                 }
