@@ -53,9 +53,6 @@ public class IgniteAuth implements AuthProvider {
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
     /** */
-    private static final String E_ACCOUNT_AUTH_FAILED = "Account authentication failed";
-
-    /** */
     private final Ignite ignite;
 
     /** */
@@ -180,32 +177,26 @@ public class IgniteAuth implements AuthProvider {
 
     /**
      * Check permissions asynchronously.
-     *
-     * @param perm Permissions to check.
      * @param accId Account ID.
-     * @param authCb Authorization callback.
+     * @param perm Permissions to check.
+     * @param hnd Authorization callback.
      */
-    public void checkPermissionsAsync(String perm, UUID accId, Handler<AsyncResult<Boolean>> authCb) {
-        if (perm.startsWith("admin:")) {
-            JsonObject msg = new JsonObject()
-                .put("id", accId.toString());
+    void checkPermissionsAsync(String accId, String perm, Handler<AsyncResult<Boolean>> hnd) {
+        vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, accId, (AsyncResult<Message<JsonObject>> res) -> {
+            try {
+                if (res.failed())
+                    throw res.cause();
 
-            vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, msg, (AsyncResult<Message<JsonObject>> asyncRes) -> {
-                if (asyncRes.succeeded()) {
-                    try {
-                        Account account = Account.fromJson(asyncRes.result().body());
+                Account account = Account.fromJson(res.result().body());
 
-                        authCb.handle(Future.succeededFuture(account.admin()));
-                    }
-                    catch (Throwable e) {
-                        authCb.handle(Future.failedFuture(e));
-                    }
-                }
-                else
-                    authCb.handle(Future.failedFuture(asyncRes.cause()));
-            });
-        }
-        else
-            authCb.handle(Future.succeededFuture(true));
+                if ("admin".equals(perm))
+                    hnd.handle(Future.succeededFuture(account.admin()));
+
+                hnd.handle(Future.succeededFuture(true));
+            }
+            catch (Throwable e) {
+                hnd.handle(Future.failedFuture(e));
+            }
+        });
     }
 }

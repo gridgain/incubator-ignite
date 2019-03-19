@@ -23,6 +23,7 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.auth.ContextAccount;
 import org.apache.ignite.console.common.Addresses;
 
 import static io.vertx.core.http.HttpMethod.GET;
@@ -76,20 +77,20 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRoute(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
-        registerRoute(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
-        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
-        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
-        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
-        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
+        authenticatedRoute(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
+        authenticatedRoute(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
+        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
+        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
+        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
+        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
 
-        registerRoute(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
-        registerRoute(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
-        registerRoute(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
+        authenticatedRoute(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
+        authenticatedRoute(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
+        authenticatedRoute(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
 
-        registerRoute(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
-        registerRoute(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
-        registerRoute(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
+        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
+        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
+        authenticatedRoute(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
     }
 
     /**
@@ -108,10 +109,10 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadClustersShortList(RoutingContext ctx) {
-        User user = getContextAccount(ctx);
+        ContextAccount acc = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
-            .put("user", user.principal());
+            .put("user", acc.principal());
 
         send(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, msg, ctx, E_FAILED_TO_LOAD_CLUSTERS);
     }

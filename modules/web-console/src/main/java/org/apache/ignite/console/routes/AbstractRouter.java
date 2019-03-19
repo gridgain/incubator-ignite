@@ -18,7 +18,6 @@
 package org.apache.ignite.console.routes;
 
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.function.Function;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -59,13 +58,62 @@ public abstract class AbstractRouter implements RestApiRouter {
     }
 
     /**
-     * @param router Router.
-     * @param mtd Method.
-     * @param path Path.
+     * @param router The router.
+     * @param mtd The HTTP method to match.
+     * @param path URI paths that begin with this path will match.
      * @param reqHnd Request handler.
+     * @return the Route to enable fluent use
      */
-    protected Route registerRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
+    protected Route publicRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
         return router.route(mtd, path).handler(reqHnd).failureHandler(this:: failureHandler);
+    }
+
+    /**
+     * @param router The router.
+     * @param mtd The HTTP method to match.
+     * @param path URI paths that begin with this path will match.
+     * @param reqHnd Handler that will be called if user is authenticated.
+     * @return the Route to enable fluent use.
+     */
+    protected Route authenticatedRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
+        return publicRoute(router, mtd, path, ctx -> {
+            if (ctx.user() == null)
+                throw new NotAuthorizedException("Access denied. You are not authorized to access this page.");
+
+            reqHnd.handle(ctx);
+        });
+    }
+
+    /**
+     * @param router The router.
+     * @param mtd The HTTP method to match.
+     * @param path URI paths that begin with this path will match.
+     * @param authority The authority - what this really means is determined by the specific implementation.
+     * @param reqHnd Handler that will be called if the they has the authority.
+     * @return the Route to enable fluent use.
+     */
+    protected Route authorityRoute(Router router, HttpMethod mtd, String path, String authority, Handler<RoutingContext> reqHnd) {
+        return authenticatedRoute(router, mtd, path, ctx -> {
+            User account = ctx.user();
+
+            account.isAuthorized(authority, isAdminHandler -> {
+                if (isAdminHandler.failed() && isAdminHandler.result() == Boolean.FALSE)
+                    throw new NotAuthorizedException("Access denied. You are not authorized to access this page.");
+
+                reqHnd.handle(ctx);
+            });
+        });
+    }
+
+    /**
+     * @param router The router.
+     * @param mtd The HTTP method to match.
+     * @param path URI paths that begin with this path will match.
+     * @param reqHnd Handler that will be called if the they has the admin authority.
+     * @return the Route to enable fluent use
+     */
+    protected Route adminRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
+        return authorityRoute(router, mtd, path, "admin", reqHnd);
     }
 
     /**
@@ -75,7 +123,7 @@ public abstract class AbstractRouter implements RestApiRouter {
         Throwable cause = ctx.failure();
 
         if (cause instanceof NotAuthorizedException)
-            sendStatus(ctx, HTTP_UNAUTHORIZED);
+            sendError(ctx, HTTP_UNAUTHORIZED, null, cause);
         else
             sendError(ctx, HTTP_INTERNAL_ERROR, "Unhandled error", cause);
     }
@@ -93,7 +141,7 @@ public abstract class AbstractRouter implements RestApiRouter {
         if (user instanceof ContextAccount)
             return (ContextAccount)user;
 
-        throw new NotAuthorizedException();
+        throw new NotAuthorizedException("Access denied. You are not authorized to access this page.");
     }
 
     /**

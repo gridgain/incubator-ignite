@@ -30,10 +30,7 @@ import org.apache.ignite.internal.util.typedef.F;
 
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.console.common.Utils.sendError;
-import static org.apache.ignite.console.common.Utils.sendResult;
 
 /**
  * Router to handle REST API for configurations.
@@ -62,14 +59,15 @@ public class AccountRouter extends AbstractRouter {
     @Override public void install(Router router) {
         router.route().handler(UserSessionHandler.create(authProvider));
 
-        registerRoute(router, GET, "/api/v1/user", this::getAccount);
-        registerRoute(router, POST, "/api/v1/signup", this::signUp);
-        registerRoute(router, POST, "/api/v1/signin", this::signIn);
-        registerRoute(router, POST, "/api/v1/logout", this::logout);
+        authenticatedRoute(router, GET, "/api/v1/user", this::getAccount);
+        authenticatedRoute(router, POST, "/api/v1/logout", this::logout);
+        
+        publicRoute(router, POST, "/api/v1/signup", this::signUp);
+        publicRoute(router, POST, "/api/v1/signin", this::signIn);
 
-        registerRoute(router, POST, "/api/v1/password/forgot", this::forgotPassword);
-        registerRoute(router, POST, "/api/v1/password/reset", this::resetPassword);
-        registerRoute(router, POST, "/api/v1/password/validate/token", this::validateToken);
+        publicRoute(router, POST, "/api/v1/password/forgot", this::forgotPassword);
+        publicRoute(router, POST, "/api/v1/password/reset", this::resetPassword);
+        publicRoute(router, POST, "/api/v1/password/validate/token", this::validateToken);
     }
 
     /**

@@ -58,11 +58,14 @@ public class ContextAccount extends AbstractUser {
     }
 
     /** {@inheritDoc} */
-    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> authCb) {
-        if (accId == null)
-            authCb.handle(Future.failedFuture(new IgniteAuthenticationException("Missing account identity")));
-        else
-            authProvider.checkPermissionsAsync(perm, accId, authCb);
+    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> hnd) {
+        if (accId == null) {
+            hnd.handle(Future.failedFuture(new IgniteAuthenticationException("Missing account identity")));
+
+            return;
+        }
+
+        authProvider.checkPermissionsAsync(accountId(), perm, hnd);
     }
 
     /**
