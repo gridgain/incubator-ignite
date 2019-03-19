@@ -76,7 +76,7 @@ public class AccountsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Affected rows JSON object.
      */
-    private JsonObject register(JsonObject params) {
+    protected JsonObject register(JsonObject params) {
         Account account = Account.fromJson(params);
 
         accountsRepo.create(account);
