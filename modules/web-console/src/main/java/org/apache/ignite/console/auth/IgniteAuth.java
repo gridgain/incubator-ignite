@@ -53,9 +53,6 @@ public class IgniteAuth implements AuthProvider {
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
     /** */
-    private static final String E_ACCOUNT_AUTH_FAILED = "Account authentication failed";
-
-    /** */
     private final Ignite ignite;
 
     /** */
@@ -191,18 +188,17 @@ public class IgniteAuth implements AuthProvider {
                 .put("id", accId.toString());
 
             vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, msg, (AsyncResult<Message<JsonObject>> asyncRes) -> {
-                if (asyncRes.succeeded()) {
-                    try {
-                        Account account = Account.fromJson(asyncRes.result().body());
+                try {
+                    if (asyncRes.failed())
+                        throw asyncRes.cause();
 
-                        authCb.handle(Future.succeededFuture(account.admin()));
-                    }
-                    catch (Throwable e) {
-                        authCb.handle(Future.failedFuture(e));
-                    }
+                    Account account = Account.fromJson(asyncRes.result().body());
+
+                    authCb.handle(Future.succeededFuture(account.admin()));
                 }
-                else
-                    authCb.handle(Future.failedFuture(asyncRes.cause()));
+                catch (Throwable e) {
+                    authCb.handle(Future.failedFuture(e));
+                }
             });
         }
         else
