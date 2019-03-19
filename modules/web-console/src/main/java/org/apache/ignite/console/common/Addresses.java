@@ -52,7 +52,7 @@ public interface Addresses {
     public static final String ACCOUNT_REGISTER = "account:register";
 
     /** */
-    public static final String ADMIN_LOAD_ACCOUNTS = "admin:load:accounts";
+    public static final String ADMIN_LOAD_ACCOUNTS = "admin: load:accounts";
 
     /** */
     public static final String ADMIN_DELETE_ACCOUNT = "admin:delete:account";

@@ -65,6 +65,13 @@ public class ContextAccount extends AbstractUser {
             authProvider.checkPermissionsAsync(perm, accId, authCb);
     }
 
+    /**
+     * @return Account Id.
+     */
+    public String accountId() {
+        return accId.toString();
+    }
+
     /** {@inheritDoc} */
     @Override public JsonObject principal() {
         if (cachedPrincipal == null)

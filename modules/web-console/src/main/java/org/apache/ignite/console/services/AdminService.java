@@ -19,55 +19,58 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.repositories.AccountsRepository;
-import org.apache.ignite.console.repositories.ConfigurationsRepository;
-import org.apache.ignite.console.repositories.NotebooksRepository;
 import org.apache.ignite.transactions.Transaction;
 
 import static org.apache.ignite.console.common.Utils.boolParam;
 import static org.apache.ignite.console.common.Utils.uuidParam;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Service to handle administrator actions.
  */
 public class AdminService extends AbstractService {
     /** */
-    private final AccountsRepository accountsRepo;
+    private final AccountsService accountsSvc;
 
     /** */
-    private final ConfigurationsRepository cfgsRepo;
+    private final ConfigurationsService cfgsSvc;
 
     /** */
-    private final NotebooksRepository notebooksRepo;
+    private final NotebooksService notebooksSvc;
 
     /**
      * @param ignite Ignite.
-     * @param accountsRepo Repository to work with accounts.
-     * @param notebooksRepo Repository to work with notebooks.
+     * @param accountsSvc Service to work with accounts.
+     * @param cfgsSvc Service to work with configurations.
+     * @param notebooksSvc Service to work with notebooks.
      */
     public AdminService(
         Ignite ignite,
-        AccountsRepository accountsRepo,
-        ConfigurationsRepository cfgsRepo,
-        NotebooksRepository notebooksRepo
+        AccountsService accountsSvc,
+        ConfigurationsService cfgsSvc,
+        NotebooksService notebooksSvc
     ) {
         super(ignite);
 
-        this.accountsRepo = accountsRepo;
-        this.cfgsRepo = cfgsRepo;
-        this.notebooksRepo = notebooksRepo;
+        this.accountsSvc = accountsSvc;
+        this.cfgsSvc = cfgsSvc;
+        this.notebooksSvc = notebooksSvc;
     }
 
     /** {@inheritDoc} */
-    @Override protected void initEventBus() {
-        addConsumer(Addresses.ADMIN_LOAD_ACCOUNTS, this::list);
-        addConsumer(Addresses.ADMIN_DELETE_ACCOUNT, this::delete);
-        addConsumer(Addresses.ADMIN_CHANGE_ADMIN_STATUS, this::toggle);
+    @Override public AdminService install(Vertx vertx) {
+        addConsumer(vertx, Addresses.ADMIN_LOAD_ACCOUNTS, this::list);
+        addConsumer(vertx, Addresses.ADMIN_DELETE_ACCOUNT, this::delete);
+        addConsumer(vertx, Addresses.ADMIN_CHANGE_ADMIN_STATUS, this::toggle);
+
+        return this;
     }
 
     /**
@@ -75,7 +78,7 @@ public class AdminService extends AbstractService {
      */
     @SuppressWarnings("unused")
     private JsonArray list(JsonObject params) {
-        List<Account> accounts = accountsRepo.list();
+        List<Account> accounts = accountsSvc.list();
 
         JsonArray res = new JsonArray();
 
@@ -105,24 +108,24 @@ public class AdminService extends AbstractService {
     /**
      * Remove account.
      *
-     * @param params Parameters in JSON format.
+     * @param accId Account Id.
      * @return Affected rows JSON object.
      */
-    private JsonObject delete(JsonObject params) {
-        int rmvCnt;
+    private JsonObject delete(String accId) {
+        UUID id = UUID.fromString(accId);
 
-        UUID accId = uuidParam(params, "_id");
+        int rows;
 
-        try (Transaction tx = accountsRepo.txStart()) {
-            rmvCnt = accountsRepo.delete(accId);
+        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            cfgsSvc.deleteByAccountId(id);
+            notebooksSvc.deleteByAccountId(id);
 
-            notebooksRepo.deleteAll(accId);
-            cfgsRepo.deleteAll(accId);
+            rows = accountsSvc.delete(id);
 
             tx.commit();
         }
 
-        return rowsAffected(rmvCnt);
+        return rowsAffected(rows);
     }
 
     /**
@@ -130,18 +133,7 @@ public class AdminService extends AbstractService {
      * @return Affected rows JSON object.
      */
     private JsonObject toggle(JsonObject params) {
-        UUID accId = uuidParam(params, "userId");
-        boolean adminFlag = boolParam(params, "adminFlag", false);
-
-        try (Transaction tx = accountsRepo.txStart()) {
-            Account account = accountsRepo.getById(accId);
-
-            account.admin(adminFlag);
-
-            accountsRepo.save(account);
-
-            tx.commit();
-        }
+        accountsSvc.updatePermission(uuidParam(params, "accountId"), boolParam(params, "admin", false));
 
         return rowsAffected(1);
     }

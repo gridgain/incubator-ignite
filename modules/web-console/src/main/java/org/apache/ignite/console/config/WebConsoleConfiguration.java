@@ -17,134 +17,56 @@
 
 package org.apache.ignite.console.config;
 
+import org.apache.ignite.internal.util.typedef.internal.S;
+
 /**
  * Configuration of Web Console.
  */
 public class WebConsoleConfiguration {
-    /** Path to key store. */
-    private String keyStore;
-
-    /** Optional password for key store. */
-    private String keyStorePwd;
-
-    /** Path to trust store. */
-    private String trustStore;
-
-    /** Optional password for trust store. */
-    private String trustStorePwd;
-
-    /** Optional comma-separated list of SSL cipher suites. */
-    private String cipherSuites;
-
-    /** Authentication required flag. */
-    private boolean clientAuth;
+    /** */
+    private static final int DFLT_PORT = 3000;
 
     /** Path to static content. */
     private String webRoot;
 
-    /** Default port. */
-    private int port = 3000;
+    /** Web Console port. */
+    private int port = DFLT_PORT;
+
+    /** Folder with Web Agent binaries. */
+    private String agentFolderName;
+
+    /** Web Agent file name. */
+    private String agentFileName;
+
+    /** Accounts configuration. */
+    private AccountConfiguration accountCfg;
+
+    /** Mail configuration. */
+    private MailConfiguration mailCfg;
+
+    /** SSL configuration. */
+    private SslConfiguration sslCfg;
 
     /**
-     * @return Path to key store.
+     * Empty constructor.
      */
-    public String getKeyStore() {
-        return keyStore;
+    public WebConsoleConfiguration() {
+        // No-op.
     }
 
     /**
-     * @param keyStore Path to key store.
-     * @return {@code this} for chaining.
+     * Copy constructor.
+     *
+     * @param cc Configuration to copy.
      */
-    public WebConsoleConfiguration setKeyStore(String keyStore) {
-        this.keyStore = keyStore;
-
-        return this;
-    }
-
-    /**
-     * @return Key store password.
-     */
-    public String getKeyStorePassword() {
-        return keyStorePwd;
-    }
-
-    /**
-     * @param keyStorePwd Key store password.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setKeyStorePassword(String keyStorePwd) {
-        this.keyStorePwd = keyStorePwd;
-
-        return this;
-    }
-
-    /**
-     * @return Path to trust store.
-     */
-    public String getTrustStore() {
-        return trustStore;
-    }
-
-    /**
-     * @param trustStore Path to trust store.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setTrustStore(String trustStore) {
-        this.trustStore = trustStore;
-
-        return this;
-    }
-
-    /**
-     * @return Trust store password.
-     */
-    public String getTrustStorePassword() {
-        return trustStorePwd;
-    }
-
-    /**
-     * @param trustStorePwd Trust store password.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setTrustStorePassword(String trustStorePwd) {
-        this.trustStorePwd = trustStorePwd;
-
-        return this;
-    }
-
-    /**
-     * @return SSL cipher suites.
-     */
-    public String getCipherSuites() {
-        return cipherSuites;
-    }
-
-    /**
-     * @param cipherSuites SSL cipher suites.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setCipherSuites(String cipherSuites) {
-        this.cipherSuites = cipherSuites;
-
-        return this;
-    }
-
-    /**
-     * @return {@code true} if authentication required.
-     */
-    public boolean isClientAuth() {
-        return clientAuth;
-    }
-
-    /**
-     * @param clientAuth Authentication required flag.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setClientAuth(boolean clientAuth) {
-        this.clientAuth = clientAuth;
-
-        return this;
+    public WebConsoleConfiguration(WebConsoleConfiguration cc) {
+       webRoot = cc.getWebRoot();
+       port = cc.getPort();
+       agentFolderName = cc.getAgentFolderName();
+       agentFileName = cc.getAgentFileName();
+       accountCfg = cc.getAccountConfiguration();
+       mailCfg = cc.getMailConfiguration();
+       sslCfg = cc.getSslConfiguration();
     }
 
     /**
@@ -179,5 +101,96 @@ public class WebConsoleConfiguration {
         this.port = port;
 
         return this;
+    }
+
+    /**
+     * @return Folder with Web Agent binaries.
+     */
+    public String getAgentFolderName() {
+        return agentFolderName;
+    }
+
+    /**
+     *
+     * @param agentFolderName Folder with Web Agent binaries.
+     * @return {@code this} for chaining.
+     */
+    public WebConsoleConfiguration setAgentFolderName(String agentFolderName) {
+        this.agentFolderName = agentFolderName;
+
+        return this;
+    }
+
+    /**
+     * @return Web Agent file name.
+     */
+    public String getAgentFileName() {
+        return agentFileName;
+    }
+
+    /**
+     * @param agentFileName Web Agent file name.
+     * @return {@code this} for chaining.
+     */
+    public WebConsoleConfiguration setAgentFileName(String agentFileName) {
+        this.agentFileName = agentFileName;
+
+        return this;
+    }
+
+    /**
+     * @return Account configuration.
+     */
+    public AccountConfiguration getAccountConfiguration() {
+        return accountCfg;
+    }
+
+    /**
+     * @param activationCfg Account configuration.
+     * @return {@code this} for chaining.
+     */
+    public WebConsoleConfiguration setAccountConfiguration(AccountConfiguration activationCfg) {
+        this.accountCfg = activationCfg;
+
+        return this;
+    }
+
+    /**
+     * @return Mail configuration.
+     */
+    public MailConfiguration getMailConfiguration() {
+        return mailCfg;
+    }
+
+    /**
+     * @param mailCfg Mail configuration.
+     * @return {@code this} for chaining.
+     */
+    public WebConsoleConfiguration setMailConfiguration(MailConfiguration mailCfg) {
+        this.mailCfg = mailCfg;
+
+        return this;
+    }
+
+    /**
+     * @return SSL configuration.
+     */
+    public SslConfiguration getSslConfiguration() {
+        return sslCfg;
+    }
+
+    /**
+     * @param sslCfg SSL configuration.
+     * @return {@code this} for chaining.
+     */
+    public WebConsoleConfiguration setSslConfiguration(SslConfiguration sslCfg) {
+        this.sslCfg = sslCfg;
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(WebConsoleConfiguration.class, this);
     }
 }

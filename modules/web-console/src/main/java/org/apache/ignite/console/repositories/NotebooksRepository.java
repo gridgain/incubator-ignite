@@ -107,11 +107,11 @@ public class NotebooksRepository extends AbstractRepository {
     /**
      * Delete all notebook for specified user.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      */
-    public void deleteAll(UUID userId) {
+    public void deleteByAccount(UUID accId) {
         try(Transaction tx = txStart()) {
-            TreeSet<UUID> ids = notebooksIdx.delete(userId);
+            TreeSet<UUID> ids = notebooksIdx.delete(accId);
 
             notebooksTbl.deleteAll(ids);
 

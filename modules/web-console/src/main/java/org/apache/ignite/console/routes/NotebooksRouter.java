@@ -51,9 +51,9 @@ public class NotebooksRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRout(router, GET, "/api/v1/notebooks", this::load);
-        registerRout(router, POST, "/api/v1/notebooks/save", this::save);
-        registerRout(router, POST, "/api/v1/notebooks/remove", this::delete);
+        registerRoute(router, GET, "/api/v1/notebooks", this::load);
+        registerRoute(router, POST, "/api/v1/notebooks/save", this::save);
+        registerRoute(router, POST, "/api/v1/notebooks/remove", this::delete);
     }
 
     /**
@@ -62,7 +62,7 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal());
@@ -76,7 +76,7 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void save(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())
@@ -91,7 +91,7 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void delete(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())

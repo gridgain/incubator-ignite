@@ -76,27 +76,27 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRout(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
-        registerRout(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
-        registerRout(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
+        registerRoute(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
+        registerRoute(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
+        registerRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
 
-        registerRout(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
-        registerRout(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
-        registerRout(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
+        registerRoute(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
+        registerRoute(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
+        registerRoute(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
 
-        registerRout(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
-        registerRout(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
-        registerRout(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
+        registerRoute(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
+        registerRoute(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
+        registerRoute(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
     }
 
     /**
      * @param ctx Context.
      */
     private void loadConfiguration(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         if (user != null)
             send(Addresses.CONFIGURATION_LOAD, requestParams(ctx), ctx, E_FAILED_TO_LOAD_CONFIGURATION);
@@ -108,7 +108,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadClustersShortList(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal());
@@ -120,7 +120,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Cluster.
      */
     private void loadCluster(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -134,7 +134,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCachesShortList(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -148,7 +148,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModelsShortList(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -162,7 +162,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfssShortList(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("cluster", requestParams(ctx));
@@ -174,7 +174,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCache(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -185,7 +185,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModel(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -196,7 +196,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfs(RoutingContext ctx) {
-        checkUser(ctx);
+        getContextAccount(ctx);
 
         JsonObject msg = requestParams(ctx);
 
@@ -209,7 +209,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void saveAdvancedCluster(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())
@@ -224,7 +224,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void saveBasicCluster(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())
@@ -239,7 +239,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void deleteClusters(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         JsonObject msg = new JsonObject()
             .put("user", user.principal())

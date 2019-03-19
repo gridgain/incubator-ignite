@@ -199,7 +199,8 @@ public class AgentLauncher {
         AgentConfiguration cfg = parseArgs(args);
 
         if (cfg != null) {
-            VertxOptions opts = new VertxOptions().setBlockedThreadCheckInterval(Integer.MAX_VALUE);
+            VertxOptions opts = new VertxOptions()
+                .setBlockedThreadCheckInterval(Integer.MAX_VALUE); // TODO IGNITE-5617 Only for debug!
 
             Vertx vertx = Vertx.vertx(opts);
 

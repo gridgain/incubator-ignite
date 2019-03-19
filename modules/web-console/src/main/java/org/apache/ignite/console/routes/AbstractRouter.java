@@ -17,8 +17,9 @@
 
 package org.apache.ignite.console.routes;
 
-import java.net.HttpURLConnection;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
@@ -28,9 +29,9 @@ import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.auth.ContextAccount;
 import org.apache.ignite.console.common.NotAuthorizedException;
 
-import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -63,7 +64,7 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @param path Path.
      * @param reqHnd Request handler.
      */
-    protected Route registerRout(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
+    protected Route registerRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
         return router.route(mtd, path).handler(reqHnd).failureHandler(this:: failureHandler);
     }
 
@@ -76,24 +77,23 @@ public abstract class AbstractRouter implements RestApiRouter {
         if (cause instanceof NotAuthorizedException)
             sendStatus(ctx, HTTP_UNAUTHORIZED);
         else
-            replyWithError(ctx, HTTP_INTERNAL_ERROR, "Unhandled error", cause);
+            sendError(ctx, HTTP_INTERNAL_ERROR, "Unhandled error", cause);
     }
 
     /**
      * Get the authenticated user (if any).
-     * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
      *
      * @param ctx Context
      * @return Current authenticated user.
      * @throws NotAuthorizedException If current user not found in context.
      */
-    protected User checkUser(RoutingContext ctx) throws NotAuthorizedException {
+    protected ContextAccount getContextAccount(RoutingContext ctx) throws NotAuthorizedException {
         User user = ctx.user();
 
-        if (user == null)
-            throw new NotAuthorizedException();
+        if (user instanceof ContextAccount)
+            return (ContextAccount)user;
 
-        return user;
+        throw new NotAuthorizedException();
     }
 
     /**
@@ -115,24 +115,33 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @param ctx Context.
      * @param errMsg Error message.
      */
-    public <T> void send(String addr, Object msg, RoutingContext ctx, String errMsg) {
-        User user = checkUser(ctx);
+    public <T, R> void send(String addr, Object msg, RoutingContext ctx, String errMsg, Function<T, R> mapper) {
+        vertx.eventBus().<T>send(addr, msg, asyncRes -> {
+            if (asyncRes.succeeded())
+                sendResult(ctx, mapper.apply(asyncRes.result().body()));
+            else {
+                ignite.log().error(errMsg, asyncRes.cause());
 
-        user.isAuthorized(addr, authRes -> {
-            if (authRes.succeeded()) {
-                if (authRes.result()) {
-                    vertx.eventBus().send(addr, msg, asyncRes -> {
-                        if (asyncRes.succeeded())
-                            sendResult(ctx, asyncRes.result().body());
-                        else
-                            replyWithError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
-                    });
-                }
-                else
-                    sendStatus(ctx, HTTP_FORBIDDEN);
+                sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
             }
-            else
-                replyWithError(ctx, HTTP_INTERNAL_ERROR, errMsg, authRes.cause());
+        });
+    }
+
+    /**
+     * @param addr Address where to send message.
+     * @param msg Message to send.
+     * @param ctx Context.
+     * @param errMsg Error message.
+     */
+    public <T> void send(String addr, Object msg, RoutingContext ctx, String errMsg) {
+        vertx.eventBus().send(addr, msg, asyncRes -> {
+            if (asyncRes.succeeded())
+                sendResult(ctx, asyncRes.result().body());
+            else {
+                ignite.log().error(errMsg, asyncRes.cause());
+
+                sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
+            }
         });
     }
 

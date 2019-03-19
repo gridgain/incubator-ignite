@@ -17,60 +17,58 @@
 
 package org.apache.ignite.console.services;
 
-import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
-
-import static org.apache.ignite.console.common.Utils.uuidParam;
+import org.apache.ignite.transactions.Transaction;
 
 /**
  * Service to handle accounts.
  */
 public class AccountsService extends AbstractService {
-    /** */
+    /** Repository to work with accounts. */
     private final AccountsRepository accountsRepo;
 
     /**
      * @param ignite Ignite.
      */
-    public AccountsService(Ignite ignite, AccountsRepository accountsRepo) {
+    public AccountsService(Ignite ignite) {
         super(ignite);
 
-        this.accountsRepo = accountsRepo;
+        this.accountsRepo = new AccountsRepository(ignite);
     }
 
     /** {@inheritDoc} */
-    @Override protected void initEventBus() {
-        addConsumer(Addresses.ACCOUNT_GET_BY_ID, this::getById);
-        addConsumer(Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
-        addConsumer(Addresses.ACCOUNT_REGISTER, this::register);
+    @Override public AccountsService install(Vertx vertx) {
+        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_ID, this::getById);
+        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
+        addConsumer(vertx, Addresses.ACCOUNT_REGISTER, this::register);
+
+        return this;
     }
 
     /**
      * Get account by ID.
      *
-     * @param params Parameters in JSON format.
+     * @param accId Account Id.
      * @return Public fields of account as JSON.
      */
-    private JsonObject getById(JsonObject params) {
-        UUID accId = uuidParam(params, "_id");
-
-        return accountsRepo.getById(accId).publicView();
+    private JsonObject getById(String accId) {
+        return accountsRepo.getById(UUID.fromString(accId)).publicView();
     }
 
     /**
      * Get account by email.
      *
-     * @param params Parameters in JSON format.
+     * @param email Account email.
      * @return Account as JSON.
      */
-    private JsonObject getByEmail(JsonObject params) {
-        String email = params.getString("email");
-
+    private JsonObject getByEmail(String email) {
         return accountsRepo.getByEmail(email).toJson();
     }
 
@@ -79,29 +77,48 @@ public class AccountsService extends AbstractService {
      * @return Affected rows JSON object.
      */
     private JsonObject register(JsonObject params) {
-        Account account = new Account(
-            UUID.randomUUID(),
-            params.getString("email"),
-            params.getString("firstName"),
-            params.getString("lastName"),
-            params.getString("company"),
-            params.getString("country"),
-            params.getString("industry"),
-            UUID.randomUUID().toString(),
-            UUID.randomUUID().toString(),
-            ZonedDateTime.now().toString(),
-            "",
-            "",
-            "",
-            params.getString("salt"),
-            params.getString("hash"),
-            false,
-            false,
-            false
-        );
+        Account account = Account.fromJson(params);
 
-        accountsRepo.save(account);
+        accountsRepo.create(account);
 
         return rowsAffected(1);
+    }
+
+    /**
+     * Delete account by ID.
+     * @return All registered accounts.
+     */
+    List<Account> list() {
+        return accountsRepo.list();
+    }
+
+    /**
+     * Delete account by ID.
+     *
+     * @param accId Account ID.
+     * @return Number of removed accounts.
+     */
+    int delete(UUID accId) {
+        return accountsRepo.delete(accId);
+    }
+
+    /**
+     * Update account permission.
+     *
+     * @param accId Account ID.
+     * @param adminFlag New value for admin flag.
+     */
+    void updatePermission(UUID accId, boolean adminFlag) {
+        try (Transaction tx = accountsRepo.txStart()) {
+            Account account = accountsRepo.getById(accId);
+
+            if (account.admin() != adminFlag) {
+                account.admin(adminFlag);
+
+                accountsRepo.save(account);
+
+                tx.commit();
+            }
+        }
     }
 }

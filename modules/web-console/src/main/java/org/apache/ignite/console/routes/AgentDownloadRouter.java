@@ -32,6 +32,7 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 
 import static io.vertx.core.http.HttpMethod.GET;
 import static org.apache.ignite.console.common.Utils.origin;
@@ -52,27 +53,26 @@ public class AgentDownloadRouter extends AbstractRouter {
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
-     * @param agentFolderName Folder where agent ZIP stored.
-     * @param agentFileName Agent file name.
+     * @param cfg Web Console configuration.
      */
-    public AgentDownloadRouter(Ignite ignite, Vertx vertx, String agentFolderName, String agentFileName) {
+    public AgentDownloadRouter(Ignite ignite, Vertx vertx, WebConsoleConfiguration cfg) {
         super(ignite, vertx);
 
-        this.agentFileName = agentFileName;
+        this.agentFileName = cfg.getAgentFileName();
 
-        pathToAgentZip = Paths.get(agentFolderName, agentFileName + ".zip");
+        pathToAgentZip = Paths.get(cfg.getAgentFolderName(), agentFileName + ".zip");
     }
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
-        registerRout(router, GET, "/api/v1/downloads/agent", this::load);
+        registerRoute(router, GET, "/api/v1/downloads/agent", this::load);
     }
 
     /**
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        User user = getContextAccount(ctx);
 
         try {
             if (!Files.exists(pathToAgentZip))

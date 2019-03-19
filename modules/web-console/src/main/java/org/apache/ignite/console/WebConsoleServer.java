@@ -23,15 +23,20 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import io.netty.handler.codec.http.HttpHeaderNames;
+import java.util.function.Function;
+import java.util.stream.Stream;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.netty.handler.codec.http.HttpHeaderValues;
+import io.vertx.config.ConfigRetriever;
+import io.vertx.config.ConfigRetrieverOptions;
+import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.Future;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.ClientAuth;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
@@ -49,14 +54,25 @@ import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.config.SslConfiguration;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.console.routes.AccountRouter;
+import org.apache.ignite.console.routes.AdminRouter;
+import org.apache.ignite.console.routes.AgentDownloadRouter;
+import org.apache.ignite.console.routes.ConfigurationsRouter;
+import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
+import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.services.AdminService;
+import org.apache.ignite.console.services.ConfigurationsService;
+import org.apache.ignite.console.services.NotebooksService;
 import org.apache.ignite.internal.util.typedef.F;
 
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 import static java.net.HttpURLConnection.HTTP_OK;
-import static org.apache.ignite.console.common.Utils.errorMessage;
+import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.console.common.Utils.jksOptions;
 import static org.apache.ignite.console.common.Utils.origin;
 
@@ -67,11 +83,9 @@ public class WebConsoleServer extends AbstractVerticle {
     /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
 
-    /** */
-    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
-        HttpHeaderValues.NO_CACHE,
-        HttpHeaderValues.NO_STORE,
-        HttpHeaderValues.MUST_REVALIDATE);
+    static {
+        Json.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     /** */
     protected final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
@@ -80,31 +94,70 @@ public class WebConsoleServer extends AbstractVerticle {
     protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /** */
-    protected final WebConsoleConfiguration cfg;
+    protected WebConsoleConfiguration cfg;
 
     /** */
     protected final Ignite ignite;
 
     /** */
-    private final RestApiRouter[] routers;
+    protected List<RestApiRouter> restRoutes;
 
     /**
-     * @param cfg Configuration.
      * @param ignite Ignite.
-     * @param routers REST API routers.
      */
-    public WebConsoleServer(
-        WebConsoleConfiguration cfg,
-        Ignite ignite,
-        RestApiRouter... routers
-    ) {
-        this.cfg = cfg;
+    public WebConsoleServer(Ignite ignite) {
         this.ignite = ignite;
-        this.routers = routers;
     }
 
     /** {@inheritDoc} */
-    @Override public void start() throws Exception {
+    @Override public void start(Future<Void> startFut) {
+        ConfigRetriever.create(vertx, buildConfigRetrieverOptions())
+            .setConfigurationProcessor(new HierarchicalConfigurationProcessor())
+            .getConfig(cfgRes -> {
+                try {
+                    if (cfgRes.failed())
+                        throw cfgRes.cause();
+
+                    cfg = cfgRes.result().mapTo(WebConsoleConfiguration.class);
+
+                    registerServices();
+
+                    startHttpServer();
+
+                    startFut.complete();
+                }
+                catch (Throwable e) {
+                    startFut.fail(e);
+                }
+            });
+    }
+
+    /**
+     * @return Configuration retriever options.
+     */
+    protected ConfigRetrieverOptions buildConfigRetrieverOptions() {
+        ConfigRetrieverOptions cfgOpts = new ConfigRetrieverOptions();
+
+        cfgOpts.addStore(new ConfigStoreOptions()
+            .setType("env"));
+
+        String cfgPath = config().getString("configPath");
+
+        if (!F.isEmpty(cfgPath)) {
+            cfgOpts.addStore(new ConfigStoreOptions()
+                .setType("file")
+                .setFormat("properties")
+                .setConfig(new JsonObject().put("path", cfgPath))
+            );
+        }
+
+        return cfgOpts;
+    }
+
+    /**
+     * @throws Exception If failed to start HTTP server.
+     */
+    protected void startHttpServer() throws Exception {
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
         BridgeOptions allAccessOptions =
@@ -114,9 +167,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
         sockJsHnd.bridge(allAccessOptions, this::handleNodeVisorMessages);
 
-        registerEventBusConsumers();
+        SslConfiguration sslCfg = cfg.getSslConfiguration();
 
-        boolean ssl = !F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore());
+        boolean ssl = sslCfg != null && sslCfg.isEnabled();
 
         int port = cfg.getPort();
 
@@ -161,17 +214,17 @@ public class WebConsoleServer extends AbstractVerticle {
         if (ssl) {
             httpOpts.setSsl(true);
 
-            JksOptions jks = jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
+            JksOptions jks = jksOptions(sslCfg.getKeyStore(), sslCfg.getKeyStorePassword());
 
             if (jks != null)
                 httpOpts.setKeyStoreOptions(jks);
 
-            jks = jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
+            jks = jksOptions(sslCfg.getTrustStore(), sslCfg.getTrustStorePassword());
 
             if (jks != null)
                 httpOpts.setTrustStoreOptions(jks);
 
-            String ciphers = cfg.getCipherSuites();
+            String ciphers = sslCfg.getCipherSuites();
 
             if (!F.isEmpty(ciphers)) {
                 Arrays
@@ -181,7 +234,7 @@ public class WebConsoleServer extends AbstractVerticle {
             }
 
             httpOpts
-                .setClientAuth(cfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.REQUEST);
+                .setClientAuth(sslCfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.REQUEST);
         }
 
         vertx
@@ -195,38 +248,21 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * Register event bus consumers.
      */
-    protected void registerEventBusConsumers() {
-        EventBus evtBus = vertx.eventBus();
+    protected void registerServices() {
+        vertx.eventBus().consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
 
-        evtBus.consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
+        AccountsService accountsSvc = new AccountsService(ignite).install(vertx);
+        ConfigurationsService cfgsSvc = new ConfigurationsService(ignite).install(vertx);
+        NotebooksService notebooksSvc = new NotebooksService(ignite).install(vertx);
 
-        vertx.setPeriodic(3000, this::refreshTop);
+        new AdminService(ignite, accountsSvc, cfgsSvc, notebooksSvc).install(vertx);
     }
 
     /**
-     * @param tid Timer ID.
-     */
-    @SuppressWarnings("unused")
-    private void refreshTop(long tid) {
-        JsonObject json = new JsonObject()
-            .put("count", 1)
-            .put("hasDemo", false);
-
-        JsonArray zz = new JsonArray(); // TODO IGNITE-5617 temporary hack
-
-        clusters.forEach((k, v) -> zz.add(v));
-
-        json.put("clusters", zz);
-
-        vertx.eventBus().send(Addresses.AGENTS_STATUS, json);
-    }
-
-    /**
-     * Register REST routes.
-     *
+     * TODO IGNITE-5617 Replace with REAL routes!
      * @param router Router.
      */
-    private void registerRestRoutes(Router router) {
+    protected void registerDummyRoutes(Router router) {
         router.route("/api/v1/activation/resend").handler(this::handleDummy);
         router.route("/api/v1/activities/page").handler(this::handleDummy);
 
@@ -236,9 +272,25 @@ public class WebConsoleServer extends AbstractVerticle {
 
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
+    }
 
-        for (RestApiRouter r : routers)
-            r.install(router);
+    /**
+     * Register REST routes.
+     *
+     * @param router Router.
+     */
+    protected void registerRestRoutes(Router router) {
+        registerDummyRoutes(router);
+
+        restRoutes = Arrays.asList(
+            new AccountRouter(ignite, vertx),
+            new AdminRouter(ignite, vertx),
+            new ConfigurationsRouter(ignite, vertx),
+            new NotebooksRouter(ignite, vertx),
+            new AgentDownloadRouter(ignite, vertx, cfg)
+        );
+
+        restRoutes.forEach(route -> route.install(router));
     }
 
     /**
@@ -288,14 +340,6 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context.
      * @param status Status to send.
-     */
-    private void sendStatus(RoutingContext ctx, int status) {
-        ctx.response().setStatusCode(status).end();
-    }
-
-    /**
-     * @param ctx Context.
-     * @param status Status to send.
      * @param msg Message to send.
      */
     private void sendStatus(RoutingContext ctx, int status, String msg) {
@@ -303,43 +347,9 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    private void sendResult(RoutingContext ctx, Buffer data) {
-        ctx
-            .response()
-            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
-            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
-            .putHeader(HttpHeaderNames.EXPIRES, "0")
-            .setStatusCode(HTTP_OK)
-            .end(data);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    private void sendResult(RoutingContext ctx, JsonObject data) {
-        sendResult(ctx, data.toBuffer());
-    }
-
-    /**
-     * @param ctx Context.
-     * @param msg Error message to send.
-     * @param e Error to send.
-     */
-    private void sendError(RoutingContext ctx, String msg, Throwable e) {
-        ignite.log().error(msg, e);
-
-        sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
-    }
-
-    /**
      * @param ctx Context
      */
-    private void handleDummy(RoutingContext ctx) {
+    protected void handleDummy(RoutingContext ctx) {
         ignite.log().info("Dummy: " + ctx.request().path());
 
         sendStatus(ctx, HTTP_OK, "[]");
@@ -473,6 +483,83 @@ public class WebConsoleServer extends AbstractVerticle {
          */
         public String[] getArgumentsClasses() {
             return argCls;
+        }
+    }
+
+    /**
+     * Configuration processor that convert flat JSON to hierarchical.
+     */
+    private static class HierarchicalConfigurationProcessor implements Function<JsonObject, JsonObject> {
+        /** {@inheritDoc} */
+        @Override public JsonObject apply(JsonObject src) {
+            return src
+                .stream()
+                .map(entry -> {
+                    String key = entry.getKey();
+                    Object val = entry.getValue();
+
+                    if (val instanceof String)
+                        val = tryParse((String)val);
+
+                    List<String> paths = asList(key.split("\\."));
+
+                    JsonObject json = new JsonObject();
+
+                    if (paths.size() == 1)
+                        json.put(key, val);
+                    else
+                        json.put(paths.get(0), toJson(paths.subList(1, paths.size()), val));
+
+                    return json;
+                })
+                .reduce((json, other) -> json.mergeIn(other, true))
+                .orElse(new JsonObject());
+        }
+
+        /**
+         * Convert to hierarchical JSON.
+         * @param paths Path.
+         * @param val Property value.
+         * @return JSON.
+         */
+        private JsonObject toJson(List<String> paths, Object val) {
+            if (paths.isEmpty())
+                return new JsonObject();
+
+            if (paths.size() == 1)
+                return new JsonObject().put(paths.get(0), val);
+
+            String path = paths.get(0);
+
+            JsonObject jsonVal = toJson(paths.subList(1, paths.size()), val);
+
+            return new JsonObject().put(path, jsonVal);
+        }
+
+        /**
+         * @param raw Raw value.
+         * @return Parsed value.
+         */
+        private Object tryParse(String raw) {
+            if (raw.contains(",")) {
+                return Stream.of(raw.split(","))
+                    .map(this::tryParse)
+                    .collect(collectingAndThen(toList(), JsonArray::new));
+            }
+
+            if ("true".equals(raw))
+                return true;
+
+            if ("false".equals(raw))
+                return false;
+
+            if (raw.matches("^\\d+\\.\\d+$"))
+                return Double.parseDouble(raw);
+
+            if (raw.matches("^\\d+$"))
+                return Integer.parseInt(raw);
+
+            return raw;
         }
     }
 }

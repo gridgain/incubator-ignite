@@ -18,6 +18,7 @@
 package org.apache.ignite.console.services;
 
 import java.util.UUID;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -32,24 +33,34 @@ import static org.apache.ignite.console.common.Utils.toJsonArray;
  * Service to handle notebooks.
  */
 public class NotebooksService extends AbstractService {
-    /** */
+    /** Repository to work with notebooks. */
     private final NotebooksRepository notebooksRepo;
 
     /**
      * @param ignite Ignite.
-     * @param notebooksRepo Repository to work with notebooks.
      */
-    public NotebooksService(Ignite ignite, NotebooksRepository notebooksRepo) {
+    public NotebooksService(Ignite ignite) {
         super(ignite);
 
-        this.notebooksRepo = notebooksRepo;
+        this.notebooksRepo = new NotebooksRepository(ignite);
     }
 
     /** {@inheritDoc} */
-    @Override protected void initEventBus() {
-        addConsumer(Addresses.NOTEBOOK_LIST, this::load);
-        addConsumer(Addresses.NOTEBOOK_SAVE, this::save);
-        addConsumer(Addresses.NOTEBOOK_DELETE, this::delete);
+    @Override public NotebooksService install(Vertx vertx) {
+        addConsumer(vertx, Addresses.NOTEBOOK_LIST, this::load);
+        addConsumer(vertx, Addresses.NOTEBOOK_SAVE, this::save);
+        addConsumer(vertx, Addresses.NOTEBOOK_DELETE, this::delete);
+
+        return this;
+    }
+
+    /**
+     * Delete all notebook for specified user.
+     *
+     * @param accId Account ID.
+     */
+    void deleteByAccountId(UUID accId) {
+        notebooksRepo.deleteByAccount(accId);
     }
 
     /**

@@ -458,13 +458,13 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
-     * Delete all configurations for specified user.
+     * Delete all configurations for specified account.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      */
-    public void deleteAll(UUID userId) {
+    public void deleteByAccountId(UUID accId) {
         try (Transaction tx = txStart()) {
-            TreeSet<UUID> clusterIds = clustersIdx.delete(userId);
+            TreeSet<UUID> clusterIds = clustersIdx.delete(accId);
 
             clusterIds.forEach(this::deleteAllClusterObjects);
 
