@@ -98,8 +98,8 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** {@inheritDoc} */
     @Override public void start(Future<Void> startFut) {
-        if (getVertx() instanceof VertxInternal) {
-            ClusterManager mgmt = ((VertxInternal)getVertx()).getClusterManager();
+        if (vertx instanceof VertxInternal) {
+            ClusterManager mgmt = ((VertxInternal)vertx).getClusterManager();
 
             if (mgmt instanceof IgniteClusterManager)
                 ignite = ((IgniteClusterManager)mgmt).getIgniteInstance();
@@ -289,7 +289,6 @@ public class WebConsoleServer extends AbstractVerticle {
 
         restRoutes.forEach(route -> route.install(router));
     }
-
 
     /**
      * @param ctx Context.

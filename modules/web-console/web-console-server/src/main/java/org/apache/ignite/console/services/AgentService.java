@@ -27,7 +27,7 @@ import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 
 /**
- * Service to handle accounts.
+ * Service to handle requests to Visor tasks.
  */
 public class AgentService extends AbstractService {
     /** */
@@ -41,12 +41,11 @@ public class AgentService extends AbstractService {
      */
     public AgentService(Ignite ignite) {
         super(ignite);
-
-        registerVisorTasks();
     }
 
     /** {@inheritDoc} */
     @Override public AgentService install(Vertx vertx) {
+        registerVisorTasks();
 
         return this;
     }
