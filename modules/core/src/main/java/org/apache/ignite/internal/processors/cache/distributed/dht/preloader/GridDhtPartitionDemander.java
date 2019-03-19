@@ -49,6 +49,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheEntryInfo;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
 import org.apache.ignite.internal.processors.cache.GridCachePartitionExchangeManager;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtInvalidPartitionException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
@@ -894,7 +895,15 @@ public class GridDhtPartitionDemander {
             try {
                 GridCacheContext cctx = grp.sharedGroup() ? ctx.cacheContext(entry.cacheId()) : grp.singleCacheContext();
 
-                cached = cctx.dhtCache().entryEx(entry.key());
+                if (cctx == null)
+                    log.error("!@# cctx is null! " + entry.cacheId());
+
+                GridDhtCacheAdapter adapter = cctx.dhtCache();
+
+                if (adapter == null)
+                    log.error("!@# adapter is null! " + entry.cacheId());
+
+                cached = adapter.entryEx(entry.key());
 
                 if (log.isTraceEnabled())
                     log.trace("Rebalancing key [key=" + entry.key() + ", part=" + p + ", node=" + from.id() + ']');
