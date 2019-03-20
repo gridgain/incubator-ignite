@@ -18,7 +18,6 @@
 package org.apache.ignite.console.routes;
 
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.function.Function;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -31,6 +30,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.auth.ContextAccount;
 import org.apache.ignite.console.common.NotAuthorizedException;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -120,7 +120,7 @@ public abstract class AbstractRouter implements RestApiRouter {
             if (asyncRes.succeeded())
                 sendResult(ctx, mapper.apply(asyncRes.result().body()));
             else {
-                ignite.log().error(errMsg, asyncRes.cause());
+                U.error(ignite.log(), errMsg, asyncRes.cause());
 
                 sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
             }
@@ -138,7 +138,7 @@ public abstract class AbstractRouter implements RestApiRouter {
             if (asyncRes.succeeded())
                 sendResult(ctx, asyncRes.result().body());
             else {
-                ignite.log().error(errMsg, asyncRes.cause());
+                U.error(ignite.log(), errMsg, asyncRes.cause());
 
                 sendError(ctx, HTTP_INTERNAL_ERROR, errMsg, asyncRes.cause());
             }
@@ -165,7 +165,7 @@ public abstract class AbstractRouter implements RestApiRouter {
      * @param e Error to send.
      */
     protected void replyWithError(RoutingContext ctx, int errCode, String errMsg, Throwable e) {
-        ignite.log().error(errMsg, e);
+        U.error(ignite.log(), errMsg, e);
 
         sendError(ctx, errCode, errMsg, e);
     }

@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.test;
+package org.apache.ignite.console;
 
 import java.io.File;
 import java.util.Collections;
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
@@ -30,7 +29,6 @@ import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -38,7 +36,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 /**
  * Web Console Launcher.
  */
-public class WebConsoleLauncher extends AbstractVerticle {
+public class WebConsoleLauncher {
     /**
      * Main entry point.
      *
@@ -61,10 +59,10 @@ public class WebConsoleLauncher extends AbstractVerticle {
                     .setConfig(new JsonObject()
                         .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
 
-                vertx.deployVerticle(new WebConsoleServer(ignite), depOpts);
+                vertx.deployVerticle(new WebConsoleServer(), depOpts);
             }
             else
-               ignite.log().error("Failed to start Web Console", asyncVertx.cause());
+               U.error(ignite.log(), "Failed to start Web Console", asyncVertx.cause());
         });
     }
 

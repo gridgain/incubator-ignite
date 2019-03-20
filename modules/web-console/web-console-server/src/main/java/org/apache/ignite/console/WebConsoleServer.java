@@ -22,11 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
@@ -36,11 +34,12 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.ClientAuth;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.impl.VertxInternal;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
-import io.vertx.ext.bridge.BridgeEventType;
+import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -48,10 +47,10 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.handler.StaticHandler;
-import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
+import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.config.SslConfiguration;
@@ -64,6 +63,7 @@ import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.console.services.AdminService;
+import org.apache.ignite.console.services.AgentService;
 import org.apache.ignite.console.services.ConfigurationsService;
 import org.apache.ignite.console.services.NotebooksService;
 import org.apache.ignite.internal.util.typedef.F;
@@ -80,15 +80,9 @@ import static org.apache.ignite.console.common.Utils.origin;
  * Web Console server.
  */
 public class WebConsoleServer extends AbstractVerticle {
-    /** */
-    private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
-
     static {
         Json.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
-
-    /** */
-    protected final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
 
     /** */
     protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
@@ -97,20 +91,23 @@ public class WebConsoleServer extends AbstractVerticle {
     protected WebConsoleConfiguration cfg;
 
     /** */
-    protected final Ignite ignite;
+    protected Ignite ignite;
 
     /** */
     protected List<RestApiRouter> restRoutes;
 
-    /**
-     * @param ignite Ignite.
-     */
-    public WebConsoleServer(Ignite ignite) {
-        this.ignite = ignite;
-    }
-
     /** {@inheritDoc} */
     @Override public void start(Future<Void> startFut) {
+        if (vertx instanceof VertxInternal) {
+            ClusterManager mgmt = ((VertxInternal)vertx).getClusterManager();
+
+            if (mgmt instanceof IgniteClusterManager)
+                ignite = ((IgniteClusterManager)mgmt).getIgniteInstance();
+        }
+
+        if (ignite == null)
+            startFut.fail(new IllegalStateException("Verticle deployed not in cluster mode, failed to find Ignite node"));
+
         ConfigRetriever.create(vertx, buildConfigRetrieverOptions())
             .setConfigurationProcessor(new HierarchicalConfigurationProcessor())
             .getConfig(cfgRes -> {
@@ -158,15 +155,6 @@ public class WebConsoleServer extends AbstractVerticle {
      * @throws Exception If failed to start HTTP server.
      */
     protected void startHttpServer() throws Exception {
-        SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
-
-        BridgeOptions allAccessOptions =
-            new BridgeOptions()
-                .addInboundPermitted(new PermittedOptions())
-                .addOutboundPermitted(new PermittedOptions());
-
-        sockJsHnd.bridge(allAccessOptions, this::handleNodeVisorMessages);
-
         SslConfiguration sslCfg = cfg.getSslConfiguration();
 
         boolean ssl = sslCfg != null && sslCfg.isEnabled();
@@ -201,11 +189,18 @@ public class WebConsoleServer extends AbstractVerticle {
         if (!F.isEmpty(cfg.getWebRoot()))
             router.route().handler(StaticHandler.create(cfg.getWebRoot()));
 
-        router.route("/eventbus/*").handler(sockJsHnd);
+        // Allow events for the designated addresses in/out of the event bus bridge
+        BridgeOptions opts = new BridgeOptions()
+            .addOutboundPermitted(new PermittedOptions())
+            .addInboundPermitted(new PermittedOptions());
+
+        router.route("/eventbus/*").handler(SockJSHandler.create(vertx).bridge(opts, event -> {
+            ignite.log().info("A websocket event occurred [type=" + event.type() + ", body=" + event.getRawMessage() + "]");
+            
+            event.complete(true);
+        }));
 
         registerRestRoutes(router);
-
-        registerVisorTasks();
 
         HttpServerOptions httpOpts = new HttpServerOptions()
             .setCompressionSupported(true)
@@ -256,6 +251,8 @@ public class WebConsoleServer extends AbstractVerticle {
         NotebooksService notebooksSvc = new NotebooksService(ignite).install(vertx);
 
         new AdminService(ignite, accountsSvc, cfgsSvc, notebooksSvc).install(vertx);
+
+        new AgentService(ignite).install(vertx);
     }
 
     /**
@@ -291,50 +288,6 @@ public class WebConsoleServer extends AbstractVerticle {
         );
 
         restRoutes.forEach(route -> route.install(router));
-    }
-
-    /**
-     * @param shortName Class short name.
-     * @return Full class name.
-     */
-    protected String igniteVisor(String shortName) {
-        return VISOR_IGNITE + shortName;
-    }
-
-    /**
-     * @param taskId Task ID.
-     * @param taskCls Task class name.
-     * @param argCls Arguments classes names.
-     */
-    protected void registerVisorTask(String taskId, String taskCls, String... argCls) {
-        visorTasks.put(taskId, new VisorTaskDescriptor(taskCls, argCls));
-    }
-
-    /**
-     * Register Visor tasks.
-     */
-    protected void registerVisorTasks() {
-        registerVisorTask("querySql", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArg"));
-        registerVisorTask("querySqlV2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV2"));
-        registerVisorTask("querySqlV3", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV3"));
-        registerVisorTask("querySqlX2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryTaskArg"));
-
-        registerVisorTask("queryScanX2", igniteVisor("query.VisorScanQueryTask"), igniteVisor("query.VisorScanQueryTaskArg"));
-
-        registerVisorTask("queryFetch", igniteVisor("query.VisorQueryNextPageTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.Integer");
-        registerVisorTask("queryFetchX2", igniteVisor("query.VisorQueryNextPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
-
-        registerVisorTask("queryFetchFirstPage", igniteVisor("query.VisorQueryFetchFirstPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
-
-        registerVisorTask("queryClose", igniteVisor("query.VisorQueryCleanupTask"), "java.util.Map", "java.util.UUID", "java.util.Set");
-        registerVisorTask("queryCloseX2", igniteVisor("query.VisorQueryCleanupTask"), igniteVisor("query.VisorQueryCleanupTaskArg"));
-
-        registerVisorTask("toggleClusterState", igniteVisor("misc.VisorChangeGridActiveStateTask"), igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
-
-        registerVisorTask("cacheNamesCollectorTask", igniteVisor("cache.VisorCacheNamesCollectorTask"), "java.lang.Void");
-
-        registerVisorTask("cacheNodesTask", igniteVisor("cache.VisorCacheNodesTask"), "java.lang.String");
-        registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
     }
 
     /**
@@ -387,103 +340,6 @@ public class WebConsoleServer extends AbstractVerticle {
             .put("clusters", new JsonArray().add(oldTop)); // TODO IGNITE-5617 quick hack for prototype.
 
         vertx.eventBus().send(Addresses.AGENTS_STATUS, json);
-    }
-
-    /**
-     * TODO IGNITE-5617
-     * @param desc Task descriptor.
-     * @param nids Node IDs.
-     * @param args Task arguments.
-     * @return JSON object with VisorGatewayTask REST descriptor.
-     */
-    protected JsonObject prepareNodeVisorParams(VisorTaskDescriptor desc, String nids, JsonArray args) {
-        JsonObject exeParams =  new JsonObject()
-            .put("cmd", "exe")
-            .put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
-            .put("p1", nids)
-            .put("p2", desc.getTaskClass());
-
-            AtomicInteger idx = new AtomicInteger(3);
-
-            Arrays.stream(desc.getArgumentsClasses()).forEach(arg ->  exeParams.put("p" + idx.getAndIncrement(), arg));
-
-            args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
-
-            return exeParams;
-    }
-
-    /**
-     * @param be Bridge event
-     */
-    protected void handleNodeVisorMessages(BridgeEvent be) {
-        if (be.type() == BridgeEventType.SEND) {
-            JsonObject msg = be.getRawMessage();
-
-            if (msg != null) {
-                String addr = msg.getString("address");
-
-                if ("node:visor".equals(addr)) {
-                    JsonObject body = msg.getJsonObject("body");
-
-                    if (body != null) {
-                        JsonObject params = body.getJsonObject("params");
-
-                        String taskId = params.getString("taskId");
-
-                        if (!F.isEmpty(taskId)) {
-                            VisorTaskDescriptor desc = visorTasks.get(taskId);
-
-                            JsonObject exeParams = prepareNodeVisorParams(desc, params.getString("nids"), params.getJsonArray("args"));
-
-                            body.put("params", exeParams);
-
-                            msg.put("body", body);
-                        }
-                    }
-                }
-            }
-        }
-
-        be.complete(true);
-    }
-
-    /**
-     * Visor task descriptor.
-     *
-     * TODO IGNITE-5617 Move to separate class?
-     */
-    public static class VisorTaskDescriptor {
-        /** */
-        private static final String[] EMPTY = new String[0];
-
-        /** */
-        private final String taskCls;
-
-        /** */
-        private final String[] argCls;
-
-        /**
-         * @param taskCls Visor task class.
-         * @param argCls Visor task arguments classes.
-         */
-        private VisorTaskDescriptor(String taskCls, String[] argCls) {
-            this.taskCls = taskCls;
-            this.argCls = argCls != null ? argCls : EMPTY;
-        }
-
-        /**
-         * @return Visor task class.
-         */
-        public String getTaskClass() {
-            return taskCls;
-        }
-
-        /**
-         * @return Visor task arguments classes.
-         */
-        public String[] getArgumentsClasses() {
-            return argCls;
-        }
     }
 
     /**

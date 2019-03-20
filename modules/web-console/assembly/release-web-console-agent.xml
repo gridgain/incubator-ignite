@@ -60,6 +60,7 @@
             <outputDirectory>/</outputDirectory>
             <includes>
                 <include>ignite-web-agent-${project.version}.jar</include>
+                <include>libs/*.jar</include>
             </includes>
         </fileSet>
     </fileSets>
