@@ -201,14 +201,14 @@ public class Utils {
     /**
      * @param ctx Context.
      * @param errCode Error code.
-     * @param errMsg Error message.
+     * @param errPrefix Error message prefix.
      * @param e Error to send.
      */
-    public static void sendError(RoutingContext ctx, int errCode, String errMsg, Throwable e) {
+    public static void sendError(RoutingContext ctx, int errCode, String errPrefix, Throwable e) {
         String err = errorMessage(e);
 
-        if (!F.isEmpty(errMsg))
-            err = errMsg + ": " + err;
+        if (!F.isEmpty(errPrefix))
+            err = errPrefix + ": " + err;
 
         ctx
             .response()
