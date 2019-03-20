@@ -43,6 +43,9 @@ import static org.apache.ignite.console.common.Utils.sendStatus;
  */
 public abstract class AbstractRouter implements RestApiRouter {
     /** */
+    private static final String E_ACCESS_DENIED = "Access denied. You are not authorized to access this page.";
+
+    /** */
     protected final Ignite ignite;
 
     /** */
@@ -78,7 +81,7 @@ public abstract class AbstractRouter implements RestApiRouter {
     protected Route authenticatedRoute(Router router, HttpMethod mtd, String path, Handler<RoutingContext> reqHnd) {
         return publicRoute(router, mtd, path, ctx -> {
             if (ctx.user() == null)
-                throw new NotAuthorizedException("Access denied. You are not authorized to access this page.");
+                throw new NotAuthorizedException(E_ACCESS_DENIED);
 
             reqHnd.handle(ctx);
         });
@@ -97,8 +100,8 @@ public abstract class AbstractRouter implements RestApiRouter {
             User account = ctx.user();
 
             account.isAuthorized(authority, isAdminHandler -> {
-                if (isAdminHandler.failed() && isAdminHandler.result() == Boolean.FALSE)
-                    throw new NotAuthorizedException("Access denied. You are not authorized to access this page.");
+                if (isAdminHandler.failed() || !isAdminHandler.result())
+                    throw new NotAuthorizedException(E_ACCESS_DENIED);
 
                 reqHnd.handle(ctx);
             });
@@ -141,7 +144,7 @@ public abstract class AbstractRouter implements RestApiRouter {
         if (user instanceof ContextAccount)
             return (ContextAccount)user;
 
-        throw new NotAuthorizedException("Access denied. You are not authorized to access this page.");
+        throw new NotAuthorizedException(E_ACCESS_DENIED);
     }
 
     /**
