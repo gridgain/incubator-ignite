@@ -113,7 +113,7 @@ public class IgniteAuth implements AuthProvider {
         String pwd = data.getString("password");
 
         if (F.isEmpty(email) || F.isEmpty(pwd)) {
-            ignite.log().error("Failed to authenticate, no email or password provided in request body");
+            U.error(ignite.log(), "Failed to authenticate, no email or password provided in request body");
 
             authRes.handle(Future.failedFuture(new IgniteAuthenticationException(E_INVALID_CREDENTIALS)));
 
@@ -122,7 +122,7 @@ public class IgniteAuth implements AuthProvider {
 
         vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_EMAIL, email, (AsyncResult<Message<JsonObject>> accRes) -> {
             if (accRes.failed()) {
-                ignite.log().error("Failed to receive account by email", accRes.cause());
+                U.error(ignite.log(), "Failed to receive account by email", accRes.cause());
 
                 authRes.handle(Future.failedFuture(accRes.cause()));
 
@@ -146,7 +146,7 @@ public class IgniteAuth implements AuthProvider {
 
             }
             catch (Throwable e) {
-                ignite.log().error("Failed to authenticate", e);
+                U.error(ignite.log(), "Failed to authenticate", e);
 
                 authRes.handle(Future.failedFuture(e));
             }
@@ -169,7 +169,7 @@ public class IgniteAuth implements AuthProvider {
 
             vertx.eventBus().send(Addresses.ACCOUNT_REGISTER, msg, replyHnd);
         } catch (Throwable e) {
-            ignite.log().error("Sign up failed", e);
+            U.error(ignite.log(), "Sign up failed", e);
 
             replyHnd.handle(Future.failedFuture(new IgniteAuthenticationException("Failed to register account")));
         }

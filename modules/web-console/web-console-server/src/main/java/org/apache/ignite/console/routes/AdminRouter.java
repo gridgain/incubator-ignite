@@ -23,6 +23,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static io.vertx.core.http.HttpMethod.DELETE;
 import static io.vertx.core.http.HttpMethod.GET;
@@ -103,7 +104,7 @@ public class AdminRouter extends AbstractRouter {
                 replyOk(ctx);
             }
             else {
-                ignite.log().error("Failed to become user", asyncRes.cause());
+                U.error(ignite.log(), "Failed to become user", asyncRes.cause());
 
                 sendError(ctx, HTTP_INTERNAL_ERROR, "Failed to become user", asyncRes.cause());
             }

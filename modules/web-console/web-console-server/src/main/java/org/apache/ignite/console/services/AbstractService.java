@@ -65,8 +65,8 @@ public abstract class AbstractService implements AutoCloseable {
      * @param addr Address.
      * @param supplier Data supplier.
      */
-    protected <T, R> void addConsumer(Vertx vertx, String addr, Function<T, R> supplier) {
-        MessageConsumer<?> consumer = vertx
+    protected <T, R> MessageConsumer<T> addConsumer(Vertx vertx, String addr, Function<T, R> supplier) {
+        MessageConsumer<T> consumer = vertx
             .eventBus()
             .consumer(addr, (Message<T> msg) -> {
                 T params = msg.body();
@@ -93,6 +93,8 @@ public abstract class AbstractService implements AutoCloseable {
             });
 
         consumers.add(consumer);
+
+        return consumer;
     }
 
     /**

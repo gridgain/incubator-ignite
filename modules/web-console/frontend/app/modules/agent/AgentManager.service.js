@@ -257,11 +257,11 @@ export default class AgentManager {
         // Open the connection
         this.eventBus.onopen = () => {
             this.eventBus.registerHandler('agents:stat', (err, msg) => {
-                const data = msg.body;
+                const {clusters, count, hasDemo} = msg.body;
 
                 const conn = this.connectionSbj.getValue();
 
-                conn.update(false, data.count, data.clusters, false); // TODO IGNITE-5617 this.isDemoMode()
+                conn.update(this.isDemoMode(), count, clusters, hasDemo);
 
                 this.connectionSbj.next(conn);
             });
