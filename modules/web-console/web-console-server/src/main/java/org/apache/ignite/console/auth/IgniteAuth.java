@@ -43,7 +43,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
  * Authentication with storing user information in Ignite.
  */
 public class IgniteAuth implements AuthProvider {
-    /** */
+    /** TODO IGNITE-5617 Revert to 25000 before release. */
     private static final int ITERATIONS = 10;
 
     /** */
@@ -116,7 +116,7 @@ public class IgniteAuth implements AuthProvider {
             U.error(ignite.log(), "Failed to authenticate, no email or password provided in request body");
 
             authRes.handle(Future.failedFuture(new IgniteAuthenticationException(E_INVALID_CREDENTIALS)));
-            
+
             return;
         }
 
@@ -173,5 +173,30 @@ public class IgniteAuth implements AuthProvider {
 
             replyHnd.handle(Future.failedFuture(new IgniteAuthenticationException("Failed to register account")));
         }
+    }
+
+    /**
+     * Check permissions asynchronously.
+     * @param accId Account ID.
+     * @param perm Permissions to check.
+     * @param hnd Authorization callback.
+     */
+    void checkPermissionsAsync(String accId, String perm, Handler<AsyncResult<Boolean>> hnd) {
+        vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, accId, (AsyncResult<Message<JsonObject>> res) -> {
+            try {
+                if (res.failed())
+                    throw res.cause();
+
+                Account account = Account.fromJson(res.result().body());
+
+                if ("admin".equals(perm))
+                    hnd.handle(Future.succeededFuture(account.admin()));
+
+                hnd.handle(Future.succeededFuture(true));
+            }
+            catch (Throwable e) {
+                hnd.handle(Future.failedFuture(e));
+            }
+        });
     }
 }

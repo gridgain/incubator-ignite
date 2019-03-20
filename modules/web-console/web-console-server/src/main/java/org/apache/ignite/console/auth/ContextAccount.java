@@ -25,7 +25,7 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AbstractUser;
 import io.vertx.ext.auth.AuthProvider;
-import io.vertx.ext.auth.User;
+import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.IgniteUuidCache;
@@ -58,9 +58,14 @@ public class ContextAccount extends AbstractUser {
     }
 
     /** {@inheritDoc} */
-    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> asyncResHnd) {
-        // TODO IGNITE-5617 Implements permissions checks.
-        asyncResHnd.handle(Future.succeededFuture(true));
+    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> hnd) {
+        if (accId == null) {
+            hnd.handle(Future.failedFuture(new IgniteAuthenticationException("Missing account identity")));
+
+            return;
+        }
+
+        authProvider.checkPermissionsAsync(accountId(), perm, hnd);
     }
 
     /**
