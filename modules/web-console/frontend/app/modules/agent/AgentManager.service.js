@@ -21,7 +21,9 @@ import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 import {timer, BehaviorSubject, of, from} from 'rxjs';
 import {exhaustMap, first, pluck, tap, distinctUntilChanged, map, filter, expand, takeWhile, last} from 'rxjs/operators';
 
-import EventBus from 'vertx3-eventbus-client';
+import SockJS from 'sockjs-client';
+import * as StompJS from '@stomp/stompjs';
+import uuidv4 from 'uuid/v4';
 
 import AgentModal from './AgentModal.service';
 // @ts-ignore
@@ -159,7 +161,8 @@ export default class AgentManager {
     /** @type {Set<ng.IPromise<unknown>>} */
     promises = new Set();
 
-    eventBus = null;
+    /** @type {import('@stomp/stompjs').Client} */
+    stompClient = null;
 
     /** @type {Set<() => Promise>} */
     switchClusterListeners = new Set();
@@ -245,19 +248,24 @@ export default class AgentManager {
     }
 
     connect() {
-        if (nonNil(this.eventBus))
+        if (nonNil(this.stompClient))
             return;
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
         // Create a connection to backend.
-        this.eventBus = new EventBus('/eventbus');
-        this.eventBus.enableReconnect(true);
+        this.stompClient = new StompJS.Client({
+            reconnectDelay: 5000,
+            heartbeatIncoming: 4000,
+            heartbeatOutgoing: 4000,
+            webSocketFactory: () => new SockJS('/eventbus')
+        });
 
-        // Open the connection
-        this.eventBus.onopen = () => {
-            this.eventBus.registerHandler('agents:stat', (err, msg) => {
-                const {clusters, count, hasDemo} = msg.body;
+        this.stompClient.onConnect = (frame) => {
+            console.log('(re)connected ');
+
+            this.stompClient.subscribe('/topic/agents/stat', (msg) => {
+                const {clusters, count, hasDemo} = JSON.parse(msg.body);
 
                 const conn = this.connectionSbj.getValue();
 
@@ -266,20 +274,49 @@ export default class AgentManager {
                 this.connectionSbj.next(conn);
             });
 
-            this.eventBus.registerHandler('cluster:changed', (err, cluster) => this.updateCluster(cluster));
+            this.stompClient.subscribe('/topic/cluster/changed', (msg) => {
+                const cluster = JSON.parse(msg.body);
 
-            this.eventBus.registerHandler('user:notifications', (err, notification) => this.UserNotifications.notification = notification);
+                this.updateCluster(cluster);
+            });
+
+            this.stompClient.subscribe('/topic/user/notifications', (msg) => {
+                const notification = JSON.parse(msg.body);
+
+                this.UserNotifications.notification = notification;
+            });
         };
 
-        this.eventBus.onclose = () => {
-            console.log('Disconnected from server.');
-
-            const conn = this.connectionSbj.getValue();
-
-            conn.disconnect();
-
-            this.connectionSbj.next(conn);
+        this.stompClient.onStompError = (frame) => {
+            // Will be invoked in case of error encountered at Broker
+            // Bad login/passcode typically will cause an error
+            // Complaint brokers will set `message` header with a brief message. Body may contain details.
+            // Compliant brokers will terminate the connection after any error
+            console.log('Broker reported error: ' + frame.headers.message);
+            console.log('Additional details: ' + frame.body);
         };
+
+        this.stompClient.activate();
+
+        // // Open the connection
+        // this.sockJS.onopen = () => {
+        // };
+
+        // this.sockJS.onmessage = (e) => {
+        //     const msg = JSON.parse(e.data);
+        //
+        //     console.log('Message: ' + msg);
+        // };
+
+        // this.sockJS.onclose = () => {
+        //     console.log('Disconnected from server.');
+        //
+        //     const conn = this.connectionSbj.getValue();
+        //
+        //     conn.disconnect();
+        //
+        //     this.connectionSbj.next(conn);
+        // };
     }
 
     saveToStorage(cluster = this.connectionSbj.getValue().cluster) {
@@ -362,34 +399,49 @@ export default class AgentManager {
      * @private
      */
     _sendToAgent(address, message = {}) {
-        if (!this.eventBus)
+        if (!this.stompClient)
             return this.$q.reject('Failed to connect to server');
 
         const latch = this.$q.defer();
 
         // TODO IGNITE-5617 Need handle disconnect on send.
 
-        this.eventBus.send(address, message, {}, (err, res) => {
-            if (err)
-                latch.reject(err);
+        // Publishing with acknowledgement
+        const receiptId = uuidv4();
 
-            // TODO IGNITE-5617 Workaround of sending errors from web agent.
-            if (res) {
-                if (res.body) {
-                    if (res.body.err)
-                        latch.reject(res.body.err);
+        this.stompClient.watchForReceipt(receiptId, (frame) => {
+            console.log('Result: ', frame);
 
-                    latch.resolve(res.body);
-                }
-                else {
-                    console.log('NO BODY: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
-
-                    latch.resolve(res);
-                }
-            }
-            else
-                console.log('NO DATA: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
+            latch.resolve({todo: 'TODO'}); // TODO IGNITE-5617 !!!!
         });
+
+        this.stompClient.publish({
+            destination: '/app/' + address,
+            headers: {receipt: receiptId},
+            body: JSON.stringify(message)
+        });
+
+        // this.stompClient.publish(address, message, {}, (err, res) => {
+        //     if (err)
+        //         latch.reject(err);
+        //
+        //     // TODO IGNITE-5617 Workaround of sending errors from web agent.
+        //     if (res) {
+        //         if (res.body) {
+        //             if (res.body.err)
+        //                 latch.reject(res.body.err);
+        //
+        //             latch.resolve(res.body);
+        //         }
+        //         else {
+        //             console.log('NO BODY: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
+        //
+        //             latch.resolve(res);
+        //         }
+        //     }
+        //     else
+        //         console.log('NO DATA: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
+        // });
 
         return latch.promise;
     }
