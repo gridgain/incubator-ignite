@@ -24,9 +24,11 @@ import java.util.NoSuchElementException;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
@@ -77,6 +79,7 @@ public class H2TreeIndex extends GridH2IndexBase {
 
     /** Tree name. */
     private final String treeName;
+    private final IgniteLogger logger;
 
     /**
      * @param cctx Cache context.
@@ -100,6 +103,8 @@ public class H2TreeIndex extends GridH2IndexBase {
         assert segmentsCnt > 0 : segmentsCnt;
 
         this.cctx = cctx;
+
+        logger = cctx.logger(getClass());
 
         IndexColumn[] cols = colsList.toArray(new IndexColumn[colsList.size()]);
 
@@ -265,6 +270,11 @@ public class H2TreeIndex extends GridH2IndexBase {
             InlineIndexHelper.setCurrentInlineIndexes(inlineIdxs);
 
             int seg = segmentForRow(row);
+
+            if (CacheDataRowAdapter.INDEX_DEBUG_ENABLED) {
+                logger.error("@@@ H2TreeIndex.putx, cacheId=" + row.cacheId() +
+                    ", key=" + row.key().hashCode() + ", index=" + getName() + ", seg=" + seg );
+            }
 
             H2Tree tree = treeForRead(seg);
 
