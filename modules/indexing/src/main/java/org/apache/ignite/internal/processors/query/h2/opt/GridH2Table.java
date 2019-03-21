@@ -565,7 +565,7 @@ public class GridH2Table extends TableBase {
         boolean replaced = idx.putx(row);
 
         // Row was not replaced, need to remove manually.
-        if (!replaced && prevRow != null && !prevRow.key().equals(row.key())) {
+        if (!replaced && prevRow != null) {
             log.error("@@@ REMOVED cacheId=" + row.cacheId() + ", key=" + row.key().hashCode() + ", index="  + idx.getName(), new Throwable(String.valueOf(prevRow)));
 
             idx.removex(prevRow);
