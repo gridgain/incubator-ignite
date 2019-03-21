@@ -454,12 +454,10 @@ public class GridH2Table extends TableBase {
         assert desc != null;
 
         GridH2KeyValueRowOnheap row0 = (GridH2KeyValueRowOnheap)desc.createRow(row);
-        GridH2KeyValueRowOnheap prevRow0 = prevRow != null ? (GridH2KeyValueRowOnheap)desc.createRow(prevRow) : null;
 
         row0.prepareValuesCache();
 
-        if (prevRow0 != null)
-            prevRow0.prepareValuesCache();
+        GridH2KeyValueRowOnheap prevRow0 = null;
 
         try {
             lock(false);
@@ -467,17 +465,9 @@ public class GridH2Table extends TableBase {
             try {
                 ensureNotDestroyed();
 
-                boolean replaced;
+                prevRow0 = (GridH2KeyValueRowOnheap)pk().put(row0);
 
-                if (prevRowAvailable)
-                    replaced = pk().putx(row0);
-                else {
-                    prevRow0 = (GridH2KeyValueRowOnheap)pk().put(row0);
-
-                    replaced = prevRow0 != null;
-                }
-
-                if (!replaced)
+                if (prevRow0 == null)
                     size.increment();
 
                 for (int i = pkIndexPos + 1, len = idxs.size(); i < len; i++) {
