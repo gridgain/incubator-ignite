@@ -309,6 +309,8 @@ public class IgniteProcessProxy implements IgniteEx {
      * @return Instance by name or exception wiil be thrown.
      */
     public static IgniteProcessProxy ignite(String igniteInstanceName) {
+        if (igniteInstanceName == null)
+            System.err.println();
         IgniteProcessProxy res = gridProxies.get(igniteInstanceName);
 
         if (res == null)

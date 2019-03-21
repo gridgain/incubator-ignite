@@ -2543,6 +2543,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         if (!pageStore.hasIndexStore(cctx.groupId())) {
             // If there are no index store, rebuild all indexes.
+            log.error("@@@ new IndexRebuildFullClosure " + cctx.groupId());
             clo = new IndexRebuildFullClosure(cctx.queries());
         }
         else {

@@ -41,6 +41,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
+import java.util.logging.Logger;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
@@ -218,6 +219,8 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
     /** */
     private AffinityTopologyVersion qryTopVer;
 
+    public IgniteLogger log;
+
     /** {@inheritDoc} */
     @Override public void start0() throws IgniteCheckedException {
         CacheConfiguration ccfg = cctx.config();
@@ -225,6 +228,8 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
         qryProcEnabled = QueryUtils.isEnabled(ccfg);
 
         qryProc = cctx.kernalContext().query();
+
+        log = cctx.logger(getClass());
 
         cacheName = cctx.name();
 
@@ -390,9 +395,6 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
             throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
 
         try {
-            if (CacheDataRowAdapter.INDEX_DEBUG_ENABLED)
-                log.error("@@@ GridCacheQueryManager.store, cacheId=" + newRow.cacheId() + ", key=" + newRow.key().hashCode() + ", indexing=" + isIndexingSpiEnabled());
-
             if (isIndexingSpiEnabled()) {
                 CacheObjectContext coctx = cctx.cacheObjectContext();
 

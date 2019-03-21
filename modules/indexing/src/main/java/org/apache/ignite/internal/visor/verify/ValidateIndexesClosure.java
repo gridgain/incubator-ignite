@@ -547,7 +547,7 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
                         try {
                             Cursor cursor = idx.find((Session) null, h2Row, h2Row);
 
-                                if (cursor == null || !cursor.next())
+                            if (cursor == null || !cursor.next())
                                 throw new IgniteCheckedException("Key is present in CacheDataTree, but can't be found in SQL index.");
                         }
                         catch (Throwable t) {

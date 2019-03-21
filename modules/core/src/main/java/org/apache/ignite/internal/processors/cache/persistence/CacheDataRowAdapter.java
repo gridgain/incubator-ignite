@@ -48,8 +48,6 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
  * Cache data row adapter.
  */
 public class CacheDataRowAdapter implements CacheDataRow {
-    public static final boolean INDEX_DEBUG_ENABLED = IgniteSystemProperties.getBoolean("INDEX_DEBUG_ENABLED", false);
-
     /** */
     @GridToStringExclude
     protected long link;

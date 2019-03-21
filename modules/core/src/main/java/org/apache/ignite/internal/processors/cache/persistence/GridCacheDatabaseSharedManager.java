@@ -1464,6 +1464,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         GridQueryProcessor qryProc = cctx.kernalContext().query();
 
         if (qryProc.moduleEnabled()) {
+            log().error("@@@ REBUILD ");
+
+
             for (final GridCacheContext cacheCtx : (Collection<GridCacheContext>)cctx.cacheContexts()) {
                 if (cacheCtx.startTopologyVersion().equals(fut.initialVersion())) {
                     final int cacheId = cacheCtx.cacheId();
@@ -1472,7 +1475,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     IgniteInternalFuture<?> rebuildFut = qryProc.rebuildIndexesFromHash(cacheCtx);
 
                     if (rebuildFut != null) {
-                        log().info("Started indexes rebuilding for cache [name=" + cacheCtx.name()
+                        log().error("Started indexes rebuilding for cache [name=" + cacheCtx.name()
                             + ", grpName=" + cacheCtx.group().name() + ']');
 
                         assert usrFut != null : "Missing user future for cache: " + cacheCtx.name();
@@ -1486,7 +1489,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                                 CacheConfiguration ccfg = cacheCtx.config();
 
                                 if (ccfg != null) {
-                                    log().info("Finished indexes rebuilding for cache [name=" + ccfg.getName()
+                                    log().error("Finished indexes rebuilding for cache [name=" + ccfg.getName() + ", id=" + CU.cacheId(ccfg.getName())
                                         + ", grpName=" + ccfg.getGroupName() + ']');
                                 }
                             }
@@ -1992,15 +1995,11 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
             CheckpointStatus status = readCheckpointStatus();
 
-            IgniteCacheDatabaseSharedManager.gprIds = storeMgr.grpsWithoutIdx;
-
             RestoreLogicalState logicalState = applyLogicalUpdates(
                     status,
                     g -> !initiallyGlobalWalDisabledGrps.contains(g) && !initiallyLocalWalDisabledGrps.contains(g),
                     true
             );
-
-            IgniteCacheDatabaseSharedManager.gprIds = null;
 
             // Restore state for all groups.
             restorePartitionStates(cctx.cache().cacheGroups(), logicalState.partitionRecoveryStates);
@@ -2447,6 +2446,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                             GridCacheContext cacheCtx = cctx.cacheContext(cacheId);
 
                             applyUpdate(cacheCtx, dataEntry);
+
+                            log.error("@@@ applyLogicalUpdates, cacheId=" + dataEntry.cacheId() + ", key=" + dataEntry.key().hashCode());
+
 
                             applied++;
                         }

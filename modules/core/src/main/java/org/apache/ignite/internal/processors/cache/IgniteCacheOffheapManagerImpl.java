@@ -1504,9 +1504,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             int cacheId = grp.sharedGroup() ? cctx.cacheId() : CU.UNDEFINED_CACHE_ID;
 
-            Set<Integer> ids = IgniteCacheDatabaseSharedManager.gprIds;
-
-            if (qryMgr.enabled() && (ids == null || !ids.contains(grp.groupId())))
+            if (qryMgr.enabled())
                 qryMgr.store(newRow, oldRow, true);
 
             if (oldRow != null) {

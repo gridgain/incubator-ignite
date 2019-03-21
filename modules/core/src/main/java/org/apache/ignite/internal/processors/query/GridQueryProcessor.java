@@ -1832,9 +1832,6 @@ public class GridQueryProcessor extends GridProcessorAdapter {
         if (desc == null)
             return;
 
-        if (CacheDataRowAdapter.INDEX_DEBUG_ENABLED)
-            log.error("@@@ GridQueryProcessor.store, cacheId=" + newRow.cacheId() + ", key=" + newRow.key().hashCode());
-
         idx.store(cctx, desc, newRow, prevRow, prevRowAvailable);
     }
 

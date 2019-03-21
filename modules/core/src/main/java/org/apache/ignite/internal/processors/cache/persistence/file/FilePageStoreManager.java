@@ -566,8 +566,11 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
             File idxFile = new File(cacheWorkDir, INDEX_FILE_NAME);
 
-            if (dirExisted && !idxFile.exists())
+            if (dirExisted && !idxFile.exists()) {
+                log.error("@@@ grpsWithoutIdx =" + idxFile.getAbsolutePath());
+
                 grpsWithoutIdx.add(grpId);
+            }
 
             FilePageStoreFactory pageStoreFactory = new FileVersionCheckingFactory(
                 pageStoreFileIoFactory, pageStoreV1FileIoFactory, igniteCfg.getDataStorageConfiguration());
