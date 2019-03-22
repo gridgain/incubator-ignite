@@ -18,10 +18,9 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.igfs.IgfsMode;
 
-import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
+// import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
 
 /**
  * DTO for cluster IGFS.
@@ -36,23 +35,23 @@ public class Igfs extends DataObject {
     /** */
     private int affGrpSz;
 
-    /**
-     * @param json JSON data.
-     * @return New instance of IGFS DTO.
-     */
-    public static Igfs fromJson(JsonObject json) {
-        String id = json.getString("_id");
-
-        if (id == null)
-            throw new IllegalStateException("IGFS ID not found");
-
-        return new Igfs(
-            UUID.fromString(id),
-            json.getString("name"),
-            IgfsMode.valueOf(json.getString("defaultMode", PRIMARY.name())),
-            json.getInteger("affinityGroupSize", 512),
-            json.encode());
-    }
+//    /**
+//     * @param json JSON data.
+//     * @return New instance of IGFS DTO.
+//     */
+//    public static Igfs fromJson(JsonObject json) {
+//        String id = json.getString("_id");
+//
+//        if (id == null)
+//            throw new IllegalStateException("IGFS ID not found");
+//
+//        return new Igfs(
+//            UUID.fromString(id),
+//            json.getString("name"),
+//            IgfsMode.valueOf(json.getString("defaultMode", PRIMARY.name())),
+//            json.getInteger("affinityGroupSize", 512),
+//            json.encode());
+//    }
 
     /**
      * Full constructor.
@@ -92,13 +91,12 @@ public class Igfs extends DataObject {
         return affGrpSz;
     }
 
-
-    /** {@inheritDoc} */
-    @Override public JsonObject shortView() {
-        return new JsonObject()
-            .put("_id", _id())
-            .put("name", name)
-            .put("defaultMode", dfltMode)
-            .put("affinityGroupSize", affGrpSz);
-    }
+//    /** {@inheritDoc} */
+//    @Override public JsonObject shortView() {
+//        return new JsonObject()
+//            .put("_id", _id())
+//            .put("name", name)
+//            .put("defaultMode", dfltMode)
+//            .put("affinityGroupSize", affGrpSz);
+//    }
 }

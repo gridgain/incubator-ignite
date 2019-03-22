@@ -18,16 +18,8 @@
 package org.apache.ignite.console.services;
 
 import java.util.UUID;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.db.Schemas;
-import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.repositories.NotebooksRepository;
-
-import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
  * Service to handle notebooks.
@@ -46,10 +38,10 @@ public class NotebooksService extends AbstractService {
     }
 
     /** {@inheritDoc} */
-    @Override public NotebooksService install(Vertx vertx) {
-        addConsumer(vertx, Addresses.NOTEBOOK_LIST, this::load);
-        addConsumer(vertx, Addresses.NOTEBOOK_SAVE, this::save);
-        addConsumer(vertx, Addresses.NOTEBOOK_DELETE, this::delete);
+    @Override public NotebooksService install() {
+//        addConsumer(vertx, Addresses.NOTEBOOK_LIST, this::load);
+//        addConsumer(vertx, Addresses.NOTEBOOK_SAVE, this::save);
+//        addConsumer(vertx, Addresses.NOTEBOOK_DELETE, this::delete);
 
         return this;
     }
@@ -63,39 +55,39 @@ public class NotebooksService extends AbstractService {
         notebooksRepo.deleteByAccount(accId);
     }
 
-    /**
-     * @param params Parameters in JSON format.
-     * @return List of user notebooks.
-     */
-    private JsonArray load(JsonObject params) {
-        UUID userId = getUserId(params);
+//    /**
+//     * @param params Parameters in JSON format.
+//     * @return List of user notebooks.
+//     */
+//    private JsonArray load(JsonObject params) {
+//        UUID userId = getUserId(params);
+//
+//        return toJsonArray(notebooksRepo.list(userId));
+//    }
 
-        return toJsonArray(notebooksRepo.list(userId));
-    }
+//    /**
+//     * @param params Parameters in JSON format.
+//     * @return Affected rows JSON object.
+//     */
+//    private JsonObject save(JsonObject params) {
+//        UUID userId = getUserId(params);
+//        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(params, "notebook")));
+//
+//        notebooksRepo.save(userId, notebook);
+//
+//        return rowsAffected(1);
+//    }
 
-    /**
-     * @param params Parameters in JSON format.
-     * @return Affected rows JSON object.
-     */
-    private JsonObject save(JsonObject params) {
-        UUID userId = getUserId(params);
-        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(params, "notebook")));
-
-        notebooksRepo.save(userId, notebook);
-
-        return rowsAffected(1);
-    }
-
-    /**
-     * @param params Parameters in JSON format.
-     * @return Affected rows JSON object.
-     */
-    private JsonObject delete(JsonObject params) {
-        UUID userId = getUserId(params);
-        UUID notebookId = getId(getProperty(params, "notebook"));
-
-        int rmvCnt = notebooksRepo.delete(userId, notebookId);
-
-        return rowsAffected(rmvCnt);
-    }
+//    /**
+//     * @param params Parameters in JSON format.
+//     * @return Affected rows JSON object.
+//     */
+//    private JsonObject delete(JsonObject params) {
+//        UUID userId = getUserId(params);
+//        UUID notebookId = getId(getProperty(params, "notebook"));
+//
+//        int rmvCnt = notebooksRepo.delete(userId, notebookId);
+//
+//        return rowsAffected(rmvCnt);
+//    }
 }

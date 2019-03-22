@@ -17,10 +17,6 @@
 
 package org.apache.ignite.console.agent.handlers;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
 
@@ -29,7 +25,7 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 /**
  * Handler that translate REST requests to Ignite cluster.
  */
-public class RestHandler extends AbstractVerticle {
+public class RestHandler {
     /** */
     private final RestExecutor restExecutor;
 
@@ -40,36 +36,36 @@ public class RestHandler extends AbstractVerticle {
         this.restExecutor = restExecutor;
     }
 
-    /** {@inheritDoc} */
-    @Override public void start() {
-        EventBus eventBus = vertx.eventBus();
+//    /** {@inheritDoc} */
+//    @Override public void start() {
+//        EventBus eventBus = vertx.eventBus();
+//
+//        eventBus.consumer(Addresses.NODE_REST, this::handleRest);
+//        eventBus.consumer(Addresses.NODE_VISOR, this::handleRest);
+//    }
 
-        eventBus.consumer(Addresses.NODE_REST, this::handleRest);
-        eventBus.consumer(Addresses.NODE_VISOR, this::handleRest);
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void handleRest(Message<JsonObject> msg) {
-        vertx.executeBlocking(
-            fut -> {
-                try {
-                    JsonObject params = msg.body().getJsonObject("params");
-
-                    RestResult res = restExecutor.sendRequest(params);
-
-                    fut.complete(JsonObject.mapFrom(res));
-                }
-                catch (Throwable e) {
-                    fut.fail(e);
-                }
-            },
-            asyncRes -> {
-                if (asyncRes.succeeded())
-                    msg.reply(asyncRes.result());
-                else
-                    msg.fail(HTTP_INTERNAL_ERROR, asyncRes.cause().getMessage());
-            });
-    }
+//    /**
+//     * @param msg Message.
+//     */
+//    private void handleRest(Message<JsonObject> msg) {
+//        vertx.executeBlocking(
+//            fut -> {
+//                try {
+//                    JsonObject params = msg.body().getJsonObject("params");
+//
+//                    RestResult res = restExecutor.sendRequest(params);
+//
+//                    fut.complete(JsonObject.mapFrom(res));
+//                }
+//                catch (Throwable e) {
+//                    fut.fail(e);
+//                }
+//            },
+//            asyncRes -> {
+//                if (asyncRes.succeeded())
+//                    msg.reply(asyncRes.result());
+//                else
+//                    msg.fail(HTTP_INTERNAL_ERROR, asyncRes.cause().getMessage());
+//            });
+//    }
 }

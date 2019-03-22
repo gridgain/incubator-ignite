@@ -10,7 +10,7 @@ Build image
 
         mvn clean install -T 2C \
                           -Pall-java,all-scala,licenses,web-console \
-                          -pl :ignite-web-console-agent -am \
+                          -pl :ignite-web-agent -am \
                           -DskipTests
 
 2) Go to Apache Ignite Web Console Docker module directory and copy Apache

@@ -17,22 +17,7 @@
 
 package org.apache.ignite.console.routes;
 
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.internal.util.typedef.internal.U;
-
-import static io.vertx.core.http.HttpMethod.DELETE;
-import static io.vertx.core.http.HttpMethod.GET;
-import static io.vertx.core.http.HttpMethod.PATCH;
-import static io.vertx.core.http.HttpMethod.PUT;
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static org.apache.ignite.console.common.Utils.boolParam;
-import static org.apache.ignite.console.common.Utils.pathParam;
-import static org.apache.ignite.console.common.Utils.sendError;
 
 /**
  * Admin router.
@@ -40,90 +25,89 @@ import static org.apache.ignite.console.common.Utils.sendError;
 public class AdminRouter extends AbstractRouter {
     /**
      * @param ignite Ignite.
-     * @param vertx Vertx.
      */
-    public AdminRouter(Ignite ignite, Vertx vertx) {
-        super(ignite, vertx);
+    public AdminRouter(Ignite ignite) {
+        super(ignite);
     }
 
-    /** {@inheritDoc} */
-    @Override public void install(Router router) {
-        adminRoute(router, GET, "/api/v1/admin/account", this::list);
-        adminRoute(router, DELETE, "/api/v1/admin/account/:accountId", this::delete);
-        adminRoute(router, PATCH, "/api/v1/admin/account/:accountId", this::update);
-        adminRoute(router, GET, "/api/v1/admin/become/:accountId", this::become);
-        adminRoute(router, GET, "/api/v1/admin/revert/identity", this::revertIdentity);
+//    /** {@inheritDoc} */
+//    @Override public void install(Router router) {
+//        adminRoute(router, GET, "/api/v1/admin/account", this::list);
+//        adminRoute(router, DELETE, "/api/v1/admin/account/:accountId", this::delete);
+//        adminRoute(router, PATCH, "/api/v1/admin/account/:accountId", this::update);
+//        adminRoute(router, GET, "/api/v1/admin/become/:accountId", this::become);
+//        adminRoute(router, GET, "/api/v1/admin/revert/identity", this::revertIdentity);
+//
+//        adminRoute(router, PUT, "/api/v1/admin/notifications", this::notifications);
+//    }
 
-        adminRoute(router, PUT, "/api/v1/admin/notifications", this::notifications);
-    }
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void list(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject();
+//
+//        send(Addresses.ADMIN_LOAD_ACCOUNTS, msg, ctx, "Failed to load users list");
+//    }
 
-    /**
-     * @param ctx Context.
-     */
-    private void list(RoutingContext ctx) {
-        getContextAccount(ctx);
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void update(RoutingContext ctx) {
+//        String accId = pathParam(ctx, "accountId");
+//        Boolean admin = boolParam(ctx.getBodyAsJson(), "admin");
+//
+//        JsonObject msg = new JsonObject()
+//            .put("accountId", accId)
+//            .put("admin", admin);
+//
+//        send(Addresses.ADMIN_CHANGE_ADMIN_STATUS, msg, ctx, "Failed to change admin status");
+//    }
 
-        JsonObject msg = new JsonObject();
-
-        send(Addresses.ADMIN_LOAD_ACCOUNTS, msg, ctx, "Failed to load users list");
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void update(RoutingContext ctx) {
-        String accId = pathParam(ctx, "accountId");
-        Boolean admin = boolParam(ctx.getBodyAsJson(), "admin");
-
-        JsonObject msg = new JsonObject()
-            .put("accountId", accId)
-            .put("admin", admin);
-
-        send(Addresses.ADMIN_CHANGE_ADMIN_STATUS, msg, ctx, "Failed to change admin status");
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void delete(RoutingContext ctx) {
-        String accId = pathParam(ctx, "accountId");
-
-        send(Addresses.ADMIN_DELETE_ACCOUNT, accId, ctx, "Failed to delete account");
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void become(RoutingContext ctx) {
-        String viewedAccountId = pathParam(ctx, "accountId");
-
-        vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, viewedAccountId, asyncRes -> {
-            if (asyncRes.succeeded()) {
-                ctx.session().put("viewedAccountId", viewedAccountId);
-
-                replyOk(ctx);
-            }
-            else {
-                U.error(ignite.log(), "Failed to become user", asyncRes.cause());
-
-                sendError(ctx, HTTP_INTERNAL_ERROR, "Failed to become user", asyncRes.cause());
-            }
-        });
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void revertIdentity(RoutingContext ctx) {
-        ctx.session().remove("viewedAccountId");
-
-        replyOk(ctx);
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void notifications(RoutingContext ctx) {
-        replyWithError(ctx, "Failed to change notifications", new IllegalStateException("Not implemented yet"));
-    }
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void delete(RoutingContext ctx) {
+//        String accId = pathParam(ctx, "accountId");
+//
+//        send(Addresses.ADMIN_DELETE_ACCOUNT, accId, ctx, "Failed to delete account");
+//    }
+//
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void become(RoutingContext ctx) {
+//        String viewedAccountId = pathParam(ctx, "accountId");
+//
+//        vertx.eventBus().send(Addresses.ACCOUNT_GET_BY_ID, viewedAccountId, asyncRes -> {
+//            if (asyncRes.succeeded()) {
+//                ctx.session().put("viewedAccountId", viewedAccountId);
+//
+//                replyOk(ctx);
+//            }
+//            else {
+//                U.error(ignite.log(), "Failed to become user", asyncRes.cause());
+//
+//                sendError(ctx, HTTP_INTERNAL_ERROR, "Failed to become user", asyncRes.cause());
+//            }
+//        });
+//    }
+//
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void revertIdentity(RoutingContext ctx) {
+//        ctx.session().remove("viewedAccountId");
+//
+//        replyOk(ctx);
+//    }
+//
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void notifications(RoutingContext ctx) {
+//        replyWithError(ctx, "Failed to change notifications", new IllegalStateException("Not implemented yet"));
+//    }
 }

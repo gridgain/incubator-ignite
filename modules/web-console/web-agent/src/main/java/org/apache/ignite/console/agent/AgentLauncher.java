@@ -27,17 +27,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
-
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
-
-import org.apache.ignite.console.agent.handlers.ClusterHandler;
-import org.apache.ignite.console.agent.handlers.DatabaseHandler;
-import org.apache.ignite.console.agent.handlers.RestHandler;
-import org.apache.ignite.console.agent.handlers.WebSocketRouter;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,7 +75,7 @@ public class AgentLauncher {
 
         String osName = System.getProperty("os.name").toLowerCase();
 
-        jCommander.setProgramName("ignite-web-agent." + (osName.contains("win") ? "bat" : "sh"));
+        jCommander.setProgramName("ignite-console-web-agent." + (osName.contains("win") ? "bat" : "sh"));
 
         try {
             jCommander.parse(args);
@@ -199,17 +190,17 @@ public class AgentLauncher {
         AgentConfiguration cfg = parseArgs(args);
 
         if (cfg != null) {
-            VertxOptions opts = new VertxOptions()
-                .setBlockedThreadCheckInterval(Integer.MAX_VALUE); // TODO IGNITE-5617 Only for debug!
-
-            Vertx vertx = Vertx.vertx(opts);
+//            VertxOptions opts = new VertxOptions()
+//                .setBlockedThreadCheckInterval(Integer.MAX_VALUE); // TODO IGNITE-5617 Only for debug!
+//
+//            Vertx vertx = Vertx.vertx(opts);
 
             RestExecutor restExecutor = new RestExecutor(cfg);
 
-            vertx.deployVerticle(new WebSocketRouter(cfg));
-            vertx.deployVerticle(new DatabaseHandler(cfg));
-            vertx.deployVerticle(new ClusterHandler(cfg, restExecutor));
-            vertx.deployVerticle(new RestHandler(restExecutor));
+//            vertx.deployVerticle(new WebSocketRouter(cfg));
+//            vertx.deployVerticle(new DatabaseHandler(cfg));
+//            vertx.deployVerticle(new ClusterHandler(cfg, restExecutor));
+//            vertx.deployVerticle(new RestHandler(restExecutor));
         }
     }
 }

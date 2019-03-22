@@ -19,11 +19,6 @@ package org.apache.ignite.console;
 
 import java.io.File;
 import java.util.Collections;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
-import io.vertx.core.json.JsonObject;
-import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -47,23 +42,23 @@ public class WebConsoleLauncher {
 
         Ignite ignite = startIgnite();
 
-        VertxOptions options = new VertxOptions()
-            .setBlockedThreadCheckInterval(1000L * 60L * 60L) // TODO IGNITE-5617 Only for debug!
-            .setClusterManager(new IgniteClusterManager(ignite));
-
-        Vertx.clusteredVertx(options, asyncVertx -> {
-            if (asyncVertx.succeeded()) {
-                Vertx vertx = asyncVertx.result();
-
-                DeploymentOptions depOpts = new DeploymentOptions()
-                    .setConfig(new JsonObject()
-                        .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
-
-                vertx.deployVerticle(new WebConsoleServer(), depOpts);
-            }
-            else
-               U.error(ignite.log(), "Failed to start Web Console", asyncVertx.cause());
-        });
+//        VertxOptions options = new VertxOptions()
+//            .setBlockedThreadCheckInterval(1000L * 60L * 60L) // TODO IGNITE-5617 Only for debug!
+//            .setClusterManager(new IgniteClusterManager(ignite));
+//
+//        Vertx.clusteredVertx(options, asyncVertx -> {
+//            if (asyncVertx.succeeded()) {
+//                Vertx vertx = asyncVertx.result();
+//
+//                DeploymentOptions depOpts = new DeploymentOptions()
+//                    .setConfig(new JsonObject()
+//                        .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
+//
+//                vertx.deployVerticle(new WebConsoleServer(), depOpts);
+//            }
+//            else
+//               U.error(ignite.log(), "Failed to start Web Console", asyncVertx.cause());
+//        });
     }
 
     /**

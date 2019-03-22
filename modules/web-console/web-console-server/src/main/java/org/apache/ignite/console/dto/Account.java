@@ -18,7 +18,6 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import io.vertx.core.json.JsonObject;
 
 /**
  * DTO for Account.
@@ -75,37 +74,37 @@ public class Account extends AbstractDto {
     /** */
     private boolean demoCreated;
 
-    /**
-     * @param json JSON data.
-     * @return New instance of Account DTO.
-     */
-    public static Account fromJson(JsonObject json) {
-        String id = json.getString("_id");
-
-        if (id == null)
-            throw new IllegalStateException("Account ID not found");
-
-        return new Account(
-            UUID.fromString(id),
-            json.getString("email"),
-            json.getString("firstName"),
-            json.getString("lastName"),
-            json.getString("company"),
-            json.getString("country"),
-            json.getString("industry"),
-            json.getString("token"),
-            json.getString("resetPasswordToken"),
-            json.getString("registered"),
-            json.getString("lastLogin"),
-            json.getString("lastActivity"),
-            json.getString("lastEvent"),
-            json.getString("salt"),
-            json.getString("hash"),
-            json.getBoolean("admin", false),
-            json.getBoolean("activated", false),
-            json.getBoolean("demoCreated", false)
-        );
-    }
+//    /**
+//     * @param json JSON data.
+//     * @return New instance of Account DTO.
+//     */
+//    public static Account fromJson(JsonObject json) {
+//        String id = json.getString("_id");
+//
+//        if (id == null)
+//            throw new IllegalStateException("Account ID not found");
+//
+//        return new Account(
+//            UUID.fromString(id),
+//            json.getString("email"),
+//            json.getString("firstName"),
+//            json.getString("lastName"),
+//            json.getString("company"),
+//            json.getString("country"),
+//            json.getString("industry"),
+//            json.getString("token"),
+//            json.getString("resetPasswordToken"),
+//            json.getString("registered"),
+//            json.getString("lastLogin"),
+//            json.getString("lastActivity"),
+//            json.getString("lastEvent"),
+//            json.getString("salt"),
+//            json.getString("hash"),
+//            json.getBoolean("admin", false),
+//            json.getBoolean("activated", false),
+//            json.getBoolean("demoCreated", false)
+//        );
+//    }
 
     /**
      * Default constructor for serialization.
@@ -272,54 +271,54 @@ public class Account extends AbstractDto {
         return resetPwdTok;
     }
 
-    /**
-     * @return JSON object with public fields.
-     */
-    public JsonObject publicView() {
-        return new JsonObject()
-            .put("_id", id.toString())
-            .put("email", email)
-            .put("firstName", firstName)
-            .put("lastName", lastName)
-            .put("company", company)
-            .put("country", country)
-            .put("industry", industry)
-            .put("token", tok)
-            .put("registered", registered)
-            .put("lastLogin", lastLogin)
-            .put("lastActivity", lastActivity)
-            .put("lastEvent", lastEvt)
-            .put("admin", admin)
-            .put("activated", activated)
-            .put("demoCreated", demoCreated);
-    }
+//    /**
+//     * @return JSON object with public fields.
+//     */
+//    public JsonObject publicView() {
+//        return new JsonObject()
+//            .put("_id", id.toString())
+//            .put("email", email)
+//            .put("firstName", firstName)
+//            .put("lastName", lastName)
+//            .put("company", company)
+//            .put("country", country)
+//            .put("industry", industry)
+//            .put("token", tok)
+//            .put("registered", registered)
+//            .put("lastLogin", lastLogin)
+//            .put("lastActivity", lastActivity)
+//            .put("lastEvent", lastEvt)
+//            .put("admin", admin)
+//            .put("activated", activated)
+//            .put("demoCreated", demoCreated);
+//    }
 
-    /**
-     * @return Account as JSON object.
-     */
-    public JsonObject toJson() {
-        return new JsonObject()
-            .put("_id", id.toString())
-            .put("email", email)
-            .put("firstName", firstName)
-            .put("lastName", lastName)
-            .put("company", company)
-            .put("country", country)
-            .put("industry", industry)
-
-            .put("token", tok)
-            .put("resetPasswordToken", resetPwdTok)
-
-            .put("registered", registered)
-            .put("lastLogin", lastLogin)
-            .put("lastActivity", lastActivity)
-            .put("lastEvent", lastEvt)
-
-            .put("salt", salt)
-            .put("hash", hash)
-
-            .put("admin", admin)
-            .put("activated", activated)
-            .put("demoCreated", demoCreated);
-    }
+//    /**
+//     * @return Account as JSON object.
+//     */
+//    public JsonObject toJson() {
+//        return new JsonObject()
+//            .put("_id", id.toString())
+//            .put("email", email)
+//            .put("firstName", firstName)
+//            .put("lastName", lastName)
+//            .put("company", company)
+//            .put("country", country)
+//            .put("industry", industry)
+//
+//            .put("token", tok)
+//            .put("resetPasswordToken", resetPwdTok)
+//
+//            .put("registered", registered)
+//            .put("lastLogin", lastLogin)
+//            .put("lastActivity", lastActivity)
+//            .put("lastEvent", lastEvt)
+//
+//            .put("salt", salt)
+//            .put("hash", hash)
+//
+//            .put("admin", admin)
+//            .put("activated", activated)
+//            .put("demoCreated", demoCreated);
+//    }
 }

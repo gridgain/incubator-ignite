@@ -18,7 +18,6 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import io.vertx.core.json.JsonObject;
 
 /**
  * DTO for cluster model.
@@ -33,24 +32,24 @@ public class Model extends DataObject {
     /** */
     private String valType;
 
-    /**
-     * @param json JSON data.
-     * @return New instance of model DTO.
-     */
-    public static Model fromJson(JsonObject json) {
-        String id = json.getString("_id");
-
-        if (id == null)
-            throw new IllegalStateException("Model ID not found");
-
-        return new Model(
-            UUID.fromString(id),
-            false, // TODO IGNITE-5617 DETECT INDEXES !!!
-            json.getString("keyType"),
-            json.getString("valueType"),
-            json.encode()
-        );
-    }
+//    /**
+//     * @param json JSON data.
+//     * @return New instance of model DTO.
+//     */
+//    public static Model fromJson(JsonObject json) {
+//        String id = json.getString("_id");
+//
+//        if (id == null)
+//            throw new IllegalStateException("Model ID not found");
+//
+//        return new Model(
+//            UUID.fromString(id),
+//            false, // TODO IGNITE-5617 DETECT INDEXES !!!
+//            json.getString("keyType"),
+//            json.getString("valueType"),
+//            json.encode()
+//        );
+//    }
 
     /**
      * Full constructor.
@@ -90,12 +89,12 @@ public class Model extends DataObject {
         return valType;
     }
 
-    /** {@inheritDoc} */
-    @Override public JsonObject shortView() {
-        return new JsonObject()
-            .put("_id", _id())
-            .put("hasIndex", hasIdx)
-            .put("keyType", keyType)
-            .put("valueType", valType);
-    }
+//    /** {@inheritDoc} */
+//    @Override public JsonObject shortView() {
+//        return new JsonObject()
+//            .put("_id", _id())
+//            .put("hasIndex", hasIdx)
+//            .put("keyType", keyType)
+//            .put("valueType", valType);
+//    }
 }

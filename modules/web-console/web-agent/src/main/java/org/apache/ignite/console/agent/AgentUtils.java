@@ -18,15 +18,10 @@
 package org.apache.ignite.console.agent;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
-import io.vertx.core.net.JksOptions;
-import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.log4j.Logger;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility methods.
@@ -114,26 +109,26 @@ public class AgentUtils {
         return null;
     }
 
-    /**
-     * @param path Path to JKS file.
-     * @param pwd Optional password.
-     * @return Java key store options or {@code null}.
-     * @throws FileNotFoundException if failed to resolve path to JKS.
-     */
-    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
-        if (F.isEmpty(path))
-            return null;
-
-        File file = U.resolveIgnitePath(path);
-
-        if (file == null)
-            throw new FileNotFoundException("Failed to resolve path: " + path);
-
-        JksOptions jks = new JksOptions().setPath(file.getPath());
-
-        if (!F.isEmpty(pwd))
-            jks.setPassword(pwd);
-
-        return jks;
-    }
+//    /**
+//     * @param path Path to JKS file.
+//     * @param pwd Optional password.
+//     * @return Java key store options or {@code null}.
+//     * @throws FileNotFoundException if failed to resolve path to JKS.
+//     */
+//    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
+//        if (F.isEmpty(path))
+//            return null;
+//
+//        File file = U.resolveIgnitePath(path);
+//
+//        if (file == null)
+//            throw new FileNotFoundException("Failed to resolve path: " + path);
+//
+//        JksOptions jks = new JksOptions().setPath(file.getPath());
+//
+//        if (!F.isEmpty(pwd))
+//            jks.setPassword(pwd);
+//
+//        return jks;
+//    }
 }

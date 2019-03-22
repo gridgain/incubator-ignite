@@ -30,8 +30,6 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
@@ -57,7 +55,7 @@ import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresse
 /**
  * API to transfer topology from Ignite cluster to Web Console.
  */
-public class ClusterHandler extends AbstractVerticle {
+public class ClusterHandler {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterHandler.class));
 
@@ -111,15 +109,15 @@ public class ClusterHandler extends AbstractVerticle {
         this.restExecutor = restExecutor;
     }
 
-    /** {@inheritDoc} */
-    @Override public void start() {
-        curTimer = vertx.setTimer(1, this::watch);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void stop() {
-        vertx.cancelTimer(curTimer);
-    }
+//    /** {@inheritDoc} */
+//    @Override public void start() {
+//        curTimer = vertx.setTimer(1, this::watch);
+//    }
+//
+//    /** {@inheritDoc} */
+//    @Override public void stop() {
+//        vertx.cancelTimer(curTimer);
+//    }
 
     /**
      * Callback on cluster connect.
@@ -130,7 +128,7 @@ public class ClusterHandler extends AbstractVerticle {
         log.info("Connection successfully established to cluster with nodes: " +
             nids.stream().map(U::id8).collect(Collectors.joining(",", "[", "]")));
 
-        vertx.eventBus().send(Addresses.CLUSTER_CONNECTED, nids);
+        // vertx.eventBus().send(Addresses.CLUSTER_CONNECTED, nids);
     }
 
     /**
@@ -144,7 +142,7 @@ public class ClusterHandler extends AbstractVerticle {
 
         log.info("Connection to cluster was lost");
 
-        vertx.eventBus().publish(Addresses.CLUSTER_DISCONNECTED, null);
+        // vertx.eventBus().publish(Addresses.CLUSTER_DISCONNECTED, null);
     }
 
     /**
@@ -154,13 +152,13 @@ public class ClusterHandler extends AbstractVerticle {
      * @return Command result.
      * @throws IOException If failed to execute.
      */
-    private RestResult restCommand(JsonObject params) throws IOException {
-        if (!F.isEmpty(sesTok))
-            params.put("sessionToken", sesTok);
-        else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
-            params.put("user", cfg.nodeLogin());
-            params.put("password", cfg.nodePassword());
-        }
+    private RestResult restCommand(Object params) throws IOException {
+//        if (!F.isEmpty(sesTok))
+//            params.put("sessionToken", sesTok);
+//        else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
+//            params.put("user", cfg.nodeLogin());
+//            params.put("password", cfg.nodePassword());
+//        }
 
         RestResult res = restExecutor.sendRequest(params);
 
@@ -174,7 +172,7 @@ public class ClusterHandler extends AbstractVerticle {
                 if (res.getError().startsWith(EXPIRED_SES_ERROR_MSG)) {
                     sesTok = null;
 
-                    params.remove("sessionToken");
+                    // params.remove("sessionToken");
 
                     return restCommand(params);
                 }
@@ -195,31 +193,31 @@ public class ClusterHandler extends AbstractVerticle {
         if (ver.compareTo(IGNITE_2_0) < 0)
             return true;
 
-        JsonObject params = new JsonObject();
+//        JsonObject params = new JsonObject();
 
         boolean v23 = ver.compareTo(IGNITE_2_3) >= 0;
 
-        if (v23)
-            params.put("cmd", "currentState");
-        else {
-            params.put("cmd", "exe");
-            params.put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask");
-            params.put("p1", nid);
-            params.put("p2", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTask");
-            params.put("p3", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTaskArg");
-            params.put("p4", false);
-            params.put("p5", EVT_LAST_ORDER_KEY);
-            params.put("p6", EVT_THROTTLE_CNTR_KEY);
+//        if (v23)
+//            params.put("cmd", "currentState");
+//        else {
+//            params.put("cmd", "exe");
+//            params.put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask");
+//            params.put("p1", nid);
+//            params.put("p2", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTask");
+//            params.put("p3", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTaskArg");
+//            params.put("p4", false);
+//            params.put("p5", EVT_LAST_ORDER_KEY);
+//            params.put("p6", EVT_THROTTLE_CNTR_KEY);
+//
+//            if (ver.compareTo(IGNITE_2_1) >= 0)
+//                params.put("p7", false);
+//            else {
+//                params.put("p7", 10);
+//                params.put("p8", false);
+//            }
+//        }
 
-            if (ver.compareTo(IGNITE_2_1) >= 0)
-                params.put("p7", false);
-            else {
-                params.put("p7", 10);
-                params.put("p8", false);
-            }
-        }
-
-        RestResult res = restCommand(params);
+        RestResult res = restCommand(null); //params);
 
         if (res.getStatus() == STATUS_SUCCESS)
             return v23 ? Boolean.valueOf(res.getData()) : res.getData().contains("\"active\":true");
@@ -234,14 +232,14 @@ public class ClusterHandler extends AbstractVerticle {
      * @throws IOException If failed to collect cluster topology.
      */
     private RestResult topology() throws IOException {
-        JsonObject params = new JsonObject();
+//        JsonObject params = new JsonObject();
+//
+//        params.put("cmd", "top");
+//        params.put("attr", true);
+//        params.put("mtr", false);
+//        params.put("caches", false);
 
-        params.put("cmd", "top");
-        params.put("attr", true);
-        params.put("mtr", false);
-        params.put("caches", false);
-
-        return restCommand(params);
+        return restCommand(null/*params*/);
     }
 
     /**
@@ -271,7 +269,7 @@ public class ClusterHandler extends AbstractVerticle {
 
                 top = newTop;
 
-                vertx.eventBus().send(Addresses.CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
+                // vertx.eventBus().send(Addresses.CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
             }
             else {
                 LT.warn(log, res.getError());
@@ -288,7 +286,7 @@ public class ClusterHandler extends AbstractVerticle {
             clusterDisconnect();
         }
         finally {
-            curTimer = vertx.setTimer(REFRESH_FREQ, this::watch);
+            // curTimer = vertx.setTimer(REFRESH_FREQ, this::watch);
         }
     }
 

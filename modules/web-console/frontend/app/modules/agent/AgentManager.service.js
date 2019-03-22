@@ -15,87 +15,14 @@
  * limitations under the License.
  */
 
-/*
-
-import Sockette from 'sockette';
-import {Subject} from 'rxjs';
-import {filter, take} from 'rxjs/operators';
-
-import uuidv4 from 'uuid/v4';
-
-export default function($scope, $http, $window) {
-    const {host, protocol} = $window.location;
-
-    const uri = `${protocol === 'https' ? 'wss' : 'ws'}://${host}/eventbus`;
-
-    const sbj = new Subject();
-
-    const ws = new Sockette(uri, {
-        timeout: 5000, // Retry every 5 seconds
-        onopen: (evt) => console.log('Connected!', evt),
-        onmessage: (evt) => {
-            console.log('Received:', evt);
-
-            sbj.next(JSON.parse(evt.data));
-
-            console.log('sbj next executed');
-        },
-        onreconnect: (evt) => console.log('Reconnecting...', evt),
-        onmaximum: (evt) => console.log('Stop Attempting!', evt),
-        onclose: (evt) => console.log('Closed!', evt),
-        onerror: (evt) => console.log('Error:', evt)
-    });
-
-    $scope.sendMessageWs = () => {
-        console.log('Send to WS');
-
-        const id = uuidv4();
-
-        setTimeout(() => {
-            ws.json({
-                id,
-                a: Math.round(Math.random() * 100),
-                b: Math.round(Math.random() * 100)
-            });
-        });
-
-        sbj
-            .asObservable()
-            .pipe(
-                filter((data) => data.id === id),
-                take(1)
-            )
-            .toPromise()
-            .then((v) => console.log('foo', v));
-    };
-
-    $scope.sendMessageRest = () => {
-        console.log('Send to rest');
-
-        $http.get('/api/v1/user')
-            .then((data) => {
-                console.log('REST response: ' + JSON.stringify(data.data));
-            })
-            .catch((err) => {
-                console.log('REST error: ' + err);
-            });
-    };
-}
-
-
-
- */
-
-
-
 import _ from 'lodash';
 import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 
-import {BehaviorSubject} from 'rxjs';
-import {distinctUntilChanged, filter, first, map, pluck, tap} from 'rxjs/operators';
+import Sockette from 'sockette';
 
-import SockJS from 'sockjs-client';
-import * as StompJS from '@stomp/stompjs';
+import {BehaviorSubject, Subject} from 'rxjs';
+import {distinctUntilChanged, filter, first, map, pluck, take, tap} from 'rxjs/operators';
+
 import uuidv4 from 'uuid/v4';
 
 import AgentModal from './AgentModal.service';
@@ -234,8 +161,10 @@ export default class AgentManager {
     /** @type {Set<ng.IPromise<unknown>>} */
     promises = new Set();
 
-    /** @type {import('@stomp/stompjs').Client} */
-    stompClient = null;
+    /** Websocket */
+    ws = null;
+
+    wsSubject = new Subject();
 
     /** @type {Set<() => Promise>} */
     switchClusterListeners = new Set();
@@ -321,55 +250,51 @@ export default class AgentManager {
     }
 
     connect() {
-        if (nonNil(this.stompClient))
+        if (nonNil(this.ws))
             return;
 
-        const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
+        // const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        // Create a connection to backend.
-        this.stompClient = new StompJS.Client({
-            reconnectDelay: 5000,
-            heartbeatIncoming: 4000,
-            heartbeatOutgoing: 4000,
-            webSocketFactory: () => new SockJS('/eventbus')
+        // Open websocket connection to backend.
+        this.ws = new Sockette(uri, {
+            timeout: 5000, // Retry every 5 seconds
+            onopen: (evt) => console.log('Connected!', evt),
+            onmessage: (evt) => {
+                console.log('[WS] Received:', evt);
+
+                this.wsSubject.next(JSON.parse(evt.data));
+            },
+            onreconnect: (evt) => console.log('[WS] Reconnecting...', evt),
+            onclose: (evt) => console.log('[WS] Closed!', evt),
+            onerror: (evt) => console.log('[WS] Error:', evt)
         });
 
-        this.stompClient.onConnect = (frame) => {
-            console.log('(re)connected ');
+        // this.ws.onConnect = (frame) => {
+        //     console.log('(re)connected ');
+        //
+        //     this.ws.subscribe('/topic/agents/stat', (msg) => {
+        //         const {clusters, count, hasDemo} = JSON.parse(msg.body);
+        //
+        //         const conn = this.connectionSbj.getValue();
+        //
+        //         conn.update(this.isDemoMode(), count, clusters, hasDemo);
+        //
+        //         this.connectionSbj.next(conn);
+        //     });
+        //
+        //     this.ws.subscribe('/topic/cluster/changed', (msg) => {
+        //         const cluster = JSON.parse(msg.body);
+        //
+        //         this.updateCluster(cluster);
+        //     });
+        //
+        //     this.ws.subscribe('/topic/user/notifications', (msg) => {
+        //         const notification = JSON.parse(msg.body);
+        //
+        //         this.UserNotifications.notification = notification;
+        //     });
+        // };
 
-            this.stompClient.subscribe('/topic/agents/stat', (msg) => {
-                const {clusters, count, hasDemo} = JSON.parse(msg.body);
-
-                const conn = this.connectionSbj.getValue();
-
-                conn.update(this.isDemoMode(), count, clusters, hasDemo);
-
-                this.connectionSbj.next(conn);
-            });
-
-            this.stompClient.subscribe('/topic/cluster/changed', (msg) => {
-                const cluster = JSON.parse(msg.body);
-
-                this.updateCluster(cluster);
-            });
-
-            this.stompClient.subscribe('/topic/user/notifications', (msg) => {
-                const notification = JSON.parse(msg.body);
-
-                this.UserNotifications.notification = notification;
-            });
-        };
-
-        this.stompClient.onStompError = (frame) => {
-            // Will be invoked in case of error encountered at Broker
-            // Bad login/passcode typically will cause an error
-            // Complaint brokers will set `message` header with a brief message. Body may contain details.
-            // Compliant brokers will terminate the connection after any error
-            console.log('Broker reported error: ' + frame.headers.message);
-            console.log('Additional details: ' + frame.body);
-        };
-
-        this.stompClient.activate();
 
         // // Open the connection
         // this.sockJS.onopen = () => {
@@ -467,12 +392,12 @@ export default class AgentManager {
      * Send message.
      *
      * @param {String} address
-     * @param {Object} message
+     * @param {Object} data
      * @returns {ng.IPromise}
      * @private
      */
-    _sendToAgent(address, message = {}) {
-        if (!this.stompClient)
+    _sendToAgent(address, data = {}) {
+        if (!this.ws)
             return this.$q.reject('Failed to connect to server');
 
         const latch = this.$q.defer();
@@ -480,21 +405,31 @@ export default class AgentManager {
         // TODO IGNITE-5617 Need handle disconnect on send.
 
         // Publishing with acknowledgement
-        const receiptId = uuidv4();
+        const requestId = uuidv4();
 
-        this.stompClient.watchForReceipt(receiptId, (frame) => {
-            console.log('Result: ', frame);
-
-            latch.resolve({todo: 'TODO'}); // TODO IGNITE-5617 !!!!
+        setTimeout(() => {
+            this.ws.json({
+                requestId,
+                address,
+                data
+            });
         });
 
-        this.stompClient.publish({
-            destination: '/app/' + address,
-            headers: {receipt: receiptId},
-            body: JSON.stringify(message)
-        });
+        this.wsSubject
+            .asObservable()
+            .pipe(
+                filter((data) => data.id === id),
+                take(1)
+            )
+            .toPromise()
+            .then((data) => {
+                console.log('Received response', data);
 
-        // this.stompClient.publish(address, message, {}, (err, res) => {
+                latch.resolve(data);
+            });
+
+
+        // this.ws.publish(address, message, {}, (err, res) => {
         //     if (err)
         //         latch.reject(err);
         //

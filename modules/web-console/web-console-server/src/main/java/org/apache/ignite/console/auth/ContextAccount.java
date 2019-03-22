@@ -18,27 +18,17 @@
 package org.apache.ignite.console.auth;
 
 import java.util.UUID;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.AbstractUser;
-import io.vertx.ext.auth.AuthProvider;
-import org.apache.ignite.IgniteAuthenticationException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.internal.util.IgniteUuidCache;
 
 /**
  * Account saved in session.
  */
-public class ContextAccount extends AbstractUser {
+public class ContextAccount {
     /** Account id. */
     private UUID accId;
 
-    /** Cached principal. */
-    private JsonObject cachedPrincipal;
+//    /** Cached principal. */
+//    private JsonObject cachedPrincipal;
 
     /** Auth provider. */
     private IgniteAuth authProvider;
@@ -57,16 +47,16 @@ public class ContextAccount extends AbstractUser {
         accId = account.id();
     }
 
-    /** {@inheritDoc} */
-    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> hnd) {
-        if (accId == null) {
-            hnd.handle(Future.failedFuture(new IgniteAuthenticationException("Missing account identity")));
-
-            return;
-        }
-
-        authProvider.checkPermissionsAsync(accountId(), perm, hnd);
-    }
+//    /** {@inheritDoc} */
+//    @Override protected void doIsPermitted(String perm, Handler<AsyncResult<Boolean>> hnd) {
+//        if (accId == null) {
+//            hnd.handle(Future.failedFuture(new IgniteAuthenticationException("Missing account identity")));
+//
+//            return;
+//        }
+//
+//        authProvider.checkPermissionsAsync(accountId(), perm, hnd);
+//    }
 
     /**
      * @return Account Id.
@@ -75,39 +65,39 @@ public class ContextAccount extends AbstractUser {
         return accId.toString();
     }
 
-    /** {@inheritDoc} */
-    @Override public JsonObject principal() {
-        if (cachedPrincipal == null)
-            cachedPrincipal = new JsonObject().put("_id", accId.toString());
+//    /** {@inheritDoc} */
+//    @Override public JsonObject principal() {
+//        if (cachedPrincipal == null)
+//            cachedPrincipal = new JsonObject().put("_id", accId.toString());
+//
+//        return cachedPrincipal;
+//    }
 
-        return cachedPrincipal;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAuthProvider(AuthProvider authProvider) throws IgniteException {
-        if (authProvider instanceof IgniteAuth)
-            this.authProvider = (IgniteAuth)authProvider;
-        else
-            throw new IgniteException("Not a " + IgniteAuth.class);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void writeToBuffer(Buffer buff) {
-        super.writeToBuffer(buff);
-
-        buff.appendLong(accId.getMostSignificantBits());
-        buff.appendLong(accId.getLeastSignificantBits());
-    }
-
-    /** {@inheritDoc} */
-    @Override public int readFromBuffer(int pos, Buffer buf) {
-        pos = super.readFromBuffer(pos, buf);
-
-        long most = buf.getLong(pos);
-        long least = buf.getLong(pos += Long.BYTES);
-
-        accId = IgniteUuidCache.onIgniteUuidRead(new UUID(most, least));
-
-        return pos + Long.BYTES;
-    }
+//    /** {@inheritDoc} */
+//    @Override public void setAuthProvider(AuthProvider authProvider) throws IgniteException {
+//        if (authProvider instanceof IgniteAuth)
+//            this.authProvider = (IgniteAuth)authProvider;
+//        else
+//            throw new IgniteException("Not a " + IgniteAuth.class);
+//    }
+//
+//    /** {@inheritDoc} */
+//    @Override public void writeToBuffer(Buffer buff) {
+//        super.writeToBuffer(buff);
+//
+//        buff.appendLong(accId.getMostSignificantBits());
+//        buff.appendLong(accId.getLeastSignificantBits());
+//    }
+//
+//    /** {@inheritDoc} */
+//    @Override public int readFromBuffer(int pos, Buffer buf) {
+//        pos = super.readFromBuffer(pos, buf);
+//
+//        long most = buf.getLong(pos);
+//        long least = buf.getLong(pos += Long.BYTES);
+//
+//        accId = IgniteUuidCache.onIgniteUuidRead(new UUID(most, least));
+//
+//        return pos + Long.BYTES;
+//    }
 }

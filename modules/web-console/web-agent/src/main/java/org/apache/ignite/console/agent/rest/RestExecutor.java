@@ -32,19 +32,9 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.JksOptions;
-import io.vertx.ext.web.client.HttpRequest;
-import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.client.WebClientOptions;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
-import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
@@ -53,12 +43,6 @@ import org.slf4j.LoggerFactory;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
-import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_AUTH_FAILED;
-import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_FAILED;
-import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
 
 /**
  * API to execute REST requests to Ignite cluster.
@@ -74,7 +58,7 @@ public class RestExecutor implements AutoCloseable {
     private final AgentConfiguration cfg;
 
     /** */
-    private final WebClient webClient;
+    // private final WebClient webClient;
 
     /** Index of alive node URI. */
     private final Map<List<String>, Integer> startIdxs = U.newHashMap(2);
@@ -96,90 +80,90 @@ public class RestExecutor implements AutoCloseable {
             nodeTrustAll = false;
         }
 
-        WebClientOptions httpOptions = new WebClientOptions();
+        // WebClientOptions httpOptions = new WebClientOptions();
 
         boolean ssl = nodeTrustAll || hasNodeTrustStore || cfg.nodeKeyStore() != null;
 
         if (ssl) {
-            httpOptions
-                .setSsl(true)
-                .setTrustAll(nodeTrustAll)
-                .setKeyStoreOptions(new JksOptions()
-                    .setPath(cfg.nodeKeyStore())
-                    .setPassword(cfg.nodeKeyStorePassword()))
-                .setTrustStoreOptions(new JksOptions()
-                    .setPath(cfg.nodeTrustStore())
-                    .setPassword(cfg.nodeTrustStorePassword()));
-
-            if (!F.isEmpty(cfg.cipherSuites()))
-                cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
-
-            if (nodeTrustAll)
-                httpOptions.setVerifyHost(false);
+//            httpOptions
+//                .setSsl(true)
+//                .setTrustAll(nodeTrustAll)
+//                .setKeyStoreOptions(new JksOptions()
+//                    .setPath(cfg.nodeKeyStore())
+//                    .setPassword(cfg.nodeKeyStorePassword()))
+//                .setTrustStoreOptions(new JksOptions()
+//                    .setPath(cfg.nodeTrustStore())
+//                    .setPassword(cfg.nodeTrustStorePassword()));
+//
+//            if (!F.isEmpty(cfg.cipherSuites()))
+//                cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
+//
+//            if (nodeTrustAll)
+//                httpOptions.setVerifyHost(false);
         }
 
-        webClient = WebClient.create(Vertx.vertx(), httpOptions);
+//        webClient = WebClient.create(Vertx.vertx(), httpOptions);
     }
 
     /** {@inheritDoc} */
     @Override public void close() {
-        webClient.close();
+        //webClient.close();
     }
 
+//    /** */
+//    private void parseResponse(CompletableFuture<RestResult> fut, AsyncResult<HttpResponse<Buffer>> asyncRes) {
+//        if (asyncRes.succeeded()) {
+//            HttpResponse<Buffer> response = asyncRes.result();
+//
+//            switch (response.statusCode()) {
+//                case HTTP_OK:
+//                    try {
+//                        RestResponseHolder holder = MAPPER.readValue(response.body().getBytes(), RestResponseHolder.class);
+//
+//                        int status = holder.getSuccessStatus();
+//
+//                        fut.complete(status == STATUS_SUCCESS
+//                            ? RestResult.success(holder.getResponse(), holder.getSessionToken())
+//                            : RestResult.fail(status, holder.getError()));
+//                    }
+//                    catch (IOException e) {
+//                        fut.completeExceptionally(e);
+//                    }
+//
+//                    break;
+//
+//                case HTTP_UNAUTHORIZED:
+//                    fut.complete(RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
+//                        "Please check agent\'s login and password or node port."));
+//
+//                    break;
+//
+//                case HTTP_NOT_FOUND:
+//                    fut.complete(RestResult.fail(STATUS_FAILED, "Failed connect to cluster."));
+//
+//                    break;
+//
+//                default:
+//                    fut.complete(RestResult.fail(STATUS_FAILED, "Failed to execute REST command [code=" +
+//                        response.statusCode() + ", msg=" + response.statusMessage() + "]"));
+//            }
+//        }
+//        else
+//            fut.completeExceptionally(asyncRes.cause());
+//    }
+
     /** */
-    private void parseResponse(CompletableFuture<RestResult> fut, AsyncResult<HttpResponse<Buffer>> asyncRes) {
-        if (asyncRes.succeeded()) {
-            HttpResponse<Buffer> response = asyncRes.result();
-
-            switch (response.statusCode()) {
-                case HTTP_OK:
-                    try {
-                        RestResponseHolder holder = MAPPER.readValue(response.body().getBytes(), RestResponseHolder.class);
-
-                        int status = holder.getSuccessStatus();
-
-                        fut.complete(status == STATUS_SUCCESS
-                            ? RestResult.success(holder.getResponse(), holder.getSessionToken())
-                            : RestResult.fail(status, holder.getError()));
-                    }
-                    catch (IOException e) {
-                        fut.completeExceptionally(e);
-                    }
-
-                    break;
-
-                case HTTP_UNAUTHORIZED:
-                    fut.complete(RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
-                        "Please check agent\'s login and password or node port."));
-
-                    break;
-
-                case HTTP_NOT_FOUND:
-                    fut.complete(RestResult.fail(STATUS_FAILED, "Failed connect to cluster."));
-
-                    break;
-
-                default:
-                    fut.complete(RestResult.fail(STATUS_FAILED, "Failed to execute REST command [code=" +
-                        response.statusCode() + ", msg=" + response.statusMessage() + "]"));
-            }
-        }
-        else
-            fut.completeExceptionally(asyncRes.cause());
-    }
-
-    /** */
-    private RestResult sendRequest(String url, JsonObject params) throws Throwable {
+    private RestResult sendRequest(String url, Object params) throws Throwable {
         CompletableFuture<RestResult> fut = new CompletableFuture<>();
 
         URI uri = new URI(url);
 
-        HttpRequest<Buffer> req = webClient
-            .post(uri.getPort(), uri.getHost(), "/ignite");
-
-        params.forEach(entry -> req.addQueryParam(entry.getKey(), entry.getValue().toString()));
-
-        req.send(asyncRes -> parseResponse(fut, asyncRes));
+//        HttpRequest<Buffer> req = webClient
+//            .post(uri.getPort(), uri.getHost(), "/ignite");
+//
+//        params.forEach(entry -> req.addQueryParam(entry.getKey(), entry.getValue().toString()));
+//
+//        req.send(asyncRes -> parseResponse(fut, asyncRes));
 
         return fut.get();
     }
@@ -191,7 +175,7 @@ public class RestExecutor implements AutoCloseable {
      * @return Response from cluster.
      * @throws ConnectException if failed to connect to cluster.
      */
-    public RestResult sendRequest(JsonObject params) throws ConnectException {
+    public RestResult sendRequest(Object params) throws ConnectException {
         List<String> nodeURIs = cfg.nodeURIs();
 
         Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);

@@ -19,10 +19,7 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.transactions.Transaction;
@@ -44,10 +41,10 @@ public class AccountsService extends AbstractService {
     }
 
     /** {@inheritDoc} */
-    @Override public AccountsService install(Vertx vertx) {
-        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_ID, this::getById);
-        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
-        addConsumer(vertx, Addresses.ACCOUNT_REGISTER, this::register);
+    @Override public AccountsService install() {
+//        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_ID, this::getById);
+//        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
+//        addConsumer(vertx, Addresses.ACCOUNT_REGISTER, this::register);
 
         return this;
     }
@@ -58,8 +55,8 @@ public class AccountsService extends AbstractService {
      * @param accId Account Id.
      * @return Public fields of account as JSON.
      */
-    private JsonObject getById(String accId) {
-        return accountsRepo.getById(UUID.fromString(accId)).publicView();
+    private Account getById(String accId) {
+        return accountsRepo.getById(UUID.fromString(accId)); // .publicView();
     }
 
     /**
@@ -68,21 +65,21 @@ public class AccountsService extends AbstractService {
      * @param email Account email.
      * @return Account as JSON.
      */
-    private JsonObject getByEmail(String email) {
-        return accountsRepo.getByEmail(email).toJson();
+    private Account getByEmail(String email) {
+        return accountsRepo.getByEmail(email); // .toJson();
     }
 
-    /**
-     * @param params Parameters in JSON format.
-     * @return Affected rows JSON object.
-     */
-    private JsonObject register(JsonObject params) {
-        Account account = Account.fromJson(params);
-
-        accountsRepo.create(account);
-
-        return rowsAffected(1);
-    }
+//    /**
+//     * @param params Parameters in JSON format.
+//     * @return Affected rows JSON object.
+//     */
+//    private JsonObject register(JsonObject params) {
+//        Account account = Account.fromJson(params);
+//
+//        accountsRepo.create(account);
+//
+//        return rowsAffected(1);
+//    }
 
     /**
      * Delete account by ID.

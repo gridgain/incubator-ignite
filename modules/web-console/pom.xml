@@ -36,7 +36,6 @@
     <url>http://ignite.apache.org</url>
 
     <properties>
-        <vertx.version>3.6.3</vertx.version>
         <node.version>v10.15.3</node.version>
     </properties>
 
@@ -163,7 +162,7 @@
                             </dependency>
                             <dependency>
                                 <groupId>org.apache.ignite</groupId>
-                                <artifactId>ignite-web-console-agent</artifactId>
+                                <artifactId>ignite-web-agent</artifactId>
                                 <version>${project.version}</version>
                             </dependency>
                         </dependencies>
