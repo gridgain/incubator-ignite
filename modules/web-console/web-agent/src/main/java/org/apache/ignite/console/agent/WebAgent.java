@@ -2,16 +2,18 @@ package org.apache.ignite.console.agent;
 
 import java.io.IOException;
 import java.net.URI;
-import javax.websocket.ClientEndpoint;
-import javax.websocket.ContainerProvider;
-import javax.websocket.OnClose;
-import javax.websocket.OnMessage;
-import javax.websocket.OnOpen;
-import javax.websocket.Session;
-import javax.websocket.WebSocketContainer;
+import java.util.concurrent.TimeUnit;
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
+import org.eclipse.jetty.websocket.client.WebSocketClient;
 
-@ClientEndpoint
+/**
+ *
+ */
 public class WebAgent {
+    /**
+     * @param args Args
+     * @throws IOException if failed.
+     */
     public static void main(String... args) throws IOException {
         System.out.println("Web Agent");
 
@@ -19,46 +21,50 @@ public class WebAgent {
 
         wa.start();
 
-        wa.sendMessage("{\"id\": \"zzzzz\", \"a\": 1, \"b\": 2}");
+        //wa.sendMessage("{\"id\": \"zzzzz\", \"a\": 1, \"b\": 2}");
 
         System.in.read();
     }
 
-    private Session session;
-
+    /**
+     * zzzz
+     */
     public void start() {
         try {
-            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+//            SslContextFactory sslContextFactory = new SslContextFactory();
+//            Resource keyStoreResource = Resource.newResource(this.getClass().getResource("/truststore.jks"));
+//            sslContextFactory.setKeyStoreResource(keyStoreResource);
+//            sslContextFactory.setKeyStorePassword("password");
+//            sslContextFactory.setKeyManagerPassword("password");
+            WebSocketClient client = new WebSocketClient(/*sslContextFactory*/);
+            String destUri = "ws://localhost:3000/eventbus";
 
-            container.connectToServer(this, new URI("ws://127.0.0.1:3000/eventbus"));
+            WebAgentSocket sock = new WebAgentSocket();
+            try {
+                client.start();
 
+                URI echoUri = new URI(destUri);
+                ClientUpgradeRequest req = new ClientUpgradeRequest();
+                client.connect(sock, echoUri, req);
+                System.out.printf("Connecting to : %s%n", echoUri);
+
+                // wait for closed socket connection.
+                sock.awaitClose(5, TimeUnit.SECONDS);
+            }
+            catch (Throwable t) {
+                t.printStackTrace();
+            }
+            finally {
+                try {
+                    client.stop();
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
         }
-        catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    @OnOpen
-    public void onOpen(Session session){
-        System.out.println("OPENED");
-        this.session=session;
-    }
-
-    @OnClose
-    public void onClose(Session session){
-        System.out.println("CLOSED");
-    }
-
-    @OnMessage
-    public void onMessage(String message, Session session){
-        System.out.println("MSG: " + message);
-    }
-
-    public void sendMessage(String message){
-        try {
-            session.getBasicRemote().sendText(message);
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        catch (Throwable e) {
+            e.printStackTrace();
         }
     }
 }
