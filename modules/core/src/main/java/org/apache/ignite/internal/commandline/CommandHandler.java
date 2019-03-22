@@ -2176,12 +2176,8 @@ public class CommandHandler {
 
                     IdleVerifyCommandArg arg = CommandArgUtils.of(nextArg, IdleVerifyCommandArg.class);
 
-                    if(arg == null) {
-                        if (cacheArgs.excludeCaches() != null || cacheArgs.getCacheFilterEnum() != CacheFilterEnum.ALL)
-                            throw new IllegalArgumentException(ONE_CACHE_FILTER_OPT_SHOULD_USED_MSG);
-
+                    if(arg == null)
                         parseCacheNames(nextArg, cacheArgs);
-                    }
                     else {
                         switch (arg) {
                             case DUMP:
@@ -2200,9 +2196,6 @@ public class CommandHandler {
                                 break;
 
                             case CACHE_FILTER:
-                                if (cacheArgs.caches() != null || cacheArgs.excludeCaches() != null)
-                                    throw new IllegalArgumentException(ONE_CACHE_FILTER_OPT_SHOULD_USED_MSG);
-
                                 String filter = nextArg("The cache filter should be specified. The following " +
                                     "values can be used: " + Arrays.toString(CacheFilterEnum.values()) + '.');
 
@@ -2211,9 +2204,6 @@ public class CommandHandler {
                                 break;
 
                             case EXCLUDE_CACHES:
-                                if (cacheArgs.caches() != null || cacheArgs.getCacheFilterEnum() != CacheFilterEnum.ALL)
-                                    throw new IllegalArgumentException(ONE_CACHE_FILTER_OPT_SHOULD_USED_MSG);
-
                                 parseExcludeCacheNames(nextArg("Specify caches, which will be excluded."),
                                     cacheArgs);
 
