@@ -18,8 +18,8 @@
 import _ from 'lodash';
 import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 
-import {timer, BehaviorSubject, of, from} from 'rxjs';
-import {exhaustMap, first, pluck, tap, distinctUntilChanged, map, filter, expand, takeWhile, last} from 'rxjs/operators';
+import {BehaviorSubject} from 'rxjs';
+import {distinctUntilChanged, filter, first, map, pluck, tap} from 'rxjs/operators';
 
 import SockJS from 'sockjs-client';
 import * as StompJS from '@stomp/stompjs';

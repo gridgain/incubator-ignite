@@ -33,14 +33,14 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 @EnableWebSocketMessageBroker
 public class WebSocketConfigurer extends AbstractWebSocketMessageBrokerConfigurer {
     /** {@inheritDoc} */
-    @Override public void configureMessageBroker(MessageBrokerRegistry cfg) {
-        cfg.enableSimpleBroker("/topic");
-        cfg.setApplicationDestinationPrefixes("/app");
+    @Override public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/stomp").withSockJS();
     }
 
     /** {@inheritDoc} */
-    @Override public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/eventbus").withSockJS();
+    @Override public void configureMessageBroker(MessageBrokerRegistry cfg) {
+        cfg.enableSimpleBroker("/");
+        cfg.setApplicationDestinationPrefixes("/app");
     }
 
     /**
