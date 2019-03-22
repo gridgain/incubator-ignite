@@ -55,6 +55,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -725,7 +726,7 @@ public class ClientAffinityAssignmentWithBaselineTest extends GridCommonAbstract
         if (loadError.get() != null) {
             loadError.get().printStackTrace();
 
-            fail("Unexpected error in load thread: " + loadError.get().toString());
+            Assert.fail("Unexpected error in load thread: " + loadError.get().toString());
         }
     }
 
@@ -966,7 +967,7 @@ public class ClientAffinityAssignmentWithBaselineTest extends GridCommonAbstract
             Throwable t;
 
             if ((t = loadError.get()) != null)
-                fail("Unexpected error in load thread: " + X.getFullStackTrace(t));
+                Assert.fail("Unexpected error in load thread: " + X.getFullStackTrace(t));
 
             boolean frozenThreadExists = false;
 
@@ -981,7 +982,7 @@ public class ClientAffinityAssignmentWithBaselineTest extends GridCommonAbstract
             U.sleep(100);
         }
 
-        fail("No progress in load thread");
+        Assert.fail("No progress in load thread");
     }
 
     /**

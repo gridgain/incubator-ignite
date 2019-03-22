@@ -38,6 +38,7 @@ import org.apache.ignite.services.ServiceConfiguration;
 import org.apache.ignite.services.ServiceDeploymentException;
 import org.apache.ignite.services.ServiceDescriptor;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -198,7 +199,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
                 try {
                     client.services().deployAllAsync(cfgsBatch).get(5000);
 
-                    fail("Should never reach here.");
+                    Assert.fail("Should never reach here.");
                 }
                 catch (ServiceDeploymentException e) {
                     assertEquals(1, e.getFailedConfigurations().size());
@@ -522,7 +523,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
             else
                 client.services().deployAll(cfgs);
 
-            fail("Should never reach here.");
+            Assert.fail("Should never reach here.");
         }
         catch (ServiceDeploymentException e) {
             info("Expected exception: " + e.getMessage());

@@ -47,6 +47,7 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.containsString;
@@ -553,7 +554,7 @@ public class IgniteDynamicSqlRestoreTest extends GridCommonAbstractTest implemen
             try {
                 startGrid(1);
 
-                fail("Node should start with fail");
+                Assert.fail("Node should start with fail");
             }
             catch (Exception e) {
                 String cause = X.cause(e, IgniteSpiException.class).getMessage();
@@ -597,7 +598,7 @@ public class IgniteDynamicSqlRestoreTest extends GridCommonAbstractTest implemen
             try {
                 startGrid(1);
 
-                fail("Node should start with fail");
+                Assert.fail("Node should start with fail");
             }
             catch (Exception e) {
                 assertThat(X.cause(e, IgniteSpiException.class).getMessage(), containsString("index MYINDEXA is different"));
@@ -641,7 +642,7 @@ public class IgniteDynamicSqlRestoreTest extends GridCommonAbstractTest implemen
             try {
                 startGrid(0);
 
-                fail("Node should start with fail");
+                Assert.fail("Node should start with fail");
             }
             catch (Exception e) {
                 assertThat(X.cause(e, IgniteSpiException.class).getMessage(), containsString("Failed to join node to the active cluster"));

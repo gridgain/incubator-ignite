@@ -47,6 +47,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT;
@@ -148,7 +149,7 @@ public class GridCachePartitionExchangeManagerWarningsTest extends GridCommonAbs
                 excSvc.submit(new AsyncTransaction(srv1, CACHE_NAME, i, txStarted, stopTx));
 
             if (!txStarted.await(10000, TimeUnit.MILLISECONDS))
-                fail("Unable to start transactions");
+                Assert.fail("Unable to start transactions");
 
             Thread.sleep(timeout * 2);
 
@@ -158,7 +159,7 @@ public class GridCachePartitionExchangeManagerWarningsTest extends GridCommonAbs
             excSvc.shutdown();
 
             if (!excSvc.awaitTermination(10000, TimeUnit.MILLISECONDS))
-                fail("Unable to wait for thread pool termination.");
+                Assert.fail("Unable to wait for thread pool termination.");
         }
 
         assertTrue("Warnings were not found", testLog.warningsTotal() > 0);
@@ -192,11 +193,10 @@ public class GridCachePartitionExchangeManagerWarningsTest extends GridCommonAbs
             .setBackups(1)
             .setAtomicityMode(transactional ? CacheAtomicityMode.TRANSACTIONAL : CacheAtomicityMode.ATOMIC);
 
-        IgniteConfiguration cfg = getConfiguration()
+        IgniteConfiguration cfg = getConfiguration(instanceName)
             .setCacheConfiguration(cacheCfg)
             .setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(IP_FINDER))
             .setCommunicationSpi(new CustomTcpCommunicationSpi())
-            .setIgniteInstanceName(instanceName)
             .setClientMode(clientMode);
 
         if (testLog != null)

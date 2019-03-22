@@ -35,6 +35,7 @@ import org.apache.ignite.internal.util.typedef.CX1;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -278,7 +279,7 @@ public class GridFutureAdapterSelfTest extends GridCommonAbstractTest {
         try {
             chain.get(20);
 
-            fail("Expects timeout exception.");
+            Assert.fail("Expects timeout exception.");
         }
         catch (IgniteFutureTimeoutCheckedException e) {
             info("Expected timeout exception: " + e.getMessage());
@@ -298,7 +299,7 @@ public class GridFutureAdapterSelfTest extends GridCommonAbstractTest {
         try {
             chain.get();
 
-            fail("Expects failed with exception.");
+            Assert.fail("Expects failed with exception.");
         }
         catch (ClusterGroupEmptyCheckedException e) {
             info("Expected exception: " + e.getMessage());
@@ -313,7 +314,7 @@ public class GridFutureAdapterSelfTest extends GridCommonAbstractTest {
             fut.onDone(new StackOverflowError("test error"));
 
             if (exec == null)
-                fail("Expects failed with error.");
+                Assert.fail("Expects failed with error.");
         }
         catch (StackOverflowError e) {
             info("Expected error: " + e.getMessage());
@@ -322,7 +323,7 @@ public class GridFutureAdapterSelfTest extends GridCommonAbstractTest {
         try {
             chain.get();
 
-            fail("Expects failed with error.");
+            Assert.fail("Expects failed with error.");
         }
         catch (StackOverflowError e) {
             info("Expected error: " + e.getMessage());

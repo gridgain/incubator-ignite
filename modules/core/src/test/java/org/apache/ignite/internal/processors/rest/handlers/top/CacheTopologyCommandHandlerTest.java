@@ -39,8 +39,9 @@ import org.junit.Test;
  *
  */
 public class CacheTopologyCommandHandlerTest extends GridCommonAbstractTest {
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         // Discovery config.
         TcpDiscoverySpi disco = new TcpDiscoverySpi()
             .setIpFinder(new TcpDiscoveryVmIpFinder(true))
@@ -54,7 +55,7 @@ public class CacheTopologyCommandHandlerTest extends GridCommonAbstractTest {
         ConnectorConfiguration clnCfg = new ConnectorConfiguration()
             .setHost("127.0.0.1");
 
-        return super.getConfiguration()
+        return super.getConfiguration(igniteInstanceName)
             .setLocalHost("127.0.0.1")
             .setConnectorConfiguration(clnCfg)
             .setDiscoverySpi(disco)

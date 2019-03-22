@@ -40,6 +40,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
@@ -240,7 +241,7 @@ public abstract class WalModeChangeCommonAbstractSelfTest extends GridCommonAbst
         try {
             cmd.call();
 
-            fail("Exception is not thrown");
+            Assert.fail("Exception is not thrown");
         }
         catch (Exception e) {
             if (jdbc) {

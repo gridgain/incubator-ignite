@@ -45,6 +45,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.P1;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -288,7 +289,7 @@ public class IgniteCacheClientQueryReplicatedNodeRestartSelfTest extends GridCom
                         if (!failedOnRemoteFetch) {
                             e.printStackTrace();
 
-                            fail("Must fail inside of GridResultPage.fetchNextPage or subclass.");
+                            Assert.fail("Must fail inside of GridResultPage.fetchNextPage or subclass.");
                         }
 
                         res = FAKE;

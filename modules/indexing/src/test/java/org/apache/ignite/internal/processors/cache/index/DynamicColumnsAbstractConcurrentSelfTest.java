@@ -61,6 +61,8 @@ import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.IgniteClientReconnectAbstractTest.TestTcpDiscoverySpi;
@@ -147,7 +149,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration commonConfiguration(int idx) throws Exception {
         TestTcpDiscoverySpi spi = new TestTcpDiscoverySpi();
-        spi.setIpFinder(LOCAL_IP_FINDER);
+        spi.setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
 
         return super.commonConfiguration(idx)
             .setDiscoverySpi(spi);
@@ -626,7 +628,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
         try {
             idxFut.get();
 
-            fail("Exception has not been thrown.");
+            Assert.fail("Exception has not been thrown.");
         }
         catch (SchemaOperationException e) {
             // No-op.
@@ -691,7 +693,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
                         // No-op.
                     }
                     catch (Exception e) {
-                        fail("Unexpected exception: " + e);
+                        Assert.fail("Unexpected exception: " + e);
                     }
                 }
 
@@ -965,7 +967,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
                         // No-op.
                     }
                     catch (Exception e) {
-                        fail("Unexpected exception: " + e);
+                        Assert.fail("Unexpected exception: " + e);
                     }
                 }
 

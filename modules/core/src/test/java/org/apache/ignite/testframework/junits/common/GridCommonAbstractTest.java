@@ -120,6 +120,7 @@ import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_EVENT_DRIVEN_SERVICE_PROCESSOR_ENABLED;
 import static org.apache.ignite.IgniteSystemProperties.getBoolean;
@@ -619,8 +620,8 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
 
             if (startTime != -1) {
                 if (startTime != g0.context().discovery().gridStartTime())
-                    fail("Found nodes from different clusters, probable some test does not stop nodes " +
-                        "[allNodes=" + names + ']');
+                    Assert.fail("Found nodes from different clusters, probable some test does not stop nodes " +
+                                    "[allNodes=" + names + ']');
             }
             else
                 startTime = g0.context().discovery().gridStartTime();
@@ -840,7 +841,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      *
      * Print partitionState for cache.
      */
-    protected void printPartitionState(String cacheName, int firstParts) {
+    protected static void printPartitionState(String cacheName, int firstParts) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("----preload sync futures----\n");
@@ -1391,7 +1392,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param cache Cache.
      * @param key Key.
      */
-    protected <K, V> V nearPeek(IgniteCache<K, V> cache, K key) throws IgniteCheckedException {
+    protected static <K, V> V nearPeek(IgniteCache<K, V> cache, K key) throws IgniteCheckedException {
         return localPeek(near(cache), key);
     }
 
@@ -1426,7 +1427,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @return Task future.
      * @throws IgniteCheckedException If failed.
      */
-    protected <R> ComputeTaskFuture<R> executeAsync(IgniteCompute comp, ComputeTask task, @Nullable Object arg)
+    protected static <R> ComputeTaskFuture<R> executeAsync(IgniteCompute comp, ComputeTask task, @Nullable Object arg)
         throws IgniteCheckedException {
         ComputeTaskFuture<R> fut = comp.executeAsync(task, arg);
 
@@ -1442,7 +1443,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @return Task future.
      * @throws IgniteCheckedException If failed.
      */
-    protected <R> ComputeTaskFuture<R> executeAsync(IgniteCompute comp, String taskName, @Nullable Object arg)
+    protected static <R> ComputeTaskFuture<R> executeAsync(IgniteCompute comp, String taskName, @Nullable Object arg)
         throws IgniteCheckedException {
         ComputeTaskFuture<R> fut = comp.executeAsync(taskName, arg);
 
@@ -1459,7 +1460,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    protected <R> ComputeTaskFuture<R> executeAsync(IgniteCompute comp, Class taskCls, @Nullable Object arg)
+    protected static <R> ComputeTaskFuture<R> executeAsync(IgniteCompute comp, Class taskCls, @Nullable Object arg)
         throws IgniteCheckedException {
         ComputeTaskFuture<R> fut = comp.executeAsync(taskCls, arg);
 
@@ -1475,7 +1476,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @return Future.
      * @throws IgniteCheckedException If failed.
      */
-    protected <T extends Event> IgniteFuture<T> waitForLocalEvent(IgniteEvents evts,
+    protected static <T extends Event> IgniteFuture<T> waitForLocalEvent(IgniteEvents evts,
         @Nullable IgnitePredicate<T> filter, @Nullable int... types) throws IgniteCheckedException {
         IgniteFuture<T> fut = evts.waitForLocalAsync(filter, types);
 
@@ -1488,7 +1489,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param e Exception.
      * @param exCls Ex class.
      */
-    protected <T extends IgniteException> void assertCacheExceptionWithCause(RuntimeException e, Class<T> exCls) {
+    protected static <T extends IgniteException> void assertCacheExceptionWithCause(RuntimeException e, Class<T> exCls) {
         if (exCls.isAssignableFrom(e.getClass()))
             return;
 
@@ -1500,7 +1501,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
     /**
      * @param cache Cache.
      */
-    protected <K, V> GridCacheAdapter<K, V> cacheFromCtx(IgniteCache<K, V> cache) {
+    protected static <K, V> GridCacheAdapter<K, V> cacheFromCtx(IgniteCache<K, V> cache) {
         return ((IgniteKernal)cache.unwrap(Ignite.class)).<K, V>internalCache(cache.getName()).context().cache();
     }
 
@@ -1508,7 +1509,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param ignite Grid.
      * @return {@link org.apache.ignite.IgniteCompute} for given grid's local node.
      */
-    protected IgniteCompute forLocal(Ignite ignite) {
+    protected static IgniteCompute forLocal(Ignite ignite) {
         return ignite.compute(ignite.cluster().forLocal());
     }
 
@@ -1516,7 +1517,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param prj Projection.
      * @return {@link org.apache.ignite.IgniteCompute} for given projection.
      */
-    protected IgniteCompute compute(ClusterGroup prj) {
+    protected static IgniteCompute compute(ClusterGroup prj) {
         return prj.ignite().compute(prj);
     }
 
@@ -1524,7 +1525,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param prj Projection.
      * @return {@link org.apache.ignite.IgniteMessaging} for given projection.
      */
-    protected IgniteMessaging message(ClusterGroup prj) {
+    protected static IgniteMessaging message(ClusterGroup prj) {
         return prj.ignite().message(prj);
     }
 
@@ -1532,7 +1533,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param prj Projection.
      * @return {@link org.apache.ignite.IgniteMessaging} for given projection.
      */
-    protected IgniteEvents events(ClusterGroup prj) {
+    protected static IgniteEvents events(ClusterGroup prj) {
         return prj.ignite().events(prj);
     }
 
@@ -1541,13 +1542,13 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param cacheName Cache name.
      * @return Cache configuration.
      */
-    protected CacheConfiguration cacheConfiguration(IgniteConfiguration cfg, String cacheName) {
+    protected static CacheConfiguration cacheConfiguration(IgniteConfiguration cfg, String cacheName) {
         for (CacheConfiguration ccfg : cfg.getCacheConfiguration()) {
             if (F.eq(cacheName, ccfg.getName()))
                 return ccfg;
         }
 
-        fail("Failed to find cache configuration for cache: " + cacheName);
+        Assert.fail("Failed to find cache configuration for cache: " + cacheName);
 
         return null;
     }
@@ -1556,7 +1557,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param key Key.
      * @return Near cache for key.
      */
-    protected IgniteCache<Integer, Integer> nearCache(Integer key) {
+    protected static IgniteCache<Integer, Integer> nearCache(Integer key) {
         List<Ignite> allGrids = Ignition.allGrids();
 
         assertFalse("There are no alive nodes.", F.isEmpty(allGrids));
@@ -1673,9 +1674,9 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param exp Expected.
      * @param act Actual.
      */
-    protected void assertEqualsCollections(Collection<?> exp, Collection<?> act) {
+    protected static void assertEqualsCollections(Collection<?> exp, Collection<?> act) {
         if (exp.size() != act.size())
-            fail("Collections are not equal:\nExpected:\t" + exp + "\nActual:\t" + act);
+            Assert.fail("Collections are not equal:\nExpected:\t" + exp + "\nActual:\t" + act);
 
         Iterator<?> it1 = exp.iterator();
         Iterator<?> it2 = act.iterator();
@@ -1687,7 +1688,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
             Object item2 = it2.next();
 
             if (!F.eq(item1, item2))
-                fail("Collections are not equal (position " + idx + "):\nExpected: " + exp + "\nActual:   " + act);
+                Assert.fail("Collections are not equal (position " + idx + "):\nExpected: " + exp + "\nActual:   " + act);
 
             idx++;
         }
@@ -1699,7 +1700,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @return Result of closure execution.
      * @throws Exception If failed.
      */
-    protected <T> T doInTransaction(Ignite ignite, Callable<T> clo) throws Exception {
+    protected static <T> T doInTransaction(Ignite ignite, Callable<T> clo) throws Exception {
         return doInTransaction(ignite, PESSIMISTIC, REPEATABLE_READ, clo);
     }
 
@@ -1746,7 +1747,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
     /**
      *
      */
-    protected void cleanPersistenceDir() throws Exception {
+    protected static void cleanPersistenceDir() throws Exception {
         assertTrue("Grids are not stopped", F.isEmpty(G.allGrids()));
 
         U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), "cp", false));
@@ -1769,7 +1770,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                 return next;
         }
 
-        fail("Failed to find key for node: " + node);
+        Assert.fail("Failed to find key for node: " + node);
 
         return null;
     }
@@ -1779,7 +1780,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param qry Query.
      * @return Query plan.
      */
-    protected final String queryPlan(IgniteCache<?, ?> cache, SqlFieldsQuery qry) {
+    protected static final String queryPlan(IgniteCache<?, ?> cache, SqlFieldsQuery qry) {
         return (String)cache.query(new SqlFieldsQuery("explain " + qry.getSql())
             .setArgs(qry.getArgs())
             .setLocal(qry.isLocal())
@@ -1794,7 +1795,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param expData Expected cache data.
      * @param cacheName Cache name.
      */
-    protected final void checkCacheData(Map<?, ?> expData, String cacheName) {
+    protected static final void checkCacheData(Map<?, ?> expData, String cacheName) {
         assert !expData.isEmpty();
 
         List<Ignite> nodes = G.allGrids();
@@ -1860,7 +1861,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
     /**
      * Sets baseline topology.
      */
-    public void resetBaselineTopology() {
+    public static void resetBaselineTopology() {
         Ignite node = G.allGrids().get(0);
 
         node.cluster().setBaselineTopology(node.cluster().topologyVersion());
@@ -1870,7 +1871,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param ignite Node.
      * @return Completed txs map.
      */
-    private Map completedTxsMap(Ignite ignite) {
+    private static Map completedTxsMap(Ignite ignite) {
         IgniteTxManager tm = ((IgniteKernal)ignite).context().cache().context().tm();
 
         return U.field(tm, "completedVersHashMap");
@@ -1879,7 +1880,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
     /**
      *
      */
-    protected final void checkCacheDiscoveryDataConsistent() {
+    protected static final void checkCacheDiscoveryDataConsistent() {
         Map<Integer, CacheGroupDescriptor> cacheGrps = null;
         Map<String, DynamicCacheDescriptor> caches = null;
 
@@ -1927,7 +1928,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param desc First descriptor.
      * @param desc0 Second descriptor.
      */
-    private void checkGroupDescriptorsData(CacheGroupDescriptor desc, CacheGroupDescriptor desc0) {
+    private static void checkGroupDescriptorsData(CacheGroupDescriptor desc, CacheGroupDescriptor desc0) {
         assertEquals(desc.groupName(), desc0.groupName());
         assertEquals(desc.sharedGroup(), desc0.sharedGroup());
         assertEquals(desc.deploymentId(), desc0.deploymentId());
@@ -1943,7 +1944,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      *
      * @throws IgniteCheckedException If checkpoint was failed.
      */
-    protected void forceCheckpoint() throws IgniteCheckedException {
+    protected static void forceCheckpoint() throws IgniteCheckedException {
         forceCheckpoint(G.allGrids());
     }
 
@@ -1953,7 +1954,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param node Node to force checkpoint on it.
      * @throws IgniteCheckedException If checkpoint was failed.
      */
-    protected void forceCheckpoint(Ignite node) throws IgniteCheckedException {
+    protected static void forceCheckpoint(Ignite node) throws IgniteCheckedException {
         forceCheckpoint(Collections.singletonList(node));
     }
 
@@ -1963,7 +1964,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param nodes Nodes to force checkpoint on them.
      * @throws IgniteCheckedException If checkpoint was failed.
      */
-    protected void forceCheckpoint(Collection<Ignite> nodes) throws IgniteCheckedException {
+    protected static void forceCheckpoint(Collection<Ignite> nodes) throws IgniteCheckedException {
         for (Ignite ignite : nodes) {
             if (ignite.cluster().localNode().isClient())
                 continue;
@@ -1985,7 +1986,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @return Conflicts result.
      * @throws IgniteException If none caches or node found.
      */
-    protected IdleVerifyResultV2 idleVerify(Ignite ig, String... caches) {
+    protected static IdleVerifyResultV2 idleVerify(Ignite ig, String... caches) {
         IgniteEx ig0 = (IgniteEx)ig;
 
         Set<String> cacheNames = new HashSet<>();
@@ -2014,7 +2015,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
     /**
      * Checks if all txs and mvcc futures are finished.
      */
-    protected void checkFutures() {
+    protected static void checkFutures() {
         for (Ignite ignite : G.allGrids()) {
             IgniteEx ig = (IgniteEx)ignite;
 
@@ -2031,7 +2032,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
             }
 
             if (hasFutures)
-                fail("Some mvcc futures are not finished");
+                Assert.fail("Some mvcc futures are not finished");
 
             Collection<IgniteInternalTx> txs = ig.context().cache().context().tm().activeTransactions();
 
@@ -2039,7 +2040,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                 log.error("Expecting no active transaction [node=" + ig.localNode().id() + ", tx=" + tx + ']');
 
             if (!txs.isEmpty())
-                fail("Some transaction are not finished");
+                Assert.fail("Some transaction are not finished");
         }
     }
 
@@ -2048,7 +2049,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param topVer Topology version to wait.
      * @throws IgniteInterruptedCheckedException If interrupted.
      */
-    protected void waitForServicesReadyTopology(final IgniteEx ignite,
+    protected static void waitForServicesReadyTopology(final IgniteEx ignite,
         final AffinityTopologyVersion topVer) throws IgniteInterruptedCheckedException {
         if (!(ignite.context().service() instanceof IgniteServiceProcessor))
             return;
@@ -2075,7 +2076,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      *
      * @param countUpdate Number of events.
      */
-    protected void awaitMetricsUpdate(int countUpdate) throws InterruptedException {
+    protected static void awaitMetricsUpdate(int countUpdate) throws InterruptedException {
         awaitMetricsUpdate(countUpdate, G.allGrids());
     }
 
@@ -2086,7 +2087,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
      * @param grids Collection of Ignite instances we are listening for metrics update
      * @throws InterruptedException
      */
-    protected void awaitMetricsUpdate(int countUpdate, Collection<Ignite> grids) throws InterruptedException {
+    protected static void awaitMetricsUpdate(int countUpdate, Collection<Ignite> grids) throws InterruptedException {
         if (countUpdate > 0) {
 
             final CountDownLatch latch = new CountDownLatch(G.allGrids().size() * grids.size() * countUpdate);

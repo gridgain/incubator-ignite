@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.util.GridStripedLock;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -63,7 +64,7 @@ public class GridStripedLockSelfTest extends GridCommonAbstractTest {
                     barrier.await();
                 }
                 catch (Exception e) {
-                    fail("Failed to await other threads: " + e.getMessage());
+                    Assert.fail("Failed to await other threads: " + e.getMessage());
                 }
 
                 for (int i = 0; i < STRIPE_COUNT * 10000; i++) {
@@ -97,7 +98,7 @@ public class GridStripedLockSelfTest extends GridCommonAbstractTest {
                     barrier.await();
                 }
                 catch (Exception e) {
-                    fail("Failed to await other threads: " + e.getMessage());
+                    Assert.fail("Failed to await other threads: " + e.getMessage());
                 }
 
                 for (long i = Integer.MAX_VALUE; i < ITERATION_COUNT + Integer.MAX_VALUE; i++) {
@@ -131,7 +132,7 @@ public class GridStripedLockSelfTest extends GridCommonAbstractTest {
                     barrier.await();
                 }
                 catch (Exception e) {
-                    fail("Failed to await other threads: " + e.getMessage());
+                    Assert.fail("Failed to await other threads: " + e.getMessage());
                 }
 
                 for (Object o : testObjects((int)ITERATION_COUNT)) {

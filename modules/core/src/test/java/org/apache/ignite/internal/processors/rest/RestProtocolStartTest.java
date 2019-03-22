@@ -36,6 +36,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Gri
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -94,7 +95,7 @@ public class RestProtocolStartTest extends GridCommonAbstractTest {
             try {
                 startGrid(1);
 
-                fail("Node should not started before rebalance completed.");
+                Assert.fail("Node should not started before rebalance completed.");
             }
             catch (Exception e) {
                 assertEquals("Err = " + e.getMessage(), e.getClass(), IgniteInterruptedCheckedException.class);
@@ -115,7 +116,7 @@ public class RestProtocolStartTest extends GridCommonAbstractTest {
             startFut.get(10_000);
         }
         catch (IgniteFutureTimeoutCheckedException e) {
-            fail("Failed to wait rebalance completed. Node has hang.");
+            Assert.fail("Failed to wait rebalance completed. Node has hang.");
         }
 
         assertTrue("Is active " + ignite.cluster().active(), ignite.cluster().active());

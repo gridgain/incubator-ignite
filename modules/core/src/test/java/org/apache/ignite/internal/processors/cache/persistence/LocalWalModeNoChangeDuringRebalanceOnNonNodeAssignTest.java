@@ -35,6 +35,7 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.reader.Ignite
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.lang.String.valueOf;
@@ -81,7 +82,7 @@ public class LocalWalModeNoChangeDuringRebalanceOnNonNodeAssignTest extends Grid
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        fail("https://issues.apache.org/jira/browse/IGNITE-10652");
+        Assert.fail("https://issues.apache.org/jira/browse/IGNITE-10652");
 
         super.beforeTest();
 
@@ -166,7 +167,7 @@ public class LocalWalModeNoChangeDuringRebalanceOnNonNodeAssignTest extends Grid
                     if (key.startsWith("grp-wal-") &&
                         key.contains(valueOf(cacheId(DEFAULT_CACHE_NAME))) &&
                         metastoreDataRecord.value() != null)
-                        fail("WAL was disabled but should not.");
+                        Assert.fail("WAL was disabled but should not.");
                 }
             }
         }

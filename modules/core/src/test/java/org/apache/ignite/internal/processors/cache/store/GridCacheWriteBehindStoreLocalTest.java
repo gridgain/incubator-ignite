@@ -32,11 +32,12 @@ public class GridCacheWriteBehindStoreLocalTest extends GridCacheWriteBehindStor
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.LOCAL_CACHE);
     }
 
-    /** {@inheritDoc} */
-    @Override protected final IgniteConfiguration getConfiguration() throws Exception {
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected final IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.LOCAL_CACHE);
 
-        return super.getConfiguration();
+        return super.getConfiguration(igniteInstanceName);
     }
 
     /** {@inheritDoc} */

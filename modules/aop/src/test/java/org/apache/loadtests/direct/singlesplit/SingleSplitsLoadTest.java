@@ -31,6 +31,7 @@ import org.apache.ignite.testframework.config.GridTestProperties;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.apache.log4j.Level;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -43,9 +44,10 @@ public class SingleSplitsLoadTest extends GridCommonAbstractTest {
         super(true);
     }
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration();
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setCommunicationSpi(new TcpCommunicationSpi());
         cfg.setDiscoverySpi(new TcpDiscoverySpi());
@@ -110,7 +112,7 @@ public class SingleSplitsLoadTest extends GridCommonAbstractTest {
                         int res = fut.get();
 
                         if (res != levels)
-                            fail("Received wrong result [expected=" + levels + ", actual=" + res + ']');
+                            Assert.fail("Received wrong result [expected=" + levels + ", actual=" + res + ']');
 
                         long taskCnt = stats.onTaskCompleted(fut, levels, System.currentTimeMillis() - start);
 

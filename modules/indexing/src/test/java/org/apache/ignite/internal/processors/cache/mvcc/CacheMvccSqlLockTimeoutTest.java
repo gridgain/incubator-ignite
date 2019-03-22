@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -254,7 +255,7 @@ public class CacheMvccSqlLockTimeoutTest extends CacheMvccAbstractTest {
                         }
                     }).get();
 
-                    fail("Timeout exception should be thrown");
+                    Assert.fail("Timeout exception should be thrown");
                 }
                 catch (ExecutionException e) {
                     assertTrue(msgContains(e, "Failed to acquire lock within provided timeout for transaction")

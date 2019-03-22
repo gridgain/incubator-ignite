@@ -41,6 +41,7 @@ import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -123,7 +124,7 @@ public abstract class IgniteClientDataStructuresAbstractTest extends GridCommonA
             try {
                 seq.getAndAdd(seq.batchSize());
 
-                fail("Operations with closed sequence must fail");
+                Assert.fail("Operations with closed sequence must fail");
             }
             catch (Throwable ignore) {
                 // No-op.
@@ -198,7 +199,7 @@ public abstract class IgniteClientDataStructuresAbstractTest extends GridCommonA
             try {
                 atomicLong.get();
 
-                fail("Always should be exception because atomicLong was closed");
+                Assert.fail("Always should be exception because atomicLong was closed");
             }
             catch (IllegalStateException e) {
                 String expectedMessage = "Sequence was removed from cache";
@@ -331,7 +332,7 @@ public abstract class IgniteClientDataStructuresAbstractTest extends GridCommonA
             try {
                 latch.await(5_000L);
 
-                fail("Operations with closed latch must fail");
+                Assert.fail("Operations with closed latch must fail");
             }
             catch (Throwable ignore) {
                 // No-op.
@@ -410,7 +411,7 @@ public abstract class IgniteClientDataStructuresAbstractTest extends GridCommonA
             try {
                 semaphore.release();
 
-                fail("Operations with closed semaphore must fail");
+                Assert.fail("Operations with closed semaphore must fail");
             }
             catch (Throwable ignore) {
                 // No-op.
@@ -501,7 +502,7 @@ public abstract class IgniteClientDataStructuresAbstractTest extends GridCommonA
             try {
                 lock.tryLock(5_000L, TimeUnit.MILLISECONDS);
 
-                fail("Operations with closed lock must fail");
+                Assert.fail("Operations with closed lock must fail");
             }
             catch (Throwable ignore) {
                 // No-op.

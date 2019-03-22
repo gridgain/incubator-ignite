@@ -50,6 +50,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridStringLogger;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.sql.Connection.TRANSACTION_NONE;
@@ -1093,7 +1094,7 @@ public class JdbcThinConnectionSelfTest extends JdbcThinAbstractSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.createStatement().execute("BEGIN");
 
-            fail("Exception is expected");
+            Assert.fail("Exception is expected");
         }
         catch (SQLException e) {
             assertEquals(TRANSACTION_STATE_EXCEPTION, e.getSQLState());
@@ -2047,7 +2048,7 @@ public class JdbcThinConnectionSelfTest extends JdbcThinAbstractSelfTest {
                     catch (Exception e) {
                         e.printStackTrace(System.err);
 
-                        fail("Unexpected exception (see details above): " + e.getMessage());
+                        Assert.fail("Unexpected exception (see details above): " + e.getMessage());
                     }
                 }
             }, threadCnt, "run-query");

@@ -29,6 +29,7 @@ import org.apache.ignite.internal.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -139,7 +140,7 @@ public class CacheDataRegionConfigurationTest extends GridCommonAbstractTest {
         }
 
         if (!oomeThrown)
-            fail("OutOfMemoryException hasn't been thrown");
+            Assert.fail("OutOfMemoryException hasn't been thrown");
     }
 
     /**
@@ -173,7 +174,7 @@ public class CacheDataRegionConfigurationTest extends GridCommonAbstractTest {
                 cache.put(i, "abc");
         }
         catch (Exception e) {
-            fail("With properly sized DataRegion no exceptions are expected to be thrown.");
+            Assert.fail("With properly sized DataRegion no exceptions are expected to be thrown.");
         }
     }
 

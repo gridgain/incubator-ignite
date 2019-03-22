@@ -57,10 +57,8 @@ public class OptimizedMarshallerIndexNameTest extends AbstractIndexingCommonTest
 
     /** {@inheritDoc} */
     @SuppressWarnings("deprecation")
-    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName, IgniteTestResources rsrcs)
-        throws Exception {
-
-        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName, rsrcs);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         DataStorageConfiguration memCfg = new DataStorageConfiguration()
             .setDefaultDataRegionConfiguration(

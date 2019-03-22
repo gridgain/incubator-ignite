@@ -31,6 +31,7 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.events.CacheEvent;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -137,7 +138,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
         try {
             streamer.start();
 
-            fail("Successful start of already started Twitter Streamer");
+            Assert.fail("Successful start of already started Twitter Streamer");
         }
         catch (IgniteException ignored) {
             // No-op.
@@ -155,7 +156,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
         try {
             streamer.stop();
 
-            fail("Successful stop of already stopped Twitter Streamer");
+            Assert.fail("Successful stop of already stopped Twitter Streamer");
         }
         catch (IgniteException ignored) {
             // No-op.

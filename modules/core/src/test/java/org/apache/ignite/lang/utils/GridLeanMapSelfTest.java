@@ -25,6 +25,7 @@ import org.apache.ignite.internal.util.GridLeanMap;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -47,7 +48,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.keySet().iterator().next();
 
-            fail("NoSuchElementException must have been thrown.");
+            Assert.fail("NoSuchElementException must have been thrown.");
         }
         catch (NoSuchElementException e) {
             info("Caught expected exception: " + e);
@@ -56,7 +57,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.entrySet().iterator().next();
 
-            fail("NoSuchElementException must have been thrown.");
+            Assert.fail("NoSuchElementException must have been thrown.");
         }
         catch (NoSuchElementException e) {
             info("Caught expected exception: " + e);
@@ -65,7 +66,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.values().iterator().next();
 
-            fail("NoSuchElementException must have been thrown.");
+            Assert.fail("NoSuchElementException must have been thrown.");
         }
         catch (NoSuchElementException e) {
             info("Caught expected exception: " + e);
@@ -74,7 +75,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.keySet().iterator().remove();
 
-            fail("IllegalStateException must have been thrown.");
+            Assert.fail("IllegalStateException must have been thrown.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);
@@ -83,7 +84,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.entrySet().iterator().remove();
 
-            fail("IllegalStateException must have been thrown.");
+            Assert.fail("IllegalStateException must have been thrown.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);
@@ -92,7 +93,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.values().iterator().remove();
 
-            fail("IllegalStateException must have been thrown.");
+            Assert.fail("IllegalStateException must have been thrown.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);
@@ -114,7 +115,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.keySet().iterator().next();
 
-            fail("NoSuchElementException must have been thrown.");
+            Assert.fail("NoSuchElementException must have been thrown.");
         }
         catch (NoSuchElementException e) {
             info("Caught expected exception: " + e);
@@ -123,7 +124,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.entrySet().iterator().next();
 
-            fail("NoSuchElementException must have been thrown.");
+            Assert.fail("NoSuchElementException must have been thrown.");
         }
         catch (NoSuchElementException e) {
             info("Caught expected exception: " + e);
@@ -132,7 +133,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.values().iterator().next();
 
-            fail("NoSuchElementException must have been thrown.");
+            Assert.fail("NoSuchElementException must have been thrown.");
         }
         catch (NoSuchElementException e) {
             info("Caught expected exception: " + e);
@@ -141,7 +142,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.keySet().iterator().remove();
 
-            fail("IllegalStateException must have been thrown.");
+            Assert.fail("IllegalStateException must have been thrown.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);
@@ -150,7 +151,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.entrySet().iterator().remove();
 
-            fail("IllegalStateException must have been thrown.");
+            Assert.fail("IllegalStateException must have been thrown.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);
@@ -159,7 +160,7 @@ public class GridLeanMapSelfTest extends GridCommonAbstractTest {
         try {
             map.values().iterator().remove();
 
-            fail("IllegalStateException must have been thrown.");
+            Assert.fail("IllegalStateException must have been thrown.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);

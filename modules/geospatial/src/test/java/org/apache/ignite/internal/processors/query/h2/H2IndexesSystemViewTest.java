@@ -34,9 +34,10 @@ import org.junit.Test;
  */
 public class H2IndexesSystemViewTest extends GridCommonAbstractTest {
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
-        return super.getConfiguration().setCacheConfiguration(new CacheConfiguration().setName(DEFAULT_CACHE_NAME));
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        return super.getConfiguration(igniteInstanceName).setCacheConfiguration(new CacheConfiguration().setName(DEFAULT_CACHE_NAME));
     }
 
     /**
@@ -45,9 +46,9 @@ public class H2IndexesSystemViewTest extends GridCommonAbstractTest {
      */
     @Test
     public void testIndexesView() throws Exception {
-        IgniteEx srv = startGrid(getConfiguration());
+        IgniteEx srv = startGrid(getConfiguration(igniteInstanceName));
 
-        IgniteEx client = startGrid(getConfiguration().setClientMode(true).setIgniteInstanceName("CLIENT"));
+        IgniteEx client = startGrid(getConfiguration(igniteInstanceName).setClientMode(true).setIgniteInstanceName("CLIENT"));
 
         execSql("CREATE TABLE PUBLIC.AFF_CACHE (ID1 INT, ID2 INT, GEOM GEOMETRY, PRIMARY KEY (ID1))");
 

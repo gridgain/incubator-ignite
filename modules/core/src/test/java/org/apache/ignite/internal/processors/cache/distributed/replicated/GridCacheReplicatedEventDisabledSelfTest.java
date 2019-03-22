@@ -21,6 +21,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.events.Event;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.junit.Assert;
 
 /**
  * Tests events.
@@ -67,7 +68,7 @@ public class GridCacheReplicatedEventDisabledSelfTest extends GridCacheReplicate
 
         /** {@inheritDoc} */
         @Override public boolean apply(Event evt) {
-            fail("Cache events are disabled");
+            Assert.fail("Cache events are disabled");
 
             return false;
         }

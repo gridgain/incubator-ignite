@@ -18,11 +18,10 @@
 package org.apache.ignite.spi.communication.tcp;
 
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.junits.spi.GridSpiAbstractConfigTest;
 import org.apache.ignite.testframework.junits.spi.GridSpiTest;
 import org.junit.Test;
-
-import static org.apache.ignite.testframework.GridTestUtils.getFreeCommPort;
 
 /**
  * TCP communication SPI config test.
@@ -59,16 +58,12 @@ public class GridTcpCommunicationSpiConfigSelfTest extends GridSpiAbstractConfig
      */
     @Test
     public void testLocalPortRange() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
-
         TcpCommunicationSpi commSpi = new TcpCommunicationSpi();
 
         commSpi.setLocalPortRange(0);
-        commSpi.setLocalPort(getFreeCommPort());
+        commSpi.setLocalPort(GridTestPortUtils.getFreeCommPort());
 
-        cfg.setCommunicationSpi(commSpi);
-
-        startGrid(cfg);
+        startGrid((cfg) -> cfg.setCommunicationSpi(commSpi));
     }
 
 }

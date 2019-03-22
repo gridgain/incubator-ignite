@@ -27,6 +27,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -102,8 +103,8 @@ public class GridTimeoutProcessorSelfTest extends GridCommonAbstractTest {
                     long now = System.currentTimeMillis();
 
                     if (now < endTime) {
-                        fail("Timeout event happened prematurely [endTime=" + endTime + ", now=" + now +
-                            ", obj=" + this + ']');
+                        Assert.fail("Timeout event happened prematurely [endTime=" + endTime + ", now=" + now +
+                                            ", obj=" + this + ']');
                     }
 
                     synchronized (timeObjs) {
@@ -176,8 +177,8 @@ public class GridTimeoutProcessorSelfTest extends GridCommonAbstractTest {
                             long now = System.currentTimeMillis();
 
                             if (now < endTime) {
-                                fail("Timeout event happened prematurely [endTime=" + endTime + ", now=" + now +
-                                    ", obj=" + this + ']');
+                                Assert.fail("Timeout event happened prematurely [endTime=" + endTime + ", now=" + now +
+                                                            ", obj=" + this + ']');
                             }
 
                             // This method will only be called from one thread, no synchronization required.
@@ -236,8 +237,8 @@ public class GridTimeoutProcessorSelfTest extends GridCommonAbstractTest {
                             long now = System.currentTimeMillis();
 
                             if (now < endTime()) {
-                                fail("Timeout event happened prematurely [endTime=" + endTime() + ", now=" + now +
-                                    ", obj=" + this + ']');
+                                Assert.fail("Timeout event happened prematurely [endTime=" + endTime() + ", now=" + now +
+                                                            ", obj=" + this + ']');
                             }
 
                             // This method will only be called from one thread, no synchronization required.
@@ -491,8 +492,8 @@ public class GridTimeoutProcessorSelfTest extends GridCommonAbstractTest {
                             long now = System.currentTimeMillis();
 
                             if (now < endTime) {
-                                fail("Timeout event happened prematurely [endTime=" + endTime + ", now=" + now +
-                                    ", obj=" + this + ']');
+                                Assert.fail("Timeout event happened prematurely [endTime=" + endTime + ", now=" + now +
+                                                            ", obj=" + this + ']');
                             }
 
                             latch.countDown();
@@ -551,7 +552,7 @@ public class GridTimeoutProcessorSelfTest extends GridCommonAbstractTest {
                 info("Received timeout callback: " + this);
 
                 if (++cnt > 1)
-                    fail("Timeout should not be called more than once: " + this);
+                    Assert.fail("Timeout should not be called more than once: " + this);
             }
 
             /** {@inheritDoc} */

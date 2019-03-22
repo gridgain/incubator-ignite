@@ -56,6 +56,7 @@ import org.apache.log4j.Appender;
 import org.apache.log4j.Logger;
 import org.apache.log4j.SimpleLayout;
 import org.apache.log4j.WriterAppender;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -272,7 +273,7 @@ public class DataStreamerImplSelfTest extends GridCommonAbstractTest {
                 try {
                     fut.get();
 
-                    fail("DataStreamer ignores failed streaming.");
+                    Assert.fail("DataStreamer ignores failed streaming.");
                 }
                 catch (CacheServerNotFoundException ignored2) {
                     // No-op.
@@ -519,7 +520,7 @@ public class DataStreamerImplSelfTest extends GridCommonAbstractTest {
             return;
         }
 
-        fail("Expected exception wasn't thrown");
+        Assert.fail("Expected exception wasn't thrown");
     }
 
     /**

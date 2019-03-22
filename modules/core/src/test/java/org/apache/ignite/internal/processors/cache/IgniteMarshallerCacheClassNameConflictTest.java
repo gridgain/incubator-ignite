@@ -38,6 +38,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
 import org.apache.ignite.spi.discovery.DiscoverySpiListener;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.Test;
@@ -77,7 +78,7 @@ public class IgniteMarshallerCacheClassNameConflictTest extends GridCommonAbstra
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
         TcpDiscoverySpi disco = new TestTcpDiscoverySpi();
-        disco.setIpFinder(LOCAL_IP_FINDER);
+        disco.setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
 
         cfg.setDiscoverySpi(disco);
 

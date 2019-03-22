@@ -42,6 +42,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -266,7 +267,7 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
         try {
             node.createCache(ccfg1);
 
-            fail("In memory evictions should be disabled for MVCC caches.");
+            Assert.fail("In memory evictions should be disabled for MVCC caches.");
         }
         catch (Exception e) {
             assertTrue(X.getFullStackTrace(e).contains("Data pages evictions cannot be used with TRANSACTIONAL_SNAPSHOT"));
@@ -372,7 +373,7 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
             try {
                 node.getOrCreateCache(ccfg);
 
-                fail("Cache should not start.");
+                Assert.fail("Cache should not start.");
             }
             catch (Exception e) {
                 if (msg != null) {

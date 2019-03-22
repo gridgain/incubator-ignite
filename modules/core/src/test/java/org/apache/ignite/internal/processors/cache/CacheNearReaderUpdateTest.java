@@ -46,6 +46,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionOptimisticException;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -181,7 +182,7 @@ public class CacheNearReaderUpdateTest extends GridCommonAbstractTest {
         final List<Ignite> getNodes,
         final TransactionConcurrency concurrency,
         final TransactionIsolation isolation) throws Exception {
-        fail("https://issues.apache.org/jira/browse/IGNITE-627");
+        Assert.fail("https://issues.apache.org/jira/browse/IGNITE-627");
 
         log.info("Execute updates [concurrency=" + concurrency + ", isolation=" + isolation + ']');
 

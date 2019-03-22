@@ -69,6 +69,7 @@ import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionDuplicateKeyException;
 import org.apache.ignite.transactions.TransactionSerializationException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -285,7 +286,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
             try {
                 try (FieldsQueryCursor<List<?>> cur = cache.query(qry)) {
-                    fail("We should not get there.");
+                    Assert.fail("We should not get there.");
                 }
             }
             catch (CacheException ex){
@@ -1422,7 +1423,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
         catch (Exception e) {
             e.printStackTrace();
 
-            fail("Exception is not expected here");
+            Assert.fail("Exception is not expected here");
         }
     }
 
@@ -1453,7 +1454,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
         catch (Exception e) {
             e.printStackTrace();
 
-            fail("Exception is not expected here");
+            Assert.fail("Exception is not expected here");
         }
     }
 
@@ -1485,7 +1486,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
         catch (Exception e) {
             e.printStackTrace();
 
-            fail("Exception is not expected here");
+            Assert.fail("Exception is not expected here");
         }
     }
 

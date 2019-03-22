@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import org.apache.ignite.IgniteSpringBean;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -49,7 +50,7 @@ public class IgniteSpringBeanTest extends GridCommonAbstractTest {
         try {
             bean.compute();
 
-            fail("Failed as Ignite should not have been initialized");
+            Assert.fail("Failed as Ignite should not have been initialized");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);

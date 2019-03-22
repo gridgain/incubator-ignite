@@ -58,7 +58,9 @@ import org.apache.ignite.services.Service;
 import org.apache.ignite.services.ServiceConfiguration;
 import org.apache.ignite.services.ServiceContext;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.GridAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -134,7 +136,7 @@ public class GridCacheRebalancingOrderingTest extends GridCommonAbstractTest {
 
     /**
      * @return service configuration for services used in test cluster
-     * @see #getConfiguration()
+     * @see GridAbstractTest#getConfiguration(String)
      */
     private ServiceConfiguration getServiceConfiguration() {
         ServiceConfiguration cfg = new ServiceConfiguration();
@@ -149,7 +151,7 @@ public class GridCacheRebalancingOrderingTest extends GridCommonAbstractTest {
 
     /**
      * @return Cache configuration used by test.
-     * @see #getConfiguration().
+     * @see GridAbstractTest#getConfiguration(String) .
      */
     protected CacheConfiguration<IntegerKey, Integer> getCacheConfiguration() {
         CacheConfiguration<IntegerKey, Integer> cfg = new CacheConfiguration<>(DEFAULT_CACHE_NAME);
@@ -338,7 +340,7 @@ public class GridCacheRebalancingOrderingTest extends GridCommonAbstractTest {
 
             if (!failures.isEmpty()) {
                 X.println("*** Key validation failed for partitions: " + failures);
-                fail("https://issues.apache.org/jira/browse/IGNITE-3456");
+                Assert.fail("https://issues.apache.org/jira/browse/IGNITE-3456");
             }
             else if (!retries.isEmpty()) {
                 X.println("*** Key validation requires a retry for partitions: " + retries);

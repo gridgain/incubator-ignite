@@ -48,6 +48,7 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionHeuristicException;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -116,7 +117,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
         if (tx != null) {
             tx.close();
 
-            fail("Cache transaction remained after test completion: " + tx);
+            Assert.fail("Cache transaction remained after test completion: " + tx);
         }
 
         for (int key = 0; key <= lastKey; key++)
@@ -380,7 +381,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
                 tx.commit();
             }
 
-            fail("Transaction should fail.");
+            Assert.fail("Transaction should fail.");
         }
         catch (Exception e) {
             assertTrue("Unexptected exception " + X.getFullStackTrace(e), e instanceof TransactionHeuristicException);

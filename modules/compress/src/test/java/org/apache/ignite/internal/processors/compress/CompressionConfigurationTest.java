@@ -24,6 +24,7 @@ import org.apache.ignite.configuration.DiskPageCompression;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.configuration.DiskPageCompression.LZ4;
@@ -92,7 +93,7 @@ public class CompressionConfigurationTest extends GridCommonAbstractTest {
         try {
             startGrid();
 
-            fail("Exception expected.");
+            Assert.fail("Exception expected.");
         }
         catch (IgniteCheckedException e) {
             if (compression1 != compression2)
@@ -100,7 +101,7 @@ public class CompressionConfigurationTest extends GridCommonAbstractTest {
             else if (!Objects.equals(level1, level2))
                 assertTrue(e.getCause().getMessage().startsWith("Disk page compression level mismatch"));
             else
-                fail(X.getFullStackTrace(e));
+                Assert.fail(X.getFullStackTrace(e));
         }
     }
 }

@@ -51,6 +51,7 @@ import org.apache.ignite.internal.processors.query.schema.SchemaOperationExcepti
 import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.IgniteClientReconnectAbstractTest.TestTcpDiscoverySpi;
@@ -474,7 +475,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
         try {
             idxFut.get();
 
-            fail("Exception has not been thrown.");
+            Assert.fail("Exception has not been thrown.");
         }
         catch (SchemaOperationException e) {
             // No-op.
@@ -529,7 +530,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                         // No-op.
                     }
                     catch (Exception e) {
-                        fail("Unexpected exception: " + e);
+                        Assert.fail("Unexpected exception: " + e);
                     }
                 }
 
@@ -606,7 +607,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                         // No-op.
                     }
                     catch (Exception e) {
-                        fail("Unexpected exception: " + e);
+                        Assert.fail("Unexpected exception: " + e);
                     }
                 }
 
@@ -855,7 +856,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                         // No-op.
                     }
                     catch (Exception e) {
-                        fail("Unexpected exception: " + e);
+                        Assert.fail("Unexpected exception: " + e);
                     }
                 }
 
@@ -957,7 +958,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                         // No-op.
                     }
                     catch (Exception e) {
-                        fail("Unexpected exception: " + e);
+                        Assert.fail("Unexpected exception: " + e);
                     }
                 }
 

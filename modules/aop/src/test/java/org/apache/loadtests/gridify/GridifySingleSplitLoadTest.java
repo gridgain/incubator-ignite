@@ -31,6 +31,7 @@ import org.apache.ignite.testframework.config.GridTestProperties;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.apache.log4j.Level;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -52,9 +53,10 @@ public class GridifySingleSplitLoadTest extends GridCommonAbstractTest {
     }
 
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration();
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         /* Uncomment following code if you start it manually. */
             CommunicationSpi commSpi = new TcpCommunicationSpi();
@@ -126,7 +128,7 @@ public class GridifySingleSplitLoadTest extends GridCommonAbstractTest {
                     int res = new GridifyLoadTestJobTarget().executeLoadTestJob(exp);
 
                     if (res != exp)
-                        fail("Received wrong result [expected=" + exp + ", actual=" + res + ']');
+                        Assert.fail("Received wrong result [expected=" + exp + ", actual=" + res + ']');
 
                     long taskCnt = stats.onTaskCompleted(null, exp, System.currentTimeMillis() - start);
 

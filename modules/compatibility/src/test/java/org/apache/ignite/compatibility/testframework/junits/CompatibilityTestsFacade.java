@@ -33,14 +33,15 @@ public class CompatibilityTestsFacade {
      * @throws Exception In case of an error.
      */
     public static IgniteConfiguration getConfiguration() throws Exception {
-        return DELEGATE.getConfiguration();
+        return DELEGATE.getConfiguration(igniteInstanceName);
     }
 
     /** */
     private static class TestsMethodsFacade extends IgniteCompatibilityAbstractTest {
-        /** {@inheritDoc} */
-        @Override public IgniteConfiguration getConfiguration() throws Exception {
-            return super.getConfiguration();
+        /** {@inheritDoc}
+         * @param igniteInstanceName*/
+        @Override public IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+            return super.getConfiguration(igniteInstanceName);
         }
     }
 }

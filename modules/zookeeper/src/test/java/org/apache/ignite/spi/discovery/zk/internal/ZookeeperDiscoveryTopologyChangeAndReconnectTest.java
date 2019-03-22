@@ -49,6 +49,7 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZKUtil;
 import org.apache.zookeeper.ZkTestClientCnxnSocketNIO;
 import org.apache.zookeeper.ZooKeeper;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -265,7 +266,7 @@ public class ZookeeperDiscoveryTopologyChangeAndReconnectTest extends ZookeeperD
                     catch (Exception e) {
                         error("Unexpected error: " + e, e);
 
-                        fail("Unexpected error: " + e);
+                        Assert.fail("Unexpected error: " + e);
                     }
 
                     return false;

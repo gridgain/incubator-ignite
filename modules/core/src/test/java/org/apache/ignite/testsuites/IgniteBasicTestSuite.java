@@ -221,11 +221,11 @@ import org.junit.runners.Suite;
 
     ConsistentIdImplicitlyExplicitlyTest.class,
 
-        // Tests against configuration variations framework.
-        ParametersTest.class,
-        VariationsIteratorTest.class,
-        NotStringSystemPropertyTest.class,
-        ConfigVariationsTestSuiteBuilderTest.class,
+    // Tests against configuration variations framework.
+    ParametersTest.class,
+    VariationsIteratorTest.class,
+    NotStringSystemPropertyTest.class,
+    ConfigVariationsTestSuiteBuilderTest.class,
 })
 public class IgniteBasicTestSuite {
 }

@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
@@ -28,9 +29,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
-import java.net.ServerSocket;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
@@ -42,7 +40,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,6 +80,7 @@ import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.client.ssl.GridSslBasicContextFactory;
 import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
@@ -111,12 +109,12 @@ import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
 import org.apache.ignite.spi.discovery.DiscoverySpiListener;
 import org.apache.ignite.ssl.SslContextFactory;
 import org.apache.ignite.testframework.config.GridTestProperties;
-import org.apache.ignite.testframework.junits.GridAbstractTest;
 import org.apache.ignite.testframework.junits.multijvm.IgniteCacheProcessProxy;
 import org.apache.ignite.testframework.junits.multijvm.IgniteNodeRunner;
 import org.apache.ignite.testframework.junits.multijvm.IgniteProcessProxy;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 import static org.junit.Assert.assertNotNull;
 
@@ -163,7 +161,7 @@ public final class GridTestUtils {
      * @param proxy Ignite.
      * @param job Job.
      */
-    public static <R> R executeRemotely(IgniteProcessProxy proxy, final GridAbstractTest.TestIgniteCallable<R> job) {
+    public static <R> R executeRemotely(IgniteProcessProxy proxy, final TestIgniteCallable<R> job) {
         return proxy.remoteCompute().call(new TestRemoteTask<>(proxy.getId(), job));
     }
 
@@ -177,6 +175,29 @@ public final class GridTestUtils {
         catch (Exception e) {
             throw new IgniteException(e);
         }
+    }
+
+    /**
+     * @param node Node.
+     * @param cacheName Cache name.
+     * @return Cache group ID for given cache name.
+     */
+    public static final int groupIdForCache(Ignite node, String cacheName) {
+        for (CacheGroupContext grp : ((IgniteKernal)node).context().cache().cacheGroups()) {
+            if (grp.hasCache(cacheName))
+                return grp.groupId();
+        }
+
+        Assert.fail("Failed to find group for cache: " + cacheName);
+
+        return 0;
+    }
+
+    /**
+     * @return {@code True} if system property -DDEBUG is set.
+     */
+    public static boolean isDebugMode() {
+        return System.getProperty("DEBUG") != null;
     }
 
     /**
@@ -242,48 +263,6 @@ public final class GridTestUtils {
     public static final class SF extends ScaleFactorUtil {
 
     }
-
-    /** */
-    private static final Map<Class<?>, String> addrs = new HashMap<>();
-
-    /** */
-    private static final Map<Class<? extends GridAbstractTest>, Integer> mcastPorts = new HashMap<>();
-
-    /** */
-    private static final Map<Class<? extends GridAbstractTest>, Integer> discoPorts = new HashMap<>();
-
-    /** */
-    private static final Map<Class<? extends GridAbstractTest>, Integer> commPorts = new HashMap<>();
-
-    /** */
-    private static int[] addr;
-
-    /** */
-    private static final int default_mcast_port = 50000;
-
-    /** */
-    private static final int max_mcast_port = 54999;
-
-    /** */
-    private static final int default_comm_port = 45000;
-
-    /** */
-    private static final int max_comm_port = 49999;
-
-    /** */
-    private static final int default_disco_port = 55000;
-
-    /** */
-    private static final int max_disco_port = 59999;
-
-    /** */
-    private static int mcastPort = default_mcast_port;
-
-    /** */
-    private static int discoPort = default_disco_port;
-
-    /** */
-    private static int commPort = default_comm_port;
 
     /** */
     private static final GridBusyLock busyLock = new GridBusyLock();
@@ -654,167 +633,6 @@ public final class GridTestUtils {
     }
 
     /**
-     * Every invocation of this method will never return a
-     * repeating multicast port for a different test case.
-     *
-     * @param cls Class.
-     * @return Next multicast port.
-     */
-    public static synchronized int getNextMulticastPort(Class<? extends GridAbstractTest> cls) {
-        Integer portRet = mcastPorts.get(cls);
-
-        if (portRet != null)
-            return portRet;
-
-        int startPort = mcastPort;
-
-        while (true) {
-            if (mcastPort >= max_mcast_port)
-                mcastPort = default_mcast_port;
-            else
-                mcastPort++;
-
-            if (startPort == mcastPort)
-                break;
-
-            portRet = mcastPort;
-
-            MulticastSocket sock = null;
-
-            try {
-                sock = new MulticastSocket(portRet);
-
-                break;
-            }
-            catch (IOException ignored) {
-                // No-op.
-            }
-            finally {
-                U.closeQuiet(sock);
-            }
-        }
-
-        // Cache port to be reused by the same test.
-        mcastPorts.put(cls, portRet);
-
-        return portRet;
-    }
-
-    /**
-     * Every invocation of this method will never return a
-     * repeating communication port for a different test case.
-     *
-     * @param cls Class.
-     * @return Next communication port.
-     */
-    public static synchronized int getNextCommPort(Class<? extends GridAbstractTest> cls) {
-        Integer portRet = commPorts.get(cls);
-
-        if (portRet != null)
-            return portRet;
-
-        if (commPort >= max_comm_port)
-            commPort = default_comm_port;
-        else
-            // Reserve 10 ports per test.
-            commPort += 10;
-
-        portRet = commPort;
-
-        // Cache port to be reused by the same test.
-        commPorts.put(cls, portRet);
-
-        return portRet;
-    }
-
-    /**
-     * Every invocation of this method will never return a
-     * repeating discovery port for a different test case.
-     *
-     * @param cls Class.
-     * @return Next discovery port.
-     */
-    public static synchronized int getNextDiscoPort(Class<? extends GridAbstractTest> cls) {
-        Integer portRet = discoPorts.get(cls);
-
-        if (portRet != null)
-            return portRet;
-
-        if (discoPort >= max_disco_port)
-            discoPort = default_disco_port;
-        else
-            discoPort += 10;
-
-        portRet = discoPort;
-
-        // Cache port to be reused by the same test.
-        discoPorts.put(cls, portRet);
-
-        return portRet;
-    }
-
-    /**
-     * @return Free communication port number on localhost.
-     * @throws IOException If unable to find a free port.
-     */
-    public static int getFreeCommPort() throws IOException {
-        for (int port = default_comm_port; port < max_comm_port; port++) {
-            try (ServerSocket sock = new ServerSocket(port)) {
-                return sock.getLocalPort();
-            }
-            catch (IOException ignored) {
-                // No-op.
-            }
-        }
-
-        throw new IOException("Unable to find a free communication port.");
-    }
-
-    /**
-     * Every invocation of this method will never return a
-     * repeating multicast group for a different test case.
-     *
-     * @param cls Class.
-     * @return Next multicast group.
-     */
-    public static synchronized String getNextMulticastGroup(Class<?> cls) {
-        String addrStr = addrs.get(cls);
-
-        if (addrStr != null)
-            return addrStr;
-
-        // Increment address.
-        if (addr[3] == 255) {
-            if (addr[2] == 255)
-                assert false;
-            else {
-                addr[2] += 1;
-
-                addr[3] = 1;
-            }
-        }
-        else
-            addr[3] += 1;
-
-        // Convert address to string.
-        StringBuilder b = new StringBuilder(15);
-
-        for (int i = 0; i < addr.length; i++) {
-            b.append(addr[i]);
-
-            if (i < addr.length - 1)
-                b.append('.');
-        }
-
-        addrStr = b.toString();
-
-        // Cache address to be reused by the same test.
-        addrs.put(cls, addrStr);
-
-        return addrStr;
-    }
-
-    /**
      * Runs runnable object in specified number of threads.
      *
      * @param run Target runnable.
@@ -1134,33 +952,6 @@ public final class GridTestUtils {
         }
 
         return null;
-    }
-
-    /**
-     * Initializes address.
-     */
-    static {
-        InetAddress locHost = null;
-
-        try {
-            locHost = U.getLocalHost();
-        }
-        catch (IOException e) {
-            assert false : "Unable to get local address. This leads to the same multicast addresses " +
-                "in the local network.";
-        }
-
-        if (locHost != null) {
-            int thirdByte = locHost.getAddress()[3];
-
-            if (thirdByte < 0)
-                thirdByte += 256;
-
-            // To get different addresses for different machines.
-            addr = new int[] {229, thirdByte, 1, 1};
-        }
-        else
-            addr = new int[] {229, 1, 1, 1};
     }
 
     /**
@@ -2212,6 +2003,14 @@ public final class GridTestUtils {
         }
     }
 
+    /** */
+    public static interface TestIgniteCallable<R> extends Serializable {
+        /**
+         * @param ignite Ignite.
+         */
+        R call(Ignite ignite) throws Exception;
+    }
+
     /**
      * Remote computation task.
      */
@@ -2223,13 +2022,13 @@ public final class GridTestUtils {
         private final UUID id;
 
         /** Job. */
-        private final GridAbstractTest.TestIgniteCallable<R> job;
+        private final TestIgniteCallable<R> job;
 
         /**
          * @param id Id.
          * @param job Job.
          */
-        public TestRemoteTask(UUID id, GridAbstractTest.TestIgniteCallable<R> job) {
+        public TestRemoteTask(UUID id, TestIgniteCallable<R> job) {
             this.id = id;
             this.job = job;
         }

@@ -30,6 +30,7 @@ import org.apache.ignite.cache.query.QueryCancelledException;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.LOCAL;
@@ -145,7 +146,7 @@ public class IgniteCacheLocalQueryCancelOrTimeoutSelfTest extends GridCommonAbst
         try(QueryCursor<List<?>> ignored = cursor) {
             cursor.iterator();
 
-            fail("Expecting timeout");
+            Assert.fail("Expecting timeout");
         }
         catch (Exception e) {
             assertNotNull("Must throw correct exception", X.cause(e, QueryCancelledException.class));

@@ -94,10 +94,11 @@ public class GridCacheWriteBehindStoreLoadTest extends GridCommonAbstractTest {
         return CacheMode.PARTITIONED;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
     @SuppressWarnings({"unchecked"})
-    @Override protected final IgniteConfiguration getConfiguration() throws Exception {
-        IgniteConfiguration c = super.getConfiguration();
+    @Override protected final IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration c = super.getConfiguration(igniteInstanceName);
 
         TcpDiscoverySpi disco = new TcpDiscoverySpi();
 

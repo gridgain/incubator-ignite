@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.transactions.TransactionDuplicateKeyException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CachePeekMode.BACKUP;
@@ -123,7 +124,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
                     else {
                         e.printStackTrace();
 
-                        fail("Unexpected exceptions");
+                        Assert.fail("Unexpected exceptions");
                     }
                 }
             },
@@ -304,7 +305,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
             else {
                 e.printStackTrace();
 
-                fail("Unexpected exception");
+                Assert.fail("Unexpected exception");
             }
         }
 

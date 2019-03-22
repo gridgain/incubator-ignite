@@ -28,6 +28,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheMapEntry;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -83,7 +84,7 @@ public class IgnitePartitionedQueueNoBackupsTest extends GridCachePartitionedQue
                 if (setNodeId == null)
                     setNodeId = grid.localNode().id();
                 else
-                    fail("For collocated queue all items should be stored on single node.");
+                    Assert.fail("For collocated queue all items should be stored on single node.");
             }
         }
     }}

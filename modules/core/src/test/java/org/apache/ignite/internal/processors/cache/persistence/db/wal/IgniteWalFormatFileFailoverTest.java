@@ -41,6 +41,7 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.FileWriteAhea
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -202,7 +203,7 @@ public class IgniteWalFormatFileFailoverTest extends GridCommonAbstractTest {
         if (wal instanceof FileWriteAheadLogManager)
             ((FileWriteAheadLogManager)wal).setFileIOFactory(new FailingFileIOFactory(failMtdNameRef));
         else
-            fail(wal.getClass().toString());
+            Assert.fail(wal.getClass().toString());
     }
 
     /**

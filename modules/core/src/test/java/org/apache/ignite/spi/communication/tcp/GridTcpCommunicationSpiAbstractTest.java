@@ -35,7 +35,9 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiAdapter;
 import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.GridAbstractCommunicationSelfTest;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -65,7 +67,7 @@ abstract class GridTcpCommunicationSpiAbstractTest extends GridAbstractCommunica
         if (!useShmem)
             spi.setSharedMemoryPort(-1);
 
-        spi.setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+        spi.setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
         spi.setIdleConnectionTimeout(IDLE_CONN_TIMEOUT);
         spi.setTcpNoDelay(tcpNoDelay());
 
@@ -194,7 +196,7 @@ abstract class GridTcpCommunicationSpiAbstractTest extends GridAbstractCommunica
                 U.sleep(1000);
             }
 
-            fail("Failed to wait when clients are closed.");
+            Assert.fail("Failed to wait when clients are closed.");
         }
     }
 }

@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.TopologyValidator;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -119,7 +120,7 @@ public abstract class IgniteTopologyValidatorAbstractCacheTest extends IgniteCac
             for (Ignite node : nodes)
                 node.cache(cacheName).put(KEY_VAL, KEY_VAL);
 
-            fail("Topology validation broken");
+            Assert.fail("Topology validation broken");
         }
         catch (CacheException ex) {
             assert ex.getCause() instanceof IgniteCheckedException &&
@@ -177,7 +178,7 @@ public abstract class IgniteTopologyValidatorAbstractCacheTest extends IgniteCac
             for (Ignite node : nodes)
                 node.cache(cacheName).remove(KEY_VAL);
 
-            fail("Topology validation broken");
+            Assert.fail("Topology validation broken");
         }
         catch (CacheException ex) {
             assert ex.getCause() instanceof IgniteCheckedException &&

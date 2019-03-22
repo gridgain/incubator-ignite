@@ -54,6 +54,7 @@ import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.util.AttributeNodeFilter;
+import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
@@ -506,7 +507,7 @@ public abstract class IgniteCacheDistributedPartitionQueryAbstractSelfTest exten
                 if (regionId != UNMAPPED_REGION) {
                     e.printStackTrace(System.err);
 
-                    fail("Unexpected exception (see details above): " + e.getMessage());
+                    Assert.fail("Unexpected exception (see details above): " + e.getMessage());
                 }
             }
         }

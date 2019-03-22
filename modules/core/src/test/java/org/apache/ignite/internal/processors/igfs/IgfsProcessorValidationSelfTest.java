@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -161,7 +162,7 @@ public class IgfsProcessorValidationSelfTest extends IgfsCommonAbstractTest {
         try {
             g1IgfsCfg1.setName(null);
 
-            fail("IGFS name cannot be null");
+            Assert.fail("IGFS name cannot be null");
         }
         catch (IllegalArgumentException e) {
             // No-op.
@@ -364,7 +365,7 @@ public class IgfsProcessorValidationSelfTest extends IgfsCommonAbstractTest {
         try {
             G.start(cfg);
 
-            fail("No exception has been thrown.");
+            Assert.fail("No exception has been thrown.");
         }
         catch (IgniteException e) {
             if (testLoc) {

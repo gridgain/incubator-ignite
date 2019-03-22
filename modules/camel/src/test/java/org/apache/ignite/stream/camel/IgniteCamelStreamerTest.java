@@ -56,6 +56,7 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.stream.StreamMultipleTupleExtractor;
 import org.apache.ignite.stream.StreamSingleTupleExtractor;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
@@ -280,7 +281,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
         // Action time.
         try {
             streamer.start();
-            fail("Streamer started; should have failed.");
+            Assert.fail("Streamer started; should have failed.");
         }
         catch (IgniteException ignored) {
             assertTrue(streamer.getCamelContext().getStatus() == ServiceStatus.Stopped);

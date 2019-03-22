@@ -29,6 +29,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.services.ServiceConfiguration;
 import org.apache.ignite.services.ServiceDeploymentException;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /** */
@@ -81,7 +82,7 @@ public class GridServiceDeploymentCompoundFutureSelfTest extends GridCommonAbstr
         try {
             compFut.get(100);
 
-            fail("Should never reach here.");
+            Assert.fail("Should never reach here.");
         }
         catch (IgniteFutureTimeoutCheckedException e) {
             log.info("Expected exception: " + e.getMessage());
@@ -93,7 +94,7 @@ public class GridServiceDeploymentCompoundFutureSelfTest extends GridCommonAbstr
         try {
             compFut.get();
 
-            fail("Should never reach here.");
+            Assert.fail("Should never reach here.");
         }
         catch (IgniteCheckedException ce) {
             log.info("Expected exception: " + ce.getMessage());

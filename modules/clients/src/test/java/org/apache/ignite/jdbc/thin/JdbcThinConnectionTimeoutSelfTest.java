@@ -32,6 +32,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -242,7 +243,7 @@ public class JdbcThinConnectionTimeoutSelfTest extends JdbcThinAbstractSelfTest 
                 catch (Exception e) {
                     log.error("Unexpected exception.", e);
 
-                    fail("Unexpected exception");
+                    Assert.fail("Unexpected exception");
                 }
             });
 
@@ -258,7 +259,7 @@ public class JdbcThinConnectionTimeoutSelfTest extends JdbcThinAbstractSelfTest 
             catch (Exception e) {
                 log.error("Unexpected exception.", e);
 
-                fail("Unexpected exception");
+                Assert.fail("Unexpected exception");
             }
         });
     }

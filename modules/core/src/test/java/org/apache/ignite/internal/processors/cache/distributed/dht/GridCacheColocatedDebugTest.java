@@ -46,6 +46,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -411,7 +412,7 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
                         }
                     }
                     catch (IgniteCheckedException e) {
-                        fail("Unexpected exception: " + e);
+                        Assert.fail("Unexpected exception: " + e);
                     }
 
                 }

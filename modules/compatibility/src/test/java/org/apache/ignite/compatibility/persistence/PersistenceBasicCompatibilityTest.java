@@ -35,9 +35,9 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.PersistentStoreConfiguration;
 import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.processors.cache.GridCacheAbstractFullApiSelfTest;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.junit.Test;
 
 /**
@@ -257,7 +257,7 @@ public class PersistenceBasicCompatibilityTest extends IgnitePersistenceCompatib
             cfg.setLocalHost("127.0.0.1");
 
             TcpDiscoverySpi disco = new TcpDiscoverySpi();
-            disco.setIpFinder(GridCacheAbstractFullApiSelfTest.LOCAL_IP_FINDER);
+            disco.setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
 
             cfg.setDiscoverySpi(disco);
 

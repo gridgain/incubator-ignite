@@ -45,6 +45,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.apache.ignite.transactions.TransactionTimeoutException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.util.typedef.X.hasCause;
@@ -284,7 +285,7 @@ public class SetTxTimeoutOnPartitionMapExchangeTest extends GridCommonAbstractTe
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         if (!mbeanSrv.isRegistered(mbeanName))
-            fail("MBean is not registered: " + mbeanName.getCanonicalName());
+            Assert.fail("MBean is not registered: " + mbeanName.getCanonicalName());
 
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, TransactionsMXBean.class, true);
     }

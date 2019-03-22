@@ -48,6 +48,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -249,7 +250,7 @@ public abstract class IgniteWalFlushMultiNodeFailoverAbstractSelfTest extends Gr
         if (wal instanceof FileWriteAheadLogManager)
             ((FileWriteAheadLogManager)wal).setFileIOFactory(new FailingFileIOFactory(canFail));
         else
-            fail(wal.getClass().toString());
+            Assert.fail(wal.getClass().toString());
     }
 
     /**

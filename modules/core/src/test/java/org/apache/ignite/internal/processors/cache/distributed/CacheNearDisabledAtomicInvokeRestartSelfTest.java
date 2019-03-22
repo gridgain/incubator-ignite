@@ -36,6 +36,7 @@ import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -115,7 +116,7 @@ public class CacheNearDisabledAtomicInvokeRestartSelfTest extends CacheAbstractR
 
             }
 
-            fail("Cache and local map are in inconsistent state [badKeys=" + badCacheEntries.keySet() + ']');
+            Assert.fail("Cache and local map are in inconsistent state [badKeys=" + badCacheEntries.keySet() + ']');
         }
 
         log.info("Clearing all data.");

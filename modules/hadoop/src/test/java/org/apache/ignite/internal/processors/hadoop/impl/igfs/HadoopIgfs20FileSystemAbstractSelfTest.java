@@ -80,6 +80,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -1197,7 +1198,7 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
         try {
             fs.rename(srcDir, dstDir);
 
-            fail("FileAlreadyExistsException expected.");
+            Assert.fail("FileAlreadyExistsException expected.");
         }
         catch (FileAlreadyExistsException ignore) {
             // No-op.

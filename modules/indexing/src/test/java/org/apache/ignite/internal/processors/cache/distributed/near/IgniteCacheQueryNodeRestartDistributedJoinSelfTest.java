@@ -32,6 +32,7 @@ import org.apache.ignite.internal.util.typedef.CAX;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SQL_RETRY_TIMEOUT;
@@ -183,7 +184,7 @@ public class IgniteCacheQueryNodeRestartDistributedJoinSelfTest extends IgniteCa
                                 if (!failedOnRemoteFetch) {
                                     e.printStackTrace();
 
-                                    fail("Must fail inside of GridResultPage.fetchNextPage or subclass.");
+                                    Assert.fail("Must fail inside of GridResultPage.fetchNextPage or subclass.");
                                 }
                             }
                         }
@@ -274,7 +275,7 @@ public class IgniteCacheQueryNodeRestartDistributedJoinSelfTest extends IgniteCa
         fut1.get();
 
         if (fail.get())
-            fail("See message above");
+            Assert.fail("See message above");
 
         info("Stopped.");
     }

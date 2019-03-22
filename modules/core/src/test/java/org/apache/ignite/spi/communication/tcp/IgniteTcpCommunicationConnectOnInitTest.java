@@ -44,6 +44,7 @@ import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -171,7 +172,7 @@ public class IgniteTcpCommunicationConnectOnInitTest extends GridCommonAbstractT
             }
         }
 
-        fail("Failed to start server.");
+        Assert.fail("Failed to start server.");
 
         return null;
     }

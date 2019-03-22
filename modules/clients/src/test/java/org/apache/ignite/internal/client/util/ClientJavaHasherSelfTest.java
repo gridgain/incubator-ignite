@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -82,6 +83,6 @@ public class ClientJavaHasherSelfTest extends GridCommonAbstractTest {
         if (ok)
             return;
 
-        fail("Java hash codes validation fails.");
+        Assert.fail("Java hash codes validation fails.");
     }
 }

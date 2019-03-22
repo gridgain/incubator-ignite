@@ -17,12 +17,14 @@
 
 package org.apache.ignite.session;
 
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.binary.BinaryCachingMetadataHandler;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.binary.BinaryContext;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.NullLogger;
 import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.marshaller.MarshallerContextTestImpl;
@@ -43,11 +45,7 @@ public class GridSessionCheckpointSelfTest extends GridSessionCheckpointAbstract
      */
     @Test
     public void testSharedFsCheckpoint() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
-
-        cfg.setCheckpointSpi(spi = new SharedFsCheckpointSpi());
-
-        checkCheckpoints(cfg);
+        checkCheckpoints((cfg) -> cfg.setCheckpointSpi(spi = new SharedFsCheckpointSpi()));
     }
 
     /**
@@ -55,28 +53,28 @@ public class GridSessionCheckpointSelfTest extends GridSessionCheckpointAbstract
      */
     @Test
     public void testJdbcCheckpoint() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        checkCheckpoints((cfg) -> {
+            jdbcDataSource ds = new jdbcDataSource();
 
-        jdbcDataSource ds = new jdbcDataSource();
+            ds.setDatabase("jdbc:hsqldb:mem:gg_test");
+            ds.setUser("sa");
+            ds.setPassword("");
 
-        ds.setDatabase("jdbc:hsqldb:mem:gg_test");
-        ds.setUser("sa");
-        ds.setPassword("");
+            JdbcCheckpointSpi spi = new JdbcCheckpointSpi();
 
-        JdbcCheckpointSpi spi = new JdbcCheckpointSpi();
+            spi.setDataSource(ds);
+            spi.setCheckpointTableName("checkpoints");
+            spi.setKeyFieldName("key");
+            spi.setValueFieldName("value");
+            spi.setValueFieldType("longvarbinary");
+            spi.setExpireDateFieldName("create_date");
 
-        spi.setDataSource(ds);
-        spi.setCheckpointTableName("checkpoints");
-        spi.setKeyFieldName("key");
-        spi.setValueFieldName("value");
-        spi.setValueFieldType("longvarbinary");
-        spi.setExpireDateFieldName("create_date");
+            GridSessionCheckpointSelfTest.spi = spi;
 
-        GridSessionCheckpointSelfTest.spi = spi;
+            cfg.setCheckpointSpi(spi);
 
-        cfg.setCheckpointSpi(spi);
-
-        checkCheckpoints(cfg);
+            return cfg;
+        });
     }
 
     /**
@@ -84,34 +82,39 @@ public class GridSessionCheckpointSelfTest extends GridSessionCheckpointAbstract
      */
     @Test
     public void testCacheCheckpoint() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        checkCheckpoints((cfg) -> {
+            String cacheName = "test-checkpoints";
 
-        String cacheName = "test-checkpoints";
+            CacheConfiguration cacheCfg = defaultCacheConfiguration();
 
-        CacheConfiguration cacheCfg = defaultCacheConfiguration();
+            cacheCfg.setName(cacheName);
 
-        cacheCfg.setName(cacheName);
+            CacheCheckpointSpi spi = new CacheCheckpointSpi();
 
-        CacheCheckpointSpi spi = new CacheCheckpointSpi();
+            spi.setCacheName(cacheName);
 
-        spi.setCacheName(cacheName);
+            cfg.setCacheConfiguration(cacheCfg);
 
-        cfg.setCacheConfiguration(cacheCfg);
+            cfg.setCheckpointSpi(spi);
 
-        cfg.setCheckpointSpi(spi);
+            if (cfg.getMarshaller() instanceof BinaryMarshaller) {
+                BinaryContext ctx = new BinaryContext(BinaryCachingMetadataHandler.create(), cfg, new NullLogger());
 
-        if (cfg.getMarshaller() instanceof BinaryMarshaller) {
-            BinaryContext ctx = new BinaryContext(BinaryCachingMetadataHandler.create(), cfg, new NullLogger());
+                Marshaller marsh = cfg.getMarshaller();
 
-            Marshaller marsh = cfg.getMarshaller();
+                marsh.setContext(new MarshallerContextTestImpl(null));
 
-            marsh.setContext(new MarshallerContextTestImpl(null));
+                try {
+                    IgniteUtils.invoke(BinaryMarshaller.class, marsh, "setBinaryContext", ctx, cfg);
+                }
+                catch (IgniteCheckedException e) {
+                    throw U.convertException(e);
+                }
+            }
 
-            IgniteUtils.invoke(BinaryMarshaller.class, marsh, "setBinaryContext", ctx, cfg);
-        }
+            GridSessionCheckpointSelfTest.spi = spi;
 
-        GridSessionCheckpointSelfTest.spi = spi;
-
-        checkCheckpoints(cfg);
+            return cfg;
+        });
     }
 }

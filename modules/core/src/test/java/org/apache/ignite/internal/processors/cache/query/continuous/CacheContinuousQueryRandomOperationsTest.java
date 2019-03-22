@@ -74,6 +74,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -598,7 +599,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
                 initQueryWithTransformer(
                     (ContinuousQueryWithTransformer<QueryTestKey, QueryTestValue, CacheEntryEvent>)qry, evts);
             else
-                fail("Unknown query type");
+                Assert.fail("Unknown query type");
 
             QueryTestKey key = new QueryTestKey(1);
 
@@ -736,7 +737,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
                 initQueryWithTransformer(
                     (ContinuousQueryWithTransformer<QueryTestKey, QueryTestValue, CacheEntryEvent>)qry, evts);
             else
-                fail("Unknown query type");
+                Assert.fail("Unknown query type");
 
             Map<QueryTestKey, QueryTestValue> map = new TreeMap<>();
 
@@ -1089,7 +1090,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
                     initQueryWithTransformer(
                         (ContinuousQueryWithTransformer<Object, Object, CacheEntryEvent>)qry, evtsQueue);
                 else
-                    fail("Unknown query type");
+                    Assert.fail("Unknown query type");
 
                 evtsQueues.add(evtsQueue);
 
@@ -1114,7 +1115,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
                     initQueryWithTransformer(
                         (ContinuousQueryWithTransformer<Object, Object, CacheEntryEvent>)qry, evtsQueue);
                 else
-                    fail("Unknown query type");
+                    Assert.fail("Unknown query type");
 
                 evtsQueues.add(evtsQueue);
 
@@ -1140,7 +1141,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
                         initQueryWithTransformer(
                             (ContinuousQueryWithTransformer<Object, Object, CacheEntryEvent>)qry, evtsQueue);
                     else
-                        fail("Unknown query type");
+                        Assert.fail("Unknown query type");
 
                     evtsQueues.add(evtsQueue);
 
@@ -1483,7 +1484,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
                 }
 
                 default:
-                    fail("Op:" + op);
+                    Assert.fail("Op:" + op);
             }
         } finally {
             if (tx != null)

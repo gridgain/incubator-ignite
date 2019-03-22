@@ -21,6 +21,7 @@ import org.apache.ignite.internal.processors.resource.GridResourceProcessor;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -66,7 +67,7 @@ public class GridJobMetricsProcessorLoadTest extends GridCommonAbstractTest {
                         ctx.jobMetric().addSnapshot(new GridJobMetricsSnapshot());
                 }
                 catch (Exception e) {
-                    fail(e.getMessage());
+                    Assert.fail(e.getMessage());
                 }
             }
         }, THREADS_CNT, "grid-job-metrics-test");
@@ -81,7 +82,7 @@ public class GridJobMetricsProcessorLoadTest extends GridCommonAbstractTest {
                         ctx.jobMetric().addSnapshot(new GridJobMetricsSnapshot());
                 }
                 catch (Exception e) {
-                    fail(e.getMessage());
+                    Assert.fail(e.getMessage());
                 }
             }
         }, THREADS_CNT, "grid-job-metrics-test");

@@ -36,6 +36,7 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -63,7 +64,7 @@ public class GridCacheRabalancingDelayedPartitionMapExchangeSelfTest extends Gri
 
         TcpCommunicationSpi commSpi = new DelayableCommunicationSpi();
 
-        commSpi.setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+        commSpi.setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
         commSpi.setTcpNoDelay(true);
 
         iCfg.setCommunicationSpi(commSpi);

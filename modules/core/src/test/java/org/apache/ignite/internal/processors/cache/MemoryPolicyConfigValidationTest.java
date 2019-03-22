@@ -21,6 +21,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.MemoryConfiguration;
 import org.apache.ignite.configuration.MemoryPolicyConfiguration;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -104,7 +105,7 @@ public class MemoryPolicyConfigValidationTest extends GridCommonAbstractTest {
                 break;
 
             default:
-                fail("Violation type was not configured: " + violationType);
+                Assert.fail("Violation type was not configured: " + violationType);
         }
 
         memCfg.setMemoryPolicies(plcs);
@@ -357,7 +358,7 @@ public class MemoryPolicyConfigValidationTest extends GridCommonAbstractTest {
             return;
         }
 
-        fail("Expected exception hasn't been thrown");
+        Assert.fail("Expected exception hasn't been thrown");
     }
 
     /**

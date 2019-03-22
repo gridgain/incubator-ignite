@@ -42,6 +42,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
 import org.apache.ignite.spi.discovery.DiscoverySpiListener;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.Test;
@@ -81,7 +82,7 @@ public class IgniteMarshallerCacheFSRestoreTest extends GridCommonAbstractTest {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         TcpDiscoverySpi discoSpi = new TestTcpDiscoverySpi();
-        discoSpi.setIpFinder(LOCAL_IP_FINDER);
+        discoSpi.setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
 
         cfg.setDiscoverySpi(discoSpi);
 

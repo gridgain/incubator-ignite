@@ -37,6 +37,7 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -77,7 +78,7 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
 
         FailDiscoverySpi disco = new FailDiscoverySpi();
 
-        disco.setIpFinder(LOCAL_IP_FINDER);
+        disco.setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
 
         cfg.setDiscoverySpi(disco);
 

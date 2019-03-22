@@ -46,6 +46,7 @@ import org.apache.ignite.services.ServiceDescriptor;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -225,7 +226,7 @@ public abstract class GridServiceProcessorAbstractSelfTest extends GridCommonAbs
         try {
             fut2.get();
 
-            fail("Failed to receive mismatching configuration exception.");
+            Assert.fail("Failed to receive mismatching configuration exception.");
         }
         catch (IgniteException e) {
             info("Received mismatching configuration exception: " + e.getMessage());
@@ -255,7 +256,7 @@ public abstract class GridServiceProcessorAbstractSelfTest extends GridCommonAbs
 
             fut2.get();
 
-            fail("Failed to receive mismatching configuration exception.");
+            Assert.fail("Failed to receive mismatching configuration exception.");
         }
         catch (IgniteException e) {
             info("Received mismatching configuration exception: " + e.getMessage());

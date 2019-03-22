@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.testframework.GridTestUtils.runAsync;
@@ -110,6 +111,6 @@ public class GridCacheConcurrentGetCacheOnClientTest extends GridCommonAbstractT
         stopLatch.await();
 
         if (countFails.get() != 0 || exceptionFails.get() != 0)
-            fail("Cache return null in " + countFails.get() + " of 3 cases. Total exception: " + exceptionFails.get());
+            Assert.fail("Cache return null in " + countFails.get() + " of 3 cases. Total exception: " + exceptionFails.get());
     }
 }

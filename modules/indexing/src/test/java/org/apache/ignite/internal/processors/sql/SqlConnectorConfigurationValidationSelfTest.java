@@ -172,7 +172,7 @@ public class SqlConnectorConfigurationValidationSelfTest extends AbstractIndexin
      */
     @SuppressWarnings({"unchecked"})
     private void check(SqlConnectorConfiguration sqlCfg, boolean success) throws Exception {
-        final IgniteConfiguration cfg = super.getConfiguration();
+        final IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setIgniteInstanceName(SqlConnectorConfigurationValidationSelfTest.class.getName() + "-" +
             NODE_IDX_GEN.incrementAndGet());

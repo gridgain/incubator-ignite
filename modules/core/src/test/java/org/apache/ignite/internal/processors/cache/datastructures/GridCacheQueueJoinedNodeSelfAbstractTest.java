@@ -34,6 +34,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -165,7 +166,7 @@ public abstract class GridCacheQueueJoinedNodeSelfAbstractTest extends IgniteCol
             catch (Exception e) {
                 error("Failed to put value to the queue", e);
 
-                fail("Unexpected exception: " + e);
+                Assert.fail("Unexpected exception: " + e);
             }
 
             log.info("PutJob finished");
@@ -261,7 +262,7 @@ public abstract class GridCacheQueueJoinedNodeSelfAbstractTest extends IgniteCol
                 if (e.getCause() instanceof IgniteInterruptedCheckedException || e.getCause() instanceof InterruptedException)
                     log.info("Cancelling job due to interruption: " + e.getMessage());
                 else
-                    fail("Unexpected error: " + e);
+                    Assert.fail("Unexpected error: " + e);
             }
             catch (Exception e) {
                 error("Failed to get value from the queue", e);

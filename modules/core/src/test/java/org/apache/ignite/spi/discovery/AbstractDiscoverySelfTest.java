@@ -47,6 +47,7 @@ import org.apache.ignite.testframework.junits.IgniteMock;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVT_NODE_METRICS_UPDATED;
@@ -132,7 +133,7 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
                         info("Remote nodes [spiIdx=" + i + ", nodes=" + spi.getRemoteNodes() + ']');
                     }
 
-                    fail("Nodes were not discovered.");
+                    Assert.fail("Nodes were not discovered.");
                 }
                 else {
                     synchronized (mux) {
@@ -218,7 +219,7 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
                         info("Remote nodes [spiIdx=" + i + ", nodes=" + spi.getRemoteNodes() + ']');
                     }
 
-                    fail("SPI Metrics not updated.");
+                    Assert.fail("SPI Metrics not updated.");
                 }
                 else {
                     synchronized (mux) {
@@ -323,12 +324,12 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
                     Serializable attr = node.attribute(TEST_ATTRIBUTE_NAME);
 
                     if (attr == null || !(attr instanceof String)) {
-                        fail("Node does not contains attribute [attr=" + TEST_ATTRIBUTE_NAME + ", nodeId=" +
-                            node.id() + ", spiIdx=" + spis.indexOf(spi) + ']');
+                        Assert.fail("Node does not contains attribute [attr=" + TEST_ATTRIBUTE_NAME + ", nodeId=" +
+                                            node.id() + ", spiIdx=" + spis.indexOf(spi) + ']');
                     }
                     else if (!"true".equals(attr)) {
-                        fail("Attribute value is wrong [attr=" + TEST_ATTRIBUTE_NAME + ", value=" + attr + ", nodeId=" +
-                            node.id() + ", spiIdx=" + spis.indexOf(spi) + ']');
+                        Assert.fail("Attribute value is wrong [attr=" + TEST_ATTRIBUTE_NAME + ", value=" + attr + ", nodeId=" +
+                                            node.id() + ", spiIdx=" + spis.indexOf(spi) + ']');
                     }
                     else {
                         info("Node contains attribute [attr=" + TEST_ATTRIBUTE_NAME + ", value=" + attr + ", nodeId=" +
@@ -353,7 +354,7 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
                 if (spi.pingNode(nodeId))
                     info("Ping node success [nodeId=" + nodeId + ", spiIdx=" + spis.indexOf(spi) + ']');
                 else
-                    fail("Ping node error [nodeId=" + nodeId + ", spiIdx=" + spis.indexOf(spi) + ']');
+                    Assert.fail("Ping node error [nodeId=" + nodeId + ", spiIdx=" + spis.indexOf(spi) + ']');
             }
         }
     }

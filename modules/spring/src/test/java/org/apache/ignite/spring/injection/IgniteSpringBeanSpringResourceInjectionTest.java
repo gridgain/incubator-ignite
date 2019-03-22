@@ -32,6 +32,7 @@ import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
 import org.apache.ignite.services.ServiceContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -172,7 +173,7 @@ public class IgniteSpringBeanSpringResourceInjectionTest extends GridCommonAbstr
             fut.get(5, TimeUnit.SECONDS);
         }
         catch (TimeoutException ignored) {
-            fail("Failed to wait for completion. Deadlock is possible");
+            Assert.fail("Failed to wait for completion. Deadlock is possible");
         }
         finally {
             executorSvc.shutdownNow();

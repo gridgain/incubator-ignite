@@ -30,6 +30,7 @@ import org.apache.ignite.internal.processors.cache.index.AbstractIndexingCommonT
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -47,7 +48,7 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testBadCacheName() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        IgniteConfiguration cfg = getConfiguration(igniteInstanceName);
 
         cfg.setCacheConfiguration(new CacheConfiguration().setName(QueryUtils.SCHEMA_SYS));
 
@@ -81,11 +82,11 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
                     return;
                 }
                 catch (Throwable e) {
-                    fail("Exception class is not as expected [expected=" +
-                        CacheException.class + ", actual=" + e.getClass() + ']');
+                    Assert.fail("Exception class is not as expected [expected=" +
+                                    CacheException.class + ", actual=" + e.getClass() + ']');
                 }
 
-                fail("Exception has not been thrown.");
+                Assert.fail("Exception has not been thrown.");
             }
         );
     }
@@ -95,7 +96,7 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testBadSchemaLower() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        IgniteConfiguration cfg = getConfiguration(igniteInstanceName);
 
         cfg.setCacheConfiguration(new CacheConfiguration().setName("CACHE")
             .setSqlSchema(QueryUtils.SCHEMA_SYS.toLowerCase()));
@@ -129,11 +130,11 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
                     return;
                 }
                 catch (Throwable e) {
-                    fail("Exception class is not as expected [expected=" +
-                        CacheException.class + ", actual=" + e.getClass() + ']');
+                    Assert.fail("Exception class is not as expected [expected=" +
+                                    CacheException.class + ", actual=" + e.getClass() + ']');
                 }
 
-                fail("Exception has not been thrown.");
+                Assert.fail("Exception has not been thrown.");
             }
         );
     }
@@ -143,7 +144,7 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testBadSchemaUpper() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        IgniteConfiguration cfg = getConfiguration(igniteInstanceName);
 
         cfg.setCacheConfiguration(new CacheConfiguration().setName("CACHE")
             .setSqlSchema(QueryUtils.SCHEMA_SYS.toUpperCase()));
@@ -177,11 +178,11 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
                     return;
                 }
                 catch (Throwable e) {
-                    fail("Exception class is not as expected [expected=" +
-                        CacheException.class + ", actual=" + e.getClass() + ']');
+                    Assert.fail("Exception class is not as expected [expected=" +
+                                    CacheException.class + ", actual=" + e.getClass() + ']');
                 }
 
-                fail("Exception has not been thrown.");
+                Assert.fail("Exception has not been thrown.");
             }
         );
     }
@@ -191,7 +192,7 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testBadSchemaQuoted() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        IgniteConfiguration cfg = getConfiguration(igniteInstanceName);
 
         cfg.setCacheConfiguration(new CacheConfiguration().setName("CACHE")
             .setSqlSchema("\"" + QueryUtils.SCHEMA_SYS.toUpperCase() + "\""));
@@ -226,11 +227,11 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
                     return;
                 }
                 catch (Throwable e) {
-                    fail("Exception class is not as expected [expected=" +
-                        CacheException.class + ", actual=" + e.getClass() + ']');
+                    Assert.fail("Exception class is not as expected [expected=" +
+                                    CacheException.class + ", actual=" + e.getClass() + ']');
                 }
 
-                fail("Exception has not been thrown.");
+                Assert.fail("Exception has not been thrown.");
             }
         );
     }

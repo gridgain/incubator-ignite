@@ -74,12 +74,13 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
         assertEquals(0, jcache().size());
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
     @SuppressWarnings("unchecked")
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.NEAR_CACHE);
 
-        IgniteConfiguration cfg = super.getConfiguration();
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         TcpDiscoverySpi disco = new TcpDiscoverySpi();
 

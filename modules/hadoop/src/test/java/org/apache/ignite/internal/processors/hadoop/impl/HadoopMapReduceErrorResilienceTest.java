@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.hadoop.impl;
 
 import org.apache.ignite.igfs.IgfsPath;
 import org.apache.ignite.internal.processors.hadoop.impl.examples.HadoopWordCount2;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -124,7 +125,7 @@ public class HadoopMapReduceErrorResilienceTest extends HadoopAbstractMapReduceT
         } catch (Throwable t) {
             t.printStackTrace();
 
-            fail("Unexpected throwable: " + t);
+            Assert.fail("Unexpected throwable: " + t);
         }
     }
 

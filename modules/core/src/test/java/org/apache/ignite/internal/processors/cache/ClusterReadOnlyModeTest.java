@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.internal.processors.datastreamer.DataStreamerImpl;
 import org.apache.ignite.internal.util.typedef.G;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -82,7 +83,7 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
                         try {
                             cache.put(rnd.nextInt(100), rnd.nextInt());
 
-                            fail("Put must fail for cache " + cacheName);
+                            Assert.fail("Put must fail for cache " + cacheName);
                         }
                         catch (Exception e) {
                             // No-op.
@@ -92,7 +93,7 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
                         try {
                             cache.remove(rnd.nextInt(100));
 
-                            fail("Remove must fail for cache " + cacheName);
+                            Assert.fail("Remove must fail for cache " + cacheName);
                         }
                         catch (Exception e) {
                             // No-op.
@@ -129,8 +130,10 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
                     failed = true;
                 }
 
-                if (failed != readOnly)
-                    fail("Streaming to " + cacheName + " must " + (readOnly ? "fail" : "succeed"));
+                if (failed != readOnly) {
+                    String msg = "Streaming to " + cacheName + " must " + (readOnly ? "fail" : "succeed");
+                    Assert.fail(msg);
+                }
             }
         }
     }

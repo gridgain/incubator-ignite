@@ -45,6 +45,7 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
@@ -108,7 +109,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         TcpCommunicationSpi commSpi = new CountingTxRequestsToClientNodeTcpCommunicationSpi();
 
-        commSpi.setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+        commSpi.setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
         commSpi.setTcpNoDelay(true);
 
         iCfg.setCommunicationSpi(commSpi);

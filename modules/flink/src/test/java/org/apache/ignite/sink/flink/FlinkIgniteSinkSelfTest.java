@@ -23,6 +23,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -78,7 +79,7 @@ public class FlinkIgniteSinkSelfTest extends GridCommonAbstractTest {
         }
         catch (Exception e) {
             e.printStackTrace();
-            fail("Stream execution process failed.");
+            Assert.fail("Stream execution process failed.");
         }
     }
 }

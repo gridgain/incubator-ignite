@@ -40,6 +40,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
@@ -154,7 +155,7 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
                     for (Cache.Entry<Integer, Integer> e : plc0.queue())
                         U.warn(log, "Policy queue item: " + e);
 
-                    fail("Test failed, see logs for details.");
+                    Assert.fail("Test failed, see logs for details.");
                 }
 
                 tx.commit();
@@ -163,7 +164,7 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
         catch (Throwable t) {
             error("Test failed.", t);
 
-            fail("Test failed, see logs for details.");
+            Assert.fail("Test failed, see logs for details.");
         }
         finally {
             stopAllGrids();

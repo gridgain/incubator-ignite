@@ -45,6 +45,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionRollbackException;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -252,14 +253,14 @@ public class GridCacheTxNodeFailureSelfTest extends GridCommonAbstractTest {
                                 if (!commit) {
                                     error("Transaction has been committed");
 
-                                    fail("Transaction has been committed: " + tx);
+                                    Assert.fail("Transaction has been committed: " + tx);
                                 }
                             }
                             catch (TransactionRollbackException e) {
                                 if (commit) {
                                     error(e.getMessage(), e);
 
-                                    fail("Failed to commit: " + e);
+                                    Assert.fail("Failed to commit: " + e);
                                 }
                                 else
                                     assertTrue(X.hasCause(e, TransactionRollbackException.class));
@@ -279,14 +280,14 @@ public class GridCacheTxNodeFailureSelfTest extends GridCommonAbstractTest {
                             if (!commit) {
                                 error("Transaction has been committed");
 
-                                fail("Transaction has been committed.");
+                                Assert.fail("Transaction has been committed.");
                             }
                         }
                         catch (CacheException e) {
                             if (commit) {
                                 error(e.getMessage(), e);
 
-                                fail("Failed to commit: " + e);
+                                Assert.fail("Failed to commit: " + e);
                             }
                             else
                                 assertTrue(X.hasCause(e, TransactionRollbackException.class));

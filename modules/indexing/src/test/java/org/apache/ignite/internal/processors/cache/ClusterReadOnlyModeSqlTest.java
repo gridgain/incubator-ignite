@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.util.typedef.G;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -72,8 +73,10 @@ public class ClusterReadOnlyModeSqlTest extends ClusterReadOnlyModeAbstractTest 
                     failed = true;
                 }
 
-                if (failed != readOnly)
-                    fail("SQL delete from " + cacheName + " must " + (readOnly ? "fail" : "succeed"));
+                if (failed != readOnly) {
+                    String msg = "SQL delete from " + cacheName + " must " + (readOnly ? "fail" : "succeed");
+                    Assert.fail(msg);
+                }
 
                 failed = false;
 
@@ -88,8 +91,10 @@ public class ClusterReadOnlyModeSqlTest extends ClusterReadOnlyModeAbstractTest 
                     failed = true;
                 }
 
-                if (failed != readOnly)
-                    fail("SQL insert into " + cacheName + " must " + (readOnly ? "fail" : "succeed"));
+                if (failed != readOnly) {
+                    String msg = "SQL insert into " + cacheName + " must " + (readOnly ? "fail" : "succeed");
+                    Assert.fail(msg);
+                }
             }
         }
     }

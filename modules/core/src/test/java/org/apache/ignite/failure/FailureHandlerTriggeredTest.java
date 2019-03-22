@@ -19,6 +19,7 @@ package org.apache.ignite.failure;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.processors.cache.CachePartitionExchangeWorkerTask;
@@ -35,17 +36,26 @@ import org.junit.Test;
  * Test of triggering of failure handler.
  */
 public class FailureHandlerTriggeredTest extends GridCommonAbstractTest {
+
+    private CountDownLatch latch = new CountDownLatch(1);
+
+    TestFailureHandler hnd = new TestFailureHandler(false, latch);
+
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration configuration = super.getConfiguration(igniteInstanceName);
+
+        configuration.setFailureHandler(hnd);
+
+        return configuration;
+    }
+
     /**
      * @throws Exception If failed.
      */
     @Test
     public void testFailureHandlerTriggeredOnExchangeWorkerTermination() throws Exception {
         try {
-            CountDownLatch latch = new CountDownLatch(1);
-
-            TestFailureHandler hnd = new TestFailureHandler(false, latch);
-
-            IgniteEx ignite = startGrid(getConfiguration().setFailureHandler(hnd));
+            IgniteEx ignite = clusterManager__startGrid();
 
             GridCachePartitionExchangeManager<Object, Object> exchangeMgr = ignite.context().cache().context().exchange();
 

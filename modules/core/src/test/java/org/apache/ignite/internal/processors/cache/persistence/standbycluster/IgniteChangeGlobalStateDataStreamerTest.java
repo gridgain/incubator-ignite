@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.standbycluster;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -88,7 +89,7 @@ public class IgniteChangeGlobalStateDataStreamerTest extends IgniteChangeGlobalS
         }
 
         if (!fail)
-            fail("exception was not throw");
+            Assert.fail("exception was not throw");
 
         ig3C.active(true);
 

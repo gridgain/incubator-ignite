@@ -53,6 +53,7 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -495,7 +496,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
             return;
         }
 
-        fail("Expected an exception reporting invalid parameters");
+        Assert.fail("Expected an exception reporting invalid parameters");
     }
 
     /**

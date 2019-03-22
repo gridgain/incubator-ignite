@@ -74,6 +74,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -580,7 +581,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
                 catch (Throwable e) {
                     log.error("Unexpected error", e);
 
-                    fail("Unexpected error: " + e);
+                    Assert.fail("Unexpected error: " + e);
 
                     return false;
                 }
@@ -802,7 +803,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
 
                 U.dumpThreads(log);
 
-                fail("Failed to wait for join event.");
+                Assert.fail("Failed to wait for join event.");
             }
 
             U.sleep(1000);

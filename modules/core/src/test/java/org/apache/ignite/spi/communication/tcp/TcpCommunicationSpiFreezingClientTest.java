@@ -37,6 +37,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -120,7 +121,7 @@ public class TcpCommunicationSpiFreezingClientTest extends GridCommonAbstractTes
 
             srv.compute(srv.cluster().forNode(client.localNode())).withNoFailover().call(new ClientClosure());
 
-            fail("Client node must be kicked from topology");
+            Assert.fail("Client node must be kicked from topology");
         }
         catch (ClusterTopologyException e) {
             // Expected.

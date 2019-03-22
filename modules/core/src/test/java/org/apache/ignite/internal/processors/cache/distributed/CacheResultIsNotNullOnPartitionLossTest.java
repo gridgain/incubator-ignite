@@ -43,6 +43,7 @@ import org.apache.ignite.internal.processors.cache.CacheInvalidStateException;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -203,7 +204,7 @@ public class CacheResultIsNotNullOnPartitionLossTest extends GridCommonAbstractT
         if (throwable != null) {
             throwable.printStackTrace();
 
-            fail(throwable.getMessage());
+            Assert.fail(throwable.getMessage());
         }
     }
 

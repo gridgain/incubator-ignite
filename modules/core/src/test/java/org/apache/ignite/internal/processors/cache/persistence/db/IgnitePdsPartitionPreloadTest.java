@@ -38,6 +38,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -227,7 +228,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
         try {
             client.cache(DEFAULT_CACHE_NAME).preloadPartition(0);
 
-            fail("Exception is expected");
+            Assert.fail("Exception is expected");
         }
         catch (Exception e) {
             log.error("Expected", e);
@@ -248,7 +249,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
         try {
             client.cache(DEFAULT_CACHE_NAME).preloadPartition(0);
 
-            fail("Exception is expected");
+            Assert.fail("Exception is expected");
         }
         catch (Exception e) {
             log.error("Expected", e);
@@ -271,7 +272,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
         try {
             prim.cache(DEFAULT_CACHE_NAME).preloadPartition(part);
 
-            fail("Exception is expected");
+            Assert.fail("Exception is expected");
         }
         catch (Exception e) {
             log.error("Expected", e);
@@ -294,7 +295,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
         try {
             prim.cache(DEFAULT_CACHE_NAME).preloadPartition(part);
 
-            fail("Exception is expected");
+            Assert.fail("Exception is expected");
         }
         catch (Exception e) {
             log.error("Expected", e);

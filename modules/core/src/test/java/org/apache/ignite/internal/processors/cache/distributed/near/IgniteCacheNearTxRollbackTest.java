@@ -34,6 +34,7 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -92,7 +93,7 @@ public class IgniteCacheNearTxRollbackTest extends IgniteCacheAbstractTest {
             try {
                 cache.putAll(map);
 
-                fail("Put should fail.");
+                Assert.fail("Put should fail.");
             }
             catch (CacheException e) {
                 log.info("Expected exception: " + e);

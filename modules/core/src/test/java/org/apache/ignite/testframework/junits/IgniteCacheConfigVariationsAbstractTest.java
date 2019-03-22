@@ -42,6 +42,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.configvariations.CacheStartMode;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
@@ -214,7 +215,7 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
         if (tx != null) {
             tx.close();
 
-            fail("Cache transaction remained after test completion: " + tx);
+            Assert.fail("Cache transaction remained after test completion: " + tx);
         }
 
         String cacheIsNotEmptyMsg = null;

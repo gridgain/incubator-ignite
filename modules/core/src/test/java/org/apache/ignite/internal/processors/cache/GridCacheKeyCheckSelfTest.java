@@ -22,6 +22,7 @@ import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -129,7 +130,7 @@ public class GridCacheKeyCheckSelfTest extends GridCacheAbstractSelfTest {
 
             cache.get(new IncorrectCacheKey(0));
 
-            fail("Key without hashCode()/equals() was successfully retrieved from cache.");
+            Assert.fail("Key without hashCode()/equals() was successfully retrieved from cache.");
         }
         catch (IllegalArgumentException e) {
             info("Catched expected exception: " + e.getMessage());
@@ -149,7 +150,7 @@ public class GridCacheKeyCheckSelfTest extends GridCacheAbstractSelfTest {
 
             cache.put(new IncorrectCacheKey(0), "test_value");
 
-            fail("Key without hashCode()/equals() was successfully inserted to cache.");
+            Assert.fail("Key without hashCode()/equals() was successfully inserted to cache.");
         }
         catch (IllegalArgumentException e) {
             info("Catched expected exception: " + e.getMessage());
@@ -169,7 +170,7 @@ public class GridCacheKeyCheckSelfTest extends GridCacheAbstractSelfTest {
 
             cache.remove(new IncorrectCacheKey(0));
 
-            fail("Key without hashCode()/equals() was successfully used for remove operation.");
+            Assert.fail("Key without hashCode()/equals() was successfully used for remove operation.");
         }
         catch (IllegalArgumentException e) {
             info("Catched expected exception: " + e.getMessage());

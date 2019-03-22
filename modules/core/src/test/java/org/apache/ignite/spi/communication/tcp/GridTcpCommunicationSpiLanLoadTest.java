@@ -37,10 +37,12 @@ import org.apache.ignite.spi.communication.CommunicationListener;
 import org.apache.ignite.spi.communication.GridTestMessage;
 import org.apache.ignite.testframework.GridSpiTestContext;
 import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.config.GridTestProperties;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -113,7 +115,7 @@ public class GridTcpCommunicationSpiLanLoadTest extends GridSpiAbstractTest<TcpC
                 GridTestMessage testMsg = (GridTestMessage)msg;
 
                 if (!testMsg.getSourceNodeId().equals(nodeId))
-                    fail("Listener nodeId is not equal to message nodeId.");
+                    Assert.fail("Listener nodeId is not equal to message nodeId.");
 
                 if (!reject)
                     rcvdMsgs.offer(testMsg);
@@ -179,7 +181,7 @@ public class GridTcpCommunicationSpiLanLoadTest extends GridSpiAbstractTest<TcpC
                     }
                 }
                 catch (IgniteException e) {
-                    fail("Unable to send message: " + e.getMessage());
+                    Assert.fail("Unable to send message: " + e.getMessage());
                 }
             }
         }, THREAD_CNT, "message-sender");
@@ -199,7 +201,7 @@ public class GridTcpCommunicationSpiLanLoadTest extends GridSpiAbstractTest<TcpC
     private TcpCommunicationSpi createSpi() {
         TcpCommunicationSpi spi = new TcpCommunicationSpi();
 
-        spi.setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+        spi.setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
         spi.setIdleConnectionTimeout(IDLE_CONN_TIMEOUT);
         spi.setConnectTimeout(10000);
 

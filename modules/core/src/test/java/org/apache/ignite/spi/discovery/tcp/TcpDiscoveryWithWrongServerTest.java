@@ -36,6 +36,7 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestThread;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -192,7 +193,7 @@ public class TcpDiscoveryWithWrongServerTest extends GridCommonAbstractTest {
             assertEquals(1, client.getOrCreateCache(DEFAULT_CACHE_NAME).get(1));
         }
         catch (Exception e) {
-            fail("Failed with unexpected exception: " + e.getMessage());
+            Assert.fail("Failed with unexpected exception: " + e.getMessage());
         }
     }
 

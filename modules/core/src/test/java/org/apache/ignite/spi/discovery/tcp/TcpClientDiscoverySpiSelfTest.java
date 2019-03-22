@@ -75,6 +75,7 @@ import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeAddedMessage
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -318,7 +319,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
         try {
             startClientNodes(1);
 
-            fail("Client cannot be start because no server nodes run");
+            Assert.fail("Client cannot be start because no server nodes run");
         }
         catch (IgniteCheckedException e) {
             IgniteSpiException spiEx = e.getCause(IgniteSpiException.class);

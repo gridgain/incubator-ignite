@@ -57,6 +57,7 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -1011,7 +1012,7 @@ public abstract class IgfsAbstractBaseSelfTest extends IgfsCommonAbstractTest {
 
         dumpCache("DataCache" , getDataCache(igfs));
 
-        fail("Caches are not empty.");
+        Assert.fail("Caches are not empty.");
     }
 
     /**

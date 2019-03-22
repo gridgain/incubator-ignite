@@ -43,6 +43,7 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.LOCAL;
@@ -365,7 +366,7 @@ public abstract class IgniteTxStoreExceptionAbstractSelfTest extends GridCacheAb
                 tx.commit();
             }
 
-            fail("Transaction should fail.");
+            Assert.fail("Transaction should fail.");
         }
         catch (IgniteException e) {
             log.info("Expected exception: " + e);

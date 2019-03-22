@@ -37,6 +37,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -192,7 +193,7 @@ public class CacheLockReleaseNodeLeaveTest extends GridCommonAbstractTest {
             }
 
             if (err != null)
-                fail("Test operation failed, see log for details");
+                Assert.fail("Test operation failed, see log for details");
         }
         finally {
             stopAllGrids();
@@ -272,7 +273,7 @@ public class CacheLockReleaseNodeLeaveTest extends GridCommonAbstractTest {
             }
 
             if (err != null)
-                fail("Test operation failed, see log for details");
+                Assert.fail("Test operation failed, see log for details");
         }
         finally {
             stopAllGrids();

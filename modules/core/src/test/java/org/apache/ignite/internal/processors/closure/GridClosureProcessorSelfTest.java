@@ -45,6 +45,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -491,7 +492,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
             @Override public Void call() throws Exception {
                 g.compute().call(jobs, new IgniteReducer<Integer, Object>() {
                     @Override public boolean collect(@Nullable Integer e) {
-                        fail("Expects failed jobs never call 'collect' method.");
+                        Assert.fail("Expects failed jobs never call 'collect' method.");
 
                         return true;
                     }

@@ -39,6 +39,7 @@ import org.apache.ignite.cache.store.jdbc.CacheJdbcStoreSessionListener;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -217,12 +218,12 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
     public static class TestCacheStoreSessionListener extends CacheJdbcStoreSessionListener {
         /** {@inheritDoc} */
         @Override public void onSessionStart(CacheStoreSession ses) {
-            fail("TestCacheStoreSessionListener.onSessionStart(CacheStoreSession) should not be called.");
+            Assert.fail("TestCacheStoreSessionListener.onSessionStart(CacheStoreSession) should not be called.");
         }
 
         /** {@inheritDoc} */
         @Override public void onSessionEnd(CacheStoreSession ses, boolean commit) {
-            fail("TestCacheStoreSessionListener.onSessionEnd(CacheStoreSession, boolean) should not be called.");
+            Assert.fail("TestCacheStoreSessionListener.onSessionEnd(CacheStoreSession, boolean) should not be called.");
         }
     }
 
@@ -230,19 +231,19 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
     public static class EmptyCacheStore extends CacheStoreAdapter {
         /** {@inheritDoc} */
         @Override public Object load(Object key) throws CacheLoaderException {
-            fail("EmptyCacheStore.load(Object) should not be called.");
+            Assert.fail("EmptyCacheStore.load(Object) should not be called.");
 
             return null;
         }
 
         /** {@inheritDoc} */
         @Override public void write(Cache.Entry entry) throws CacheWriterException {
-            fail("EmptyCacheStore.write(Cache.Entry) should not be called.");
+            Assert.fail("EmptyCacheStore.write(Cache.Entry) should not be called.");
         }
 
         /** {@inheritDoc} */
         @Override public void delete(Object key) throws CacheWriterException {
-            fail("EmptyCacheStore.delete(Object) should not be called.");
+            Assert.fail("EmptyCacheStore.delete(Object) should not be called.");
         }
     }
 

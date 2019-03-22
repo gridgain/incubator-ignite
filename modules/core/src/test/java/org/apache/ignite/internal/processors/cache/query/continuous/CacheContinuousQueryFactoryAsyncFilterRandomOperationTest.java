@@ -28,6 +28,7 @@ import javax.cache.event.CacheEntryEventFilter;
 import org.apache.ignite.cache.CacheEntryEventSerializableFilter;
 import org.apache.ignite.lang.IgniteAsyncCallback;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 
 /**
  *
@@ -64,12 +65,12 @@ public class CacheContinuousQueryFactoryAsyncFilterRandomOperationTest
 
         /** {@inheritDoc} */
         @Override public void writeExternal(ObjectOutput out) throws IOException {
-            fail("Entry filter should not be marshaled.");
+            Assert.fail("Entry filter should not be marshaled.");
         }
 
         /** {@inheritDoc} */
         @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-            fail("Entry filter should not be marshaled.");
+            Assert.fail("Entry filter should not be marshaled.");
         }
 
         /**

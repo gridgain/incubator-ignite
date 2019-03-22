@@ -41,6 +41,7 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -94,7 +95,7 @@ public class IgniteCacheFailedUpdateResponseTest extends GridCommonAbstractTest 
 
         cfg.setClientMode(igniteInstanceName.contains("client"));
 
-        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(LOCAL_IP_FINDER);
+        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
 
         return cfg;
     }

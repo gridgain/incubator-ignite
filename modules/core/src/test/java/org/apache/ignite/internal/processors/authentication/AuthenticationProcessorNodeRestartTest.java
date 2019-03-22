@@ -27,6 +27,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -140,14 +141,14 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
                                 break;
 
                             default:
-                                fail("Invalid state: " + state);
+                                Assert.fail("Invalid state: " + state);
                         }
 
                         state = ++state > 2 ? 0 : state;
                     }
                     catch (UserManagementException e) {
                         U.error(log, e);
-                        fail("Unexpected exception on user operation");
+                        Assert.fail("Unexpected exception on user operation");
                     }
                     catch (IgniteCheckedException e) {
                         // Reconnect
@@ -192,7 +193,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
             }
             catch (Exception e) {
                 e.printStackTrace(System.err);
-                fail("Unexpected exception on server restart: " + e.getMessage());
+                Assert.fail("Unexpected exception on server restart: " + e.getMessage());
             }
         });
 
@@ -213,12 +214,12 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
                 // Skip exception if server down.
                 if (!serverDownMessage(e.getMessage())) {
                     e.printStackTrace();
-                    fail("Unexpected exception: " + e.getMessage());
+                    Assert.fail("Unexpected exception: " + e.getMessage());
                 }
             }
             catch (Exception e) {
                 e.printStackTrace();
-                fail("Unexpected exception: " + e.getMessage());
+                Assert.fail("Unexpected exception: " + e.getMessage());
             }
         }, testUsersCnt, "user-op");
 
@@ -284,7 +285,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
             }
             catch (Exception e) {
                 e.printStackTrace();
-                fail("Unexpected exception on add / remove");
+                Assert.fail("Unexpected exception on add / remove");
             }
         }, 3, "user-op");
 
@@ -304,7 +305,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
             }
             catch (Exception e) {
                 e.printStackTrace();
-                fail("Unexpected exception on add / remove");
+                Assert.fail("Unexpected exception on add / remove");
             }
         }, 3, "user-op");
 
@@ -346,7 +347,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
             }
             catch (Exception e) {
                 e.printStackTrace();
-                fail("Unexpected exception on add / remove");
+                Assert.fail("Unexpected exception on add / remove");
             }
         }, 10, "user-op");
 
@@ -378,7 +379,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
             }
             catch (Exception e) {
                 e.printStackTrace();
-                fail("Unexpected error on failed operation");
+                Assert.fail("Unexpected error on failed operation");
             }
         }, 10, "user-op");
 
@@ -401,7 +402,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
             }
             catch (Exception e) {
                 e.printStackTrace(System.err);
-                fail("Unexpected exception on server restart: " + e.getMessage());
+                Assert.fail("Unexpected exception on server restart: " + e.getMessage());
             }
         });
     }

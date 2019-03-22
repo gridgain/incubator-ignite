@@ -46,6 +46,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -198,7 +199,7 @@ public class PagesWriteThrottleSmokeTest extends GridCommonAbstractTest {
 
                 cpFut2.get();
 
-                fail("Put rate degraded to zero for at least 10 seconds");
+                Assert.fail("Put rate degraded to zero for at least 10 seconds");
             }
         }
         finally {

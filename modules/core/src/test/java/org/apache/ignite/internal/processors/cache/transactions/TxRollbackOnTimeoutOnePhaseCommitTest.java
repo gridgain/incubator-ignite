@@ -36,6 +36,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionTimeoutException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -205,7 +206,7 @@ public class TxRollbackOnTimeoutOnePhaseCommitTest extends GridCommonAbstractTes
 
             res.print(b::append);
 
-            fail(b.toString());
+            Assert.fail(b.toString());
         }
 
         checkFutures();

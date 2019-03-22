@@ -37,6 +37,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.datastructures.GridCacheQueueHeaderKey;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -381,7 +382,7 @@ public abstract class GridCacheAbstractQueueFailoverDataConsistencySelfTest exte
             }
         }
 
-        fail("Failed to find primary node for queue header.");
+        Assert.fail("Failed to find primary node for queue header.");
 
         return -1;
     }

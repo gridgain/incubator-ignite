@@ -34,7 +34,6 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.events.Event;
@@ -55,6 +54,7 @@ import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryJoinRequestMessage;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.events.EventType.EVT_CLIENT_NODE_DISCONNECTED;
@@ -114,7 +114,7 @@ public abstract class IgniteClientReconnectAbstractTest extends GridCommonAbstra
 
             U.dumpThreads(log);
 
-            fail("Failed to wait for disconnect/reconnect event.");
+            Assert.fail("Failed to wait for disconnect/reconnect event.");
         }
     }
 
@@ -218,7 +218,7 @@ public abstract class IgniteClientReconnectAbstractTest extends GridCommonAbstra
         assertNotNull(fut);
 
         if (fut.isDone())
-            fail("Future completed with result: " + fut.get());
+            Assert.fail("Future completed with result: " + fut.get());
     }
 
     /**

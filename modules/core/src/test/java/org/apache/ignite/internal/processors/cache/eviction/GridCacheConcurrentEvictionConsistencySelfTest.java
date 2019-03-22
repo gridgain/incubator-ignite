@@ -38,6 +38,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.LOCAL;
@@ -310,7 +311,7 @@ public class GridCacheConcurrentEvictionConsistencySelfTest extends GridCommonAb
             }
 
             if (detached)
-                fail("Eviction policy contains keys that are not present in cache");
+                Assert.fail("Eviction policy contains keys that are not present in cache");
 
             if (!(cache.localSize(CachePeekMode.ONHEAP) == 0)) {
                 boolean zombies = false;
@@ -322,7 +323,7 @@ public class GridCacheConcurrentEvictionConsistencySelfTest extends GridCommonAb
                 }
 
                 if (zombies)
-                    fail("Cache contained zombie entries.");
+                    Assert.fail("Cache contained zombie entries.");
             }
             else
                 info("Cache is empty after test.");

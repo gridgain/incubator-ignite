@@ -41,6 +41,7 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
@@ -136,7 +137,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
                 }
             });
 
-            fail("Should have exception here.");
+            Assert.fail("Should have exception here.");
         } catch (IgniteException e) {
             assertTrue(e.getCause() instanceof IgniteSpiException);
         }
@@ -209,7 +210,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
         try {
             fut1.get();
 
-            fail("Should fail with SpiException");
+            Assert.fail("Should fail with SpiException");
         }
         catch (IgniteCheckedException e) {
             assertTrue(e.getCause().getCause() instanceof IgniteSpiException);
@@ -218,7 +219,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
         try {
             fut2.get();
 
-            fail("Should fail with SpiException");
+            Assert.fail("Should fail with SpiException");
         }
         catch (IgniteCheckedException e) {
             assertTrue(e.getCause().getCause() instanceof IgniteSpiException);

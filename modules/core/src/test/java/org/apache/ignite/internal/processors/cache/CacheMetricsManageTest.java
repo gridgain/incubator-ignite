@@ -51,6 +51,7 @@ import org.apache.ignite.mxbean.CacheMetricsMXBean;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -206,7 +207,7 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
                     assertCachesStatisticsMode(true, false);
                 }
                 catch (InterruptedException | BrokenBarrierException | IgniteCheckedException e) {
-                    fail("Unexpected exception: " + e);
+                    Assert.fail("Unexpected exception: " + e);
                 }
             }
         }, 10);
@@ -483,7 +484,7 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         if (!mbeanSrv.isRegistered(mbeanName))
-            fail("MBean is not registered: " + mbeanName.getCanonicalName());
+            Assert.fail("MBean is not registered: " + mbeanName.getCanonicalName());
 
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, CacheMetricsMXBean.class,
             true);

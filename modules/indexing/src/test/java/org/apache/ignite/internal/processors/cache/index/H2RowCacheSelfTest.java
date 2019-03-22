@@ -38,6 +38,7 @@ import org.apache.ignite.internal.processors.query.h2.H2RowCache;
 import org.apache.ignite.internal.processors.query.h2.opt.H2CacheRow;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.jsr166.ConcurrentLinkedHashMap;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -374,7 +375,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
                 return e.getKey();
         }
 
-        fail("Row cache doesn't contain key [key=" + key + ']');
+        Assert.fail("Row cache doesn't contain key [key=" + key + ']');
 
         return -1;
     }

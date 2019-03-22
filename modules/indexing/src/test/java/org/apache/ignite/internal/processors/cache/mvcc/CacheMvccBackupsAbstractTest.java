@@ -47,6 +47,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -535,7 +536,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
                     GridTestUtils.doSleep(500);
 
                 if (msg instanceof GridDhtForceKeysResponse)
-                    fail("Force key request");
+                    Assert.fail("Force key request");
             }
         });
 
@@ -545,7 +546,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
             new IgniteBiInClosure<ClusterNode, Message>() {
                 @Override public void apply(ClusterNode node, Message msg) {
                     if (msg instanceof GridDhtForceKeysRequest)
-                        fail("Force key request");
+                        Assert.fail("Force key request");
                 }
             }
         );

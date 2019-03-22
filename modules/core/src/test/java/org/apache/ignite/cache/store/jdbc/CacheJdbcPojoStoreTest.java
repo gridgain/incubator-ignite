@@ -50,6 +50,7 @@ import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.cache.GridAbstractCacheStoreSelfTest;
 import org.h2.jdbcx.JdbcConnectionPool;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -491,7 +492,7 @@ public class CacheJdbcPojoStoreTest extends GridAbstractCacheStoreSelfTest<Cache
                     if (k instanceof PersonComplexKey && v instanceof Person)
                         prnComplexKeys.add(k);
                     else
-                        fail("Unexpected entry [key=" + k + ", value=" + v + "]");
+                        Assert.fail("Unexpected entry [key=" + k + ", value=" + v + "]");
                 }
             }
         };
@@ -548,7 +549,7 @@ public class CacheJdbcPojoStoreTest extends GridAbstractCacheStoreSelfTest<Cache
         try {
             store.write(new CacheEntryImpl<>(wrap(k1), wrap(v1)));
 
-            fail("CacheWriterException wasn't thrown.");
+            Assert.fail("CacheWriterException wasn't thrown.");
         }
         catch (CacheWriterException e) {
             if (!e.getMessage().startsWith("Failed insert entry in database, violate a unique index or primary key") ||

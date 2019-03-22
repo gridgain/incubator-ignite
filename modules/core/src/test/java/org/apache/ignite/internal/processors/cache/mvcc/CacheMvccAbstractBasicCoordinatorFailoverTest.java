@@ -59,6 +59,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -121,7 +122,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
                     info("Expected exception: " + e);
                 }
                 catch (Throwable e) {
-                    fail("Unexpected exception: " + e);
+                    Assert.fail("Unexpected exception: " + e);
                 }
 
                 return null;
@@ -833,7 +834,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
         catch (Exception e) {
             stopAllGrids(true);
 
-            fail(X.getFullStackTrace(e));
+            Assert.fail(X.getFullStackTrace(e));
         }
 
         for (Ignite node : survivors) {
@@ -850,7 +851,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
         catch (Exception e) {
             stopAllGrids(true);
 
-            fail(X.getFullStackTrace(e));
+            Assert.fail(X.getFullStackTrace(e));
         }
 
         for (Ignite node : survivors) {

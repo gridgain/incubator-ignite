@@ -21,6 +21,7 @@ import java.util.concurrent.Callable;
 import javax.cache.CacheException;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -205,7 +206,7 @@ public class IgniteCacheSqlQueryErrorSelfTest  extends GridCacheAbstractSelfTest
             @Override public Object call() throws Exception {
                 execute(sql);
 
-                fail("Exception is expected");
+                Assert.fail("Exception is expected");
 
                 return null;
             }

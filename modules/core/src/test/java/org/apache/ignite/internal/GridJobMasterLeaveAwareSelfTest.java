@@ -55,6 +55,7 @@ import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -536,7 +537,7 @@ public class GridJobMasterLeaveAwareSelfTest extends GridCommonAbstractTest {
             }
             catch (InterruptedException e) {
                 // We do not expect any interruptions here, hence this statement.
-                fail("Unexpected exception: " + e);
+                Assert.fail("Unexpected exception: " + e);
             }
         }
 

@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.compute.ComputeJobAdapter;
@@ -133,8 +134,8 @@ public abstract class GridSessionCheckpointAbstractSelfTest extends GridCommonAb
      * @param cfg Configuration.
      * @throws Exception If check failed.
      */
-    protected void checkCheckpoints(IgniteConfiguration cfg) throws Exception {
-        Ignite ignite = G.start(cfg);
+    protected void checkCheckpoints(Function<IgniteConfiguration, IgniteConfiguration> cfg) throws Exception {
+        Ignite ignite = startGrid(cfg);
 
         try {
             taskLatch = new CountDownLatch(1);

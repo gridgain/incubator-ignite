@@ -36,6 +36,7 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SQL_RETRY_TIMEOUT;
@@ -65,7 +66,7 @@ public class NonCollocatedRetryMessageSelfTest extends AbstractIndexingCommonTes
         try {
             List<Cache.Entry<String, JoinSqlTestHelper.Person>> prsns = personCache.query(qry).getAll();
 
-            fail("No CacheException emitted. Collection size=" + prsns.size());
+            Assert.fail("No CacheException emitted. Collection size=" + prsns.size());
         }
         catch (CacheException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("Failed to execute non-collocated query"));
@@ -128,7 +129,7 @@ public class NonCollocatedRetryMessageSelfTest extends AbstractIndexingCommonTes
                         U.sleep(Long.getLong(IGNITE_SQL_RETRY_TIMEOUT));
                     }
                     catch (IgniteInterruptedCheckedException e) {
-                        fail("Test was interrupted.");
+                        Assert.fail("Test was interrupted.");
                     }
 
                     throw new IgniteSpiException("Test exception.");

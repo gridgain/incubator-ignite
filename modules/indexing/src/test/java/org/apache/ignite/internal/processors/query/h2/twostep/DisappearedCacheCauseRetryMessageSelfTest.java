@@ -33,6 +33,7 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SQL_RETRY_TIMEOUT;
@@ -68,7 +69,7 @@ public class DisappearedCacheCauseRetryMessageSelfTest extends AbstractIndexingC
         try {
             personCache.query(qry).getAll();
 
-            fail("No CacheException emitted.");
+            Assert.fail("No CacheException emitted.");
         }
         catch (CacheException e) {
             if (!e.getMessage().contains("Failed to reserve partitions for query (cache is not found on local node) ["))

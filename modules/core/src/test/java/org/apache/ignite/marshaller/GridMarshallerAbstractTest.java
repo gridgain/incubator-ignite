@@ -74,6 +74,7 @@ import org.apache.ignite.testframework.GridTestClassLoader;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -875,7 +876,7 @@ public abstract class GridMarshallerAbstractTest extends GridCommonAbstractTest 
             if (e.getCause() instanceof IgniteCheckedException)
                 throw (IgniteCheckedException)e.getCause();
 
-            fail(e.getCause().getMessage());
+            Assert.fail(e.getCause().getMessage());
         }
 
         return null;

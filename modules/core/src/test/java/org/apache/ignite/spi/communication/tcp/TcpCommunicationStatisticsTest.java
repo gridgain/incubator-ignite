@@ -43,6 +43,7 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.GridTestMessage;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -118,7 +119,7 @@ public class TcpCommunicationStatisticsTest extends GridCommonAbstractTest {
             return MBeanServerInvocationHandler.newProxyInstance(mbeanServer, mbeanName, TcpCommunicationSpiMBean.class,
                 true);
         else
-            fail("MBean is not registered: " + mbeanName.getCanonicalName());
+            Assert.fail("MBean is not registered: " + mbeanName.getCanonicalName());
 
         return null;
     }

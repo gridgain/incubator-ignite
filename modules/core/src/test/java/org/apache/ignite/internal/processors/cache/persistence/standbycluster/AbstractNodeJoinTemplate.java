@@ -577,7 +577,7 @@ public abstract class AbstractNodeJoinTemplate extends GridCommonAbstractTest {
         public void execute() throws Exception {
             try {
                 if (state == stateDefault)
-                    fail("State after join must be specific. See JoinNodeTestPlanBuilder.stateAfterJoin(boolean).");
+                    Assert.fail("State after join must be specific. See JoinNodeTestPlanBuilder.stateAfterJoin(boolean).");
 
                 System.out.println(strPlanBuilder.append("********************").toString());
 

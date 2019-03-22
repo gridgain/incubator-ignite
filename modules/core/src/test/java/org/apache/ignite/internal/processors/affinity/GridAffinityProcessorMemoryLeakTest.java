@@ -29,6 +29,7 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_AFFINITY_HISTORY_SIZE;
@@ -112,7 +113,7 @@ public class GridAffinityProcessorMemoryLeakTest extends GridCommonAbstractTest 
                     ", expLimit=" + MAX_HIST_SIZE * 3 + "]", size < MAX_HIST_SIZE * 3);
             }
             catch (Exception e) {
-                fail("Error was handled [" + e.getMessage() + "]");
+                Assert.fail("Error was handled [" + e.getMessage() + "]");
             }
         }
         while (count-- > 0);

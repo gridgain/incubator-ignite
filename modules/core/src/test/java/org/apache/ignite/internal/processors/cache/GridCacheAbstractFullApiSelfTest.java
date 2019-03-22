@@ -71,7 +71,6 @@ import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteKernal;
-import org.apache.ignite.internal.IgnitionEx;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryManager;
 import org.apache.ignite.internal.processors.resource.GridSpringResourceContext;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -103,6 +102,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -376,10 +376,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         cfg.setCacheConfiguration();
 
-        if (!isRemoteJvm(igniteInstanceName))
-            return (IgniteEx)IgnitionEx.start(optimize(cfg), ctx);
-        else
-            return startRemoteGrid(igniteInstanceName, optimize(cfg));
+        return startGrid(igniteInstanceName, cfg, ctx);
     }
 
     /** {@inheritDoc} */
@@ -6258,7 +6255,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             Collection<ResourceType> notInjected = ResourceInfoSet.valueOf(res.get()).notInjected(required);
 
             if (!notInjected.isEmpty())
-                fail("Can't inject resource(s): " + Arrays.toString(notInjected.toArray()));
+                Assert.fail("Can't inject resource(s): " + Arrays.toString(notInjected.toArray()));
         }
     }
 
@@ -6299,7 +6296,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             Collection<ResourceType> notInjected1 = ResourceInfoSet.valueOf(res.get()).notInjected(required);
 
             if (!notInjected1.isEmpty())
-                fail("Can't inject resource(s): " + Arrays.toString(notInjected1.toArray()));
+                Assert.fail("Can't inject resource(s): " + Arrays.toString(notInjected1.toArray()));
         }
     }
 
@@ -6341,7 +6338,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         Collection<ResourceType> notInjected = ResourceInfoSet.valueOf(flags).notInjected(required);
 
         if (!notInjected.isEmpty())
-            fail("Can't inject resource(s): " + Arrays.toString(notInjected.toArray()));
+            Assert.fail("Can't inject resource(s): " + Arrays.toString(notInjected.toArray()));
     }
 
     /**

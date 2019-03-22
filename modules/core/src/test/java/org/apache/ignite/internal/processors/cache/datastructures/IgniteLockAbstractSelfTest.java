@@ -57,6 +57,7 @@ import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -551,7 +552,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
                 lock.hasWaiters(cond);
 
-                fail("Condition not associated with this lock passed as argument.");
+                Assert.fail("Condition not associated with this lock passed as argument.");
             }
             catch (IllegalArgumentException ignored) {
                 info("IllegalArgumentException thrown as it should be.");
@@ -562,7 +563,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
                 lock.hasWaiters(cond);
 
-                fail("This method should throw exception when lock is not held.");
+                Assert.fail("This method should throw exception when lock is not held.");
             }
             catch (IllegalMonitorStateException ignored) {
                 info("IllegalMonitorStateException thrown as it should be.");
@@ -580,7 +581,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
                 lock.getWaitQueueLength(cond);
 
-                fail("Condition not associated with this lock passed as argument.");
+                Assert.fail("Condition not associated with this lock passed as argument.");
             }
             catch (IllegalArgumentException ignored) {
                 info("IllegalArgumentException thrown as it should be.");
@@ -591,7 +592,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
                 lock.getWaitQueueLength(cond);
 
-                fail("This method should throw exception when lock is not held.");
+                Assert.fail("This method should throw exception when lock is not held.");
             }
             catch (IllegalMonitorStateException ignored) {
                 info("IllegalMonitorStateException thrown as it should be.");
@@ -655,7 +656,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
             try {
                 lock.unlock();
 
-                fail("This method should throw exception when lock is not held.");
+                Assert.fail("This method should throw exception when lock is not held.");
             }
             catch (IllegalMonitorStateException ignored) {
                 info("IllegalMonitorStateException thrown as it should be.");
@@ -928,7 +929,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
                                 fut.get();
                             }
                             catch (IgniteCheckedException e) {
-                                fail(e.getMessage());
+                                Assert.fail(e.getMessage());
 
                                 throw new RuntimeException(e);
                             }
@@ -1006,7 +1007,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
                     catch (IgniteInterruptedException ignored) {
                         isInterrupted = true;
 
-                        fail("Lock() method is uninterruptible.");
+                        Assert.fail("Lock() method is uninterruptible.");
                     }
                     finally {
                         // Assert that thread was not interrupted.
@@ -1092,7 +1093,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
                     catch (IgniteInterruptedException ignored) {
                         isInterrupted = true;
 
-                        fail("tryLock() method is uninterruptible.");
+                        Assert.fail("tryLock() method is uninterruptible.");
                     }
                     finally {
                         // Assert that thread was not interrupted.

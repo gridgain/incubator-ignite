@@ -35,6 +35,7 @@ import org.apache.ignite.mxbean.TransactionMetricsMxBean;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -300,7 +301,7 @@ public class TransactionMetricsMxBeanImplTest extends GridCommonAbstractTest {
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         if (!mbeanSrv.isRegistered(mbeanName))
-            fail("MBean is not registered: " + mbeanName.getCanonicalName());
+            Assert.fail("MBean is not registered: " + mbeanName.getCanonicalName());
 
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, TransactionMetricsMxBean.class, true);
     }

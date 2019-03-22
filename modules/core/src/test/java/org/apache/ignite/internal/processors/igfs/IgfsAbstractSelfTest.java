@@ -59,6 +59,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
@@ -496,7 +497,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
         try {
             igfs.mkdirs(new IgfsPath("/d/f"), null);
 
-            fail("IgfsParentNotDirectoryException expected.");
+            Assert.fail("IgfsParentNotDirectoryException expected.");
         }
         catch (IgfsParentNotDirectoryException ignore) {
             // No-op.
@@ -510,7 +511,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
         try {
             igfs.mkdirs(new IgfsPath("/d/f/something/else"), null);
 
-            fail("IgfsParentNotDirectoryException expected.");
+            Assert.fail("IgfsParentNotDirectoryException expected.");
         }
         catch (IgfsParentNotDirectoryException ignore) {
             // No-op.
@@ -850,7 +851,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
         try {
             igfs.setTimes(FILE2, Long.MAX_VALUE, Long.MAX_VALUE);
 
-            fail("Exception is not thrown for missing file.");
+            Assert.fail("Exception is not thrown for missing file.");
         }
         catch (Exception ignore) {
             // No-op.
@@ -967,7 +968,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
         try {
             try (IgfsOutputStream os = igfs.create(new IgfsPath("/k/l"), false)) {}
 
-            fail("Exception expected");
+            Assert.fail("Exception expected");
         } catch (IgniteException ignored) {
             // No-op.
         }
@@ -978,7 +979,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
         try {
             try (IgfsOutputStream os = igfs.create(new IgfsPath("/k/l/m"), true)) {}
 
-            fail("Exception expected");
+            Assert.fail("Exception expected");
         } catch (IgniteException ignored) {
             // okay
         }
@@ -989,7 +990,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
         try {
             try (IgfsOutputStream os = igfs.create(new IgfsPath("/k/l/m/n/o/p"), true)) {}
 
-            fail("Exception expected");
+            Assert.fail("Exception expected");
         } catch (IgniteException ignored) {
             // okay
         }
@@ -1001,7 +1002,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
         try {
             try (IgfsOutputStream os = igfs.create(new IgfsPath("/x/y"), true)) {}
 
-            fail("Exception expected");
+            Assert.fail("Exception expected");
         } catch (IgniteException ignored) {
             // okay
         }
@@ -1473,7 +1474,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
                     // No-op.
                 }
 
-                fail("Exception expected");
+                Assert.fail("Exception expected");
             } catch (IgniteException ignored) {
                 // okay
             }
@@ -1491,7 +1492,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
                     // No-op.
                 }
 
-                fail("Exception expected");
+                Assert.fail("Exception expected");
             } catch (IgniteException ignored) {
                 // okay
             }
@@ -1505,7 +1506,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
                     // No-op.
                 }
 
-                fail("Exception expected");
+                Assert.fail("Exception expected");
             } catch (IgniteException ignored) {
                 // okay
             }
@@ -1522,7 +1523,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
                     // No-op.
                 }
 
-                fail("Exception expected");
+                Assert.fail("Exception expected");
             } catch (IgniteException ignored) {
                 // okay
             }
@@ -1553,7 +1554,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
                     // No-op.
                 }
 
-                fail("Exception expected");
+                Assert.fail("Exception expected");
             } catch (IgniteException ignored) {
                 // okay
             }

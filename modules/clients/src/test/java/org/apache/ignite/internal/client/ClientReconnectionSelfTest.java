@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.client.impl.connection.GridClientConnectionResetException;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -170,7 +171,7 @@ public class ClientReconnectionSelfTest extends GridCommonAbstractTest {
         try {
             c.compute().execute("fake", "arg");
 
-            fail("Client operation should fail when server resets connections.");
+            Assert.fail("Client operation should fail when server resets connections.");
         }
         catch (GridClientDisconnectedException e) {
             assertTrue("Thrown exception doesn't have an expected cause: " + X.getFullStackTrace(e),

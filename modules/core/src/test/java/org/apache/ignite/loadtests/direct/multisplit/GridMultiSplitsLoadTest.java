@@ -31,6 +31,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.config.GridTestProperties;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -49,9 +50,10 @@ public class GridMultiSplitsLoadTest extends GridCommonAbstractTest {
         return null;
     }
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration();
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         CommunicationSpi commSpi = new TcpCommunicationSpi();
 
@@ -118,7 +120,7 @@ public class GridMultiSplitsLoadTest extends GridCommonAbstractTest {
                         int res = fut.get();
 
                         if (res != exp)
-                            fail("Received wrong result [expected=" + exp + ", actual=" + res + ']');
+                            Assert.fail("Received wrong result [expected=" + exp + ", actual=" + res + ']');
 
                         long taskCnt = stats.onTaskCompleted(fut, exp, System.currentTimeMillis() - start);
 

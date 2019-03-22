@@ -1072,7 +1072,7 @@ public class BinaryObjectBuilderAdditionalSelfTest extends GridCommonAbstractTes
 
             builder.build();
 
-            fail("BinaryObjectBuilder accepted wrong metadata");
+            Assert.fail("BinaryObjectBuilder accepted wrong metadata");
         }
         catch (BinaryObjectException ex) {
             assertTrue(ex.getMessage().startsWith("Wrong value has been set"));
@@ -1110,7 +1110,7 @@ public class BinaryObjectBuilderAdditionalSelfTest extends GridCommonAbstractTes
 
             builder.build();
 
-            fail("BinaryObjectBuilder accepted wrong metadata");
+            Assert.fail("BinaryObjectBuilder accepted wrong metadata");
         }
         catch (BinaryObjectException ex) {
             assertTrue(ex.getMessage().startsWith("Wrong value has been set"));

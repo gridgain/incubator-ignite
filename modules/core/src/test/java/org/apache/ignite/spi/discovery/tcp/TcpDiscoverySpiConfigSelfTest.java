@@ -52,15 +52,12 @@ public class TcpDiscoverySpiConfigSelfTest extends GridSpiAbstractConfigTest<Tcp
     @Test
     public void testLocalPortRange() throws Exception {
         try {
-            IgniteConfiguration cfg = getConfiguration();
-
             TcpDiscoverySpi spi = new TcpDiscoverySpi();
 
             spi.setIpFinder(new TcpDiscoveryVmIpFinder(true));
             spi.setLocalPortRange(0);
-            cfg.setDiscoverySpi(spi);
 
-            startGrid(cfg.getIgniteInstanceName(), cfg);
+            startGrid((cfg) -> cfg.setDiscoverySpi(spi));
         }
         finally {
             stopAllGrids();

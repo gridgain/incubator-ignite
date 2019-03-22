@@ -45,6 +45,7 @@ import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionTimeoutException;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -155,7 +156,7 @@ public class IgniteTxConfigCacheSelfTest extends GridCommonAbstractTest {
         try {
             cache.put(key, 0);
 
-            fail("Timeout exception must be thrown");
+            Assert.fail("Timeout exception must be thrown");
         }
         catch (CacheException ignored) {
             // No-op.
@@ -185,7 +186,7 @@ public class IgniteTxConfigCacheSelfTest extends GridCommonAbstractTest {
 
             cache.put("key", "val");
 
-            fail("Timeout exception must be thrown");
+            Assert.fail("Timeout exception must be thrown");
         }
         catch (CacheException e) {
             assert e.getCause() instanceof TransactionTimeoutException;

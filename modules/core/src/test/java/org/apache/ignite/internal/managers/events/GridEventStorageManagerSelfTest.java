@@ -28,6 +28,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteFutureTimeoutException;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVTS_ALL;
@@ -76,7 +77,7 @@ public class GridEventStorageManagerSelfTest extends GridCommonAbstractTest {
         try {
             fut.get(500);
 
-            fail("GridFutureTimeoutException must have been thrown.");
+            Assert.fail("GridFutureTimeoutException must have been thrown.");
         }
         catch (IgniteFutureTimeoutException e) {
             info("Caught expected exception: " + e);
@@ -104,7 +105,7 @@ public class GridEventStorageManagerSelfTest extends GridCommonAbstractTest {
 
             waitForLocalEvent(ignite.events(), F.<Event>alwaysTrue(), usrType).get(1000);
 
-            fail("GridFutureTimeoutException must have been thrown.");
+            Assert.fail("GridFutureTimeoutException must have been thrown.");
         }
         catch (IgniteFutureTimeoutException e) {
             info("Caught expected exception: " + e);

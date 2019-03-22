@@ -44,6 +44,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
 import org.apache.ignite.internal.processors.cache.store.GridCacheWriteBehindStore;
 import org.apache.ignite.resources.CacheStoreSessionResource;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.apache.ignite.testframework.MvccFeatureChecker;
@@ -229,7 +230,7 @@ public class CacheStoreSessionListenerWriteBehindEnabledTest extends GridCacheAb
                     cache.put(i, i);
             }
             catch (Exception e) {
-                fail("Unexpected exception [" + e + "]");
+                Assert.fail("Unexpected exception [" + e + "]");
             }
         }
     }

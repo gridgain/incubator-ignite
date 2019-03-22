@@ -42,6 +42,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.Assert;
 
 /**
  *
@@ -97,7 +98,7 @@ public abstract class AbstractDeadlockDetectionTest extends GridCommonAbstractTe
         }
 
         if (fail)
-            fail("Some transactions still exist");
+            Assert.fail("Some transactions still exist");
     }
 
     /**

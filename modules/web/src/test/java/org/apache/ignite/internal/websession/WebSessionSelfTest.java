@@ -51,6 +51,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -1251,7 +1252,7 @@ public class WebSessionSelfTest extends GridCommonAbstractTest {
 
             // It must be unmarshalled only on client side.
             if (keepBinaryFlag)
-                fail("Should not be unmarshalled");
+                Assert.fail("Should not be unmarshalled");
 
             System.out.println("TestObj unmarshalled");
         }

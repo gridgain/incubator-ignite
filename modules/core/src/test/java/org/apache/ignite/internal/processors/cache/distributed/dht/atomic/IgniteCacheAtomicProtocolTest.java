@@ -46,6 +46,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -94,7 +95,7 @@ public class IgniteCacheAtomicProtocolTest extends GridCommonAbstractTest {
      *
      */
     private void blockRebalance() {
-        final int grpId = groupIdForCache(ignite(0), TEST_CACHE);
+        final int grpId = GridTestUtils.groupIdForCache(ignite(0), TEST_CACHE);
 
         for (Ignite node : G.allGrids()) {
             testSpi(node).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
@@ -917,7 +918,7 @@ public class IgniteCacheAtomicProtocolTest extends GridCommonAbstractTest {
                 return ignite;
         }
 
-        fail("Failed to find backup for key: " + key);
+        Assert.fail("Failed to find backup for key: " + key);
 
         return null;
     }

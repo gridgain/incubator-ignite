@@ -23,6 +23,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 import java.util.concurrent.Callable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -935,7 +936,7 @@ public class OdbcEscapeSequenceSelfTest extends GridCommonAbstractTest {
             @Override public Void call() throws Exception {
                 OdbcEscapeUtils.parse(qry);
 
-                fail("Parsing should fail: " + qry);
+                Assert.fail("Parsing should fail: " + qry);
 
                 return null;
             }

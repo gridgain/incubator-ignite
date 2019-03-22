@@ -713,7 +713,7 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
         switch (dataMode) {
             case BINARILIZABLE:
             case PLANE_OBJECT:
-                return !(getConfiguration().getMarshaller() instanceof JdkMarshaller);
+                return !(getConfiguration("").getMarshaller() instanceof JdkMarshaller);
         }
         return false;
     }

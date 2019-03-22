@@ -46,8 +46,10 @@ import org.apache.ignite.spi.IgniteSpiOperationTimeoutHelper;
 import org.apache.ignite.spi.collision.fifoqueue.FifoQueueCollisionSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -95,7 +97,7 @@ public class TcpCommunicationSpiSkipMessageSendTest extends GridCommonAbstractTe
 
         TcpDiscoverySpi discoSpi = new CustomDiscoverySpi();
 
-        discoSpi.setIpFinder(LOCAL_IP_FINDER);
+        discoSpi.setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
         discoSpi.setJoinTimeout(JOIN_TIMEOUT);
 
         cfg.setDiscoverySpi(discoSpi);
@@ -138,15 +140,15 @@ public class TcpCommunicationSpiSkipMessageSendTest extends GridCommonAbstractTe
         runJobAsync(compute);
 
         if (!COMPUTE_JOB_STARTED.await(START_JOB_TIMEOUT, TimeUnit.MILLISECONDS))
-            fail("Compute job wasn't started.");
+            Assert.fail("Compute job wasn't started.");
 
         disableNetwork(client);
 
         if (!clientDisconnected.await(JOIN_TIMEOUT * 2, TimeUnit.MILLISECONDS))
-            fail("Client wasn't disconnected.");
+            Assert.fail("Client wasn't disconnected.");
 
         if (!clientSegmented.await(JOIN_TIMEOUT * 2, TimeUnit.MILLISECONDS))
-            fail("Client wasn't segmented.");
+            Assert.fail("Client wasn't segmented.");
     }
 
     /**
@@ -165,7 +167,7 @@ public class TcpCommunicationSpiSkipMessageSendTest extends GridCommonAbstractTe
         commSpi.disableNetwork();
 
         if (!discoverySpi.awaitNetworkDisabled())
-            fail("Network wasn't disabled.");
+            Assert.fail("Network wasn't disabled.");
     }
 
     /**

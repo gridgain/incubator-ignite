@@ -36,6 +36,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -258,7 +259,7 @@ public class IpcSharedMemoryCrashDetectionSelfTest extends GridCommonAbstractTes
                 }
             }
 
-            fail("Client should throw IOException upon server killing.");
+            Assert.fail("Client should throw IOException upon server killing.");
         }
         catch (IOException e) {
             assertTrue(i >= interactionsCntBeforeSrvKilling);

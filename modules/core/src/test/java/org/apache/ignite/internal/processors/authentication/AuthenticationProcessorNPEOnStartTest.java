@@ -24,6 +24,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -73,7 +74,7 @@ public class AuthenticationProcessorNPEOnStartTest extends GridCommonAbstractTes
                 catch (Exception e) {
                     e.printStackTrace();
 
-                    fail("Unexpected exception");
+                    Assert.fail("Unexpected exception");
                 }
             }
         }, 10, "auth-grid-starter");

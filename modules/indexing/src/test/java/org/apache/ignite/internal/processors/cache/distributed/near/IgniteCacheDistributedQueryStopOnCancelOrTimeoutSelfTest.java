@@ -39,6 +39,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -228,7 +229,7 @@ public class IgniteCacheDistributedQueryStopOnCancelOrTimeoutSelfTest extends Gr
                 cursor.getAll();
 
                 if (checkCanceled)
-                    fail("Query not canceled");
+                    Assert.fail("Query not canceled");
             }
             catch (CacheException ex) {
                 log().error("Got expected exception", ex);

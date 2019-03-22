@@ -28,6 +28,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionException;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.Collections.singleton;
@@ -349,7 +350,7 @@ public class MvccUnsupportedTxModesTest extends GridCommonAbstractTest {
         try (Transaction ignored = ignite(0).transactions().txStart(conc, iso)) {
             action.run();
 
-            fail("Action failure is expected.");
+            Assert.fail("Action failure is expected.");
         }
         catch (TransactionException e) {
             assertEquals("Only pessimistic transactions are supported when MVCC is enabled.", e.getMessage());

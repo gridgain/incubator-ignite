@@ -28,6 +28,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.odbc.SqlStateCode;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -177,7 +178,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             stmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown");
+            Assert.fail("BatchUpdateException must be thrown");
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -221,7 +222,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             stmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown");
+            Assert.fail("BatchUpdateException must be thrown");
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -285,7 +286,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             stmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown");
+            Assert.fail("BatchUpdateException must be thrown");
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -331,7 +332,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             stmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown");
+            Assert.fail("BatchUpdateException must be thrown");
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -386,7 +387,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             stmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown");
+            Assert.fail("BatchUpdateException must be thrown");
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -537,7 +538,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             pstmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown");
+            Assert.fail("BatchUpdateException must be thrown");
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -635,7 +636,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             int[] res = pstmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
+            Assert.fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -726,7 +727,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             int[] res = pstmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
+            Assert.fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
@@ -807,7 +808,7 @@ public class JdbcThinBatchSelfTest extends JdbcThinAbstractDmlStatementSelfTest 
         try {
             int[] res = pstmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
+            Assert.fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
         }
         catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();

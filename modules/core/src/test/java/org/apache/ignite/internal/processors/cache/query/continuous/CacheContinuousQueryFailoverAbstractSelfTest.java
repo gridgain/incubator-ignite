@@ -105,6 +105,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.apache.ignite.transactions.TransactionSerializationException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -919,7 +920,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
 
                 log.info("Missed events for keys: " + keys0);
 
-                fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + keys0.size() + ']');
+                Assert.fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + keys0.size() + ']');
             }
 
             checkEvents(expEvts, lsnr, false);
@@ -1059,7 +1060,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
 
                 log.info("Missed events for keys: " + keys0);
 
-                fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
+                Assert.fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
             }
 
             checkEvents(expEvts, lsnr);
@@ -1107,7 +1108,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
 
                 log.info("Missed events for keys: " + keys0);
 
-                fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
+                Assert.fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
             }
 
             checkEvents(expEvts, lsnr);
@@ -1250,7 +1251,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
                 for (T3<Object, Object, Object> e : lostEvts)
                     log.error("Lost event: " + e);
 
-                fail("Lose events, see log for details.");
+                Assert.fail("Lose events, see log for details.");
             }
 
             log.error("Lost event cnt: " + lostEvts.size());
@@ -1400,7 +1401,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
             backupQueue(ignite(1)).size() < BACKUP_ACK_THRESHOLD);
 
         if (!latch.await(5, SECONDS))
-            fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
+            Assert.fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
 
         keys = primaryKeys(cache0, BACKUP_ACK_THRESHOLD / 2);
 
@@ -1422,7 +1423,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
         assertTrue("Backup queue is not cleared: " + backupQueue(ignite(1)), backupQueue(ignite(1)).isEmpty());
 
         if (!latch.await(5, SECONDS))
-            fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
+            Assert.fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
 
         cur.close();
 
@@ -1543,7 +1544,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
             backupQueue(ignite(1)).size() < BACKUP_ACK_THRESHOLD);
 
         if (!latch.await(5, SECONDS))
-            fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
+            Assert.fail("Failed to wait for notifications [exp=" + keys.size() + ", left=" + lsnr.latch.getCount() + ']');
 
         cur.close();
     }
@@ -2193,7 +2194,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
             stopGrid(SRV_IDX);
 
             if (!latch.await(5, SECONDS))
-                fail("Failed to wait for notifications [exp=" + THREADS + ", left=" + lsnr.latch.getCount() + ']');
+                Assert.fail("Failed to wait for notifications [exp=" + THREADS + ", left=" + lsnr.latch.getCount() + ']');
 
             assertEquals(THREADS, lsnr.allEvts.size());
 
@@ -2389,8 +2390,8 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
                     if (atomicityMode() == CacheAtomicityMode.ATOMIC && msg.isEmpty() && cnt > expCnt)
                         ignoredDupEvts += cnt - expCnt;
                     else
-                        fail("Unexpected event updates count: EXPECTED=" + expCnt + ", ACTUAL=" + cnt + ", " +
-                            "ITERATION=" + iteration + msg);
+                        Assert.fail("Unexpected event updates count: EXPECTED=" + expCnt + ", ACTUAL=" + cnt + ", " +
+                                            "ITERATION=" + iteration + msg);
                 }
 
                 sleep(500);

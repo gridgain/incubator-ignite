@@ -57,10 +57,12 @@ import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.GridTestMessage;
 import org.apache.ignite.testframework.GridSpiTestContext;
 import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_MACS;
@@ -153,7 +155,7 @@ public class GridTcpCommunicationSpiMultithreadedSelfTest extends GridSpiAbstrac
                 GridTestMessage testMsg = (GridTestMessage)msg;
 
                 if (!testMsg.getSourceNodeId().equals(nodeId))
-                    fail("Listener nodeId is not equal to message nodeId.");
+                    Assert.fail("Listener nodeId is not equal to message nodeId.");
 
                 if (!reject)
                     rcvdMsgs.offer(testMsg);
@@ -237,7 +239,7 @@ public class GridTcpCommunicationSpiMultithreadedSelfTest extends GridSpiAbstrac
                 catch (IgniteException e) {
                     log().error("Unable to send message.", e);
 
-                    fail("Unable to send message: " + e.getMessage());
+                    Assert.fail("Unable to send message: " + e.getMessage());
                 }
             }
         }, getSpiCount() * 3, "message-sender");
@@ -422,7 +424,7 @@ public class GridTcpCommunicationSpiMultithreadedSelfTest extends GridSpiAbstrac
                     }
                 }
                 catch (IgniteException e) {
-                    fail("Unable to send message: " + e.getMessage());
+                    Assert.fail("Unable to send message: " + e.getMessage());
                 }
             }
         }, 5, "message-sender");
@@ -455,7 +457,7 @@ public class GridTcpCommunicationSpiMultithreadedSelfTest extends GridSpiAbstrac
         if (!useShmem)
             spi.setSharedMemoryPort(-1);
 
-        spi.setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+        spi.setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
         spi.setIdleConnectionTimeout(IDLE_CONN_TIMEOUT);
 
         return spi;

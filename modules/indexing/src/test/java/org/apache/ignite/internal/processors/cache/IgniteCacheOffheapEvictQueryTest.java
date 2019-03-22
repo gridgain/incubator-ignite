@@ -36,6 +36,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -173,7 +174,7 @@ public class IgniteCacheOffheapEvictQueryTest extends GridCommonAbstractTest {
             fut.get(60_000);
 
             if (c.size(CachePeekMode.ALL) != 0)
-                fail("Not all keys removed.");
+                Assert.fail("Not all keys removed.");
 
             X.println("___ all keys removed");
         }

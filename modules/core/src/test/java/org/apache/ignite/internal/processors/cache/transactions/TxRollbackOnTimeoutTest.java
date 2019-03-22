@@ -62,6 +62,7 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionDeadlockException;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionTimeoutException;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -771,7 +772,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
                     startGrid(GRID_CNT);
                 }
                 catch (Exception e) {
-                    fail(e.getMessage());
+                    Assert.fail(e.getMessage());
                 }
             }
         });
@@ -786,7 +787,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
                     TestRecordingCommunicationSpi.spi(client).stopBlock();
                 }
                 catch (Exception e) {
-                    fail(e.getMessage());
+                    Assert.fail(e.getMessage());
                 }
             }
         });
@@ -948,7 +949,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
                         fail();
                 }
 
-                fail("Tx must timeout");
+                Assert.fail("Tx must timeout");
             }
             catch (CacheException | IgniteException e) {
                 assertTrue("Expected exception: " + e, X.hasCause(e, TransactionTimeoutException.class));
@@ -1008,7 +1009,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
             if (obj.getClass().isAssignableFrom(GridNearTxLocal.class)) {
                 log.error("Last saved exception: " + saved, saved);
 
-                fail("Not removed [mode=" + mode + ", timeout=" + timeout + ", tx=" + obj +']');
+                Assert.fail("Not removed [mode=" + mode + ", timeout=" + timeout + ", tx=" + obj +']');
             }
         }
     }

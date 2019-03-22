@@ -40,6 +40,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -173,7 +174,7 @@ public class JdbcThinStatementCancelSelfTest extends JdbcThinAbstractSelfTest {
         catch (Exception e) {
             log.error("Unexpected exception.", e);
 
-            fail("Unexpected exception");
+            Assert.fail("Unexpected exception");
         }
     }
 
@@ -366,7 +367,7 @@ public class JdbcThinStatementCancelSelfTest extends JdbcThinAbstractSelfTest {
             catch (Exception e) {
                 log.error("Unexpected exception.", e);
 
-                fail("Unexpected exception");
+                Assert.fail("Unexpected exception");
             }
         });
 
@@ -601,7 +602,7 @@ public class JdbcThinStatementCancelSelfTest extends JdbcThinAbstractSelfTest {
             catch (Exception e) {
                 log.error("Unexpected exception.", e);
 
-                fail("Unexpected exception");
+                Assert.fail("Unexpected exception");
             }
         });
 
@@ -647,7 +648,7 @@ public class JdbcThinStatementCancelSelfTest extends JdbcThinAbstractSelfTest {
             catch (Exception e) {
                 log.error("Unexpected exception.", e);
 
-                fail("Unexpected exception");
+                Assert.fail("Unexpected exception");
             }
         });
     }
@@ -671,7 +672,7 @@ public class JdbcThinStatementCancelSelfTest extends JdbcThinAbstractSelfTest {
             catch (SQLException e) {
                 log.error("Unexpected exception.", e);
 
-                fail("Unexpected exception");
+                Assert.fail("Unexpected exception");
             }
         }, qryCnt, "ThreadName");
     }
@@ -742,7 +743,7 @@ public class JdbcThinStatementCancelSelfTest extends JdbcThinAbstractSelfTest {
          */
         @QuerySqlFunction
         public static long shouldNotBeCalledInCaseOfCancellation() {
-            fail("Query wasn't actually cancelled.");
+            Assert.fail("Query wasn't actually cancelled.");
 
             return 0;
         }

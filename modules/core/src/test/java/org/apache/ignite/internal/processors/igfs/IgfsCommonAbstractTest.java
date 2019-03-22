@@ -18,36 +18,16 @@
 package org.apache.ignite.internal.processors.igfs;
 
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
  * Common subclass for all IGFS tests. Aimed to disabled peer class loading which is restricted for Hadoop edition.
  */
 public class IgfsCommonAbstractTest extends GridCommonAbstractTest {
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration();
-
-        cfg.setPeerClassLoadingEnabled(false);
-        cfg.setLocalHost("127.0.0.1");
-
-        return cfg;
-    }
-
-    /** {@inheritDoc} */
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
-
-        cfg.setPeerClassLoadingEnabled(false);
-        cfg.setLocalHost("127.0.0.1");
-
-        return cfg;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName, IgniteTestResources rsrcs) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName, rsrcs);
 
         cfg.setPeerClassLoadingEnabled(false);
         cfg.setLocalHost("127.0.0.1");

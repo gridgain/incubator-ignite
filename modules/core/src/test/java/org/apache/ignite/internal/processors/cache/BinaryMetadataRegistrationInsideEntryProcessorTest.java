@@ -58,8 +58,9 @@ public class BinaryMetadataRegistrationInsideEntryProcessorTest extends GridComm
     /** */
     private static final String CACHE_NAME = "test-cache";
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() {
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) {
         TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder()
             .setAddresses(Collections.singletonList("127.0.0.1:47500..47509"));
 
@@ -118,8 +119,8 @@ public class BinaryMetadataRegistrationInsideEntryProcessorTest extends GridComm
             .setPartitionLossPolicy(READ_WRITE_SAFE)
         );
 
-        IgniteEx client1 = startGrid(getConfiguration().setIgniteInstanceName("client1").setClientMode(true));
-        IgniteEx client2 = startGrid(getConfiguration().setIgniteInstanceName("client2").setClientMode(true));
+        IgniteEx client1 = startGrid("client1", (cfg) -> cfg.setClientMode(true));
+        IgniteEx client2 = startGrid("client2", (cfg) -> cfg.setClientMode(true));
 
         AtomicBoolean stop = new AtomicBoolean();
         AtomicInteger keyCntr = new AtomicInteger();

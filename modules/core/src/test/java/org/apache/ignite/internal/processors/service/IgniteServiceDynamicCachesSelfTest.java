@@ -29,6 +29,7 @@ import org.apache.ignite.services.ServiceContext;
 import org.apache.ignite.services.ServiceDeploymentException;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -133,7 +134,7 @@ public class IgniteServiceDynamicCachesSelfTest extends GridCommonAbstractTest {
             svcs.deployKeyAffinitySingleton(svcName, new TestService(), cacheName, key);
         }
         else
-            fail("Unexpected service implementation.");
+            Assert.fail("Unexpected service implementation.");
 
         try {
             boolean res = GridTestUtils.waitForCondition(new PA() {

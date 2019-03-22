@@ -89,10 +89,12 @@ import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeAddedMessage
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeFailedMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeLeftMessage;
 import org.apache.ignite.testframework.GridStringLogger;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -213,8 +215,8 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
             TcpDiscoveryMulticastIpFinder finder = new TcpDiscoveryMulticastIpFinder();
 
             finder.setAddressRequestAttempts(5);
-            finder.setMulticastGroup(GridTestUtils.getNextMulticastGroup(getClass()));
-            finder.setMulticastPort(GridTestUtils.getNextMulticastPort(getClass()));
+            finder.setMulticastGroup(GridTestPortUtils.getNextMulticastGroup(getClass()));
+            finder.setMulticastPort(GridTestPortUtils.getNextMulticastPort(getClass()));
 
             spi.setIpFinder(finder);
 
@@ -2553,7 +2555,7 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
                         }
                     }
                     catch (Throwable e) {
-                        fail("Unexpected error: " + e);
+                        Assert.fail("Unexpected error: " + e);
                     }
                 }
             }

@@ -67,6 +67,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -128,7 +129,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
             IgniteCache cache = ignite(0).getOrCreateCache(cfg);
         }
         catch (CacheException e) {
-            fail("Exception should not be thrown.");
+            Assert.fail("Exception should not be thrown.");
         }
 
         stopGrid(clientName);
@@ -156,7 +157,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
         try {
             IgniteCache cache = ignite(0).getOrCreateCache(cfg);
 
-            fail("Expected exception was not thrown.");
+            Assert.fail("Expected exception was not thrown.");
         }
         catch (CacheException e) {
         }
@@ -186,7 +187,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
         try {
             IgniteCache cache = client.getOrCreateCache(cfg);
 
-            fail("Expected exception was not thrown.");
+            Assert.fail("Expected exception was not thrown.");
         }
         catch (CacheException e) {
         }
@@ -459,7 +460,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
             try {
                 IgniteCache cache = ignite(0).getOrCreateCache(cfg);
 
-                fail("Expected exception was not thrown");
+                Assert.fail("Expected exception was not thrown");
             }
             catch (CacheException e) {
             }
@@ -617,7 +618,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
                     }
                 }
                 catch (Exception e) {
-                    fail("Unexpected exception: " + e.getMessage());
+                    Assert.fail("Unexpected exception: " + e.getMessage());
                 }
                 finally {
                     stopLatch.countDown();

@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -73,7 +74,7 @@ public class IncorrectQueryEntityTest extends GridCommonAbstractTest {
             if (!exception.getMessage().contains(
                 QueryUtils.propertyInitializationExceptionMessage(
                     Object.class, Object.class, "exceptionOid", Object.class)))
-                fail("property initialization exception must be thrown, but got " + exception.getMessage());
+                Assert.fail("property initialization exception must be thrown, but got " + exception.getMessage());
         }
     }
 

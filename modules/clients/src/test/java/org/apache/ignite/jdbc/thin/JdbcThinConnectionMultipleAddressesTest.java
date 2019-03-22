@@ -42,6 +42,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.mxbean.ClientProcessorMXBean;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -335,13 +336,13 @@ public class JdbcThinConnectionMultipleAddressesTest extends JdbcThinAbstractSel
                 ClientListenerProcessor.class.getSimpleName());
         }
         catch (MalformedObjectNameException e) {
-            fail("Failed to register MBean.");
+            Assert.fail("Failed to register MBean.");
         }
 
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         if (!mbeanSrv.isRegistered(mbeanName))
-            fail("MBean is not registered: " + mbeanName.getCanonicalName());
+            Assert.fail("MBean is not registered: " + mbeanName.getCanonicalName());
 
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, ClientProcessorMXBean.class, true);
     }

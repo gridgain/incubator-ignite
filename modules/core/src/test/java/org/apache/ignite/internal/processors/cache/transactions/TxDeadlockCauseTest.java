@@ -53,7 +53,7 @@ public class TxDeadlockCauseTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        if (isDebug()) {
+        if (GridTestUtils.isDebugMode()) {
             TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
 
             discoSpi.failureDetectionTimeoutEnabled(false);

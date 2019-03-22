@@ -321,7 +321,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
         final IgniteEvents evts = ignite.events();
 
         if (!evts.isEnabled(evtType))
-            fail("nothing to test");
+            Assert.fail("nothing to test");
 
         evts.localListen(e -> {
             WalSegmentArchivedEvent archComplEvt = (WalSegmentArchivedEvent)e;
@@ -408,7 +408,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
         final IgniteEvents evts = ignite.events();
 
         if (!evts.isEnabled(EVT_WAL_SEGMENT_ARCHIVED))
-            fail("nothing to test");
+            Assert.fail("nothing to test");
 
         evts.localListen(e -> {
             WalSegmentArchivedEvent archComplEvt = (WalSegmentArchivedEvent)e;

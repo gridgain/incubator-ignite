@@ -48,6 +48,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.TransactionException;
 import org.apache.ignite.transactions.TransactionTimeoutException;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -265,7 +266,7 @@ public class IgniteCacheQueryNodeRestartSelfTest2 extends GridCommonAbstractTest
                                     continue;
 
                                 if (e.getCause() instanceof QueryCancelledException)
-                                    fail("Retry is expected");
+                                    Assert.fail("Retry is expected");
 
                                 if (!smallPageSize)
                                     U.error(grid.log(), "On large page size must retry.", e);
@@ -300,7 +301,7 @@ public class IgniteCacheQueryNodeRestartSelfTest2 extends GridCommonAbstractTest
                                 if (!failedOnRemoteFetch) {
                                     U.error(grid.log(), "Must fail inside of GridResultPage.fetchNextPage or subclass.", e);
 
-                                    fail("Must fail inside of GridResultPage.fetchNextPage or subclass.");
+                                    Assert.fail("Must fail inside of GridResultPage.fetchNextPage or subclass.");
                                 }
                             }
                         } else { // Replicated query.
@@ -376,7 +377,7 @@ public class IgniteCacheQueryNodeRestartSelfTest2 extends GridCommonAbstractTest
         catch (IgniteFutureTimeoutCheckedException e) {
             U.dumpThreads(log);
 
-            fail("Stopping restarts timeout.");
+            Assert.fail("Stopping restarts timeout.");
         }
 
         info("Restarts stopped.");

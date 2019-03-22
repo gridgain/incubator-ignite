@@ -43,6 +43,7 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
 import java.util.concurrent.ConcurrentHashMap;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -1475,33 +1476,33 @@ public abstract class GridCacheInterceptorAbstractSelfTest extends GridCacheAbst
     private static class InterceptorAdapter implements CacheInterceptor {
         /** */
         @Nullable @Override public Object onGet(Object key, Object val) {
-            fail("onGet not expected");
+            Assert.fail("onGet not expected");
 
             return null;
         }
 
         /** */
         @Nullable @Override public Object onBeforePut(Cache.Entry entry, Object newVal) {
-            fail("onBeforePut not expected");
+            Assert.fail("onBeforePut not expected");
 
             return null;
         }
 
         /** */
         @Override public void onAfterPut(Cache.Entry entry) {
-            fail("onAfterPut not expected");
+            Assert.fail("onAfterPut not expected");
         }
 
         /** */
         @Nullable @Override public IgniteBiTuple onBeforeRemove(Cache.Entry entry) {
-            fail("onBeforeRemove not expected");
+            Assert.fail("onBeforeRemove not expected");
 
             return null;
         }
 
         /** */
         @Override public void onAfterRemove(Cache.Entry entry) {
-            fail("onAfterRemove not expected");
+            Assert.fail("onAfterRemove not expected");
         }
     }
 

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -71,7 +72,7 @@ public class TcpDiscoveryMarshallerCheckSelfTest extends GridCommonAbstractTest 
         try {
             startGrid(2);
 
-            fail("Expected SPI exception was not thrown.");
+            Assert.fail("Expected SPI exception was not thrown.");
         }
         catch (IgniteCheckedException e) {
             Throwable ex = e.getCause().getCause();

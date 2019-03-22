@@ -36,21 +36,21 @@ public class S3SessionCheckpointSelfTest extends GridSessionCheckpointAbstractSe
     @Ignore("https://issues.apache.org/jira/browse/IGNITE-2420")
     @Test
     public void testS3Checkpoint() throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        checkCheckpoints((cfg) -> {
+            S3CheckpointSpi spi = new S3CheckpointSpi();
 
-        S3CheckpointSpi spi = new S3CheckpointSpi();
+            AWSCredentials cred = new BasicAWSCredentials(IgniteS3TestSuite.getAccessKey(),
+                IgniteS3TestSuite.getSecretKey());
 
-        AWSCredentials cred = new BasicAWSCredentials(IgniteS3TestSuite.getAccessKey(),
-            IgniteS3TestSuite.getSecretKey());
+            spi.setAwsCredentials(cred);
 
-        spi.setAwsCredentials(cred);
+            spi.setBucketNameSuffix(S3CheckpointSpiSelfTest.getBucketNameSuffix());
 
-        spi.setBucketNameSuffix(S3CheckpointSpiSelfTest.getBucketNameSuffix());
+            cfg.setCheckpointSpi(spi);
 
-        cfg.setCheckpointSpi(spi);
+            GridSessionCheckpointSelfTest.spi = spi;
 
-        GridSessionCheckpointSelfTest.spi = spi;
-
-        checkCheckpoints(cfg);
+            return cfg;
+        });
     }
 }

@@ -23,6 +23,7 @@ import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -78,7 +79,7 @@ public class IgniteNoCustomEventsOnNodeStart extends GridCommonAbstractTest {
 
             failed = true;
 
-            fail("Should not be called: " + msg);
+            Assert.fail("Should not be called: " + msg);
         }
     }
 }

@@ -188,7 +188,7 @@ public class IgniteWALTailIsReachedDuringIterationOverArchiveTest extends GridCo
         Assert.assertNotNull(lastReadPtr);
 
         if (!exception) {
-            fail("Last read ptr=" + lastReadPtr + ", corruptedPtr=" + corruptedPtr);
+            Assert.fail("Last read ptr=" + lastReadPtr + ", corruptedPtr=" + corruptedPtr);
         }
     }
 

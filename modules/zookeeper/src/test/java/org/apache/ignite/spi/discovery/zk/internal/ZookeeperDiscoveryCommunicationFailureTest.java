@@ -62,6 +62,7 @@ import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.zk.ZookeeperDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.zookeeper.ZkTestClientCnxnSocketNIO;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -365,7 +366,7 @@ public class ZookeeperDiscoveryCommunicationFailureTest extends ZookeeperDiscove
         try {
             spi.resolveCommunicationFailure(spi.getNode(killNodeId), new Exception("test"));
 
-            fail("Exception is not thrown");
+            Assert.fail("Exception is not thrown");
         }
         catch (IgniteSpiException e) {
             assertTrue("Unexpected exception: " + e, e.getCause() instanceof ClusterTopologyCheckedException);
@@ -412,7 +413,7 @@ public class ZookeeperDiscoveryCommunicationFailureTest extends ZookeeperDiscove
             try {
                 spi.resolveCommunicationFailure(spi.getNode(crdId), new Exception("test"));
 
-                fail("Exception is not thrown");
+                Assert.fail("Exception is not thrown");
             }
             catch (IgniteSpiException e) {
                 assertTrue("Unexpected exception: " + e, e.getCause() instanceof ClusterTopologyCheckedException);
@@ -585,7 +586,7 @@ public class ZookeeperDiscoveryCommunicationFailureTest extends ZookeeperDiscove
                     ((TcpCommunicationSpi)ignite(nodeIdx).configuration().getCommunicationSpi()).simulateNodeFailure();
                 }
                 catch (Exception e) {
-                    fail("Unexpected error: " + e);
+                    Assert.fail("Unexpected error: " + e);
                 }
             }
         }, breakNodes.length, "break-communication");

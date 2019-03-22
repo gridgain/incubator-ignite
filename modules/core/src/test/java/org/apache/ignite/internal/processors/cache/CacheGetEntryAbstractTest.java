@@ -41,6 +41,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -295,7 +296,7 @@ public abstract class CacheGetEntryAbstractTest extends GridCacheAbstractSelfTes
                         tx.commit();
                     }
                     catch (Exception ignored) {
-                        fail("Unexpected exception: " + ignored);
+                        Assert.fail("Unexpected exception: " + ignored);
                     }
                 }
             }

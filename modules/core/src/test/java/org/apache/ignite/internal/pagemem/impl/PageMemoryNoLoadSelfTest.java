@@ -37,6 +37,7 @@ import org.apache.ignite.internal.processors.cache.persistence.DummyPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -262,7 +263,7 @@ public class PageMemoryNoLoadSelfTest extends GridCommonAbstractTest {
                     if (pageAddr != 0L) {
                         mem.writeUnlock(id.groupId(), id.pageId(), pageApsPtr, null, false);
 
-                        fail("Was able to acquire page write lock.");
+                        Assert.fail("Was able to acquire page write lock.");
                     }
 
                     mem.readLock(id.groupId(), id.pageId(), pageApsPtr);
@@ -270,7 +271,7 @@ public class PageMemoryNoLoadSelfTest extends GridCommonAbstractTest {
                     if (pageAddr != 0) {
                         mem.readUnlock(id.groupId(), id.pageId(), pageApsPtr);
 
-                        fail("Was able to acquire page read lock.");
+                        Assert.fail("Was able to acquire page read lock.");
                     }
                 }
                 finally {

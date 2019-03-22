@@ -59,6 +59,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -505,7 +506,7 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
                 }
 
                 default:
-                    fail("Op:" + op);
+                    Assert.fail("Op:" + op);
             }
         }
         finally {
@@ -639,12 +640,12 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
 
         /** {@inheritDoc} */
         @Override public void writeExternal(ObjectOutput out) throws IOException {
-            fail("Entry filter should not be marshaled.");
+            Assert.fail("Entry filter should not be marshaled.");
         }
 
         /** {@inheritDoc} */
         @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-            fail("Entry filter should not be marshaled.");
+            Assert.fail("Entry filter should not be marshaled.");
         }
 
         /**

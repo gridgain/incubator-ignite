@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.optimizer.affinity.PartitionDataTypeUtils;
 import org.apache.ignite.internal.sql.optimizer.affinity.PartitionParameterType;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.h2.value.Value;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -348,7 +349,7 @@ public class SqlDataTypeConversionTest extends GridCommonAbstractTest {
                 try {
                     H2Utils.convert(arg, idx, IGNITE_PARAMETER_TYPE_TO_H2_PARAMETER_TYPE.get(targetType));
 
-                    fail("Data conversion failed in Ignite but not in H2.");
+                    Assert.fail("Data conversion failed in Ignite but not in H2.");
                 }
                 catch (org.h2.message.DbException h2Exception) {
                     assertTrue(h2Exception.getMessage().contains("Numeric value out of range") ||

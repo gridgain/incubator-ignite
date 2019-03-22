@@ -25,6 +25,7 @@ import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.cache.query.SqlQuery;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.lang.IgniteBiPredicate;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -54,7 +55,7 @@ public class IgniteCacheP2pUnmarshallingQueryErrorTest extends IgniteCacheP2pUnm
         try {
             jcache(0).query(new SqlQuery<TestKey, String>(String.class, "field like '" + key + "'")).getAll();
 
-            fail("p2p marshalling failed, but error response was not sent");
+            Assert.fail("p2p marshalling failed, but error response was not sent");
         }
         catch (CacheException ignored) {
             // No-op.

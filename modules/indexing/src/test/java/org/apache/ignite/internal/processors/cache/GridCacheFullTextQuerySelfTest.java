@@ -44,6 +44,7 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -334,7 +335,7 @@ public class GridCacheFullTextQuerySelfTest extends GridCommonAbstractTest {
 
         sb.append(";\n");
 
-        fail(sb.toString());
+        Assert.fail(sb.toString());
     }
 
     /**

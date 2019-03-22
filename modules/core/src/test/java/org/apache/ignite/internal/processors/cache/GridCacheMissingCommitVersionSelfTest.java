@@ -29,6 +29,7 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_MAX_COMPLETED_TX_COUNT;
@@ -52,13 +53,14 @@ public class GridCacheMissingCommitVersionSelfTest extends GridCommonAbstractTes
         super(true);
     }
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         maxCompletedTxCnt = System.getProperty(IGNITE_MAX_COMPLETED_TX_COUNT);
 
         System.setProperty(IGNITE_MAX_COMPLETED_TX_COUNT, String.valueOf(5));
 
-        IgniteConfiguration cfg = super.getConfiguration();
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
 
@@ -131,7 +133,7 @@ public class GridCacheMissingCommitVersionSelfTest extends GridCommonAbstractTes
                 fut.get(5000);
             }
             catch (IgniteFutureTimeoutException ignore) {
-                fail("Put failed to finish in 5s: " + key);
+                Assert.fail("Put failed to finish in 5s: " + key);
             }
         }
     }

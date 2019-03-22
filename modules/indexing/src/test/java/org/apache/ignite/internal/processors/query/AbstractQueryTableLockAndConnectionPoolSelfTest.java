@@ -37,6 +37,7 @@ import org.apache.ignite.internal.processors.cache.index.AbstractIndexingCommonT
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -245,13 +246,13 @@ public abstract class AbstractQueryTableLockAndConnectionPoolSelfTest extends Ab
                 it.next();
 
             if (lazy())
-                fail("Retry exception must be thrown");
+                Assert.fail("Retry exception must be thrown");
         }
         catch (Exception e) {
             if (!lazy()) {
                 log.error("In lazy=false mode the query must be finished successfully", e);
 
-                fail("In lazy=false mode the query must be finished successfully");
+                Assert.fail("In lazy=false mode the query must be finished successfully");
             }
             else
                 assertNotNull(X.cause(e, QueryRetryException.class));
@@ -288,12 +289,12 @@ public abstract class AbstractQueryTableLockAndConnectionPoolSelfTest extends Ab
                         if(X.cause(e, QueryRetryException.class) == null) {
                             log.error("Unexpected exception", e);
 
-                            fail("Unexpected exception. " + e);
+                            Assert.fail("Unexpected exception. " + e);
                         }
                         else if (!lazy()) {
                             log.error("Unexpected exception", e);
 
-                            fail("Unexpected QueryRetryException.");
+                            Assert.fail("Unexpected QueryRetryException.");
                         }
                     }
                 }
@@ -340,12 +341,12 @@ public abstract class AbstractQueryTableLockAndConnectionPoolSelfTest extends Ab
                         else if(X.cause(e, QueryRetryException.class) == null) {
                             log.error("Unexpected exception", e);
 
-                            fail("Unexpected exception. " + e);
+                            Assert.fail("Unexpected exception. " + e);
                         }
                         else if (!lazy()) {
                             log.error("Unexpected exception", e);
 
-                            fail("Unexpected QueryRetryException.");
+                            Assert.fail("Unexpected QueryRetryException.");
                         }
                     }
                 }
@@ -489,13 +490,13 @@ public abstract class AbstractQueryTableLockAndConnectionPoolSelfTest extends Ab
                     rows.add(it.next());
 
                 if (lazy())
-                    fail("Retry exception must be thrown");
+                    Assert.fail("Retry exception must be thrown");
             }
             catch (Exception e) {
                 if (!lazy() || X.cause(e, QueryRetryException.class) == null) {
                     log.error("Invalid exception: ", e);
 
-                    fail("QueryRetryException is expected");
+                    Assert.fail("QueryRetryException is expected");
                 }
             }
         }

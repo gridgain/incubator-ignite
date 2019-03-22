@@ -36,6 +36,7 @@ import org.apache.ignite.internal.IgniteFutureTimeoutCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -205,7 +206,7 @@ public class IgnitePersistentStoreDataStructuresTest extends GridCommonAbstractT
         catch (IgniteFutureTimeoutCheckedException e) {
             fut.cancel();
 
-            fail("Ignite was stuck on getting the atomic sequence after autoactivation.");
+            Assert.fail("Ignite was stuck on getting the atomic sequence after autoactivation.");
         }
     }
 

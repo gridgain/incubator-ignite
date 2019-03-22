@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -172,7 +173,7 @@ public class IgniteDbSingleNodeWithIndexingPutGetTest extends IgniteDbSingleNode
 
         if (cntr == null) {
             if (!inc)
-                fail("Nothing to decrement.");
+                Assert.fail("Nothing to decrement.");
 
             xs.put(key, cntr = new AtomicLong());
         }

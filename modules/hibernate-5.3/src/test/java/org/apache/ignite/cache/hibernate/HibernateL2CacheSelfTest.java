@@ -58,6 +58,7 @@ import org.hibernate.mapping.PersistentClass;
 import org.hibernate.mapping.RootClass;
 import org.hibernate.query.Query;
 import org.hibernate.stat.CacheRegionStatistics;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -943,7 +944,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (PersistenceException e) {
                 assertEquals(ConstraintViolationException.class, e.getCause().getClass());
@@ -1086,7 +1087,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (OptimisticLockException e) {
                 log.info("Expected exception: " + e);
@@ -1235,7 +1236,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (PersistenceException e) {
                 assertEquals(ConstraintViolationException.class, e.getCause().getClass());
@@ -1328,7 +1329,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (PersistenceException e) {
                 assertEquals(ConstraintViolationException.class, e.getCause().getClass());
@@ -1362,7 +1363,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (PersistenceException e) {
                 assertEquals(ConstraintViolationException.class, e.getCause().getClass());
@@ -1407,7 +1408,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (PersistenceException e) {
                 assertEquals(ConstraintViolationException.class, e.getCause().getClass());
@@ -1435,7 +1436,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (PersistenceException e) {
                 assertEquals(ConstraintViolationException.class, e.getCause().getClass());

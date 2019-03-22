@@ -32,6 +32,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Gri
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -76,7 +77,7 @@ public class GridCacheRebalancingCancelTest extends GridCommonAbstractTest {
             .blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                 @Override public boolean apply(ClusterNode node, Message msg) {
                     return (msg instanceof GridDhtPartitionSupplyMessage)
-                        && ((GridCacheGroupIdMessage)msg).groupId() == groupIdForCache(ignite0, DHT_PARTITIONED_CACHE);
+                        && ((GridCacheGroupIdMessage)msg).groupId() == GridTestUtils.groupIdForCache(ignite0, DHT_PARTITIONED_CACHE);
                 }
             });
 

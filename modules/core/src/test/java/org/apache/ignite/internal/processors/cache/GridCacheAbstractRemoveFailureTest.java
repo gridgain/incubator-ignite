@@ -53,6 +53,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import java.util.concurrent.ConcurrentHashMap;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_ATOMIC_CACHE_DELETE_HISTORY_SIZE;
@@ -366,7 +367,7 @@ public abstract class GridCacheAbstractRemoveFailureTest extends GridCommonAbstr
                     catch (TimeoutException e) {
                         U.dumpThreads(log);
 
-                        fail("Failed to check cache content: " + e);
+                        Assert.fail("Failed to check cache content: " + e);
                     }
 
                     log.info("Cache content check done.");

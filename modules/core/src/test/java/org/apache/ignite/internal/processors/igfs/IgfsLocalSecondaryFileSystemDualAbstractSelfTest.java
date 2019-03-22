@@ -35,6 +35,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -236,7 +237,7 @@ public abstract class IgfsLocalSecondaryFileSystemDualAbstractSelfTest extends I
                         }
                     }
                 } catch (Exception e) {
-                    fail(e.getMessage());
+                    Assert.fail(e.getMessage());
                 }
             }
         };

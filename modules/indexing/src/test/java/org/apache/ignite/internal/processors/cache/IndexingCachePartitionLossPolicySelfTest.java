@@ -22,6 +22,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.processors.cache.distributed.IgniteCachePartitionLossPolicySelfTest;
+import org.junit.Assert;
 
 /**
  * Partition loss policy test with enabled indexing.
@@ -50,7 +51,7 @@ public class IndexingCachePartitionLossPolicySelfTest extends IgniteCachePartiti
         try {
             executeQuery(node, loc, parts);
 
-            fail("Exception is not thrown.");
+            Assert.fail("Exception is not thrown.");
         }
         catch (Exception e) {
             boolean exp = e.getMessage() != null &&

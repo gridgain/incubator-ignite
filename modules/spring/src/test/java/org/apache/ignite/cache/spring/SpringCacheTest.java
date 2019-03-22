@@ -21,6 +21,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -111,7 +112,7 @@ public class SpringCacheTest extends GridCommonAbstractTest {
 
         try {
             springCache.get(key, Integer.class);
-            fail("Missing exception");
+            Assert.fail("Missing exception");
         }
         catch (Exception e) {
             assertTrue(e.getMessage().startsWith("Cached value is not of required type [cacheName=" + cacheName));

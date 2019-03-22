@@ -69,6 +69,7 @@ import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -489,7 +490,7 @@ public abstract class GridCacheAbstractDataStructuresFailoverSelfTest extends Ig
             }
         }
 
-        fail("Thread hasn't been interrupted");
+        Assert.fail("Thread hasn't been interrupted");
     }
 
     /**
@@ -782,10 +783,10 @@ public abstract class GridCacheAbstractDataStructuresFailoverSelfTest extends Ig
 
                     l.lock();
 
-                    fail("Exception must be thrown.");
+                    Assert.fail("Exception must be thrown.");
                 }
                 catch (InterruptedException ignored) {
-                    fail("Interrupted exception not expected here.");
+                    Assert.fail("Interrupted exception not expected here.");
                 }
                 catch (IgniteException ignored) {
                     isExceptionThrown = true;
@@ -936,7 +937,7 @@ public abstract class GridCacheAbstractDataStructuresFailoverSelfTest extends Ig
                 }
 
                 if (System.currentTimeMillis() > endTime)
-                    fail("Failed to wait for topology change threads.");
+                    Assert.fail("Failed to wait for topology change threads.");
             }
 
             fut.get();

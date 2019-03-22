@@ -52,6 +52,7 @@ import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -231,7 +232,7 @@ public abstract class GridCacheSetAbstractSelfTest extends IgniteCollectionAbstr
                     return true;
                 }
                 catch (Exception e) {
-                    fail("Unexpected exception: " + e);
+                    Assert.fail("Unexpected exception: " + e);
 
                     return true;
                 }

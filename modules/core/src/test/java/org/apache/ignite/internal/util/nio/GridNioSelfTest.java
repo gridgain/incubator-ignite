@@ -53,6 +53,7 @@ import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -198,7 +199,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
                 int cnt = inputStream.read(msg, rcvd, msg.length - rcvd);
 
                 if (cnt == -1)
-                    fail("Server closed connection before echo reply was fully sent");
+                    Assert.fail("Server closed connection before echo reply was fully sent");
 
                 rcvd += cnt;
             }
@@ -394,7 +395,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
 
                 ses.send(new byte[2]).get();
 
-                fail("Exception must be thrown");
+                Assert.fail("Exception must be thrown");
             }
             catch (Exception e) {
                 info("Caught exception: " + e);
@@ -496,7 +497,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
                     int cnt = inputStream.read(res, rcvd, res.length - rcvd);
 
                     if (cnt == -1)
-                        fail("Server closed connection before echo reply was fully sent");
+                        Assert.fail("Server closed connection before echo reply was fully sent");
 
                     rcvd += cnt;
                 }
@@ -517,7 +518,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
             }
         }
         catch (Exception e) {
-            fail("Exception while sending message: " + e.getMessage());
+            Assert.fail("Exception while sending message: " + e.getMessage());
         }
     }
 
@@ -540,7 +541,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
             int cnt = in.read(res, rcvd, res.length - rcvd);
 
             if (cnt == -1)
-                fail("Server closed connection before echo reply was fully sent");
+                Assert.fail("Server closed connection before echo reply was fully sent");
 
             rcvd += cnt;
         }
@@ -602,7 +603,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
             }
         }
 
-        fail("Failed to start server.");
+        Assert.fail("Failed to start server.");
 
         return null;
     }
@@ -964,7 +965,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
                 catch (Exception e) {
                     error("Failed to create client: " + e.getMessage());
 
-                    fail("Failed to create client: " + e.getMessage());
+                    Assert.fail("Failed to create client: " + e.getMessage());
                 }
                 finally {
                     info("Test thread finished.");
@@ -1038,7 +1039,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
                 catch (Exception e) {
                     error("Failed to create client: ", e);
 
-                    fail("Failed to create client: " + e.getMessage());
+                    Assert.fail("Failed to create client: " + e.getMessage());
                 }
                 finally {
                     info("Test thread finished.");
@@ -1364,7 +1365,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
         /** {@inheritDoc} */
         @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
             if (e != null)
-                fail("Unexpected exception occurred while handling connection: " + e);
+                Assert.fail("Unexpected exception occurred while handling connection: " + e);
         }
 
         /** {@inheritDoc} */

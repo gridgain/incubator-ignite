@@ -49,6 +49,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.multicast.TcpDiscoveryMultic
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridSpiTestContext;
 import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.GridAbstractTest;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
@@ -427,18 +428,18 @@ public abstract class GridSpiAbstractTest<T extends IgniteSpi> extends GridAbstr
         // Our SPI tests should not have the same parameters otherwise they
         // will find each other.
         if (spi instanceof TcpCommunicationSpi)
-            ((TcpCommunicationSpi)spi).setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+            ((TcpCommunicationSpi)spi).setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
 
         if (spi instanceof TcpDiscoverySpi) {
             TcpDiscoveryIpFinder ipFinder = ((TcpDiscoverySpi)spi).getIpFinder();
 
             if (ipFinder instanceof TcpDiscoveryMulticastIpFinder) {
-                String mcastAddr = GridTestUtils.getNextMulticastGroup(getClass());
+                String mcastAddr = GridTestPortUtils.getNextMulticastGroup(getClass());
 
                 if (mcastAddr != null && !mcastAddr.isEmpty()) {
                     ((TcpDiscoveryMulticastIpFinder)ipFinder).setMulticastGroup(mcastAddr);
                     ((TcpDiscoveryMulticastIpFinder)ipFinder).setMulticastPort(
-                        GridTestUtils.getNextMulticastPort(getClass()));
+                        GridTestPortUtils.getNextMulticastPort(getClass()));
                 }
             }
         }

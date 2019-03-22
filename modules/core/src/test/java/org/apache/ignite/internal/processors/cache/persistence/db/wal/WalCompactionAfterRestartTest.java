@@ -40,6 +40,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVT_WAL_SEGMENT_COMPACTED;
@@ -126,10 +127,10 @@ public class WalCompactionAfterRestartTest extends GridCommonAbstractTest {
         stopGrid(0);
 
         if (!discrepancies.isEmpty()) {
-            fail("Discrepancies (EVT_WAL_SEGMENT_COMPACTED index vs. lastCompactedSegment):" + System.lineSeparator() +
-                discrepancies.stream()
-                    .map(t -> String.format("%d <-> %d", t.get1(), t.get2()))
-                    .collect(Collectors.joining(System.lineSeparator())));
+            Assert.fail("Discrepancies (EVT_WAL_SEGMENT_COMPACTED index vs. lastCompactedSegment):" + System.lineSeparator() +
+                    discrepancies.stream()
+                        .map(t -> String.format("%d <-> %d", t.get1(), t.get2()))
+                        .collect(Collectors.joining(System.lineSeparator())));
         }
     }
 

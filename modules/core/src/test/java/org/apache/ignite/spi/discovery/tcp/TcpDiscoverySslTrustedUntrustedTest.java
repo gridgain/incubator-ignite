@@ -22,6 +22,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -110,7 +111,7 @@ public class TcpDiscoverySslTrustedUntrustedTest extends GridCommonAbstractTest 
      */
     private void checkDiscoverySuccess(String... keysTrusts) throws Exception {
         if (keysTrusts.length % 2 != 0)
-            fail("Wrong parameters");
+            Assert.fail("Wrong parameters");
 
         for (int i = 0; i < keysTrusts.length / 2; i++) {
             keyStore = keysTrusts[2 * i];

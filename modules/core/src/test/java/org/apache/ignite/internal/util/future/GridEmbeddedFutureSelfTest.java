@@ -26,6 +26,7 @@ import org.apache.ignite.internal.util.typedef.C2;
 import org.apache.ignite.lang.IgniteBiClosure;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -126,7 +127,7 @@ public class GridEmbeddedFutureSelfTest extends GridCommonAbstractTest {
                 embFut.get(1, SECONDS);
             }
             catch (IgniteFutureTimeoutCheckedException e) {
-                fail("Failed with timeout exception: " + e);
+                Assert.fail("Failed with timeout exception: " + e);
             }
             catch (IgniteCheckedException e) {
                 info("Failed with unhandled exception (normal behaviour): " + e);

@@ -36,6 +36,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -162,7 +163,7 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
                         // Should block.
                         grid.cache(CACHE_NAME).get(keys.get((key + 1) % keysCnt));
 
-                        fail("Deadlock expected");
+                        Assert.fail("Deadlock expected");
                     }
                     catch (Throwable t) {
                         // Expected.

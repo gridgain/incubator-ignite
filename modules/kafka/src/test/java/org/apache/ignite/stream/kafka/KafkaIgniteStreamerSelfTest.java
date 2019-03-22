@@ -42,6 +42,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
@@ -195,7 +196,7 @@ public class KafkaIgniteStreamerSelfTest extends GridCommonAbstractTest {
                         entries.put(key, val);
                     }
                     catch (Exception ex) {
-                        fail("Unexpected error." + ex);
+                        Assert.fail("Unexpected error." + ex);
                     }
 
                     return entries;

@@ -32,7 +32,9 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SQL_RETRY_TIMEOUT;
@@ -63,7 +65,7 @@ public class DisappearedCacheWasNotFoundMessageSelfTest extends AbstractIndexing
         try {
             personCache.query(qry).getAll();
 
-            fail("No CacheException emitted.");
+            Assert.fail("No CacheException emitted.");
         }
         catch (CacheException e) {
             boolean exp = e.getMessage().contains("Cache not found on local node (was concurrently destroyed?)");
@@ -77,7 +79,7 @@ public class DisappearedCacheWasNotFoundMessageSelfTest extends AbstractIndexing
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
-        cfg.setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(LOCAL_IP_FINDER));
+        cfg.setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER));
 
         cfg.setCommunicationSpi(new TcpCommunicationSpi(){
             /** {@inheritDoc} */

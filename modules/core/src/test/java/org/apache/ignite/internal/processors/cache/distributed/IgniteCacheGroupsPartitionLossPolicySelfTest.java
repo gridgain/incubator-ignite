@@ -38,6 +38,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.P1;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -240,7 +241,7 @@ public class IgniteCacheGroupsPartitionLossPolicySelfTest extends GridCommonAbst
 
                 if (cache.lostPartitions().contains(i)) {
                     if (safe)
-                        fail("Reading from a lost partition should have failed: " + i);
+                        Assert.fail("Reading from a lost partition should have failed: " + i);
                     // else we could have read anything.
                 }
                 else

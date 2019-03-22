@@ -36,6 +36,7 @@ import org.apache.ignite.ml.TestUtils;
 import org.apache.ignite.ml.dataset.UpstreamEntry;
 import org.apache.ignite.ml.dataset.UpstreamTransformerBuilder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -96,7 +97,7 @@ public class ComputeUtilsTest extends GridCommonAbstractTest {
                 return;
             }
 
-            fail("Missing IllegalStateException");
+            Assert.fail("Missing IllegalStateException");
         }
         finally {
             cache1.destroy();

@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import org.apache.ignite.jdbc.JdbcErrorsAbstractSelfTest;
 import org.apache.ignite.lang.IgniteCallable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -99,7 +100,7 @@ public class JdbcThinErrorsSelfTest extends JdbcErrorsAbstractSelfTest {
 
                 stmt.executeBatch();
 
-                fail("BatchUpdateException is expected");
+                Assert.fail("BatchUpdateException is expected");
             }
             catch (BatchUpdateException e) {
                 assertEquals(3, e.getUpdateCounts().length);

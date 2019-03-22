@@ -36,13 +36,13 @@ import org.apache.ignite.configuration.PersistentStoreConfiguration;
 import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
-import org.apache.ignite.internal.processors.cache.GridCacheAbstractFullApiSelfTest;
 import org.apache.ignite.internal.processors.cache.persistence.migration.UpgradePendingTreeToPerPartitionTask;
 import org.apache.ignite.internal.util.typedef.PA;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.junit.Test;
 
 /**
@@ -160,7 +160,7 @@ public class PdsWithTtlCompatibilityTest extends IgnitePersistenceCompatibilityA
             cfg.setLocalHost("127.0.0.1");
 
             TcpDiscoverySpi disco = new TcpDiscoverySpi();
-            disco.setIpFinder(GridCacheAbstractFullApiSelfTest.LOCAL_IP_FINDER);
+            disco.setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER);
 
             cfg.setDiscoverySpi(disco);
 

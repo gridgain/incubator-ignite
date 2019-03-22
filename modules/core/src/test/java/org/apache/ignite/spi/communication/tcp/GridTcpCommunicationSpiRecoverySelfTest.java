@@ -55,6 +55,7 @@ import org.apache.ignite.testframework.junits.IgniteMock;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
 import org.apache.ignite.testframework.junits.spi.GridSpiTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -153,7 +154,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
                 }
             }
             catch (InterruptedException e) {
-                fail("Unexpected error: " + e);
+                Assert.fail("Unexpected error: " + e);
             }
         }
 
@@ -264,7 +265,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
                 errCnt++;
 
                 if (errCnt > 10)
-                    fail("Failed to send message: " + e);
+                    Assert.fail("Failed to send message: " + e);
             }
         }
 
@@ -691,7 +692,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
                 return ses;
         }
 
-        fail("Failed to find session");
+        Assert.fail("Failed to find session");
 
         return null;
     }

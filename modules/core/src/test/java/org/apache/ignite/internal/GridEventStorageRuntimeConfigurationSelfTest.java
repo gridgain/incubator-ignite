@@ -202,7 +202,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
             try {
                 g.events().isEnabled(-13);
 
-                fail("Expected IgniteCheckedException");
+                Assert.fail("Expected IgniteCheckedException");
             }
             catch (IllegalArgumentException e) {
                 info("Caught expected exception: " + e);
@@ -215,7 +215,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
         inclEvtTypes = new int[]{-13};
 
         try (Ignite g = clusterManager__startGrid()) {
-            fail("Expected IgniteCheckedException");
+            Assert.fail("Expected IgniteCheckedException");
         }
         catch (IgniteCheckedException e) {
             info("Caught expected exception: " + e);

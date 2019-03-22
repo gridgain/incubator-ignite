@@ -18,6 +18,7 @@
 package org.apache.ignite.spi;
 
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -85,7 +86,7 @@ public class ExponentialBackoffTimeoutStrategyTest extends GridCommonAbstractTes
                 try {
                     strategy.nextTimeout();
 
-                    fail("Should fail with IgniteSpiOperationTimeoutException");
+                    Assert.fail("Should fail with IgniteSpiOperationTimeoutException");
                 } catch (IgniteSpiOperationTimeoutException ignored) {
                     //No-op
                 }

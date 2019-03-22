@@ -91,6 +91,7 @@ import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -881,7 +882,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
                 catch (Exception e) {
                     error("Unexpected error: " + e, e);
 
-                    fail("Unexpected error: " + e);
+                    Assert.fail("Unexpected error: " + e);
                 }
             }
         }, THREADS, "test-thread");
@@ -1996,7 +1997,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
                                     break;
 
                                 default:
-                                    fail("Unsupported read mode: " + readMode.name() + '.');
+                                    Assert.fail("Unsupported read mode: " + readMode.name() + '.');
                             }
 
                             for (TreeSet<Integer> readCntrs : vals.values()) {

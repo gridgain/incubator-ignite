@@ -34,6 +34,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -257,7 +258,7 @@ public class GridCacheP2PUndeploySelfTest extends GridCommonAbstractTest {
                         continue;
                     }
 
-                    fail("Swap size check failed: " + swapSize);
+                    Assert.fail("Swap size check failed: " + swapSize);
                 }
                 else if (swapSize == 0)
                     break;

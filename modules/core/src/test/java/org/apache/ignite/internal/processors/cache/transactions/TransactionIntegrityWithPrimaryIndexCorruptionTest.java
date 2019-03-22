@@ -35,6 +35,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHan
 import org.apache.ignite.internal.processors.cache.tree.SearchRow;
 import org.apache.ignite.internal.stat.IoStatisticsHolder;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 import org.apache.ignite.testframework.MvccFeatureChecker;
@@ -297,7 +298,7 @@ public class TransactionIntegrityWithPrimaryIndexCorruptionTest extends Abstract
             log.error("Recorded error", throwable);
 
         if (!errTracker.errors().isEmpty())
-            fail("Test run has error");
+            Assert.fail("Test run has error");
     }
 
     /** */

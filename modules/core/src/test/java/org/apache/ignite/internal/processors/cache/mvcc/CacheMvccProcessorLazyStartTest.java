@@ -43,12 +43,8 @@ public class CacheMvccProcessorLazyStartTest extends CacheMvccAbstractTest {
         CacheConfiguration ccfg = cacheConfiguration(CacheMode.PARTITIONED, CacheWriteSynchronizationMode.FULL_SYNC, 0, 1);
         ccfg.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
 
-        IgniteConfiguration cfg = getConfiguration();
-        cfg.setCacheConfiguration(ccfg);
-        IgniteConfiguration cfg2 = getConfiguration("node2");
-
-        IgniteEx node1 = startGrid(cfg);
-        IgniteEx node2 = startGrid(cfg2);
+        IgniteEx node1 = startGrid((cfg) -> cfg.setCacheConfiguration(ccfg));
+        IgniteEx node2 = startGrid("node2");
 
         IgniteCache cache = node1.cache(ccfg.getName());
 
@@ -66,12 +62,8 @@ public class CacheMvccProcessorLazyStartTest extends CacheMvccAbstractTest {
     public void testPreconfiguredCacheMvccStarted() throws Exception {
         CacheConfiguration ccfg = cacheConfiguration(CacheMode.PARTITIONED, CacheWriteSynchronizationMode.FULL_SYNC, 0, 1);
 
-        IgniteConfiguration cfg1 = getConfiguration();
-        cfg1.setCacheConfiguration(ccfg);
-        IgniteConfiguration cfg2 = getConfiguration("node2");
-
-        IgniteEx node1 = startGrid(cfg1);
-        IgniteEx node2 = startGrid(cfg2);
+        IgniteEx node1 = startGrid((cfg1) -> cfg1.setCacheConfiguration(ccfg));
+        IgniteEx node2 = startGrid("node2");
 
         IgniteCache cache = node1.cache(ccfg.getName());
 

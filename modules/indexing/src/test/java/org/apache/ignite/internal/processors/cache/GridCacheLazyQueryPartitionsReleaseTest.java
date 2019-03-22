@@ -35,6 +35,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -99,7 +100,7 @@ public class GridCacheLazyQueryPartitionsReleaseTest extends GridCommonAbstractT
 
             resCntr++;
         } else
-            fail("No query results.");
+            Assert.fail("No query results.");
 
         startGrid(1);
 
@@ -142,7 +143,7 @@ public class GridCacheLazyQueryPartitionsReleaseTest extends GridCommonAbstractT
         if (it.hasNext())
             it.next();
         else
-            fail("No query results.");
+            Assert.fail("No query results.");
 
         startGrid(1);
 
@@ -179,7 +180,7 @@ public class GridCacheLazyQueryPartitionsReleaseTest extends GridCommonAbstractT
                 cache.put(cntr, new Person("p_" + cntr, cntr));
 
             if (cntr > 100_000)
-                fail("Failed to fill all partitions");
+                Assert.fail("Failed to fill all partitions");
         }
 
         return partsCnt;

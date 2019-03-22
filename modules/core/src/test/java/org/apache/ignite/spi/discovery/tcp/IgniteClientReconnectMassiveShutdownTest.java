@@ -43,6 +43,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -209,7 +210,7 @@ public class IgniteClientReconnectMassiveShutdownTest extends GridCommonAbstract
 
                 U.dumpThreads(log);
 
-                fail("Failed to wait for for clients start.");
+                Assert.fail("Failed to wait for for clients start.");
             }
 
             // Killing a half of server nodes.

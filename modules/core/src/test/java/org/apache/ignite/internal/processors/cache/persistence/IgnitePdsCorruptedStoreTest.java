@@ -54,6 +54,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiClosure;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_SKIP_CRC;
@@ -312,7 +313,7 @@ public class IgnitePdsCorruptedStoreTest extends GridCommonAbstractTest {
                     io.setTreeRoot(pageAddr, PageIdUtils.pageId(0, (byte)0, 0));
                 }
                 catch (Exception e) {
-                    fail("Failed to change page: " + e.getMessage());
+                    Assert.fail("Failed to change page: " + e.getMessage());
                 }
                 finally {
                     pageMem.writeUnlock(grpId, partMetaId, partMetaPage, null, true);

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.client.GridClientException;
 import org.apache.ignite.internal.client.GridClientFuture;
 import org.apache.ignite.internal.client.GridClientFutureTimeoutException;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -100,7 +101,7 @@ public class ClientFutureAdapterSelfTest extends GridCommonAbstractTest {
             try {
                 f.get(waitDelay, TimeUnit.MILLISECONDS);
 
-                fail("Expects chained future not finished yet.");
+                Assert.fail("Expects chained future not finished yet.");
             }
             catch (GridClientFutureTimeoutException ignore) {
                 /* No op: expects chained future not finished yet. */

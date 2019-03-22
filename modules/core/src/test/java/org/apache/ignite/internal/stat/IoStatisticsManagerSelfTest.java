@@ -19,6 +19,7 @@
 package org.apache.ignite.internal.stat;
 
 import java.util.Map;
+import java.util.function.Function;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -159,21 +160,21 @@ public class IoStatisticsManagerSelfTest extends GridCommonAbstractTest {
      * @return Ignite configuration.
      * @throws Exception In case of failure.
      */
-    private IgniteConfiguration getConfiguration(boolean isPersist) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration();
+    private Function<IgniteConfiguration, IgniteConfiguration> getConfiguration(boolean isPersist) throws Exception {
+        return (cfg) -> {
+            if (isPersist) {
+                DataStorageConfiguration dsCfg = new DataStorageConfiguration()
+                    .setDefaultDataRegionConfiguration(
+                        new DataRegionConfiguration()
+                            .setMaxSize(30L * 1024 * 1024)
+                            .setPersistenceEnabled(true))
+                    .setWalMode(WALMode.LOG_ONLY);
 
-        if (isPersist) {
-            DataStorageConfiguration dsCfg = new DataStorageConfiguration()
-                .setDefaultDataRegionConfiguration(
-                    new DataRegionConfiguration()
-                        .setMaxSize(30L * 1024 * 1024)
-                        .setPersistenceEnabled(true))
-                .setWalMode(WALMode.LOG_ONLY);
+                cfg.setDataStorageConfiguration(dsCfg);
+            }
 
-            cfg.setDataStorageConfiguration(dsCfg);
-        }
-
-        return cfg;
+            return cfg;
+        };
     }
 
     /**

@@ -44,11 +44,6 @@ class JUnitAssertAware {
         Assert.assertFalse(cond);
     }
 
-    /** See {@link Assert#fail(String)} javadocs. */
-    protected static void fail(String msg) {
-        Assert.fail(msg);
-    }
-
     /** See {@link Assert#fail()} javadocs. */
     protected static void fail() {
         Assert.fail();

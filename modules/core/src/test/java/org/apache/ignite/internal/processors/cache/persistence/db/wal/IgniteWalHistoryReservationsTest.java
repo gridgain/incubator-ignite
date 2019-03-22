@@ -189,7 +189,7 @@ public class IgniteWalHistoryReservationsTest extends GridCommonAbstractTest {
                         startGrid(initGridCnt);
                     }
                     catch (Exception e) {
-                        fail(e.getMessage());
+                        Assert.fail(e.getMessage());
                     }
                 }
             });
@@ -445,7 +445,7 @@ public class IgniteWalHistoryReservationsTest extends GridCommonAbstractTest {
                         startGrid(initGridCnt);
                     }
                     catch (Exception e) {
-                        fail(e.getMessage());
+                        Assert.fail(e.getMessage());
                     }
                 }
             });

@@ -123,11 +123,7 @@ public class IgniteTxConcurrentRemoveObjectsTest extends GridCommonAbstractTest 
                 dataStreamer.addData(i, UUID.randomUUID().toString());
         }
 
-        IgniteEx client = startGrid(
-            getConfiguration()
-                .setClientMode(true)
-                .setIgniteInstanceName(UUID.randomUUID().toString())
-        );
+        IgniteEx client = startGrid(UUID.randomUUID().toString(), (cfg) -> cfg.setClientMode(true));
 
         awaitPartitionMapExchange();
 

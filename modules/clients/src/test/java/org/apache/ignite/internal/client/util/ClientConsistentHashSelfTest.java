@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -89,7 +90,7 @@ public class ClientConsistentHashSelfTest extends GridCommonAbstractTest {
         }
 
         if (fail)
-            fail("Failed to resolve consistent hash node, when node's hash codes collide: " + nodes);
+            Assert.fail("Failed to resolve consistent hash node, when node's hash codes collide: " + nodes);
     }
 
     /**
@@ -107,7 +108,7 @@ public class ClientConsistentHashSelfTest extends GridCommonAbstractTest {
             hash.addNode(new Object() { public int hashCode() { return 0; } }, 1);
             hash.addNode(new Object() { public int hashCode() { return 0; } }, 1);
 
-            fail("Expects failed due to internal TreeSet requires comparator or natural ordering.");
+            Assert.fail("Expects failed due to internal TreeSet requires comparator or natural ordering.");
         }
         catch (ClassCastException e) {
             info("Expected fail due to internal TreeSet requires comparator or natural ordering: " + e.getMessage());

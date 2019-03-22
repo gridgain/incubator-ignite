@@ -21,6 +21,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -95,7 +96,7 @@ public class IgniteCacheOnlyOneTtlCleanupThreadExistsTest extends GridCommonAbst
         }
 
         if (cnt > 1)
-            fail("More then one ttl cleanup worker threads exists");
+            Assert.fail("More then one ttl cleanup worker threads exists");
 
         if (exists)
             assertEquals("Ttl cleanup thread does not exist", cnt, 1);

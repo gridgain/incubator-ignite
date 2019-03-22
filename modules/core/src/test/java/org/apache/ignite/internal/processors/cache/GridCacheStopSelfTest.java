@@ -37,6 +37,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -362,7 +363,7 @@ public class GridCacheStopSelfTest extends GridCommonAbstractTest {
                 if (!X.hasCause(e, CacheStoppedException.class)) {
                     e.printStackTrace();
 
-                    fail("Unexpected exception: " + e);
+                    Assert.fail("Unexpected exception: " + e);
                 }
             }
         }

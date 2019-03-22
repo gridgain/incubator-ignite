@@ -53,6 +53,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.util.StringUtils;
@@ -1643,9 +1644,9 @@ public class IgniteSqlSplitterSelfTest extends AbstractIndexingCommonTest {
             int idx = plan.indexOf(exp, startIdx);
 
             if (idx == -1) {
-                fail("Plan does not contain expected string [startIdx=" + startIdx +
-                    ", plan=" + plan +
-                    ", exp=" + exp + ']');
+                Assert.fail("Plan does not contain expected string [startIdx=" + startIdx +
+                            ", plan=" + plan +
+                            ", exp=" + exp + ']');
             }
 
             startIdx = idx + 1;

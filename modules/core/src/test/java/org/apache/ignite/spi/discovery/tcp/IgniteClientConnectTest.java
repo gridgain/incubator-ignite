@@ -30,7 +30,6 @@ import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -41,6 +40,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeAddFinishedMessage;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -223,7 +223,7 @@ public class IgniteClientConnectTest extends GridCommonAbstractTest {
 
                         Thread.sleep(nodeAddFinishedDelay);
                     } catch (InterruptedException e) {
-                        fail("Unexpected interrupt on nodeAddFinishedDelay");
+                        Assert.fail("Unexpected interrupt on nodeAddFinishedDelay");
                     }
 
                 super.writeToSocket(sock, out, msg, timeout);

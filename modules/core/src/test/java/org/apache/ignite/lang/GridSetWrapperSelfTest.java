@@ -27,6 +27,7 @@ import org.apache.ignite.internal.util.GridSetWrapper;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -219,7 +220,7 @@ public class GridSetWrapperSelfTest extends GridCommonAbstractTest {
         try {
             c.iterator().next();
 
-            fail("NoSuchElementException must have been thrown.");
+            Assert.fail("NoSuchElementException must have been thrown.");
         }
         catch (NoSuchElementException e) {
             info("Caught expected exception: " + e);
@@ -228,7 +229,7 @@ public class GridSetWrapperSelfTest extends GridCommonAbstractTest {
         try {
             c.iterator().remove();
 
-            fail("IllegalStateException must have been thrown.");
+            Assert.fail("IllegalStateException must have been thrown.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);

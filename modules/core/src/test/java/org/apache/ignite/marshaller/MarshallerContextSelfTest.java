@@ -37,6 +37,7 @@ import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.nio.file.Files.readAllBytes;
@@ -185,7 +186,7 @@ public class MarshallerContextSelfTest extends GridCommonAbstractTest {
         if (execSvc.awaitTermination(1000, TimeUnit.MILLISECONDS))
             checkFileName("Random.Class.Name", Paths.get(workDir + "/2.classname2"));
         else
-            fail("Failed to wait for executor service to shutdown");
+            Assert.fail("Failed to wait for executor service to shutdown");
     }
 
     /**

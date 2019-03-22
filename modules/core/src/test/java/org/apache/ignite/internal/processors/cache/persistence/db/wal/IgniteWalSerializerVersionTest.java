@@ -45,6 +45,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_WAL_SERIALIZER_VERSION;
@@ -226,7 +227,7 @@ public class IgniteWalSerializerVersionTest extends GridCommonAbstractTest {
                 }
             }
             else
-                fail(String.valueOf(act));
+                Assert.fail(String.valueOf(act));
         }
     }
 

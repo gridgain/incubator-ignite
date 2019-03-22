@@ -30,6 +30,7 @@ import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.services.Service;
 import org.apache.ignite.services.ServiceContext;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -215,7 +216,7 @@ public class IgniteClientReconnectServicesTest extends IgniteClientReconnectAbst
                 assertNotDone(fut);
             }
             catch (Exception e) {
-                fail("Unexpected exception has been thrown, err=" + e.getMessage());
+                Assert.fail("Unexpected exception has been thrown, err=" + e.getMessage());
             }
         });
 

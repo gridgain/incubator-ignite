@@ -18,6 +18,7 @@
 package org.apache.ignite.spi.communication.tcp;
 
 import org.apache.ignite.spi.GridSpiStartStopAbstractTest;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.spi.GridSpiTest;
 import org.apache.ignite.testframework.junits.spi.GridSpiTestConfig;
@@ -33,6 +34,6 @@ public class GridTcpCommunicationSpiStartStopSelfTest extends GridSpiStartStopAb
      */
     @GridSpiTestConfig
     public int getLocalPort() throws Exception {
-        return GridTestUtils.getNextCommPort(getClass());
+        return GridTestPortUtils.getNextCommPort(getClass());
     }
 }

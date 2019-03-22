@@ -35,6 +35,7 @@ import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryClientReconnectMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryJoinRequestMessage;
+import org.apache.ignite.testframework.junits.TestConfigurationProvider;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -369,7 +370,7 @@ public class TcpDiscoverySpiReconnectDelayTest extends GridCommonAbstractTest {
         IgniteConfiguration cfg = new IgniteConfiguration()
             .setIgniteInstanceName(name)
             .setDiscoverySpi(new FailingTcpDiscoverySpi()
-                .setIpFinder(LOCAL_IP_FINDER)
+                .setIpFinder(TestConfigurationProvider.LOCAL_IP_FINDER)
                 .setReconnectDelay(reconnectDelay)
                 // Allow reconnection to take long.
                 .setNetworkTimeout(EVT_TIMEOUT)

@@ -39,6 +39,7 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -281,8 +282,8 @@ public class CacheExchangeMessageDuplicatedStateTest extends GridCommonAbstractT
         Map<Integer, Integer> dupPartsData,
         GridDhtPartitionsFullMessage msg)
     {
-        int cache1Grp = groupIdForCache(ignite(0), cache1);
-        int cache2Grp = groupIdForCache(ignite(0), cache2);
+        int cache1Grp = GridTestUtils.groupIdForCache(ignite(0), cache1);
+        int cache2Grp = GridTestUtils.groupIdForCache(ignite(0), cache2);
 
         Integer grpId;
         Integer dupGrpId;
@@ -331,8 +332,8 @@ public class CacheExchangeMessageDuplicatedStateTest extends GridCommonAbstractT
             return;
         }
 
-        int cache1Grp = groupIdForCache(ignite(0), cache1);
-        int cache2Grp = groupIdForCache(ignite(0), cache2);
+        int cache1Grp = GridTestUtils.groupIdForCache(ignite(0), cache1);
+        int cache2Grp = GridTestUtils.groupIdForCache(ignite(0), cache2);
 
         Integer grpId;
         Integer dupGrpId;

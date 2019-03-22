@@ -51,6 +51,7 @@ import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -362,7 +363,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
                         catch (Throwable e) {
                             error(e.getMessage(), e);
 
-                            fail(e.getMessage());
+                            Assert.fail(e.getMessage());
                         }
                     }
                 }, "primary-t#" + i));
@@ -461,7 +462,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
                             catch (Throwable t) {
                                 error(t.getMessage(), t);
 
-                                fail(t.getMessage());
+                                Assert.fail(t.getMessage());
                             }
                         }
                     }, "near-#" + tid + "-t#" + i));
@@ -685,7 +686,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
             catch (Throwable t) {
                 log.error(t.getMessage(), t);
 
-                fail(t.getMessage());
+                Assert.fail(t.getMessage());
             }
         }
 
@@ -763,7 +764,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
             catch (Exception e) {
                 log.error(e.getMessage(), e);
 
-                fail(e.getMessage());
+                Assert.fail(e.getMessage());
             }
         }
 

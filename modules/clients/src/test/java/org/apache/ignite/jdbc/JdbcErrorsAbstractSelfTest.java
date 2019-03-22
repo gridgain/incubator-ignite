@@ -41,6 +41,7 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -817,7 +818,7 @@ public abstract class JdbcErrorsAbstractSelfTest extends GridCommonAbstractTest 
 
                         stmt.execute(sql);
 
-                        fail("Exception is expected");
+                        Assert.fail("Exception is expected");
                     }
 
                     return null;

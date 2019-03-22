@@ -35,6 +35,7 @@ import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.eventstorage.memory.MemoryEventStorageSpi;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -86,7 +87,7 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
 
         disco.setForceServerMode(true);
 
-        if (isDebug())
+        if (GridTestUtils.isDebugMode())
             disco.setAckTimeout(Integer.MAX_VALUE);
 
         MemoryEventStorageSpi evtSpi = new MemoryEventStorageSpi();

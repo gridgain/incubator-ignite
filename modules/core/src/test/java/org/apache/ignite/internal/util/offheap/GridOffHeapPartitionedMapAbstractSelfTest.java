@@ -34,6 +34,7 @@ import org.apache.ignite.internal.util.lang.GridTuple;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -632,7 +633,7 @@ public abstract class GridOffHeapPartitionedMapAbstractSelfTest extends GridComm
                     }
                 }
                 catch (IgniteCheckedException e) {
-                    fail("Unexpected exception caught: " + e);
+                    Assert.fail("Unexpected exception caught: " + e);
                 }
             }
         }, 1);

@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -81,7 +82,7 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
 
             startGrid(1);
 
-            fail("Exception has not been thrown.");
+            Assert.fail("Exception has not been thrown.");
         }
         catch (IgniteCheckedException e) {
             StringWriter errors = new StringWriter();
@@ -110,7 +111,7 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
 
             startGrid(1);
 
-            fail("Exception has not been thrown.");
+            Assert.fail("Exception has not been thrown.");
         }
         catch (IgniteCheckedException e) {
             StringWriter errors = new StringWriter();

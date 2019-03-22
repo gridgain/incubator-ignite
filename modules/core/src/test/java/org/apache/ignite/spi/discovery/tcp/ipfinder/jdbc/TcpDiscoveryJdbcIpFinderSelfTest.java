@@ -20,6 +20,7 @@ package org.apache.ignite.spi.discovery.tcp.ipfinder.jdbc;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinderAbstractSelfTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -74,7 +75,7 @@ public class TcpDiscoveryJdbcIpFinderSelfTest extends
         try {
             ipFinder().getRegisteredAddresses();
 
-            fail("IP finder didn't throw expected exception.");
+            Assert.fail("IP finder didn't throw expected exception.");
         }
         catch (IgniteSpiException e) {
             assertTrue(e.getMessage().contains("IP finder has not been properly initialized"));

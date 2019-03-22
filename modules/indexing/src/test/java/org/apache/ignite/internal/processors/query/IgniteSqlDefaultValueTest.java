@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /** */
@@ -208,7 +209,7 @@ public class IgniteSqlDefaultValueTest extends GridCommonAbstractTest {
 
         for (List<?> row : actual) {
             if (!exp.contains(row))
-                fail("Unexpected results: [row=" + row + ']');
+                Assert.fail("Unexpected results: [row=" + row + ']');
         }
     }
 

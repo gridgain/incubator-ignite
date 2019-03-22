@@ -246,7 +246,7 @@ public class CacheGetReadFromBackupFailoverTest extends GridCommonAbstractTest {
         if (e != null) {
             log.error("Test failed", e);
 
-            fail("Test failed");
+            Assert.fail("Test failed");
         }
     }
 }

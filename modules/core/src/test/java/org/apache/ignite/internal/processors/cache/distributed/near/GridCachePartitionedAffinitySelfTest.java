@@ -39,6 +39,7 @@ import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -172,20 +173,20 @@ public class GridCachePartitionedAffinitySelfTest extends GridCommonAbstractTest
 
         for (int i = 0; i < keyCnt; i++) {
             if (failFlag.get())
-                fail("testAffinityWithPut failed.");
+                Assert.fail("testAffinityWithPut failed.");
 
             info("Before putting key [key=" + i + ", igniteInstanceName=" + mg.name() + ']');
 
             mc.put(i, Integer.toString(i));
 
             if (failFlag.get())
-                fail("testAffinityWithPut failed.");
+                Assert.fail("testAffinityWithPut failed.");
         }
 
         Thread.sleep(1000);
 
         if (failFlag.get())
-            fail("testAffinityWithPut failed.");
+            Assert.fail("testAffinityWithPut failed.");
     }
 
     /**
@@ -247,8 +248,8 @@ public class GridCachePartitionedAffinitySelfTest extends GridCommonAbstractTest
                             if (!ignite.name().equals(master) && evtCnt.get() > keyCnt * (BACKUPS + 1)) {
                                 failFlag.set(true);
 
-                                fail("Invalid put event count on grid [cnt=" + evtCnt.get() +
-                                    ", igniteInstanceName=" + ignite.name() + ']');
+                                Assert.fail("Invalid put event count on grid [cnt=" + evtCnt.get() +
+                                                            ", igniteInstanceName=" + ignite.name() + ']');
                             }
 
                             Collection<? extends ClusterNode> affNodes = nodes(affinity(ignite), e.key());
@@ -256,7 +257,7 @@ public class GridCachePartitionedAffinitySelfTest extends GridCommonAbstractTest
                             if (!affNodes.contains(ignite.cluster().localNode())) {
                                 failFlag.set(true);
 
-                                fail("Key should not be mapped to node [key=" + e.key() + ", node=" + ignite.name() + ']');
+                                Assert.fail("Key should not be mapped to node [key=" + e.key() + ", node=" + ignite.name() + ']');
                             }
 
                             break;
@@ -264,7 +265,7 @@ public class GridCachePartitionedAffinitySelfTest extends GridCommonAbstractTest
                         default:
                             failFlag.set(true);
 
-                            fail("Invalid cache event [igniteInstanceName=" + ignite + ", evt=" + evt + ']');
+                            Assert.fail("Invalid cache event [igniteInstanceName=" + ignite + ", evt=" + evt + ']');
                     }
 
                     return true;

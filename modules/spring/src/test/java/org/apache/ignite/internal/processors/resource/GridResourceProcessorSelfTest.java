@@ -453,7 +453,7 @@ public class GridResourceProcessorSelfTest extends GridCommonAbstractTest {
                             "ms, duration=" + duration + "ms, count=" + iters + ']');
                     }
                     catch (IgniteCheckedException e) {
-                        fail("Failed to inject resources: " + e.getMessage());
+                        org.junit.Assert.fail("Failed to inject resources: " + e.getMessage());
                     }
                 }
             }, threadsCnt, "grid-ioc-test");

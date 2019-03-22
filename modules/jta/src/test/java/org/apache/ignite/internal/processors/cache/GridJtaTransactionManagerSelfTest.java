@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.TransactionConfiguration;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Test;
 import org.objectweb.jotm.Current;
 import org.objectweb.jotm.Jotm;
@@ -183,7 +184,7 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
             try {
                 jtaTm.resume(tx1);
 
-                fail("jtaTm.resume shouldn't success.");
+                Assert.fail("jtaTm.resume shouldn't success.");
             }
             catch (IllegalStateException ignored) {
                 // No-op.

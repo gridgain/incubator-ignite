@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -283,14 +284,14 @@ public abstract class GridCachePreloadRestartAbstractSelfTest extends GridCommon
             if (v == null) {
                 printFailureDetails(c, i, attempt);
 
-                fail("Value is null [key=" + i + ", attempt=" + attempt + "]");
+                Assert.fail("Value is null [key=" + i + ", attempt=" + attempt + "]");
             }
 
             if (!Integer.toString(i).equals(v)) {
                 printFailureDetails(c, i, attempt);
 
-                fail("Wrong value for key [key=" +
-                    i + ", actual value=" + v + ", expected value=" + Integer.toString(i) + "]");
+                Assert.fail("Wrong value for key [key=" +
+                            i + ", actual value=" + v + ", expected value=" + Integer.toString(i) + "]");
             }
         }
 

@@ -64,6 +64,7 @@ import org.apache.ignite.testframework.http.GridEmbeddedHttpServer;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.ConstructorArgumentValues;
@@ -201,7 +202,7 @@ public class GridFactorySelfTest extends GridCommonAbstractTest {
             try {
                 Ignition.start(cfg);
 
-                fail("Expected exception after grid started");
+                Assert.fail("Expected exception after grid started");
             }
             catch (IgniteException ignored) {
             }
@@ -224,7 +225,7 @@ public class GridFactorySelfTest extends GridCommonAbstractTest {
             try {
                 Ignition.start(cfg);
 
-                fail("Expected exception after grid started");
+                Assert.fail("Expected exception after grid started");
             }
             catch (IgniteException ignored) {
                 // No-op.
@@ -267,7 +268,7 @@ public class GridFactorySelfTest extends GridCommonAbstractTest {
             }, CONCURRENCY, "GridCreatorThread");
         }
         catch (Exception ignored) {
-            fail("Exception is not expected");
+            Assert.fail("Exception is not expected");
         }
 
         G.stopAll(true);
@@ -614,8 +615,8 @@ public class GridFactorySelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void disabledTestStartSingleInstanceSpi() throws Exception {
-        IgniteConfiguration cfg1 = getConfiguration();
-        IgniteConfiguration cfg2 = getConfiguration();
+        IgniteConfiguration cfg1 = getConfiguration(igniteInstanceName);
+        IgniteConfiguration cfg2 = getConfiguration(igniteInstanceName);
 
         cfg1.setCollisionSpi(new TestSingleInstancesCollisionSpi());
         cfg2.setCollisionSpi(new TestSingleInstancesCollisionSpi());
@@ -661,9 +662,9 @@ public class GridFactorySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testStartMultipleInstanceSpi() throws Exception {
-        IgniteConfiguration cfg1 = getConfiguration();
-        IgniteConfiguration cfg2 = getConfiguration();
-        IgniteConfiguration cfg3 = getConfiguration();
+        IgniteConfiguration cfg1 = getConfiguration(igniteInstanceName);
+        IgniteConfiguration cfg2 = getConfiguration(igniteInstanceName);
+        IgniteConfiguration cfg3 = getConfiguration(igniteInstanceName);
 
         cfg1.setCollisionSpi(new TestMultipleInstancesCollisionSpi());
         cfg2.setCollisionSpi(new TestMultipleInstancesCollisionSpi());
@@ -879,7 +880,7 @@ public class GridFactorySelfTest extends GridCommonAbstractTest {
          */
         void checkErrors() {
             if (err.get() != null)
-                fail("Exception has been caught by listener: " + err.get().getMessage());
+                Assert.fail("Exception has been caught by listener: " + err.get().getMessage());
         }
     }
 
@@ -1001,7 +1002,7 @@ public class GridFactorySelfTest extends GridCommonAbstractTest {
             try {
                 startGrid("2", c);
 
-                fail("Should not be able to start grid using same configuration instance.");
+                Assert.fail("Should not be able to start grid using same configuration instance.");
             }
             catch (Exception e) {
                 info("Caught expected exception: " + e);

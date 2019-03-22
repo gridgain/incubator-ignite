@@ -49,6 +49,7 @@ import org.apache.ignite.internal.processors.query.QueryEntityEx;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.sql.Types.DATE;
@@ -445,10 +446,10 @@ public class JdbcMetadataSelfTest extends GridCommonAbstractTest {
                     else if ("AGE".equals(field))
                         assertEquals("D", ascOrDesc);
                     else
-                        fail("Unexpected field: " + field);
+                        Assert.fail("Unexpected field: " + field);
                 }
                 else
-                    fail("Unexpected index: " + idxName);
+                    Assert.fail("Unexpected index: " + idxName);
 
                 cnt++;
             }

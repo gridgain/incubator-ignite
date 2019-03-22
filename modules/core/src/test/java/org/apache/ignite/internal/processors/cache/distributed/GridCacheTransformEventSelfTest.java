@@ -43,6 +43,7 @@ import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -697,9 +698,9 @@ public class GridCacheTransformEventSelfTest extends GridCommonAbstractTest {
                         }
                     }
 
-                    fail("Expected transform event was not triggered on the node [nodeId=" + id +
-                        ", key1Primary=" + primary(gridIdx, key1) + ", key1Backup=" + backup(gridIdx, key1) +
-                        ", key2Primary=" + primary(gridIdx, key2) + ", key2Backup=" + backup(gridIdx, key2) + ']');
+                    Assert.fail("Expected transform event was not triggered on the node [nodeId=" + id +
+                                    ", key1Primary=" + primary(gridIdx, key1) + ", key1Backup=" + backup(gridIdx, key1) +
+                                    ", key2Primary=" + primary(gridIdx, key2) + ", key2Backup=" + backup(gridIdx, key2) + ']');
                 }
                 else
                     evts.remove(foundEvt);

@@ -76,6 +76,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.jsr166.ConcurrentLinkedHashMap;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.effectivePageId;
@@ -1658,8 +1659,8 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
                             + "]; contents=" + treeContents);
 
                     if (treeSize < minBound || treeSize > maxBound) {
-                        fail("Tree size is not in bounds ["  + minBound + ".." + maxBound + "]: " + treeSize
-                            + "; Tree contents: " + treeContents);
+                        Assert.fail("Tree size is not in bounds ["  + minBound + ".." + maxBound + "]: " + treeSize
+                                            + "; Tree contents: " + treeContents);
                     }
                 }
 
@@ -1808,8 +1809,8 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
                     X.println(" ======> size=" + treeSize + "; last-put-value=" + curPutVal);
 
                     if (treeSize < SLIDING_WINDOW_SIZE || treeSize > curPutVal)
-                        fail("Tree size is not in bounds [" + SLIDING_WINDOW_SIZE + ".." + curPutVal + "]:"
-                            + treeSize + "; contents=" + treeContents);
+                        Assert.fail("Tree size is not in bounds [" + SLIDING_WINDOW_SIZE + ".." + curPutVal + "]:"
+                                            + treeSize + "; contents=" + treeContents);
                 }
 
                 return null;
@@ -2966,7 +2967,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
          */
         private void checkNotRemoved(Long row) {
             if (rmvdIds.contains(row))
-                fail("Removed row: " + row);
+                Assert.fail("Removed row: " + row);
         }
 
         /** {@inheritDoc} */

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.processors.query.schema.SchemaOperationExcepti
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SQL_PARSER_DISABLE_H2_FALLBACK;
@@ -391,10 +392,10 @@ public abstract class DynamicIndexAbstractBasicSelfTest extends DynamicIndexAbst
             return;
         }
         catch (Exception e) {
-            fail("Unexpected exception: " + e);
+            Assert.fail("Unexpected exception: " + e);
         }
 
-        fail(SchemaOperationException.class.getSimpleName() +  " is not thrown.");
+        Assert.fail(SchemaOperationException.class.getSimpleName() +  " is not thrown.");
     }
 
     /**
@@ -1181,10 +1182,10 @@ public abstract class DynamicIndexAbstractBasicSelfTest extends DynamicIndexAbst
             return;
         }
         catch (Exception e) {
-            fail("Unexpected exception: " + e);
+            Assert.fail("Unexpected exception: " + e);
         }
 
-        fail(SchemaOperationException.class.getSimpleName() +  " is not thrown.");
+        Assert.fail(SchemaOperationException.class.getSimpleName() +  " is not thrown.");
     }
 
     /**
@@ -1463,10 +1464,10 @@ public abstract class DynamicIndexAbstractBasicSelfTest extends DynamicIndexAbst
             return;
         }
         catch (Exception e) {
-            fail("Unexpected exception: " + e);
+            Assert.fail("Unexpected exception: " + e);
         }
 
-        fail(IgniteSQLException.class.getSimpleName() +  " is not thrown.");
+        Assert.fail(IgniteSQLException.class.getSimpleName() +  " is not thrown.");
     }
 
     /**

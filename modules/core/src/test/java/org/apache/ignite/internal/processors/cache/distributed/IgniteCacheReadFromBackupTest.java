@@ -43,6 +43,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetR
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetRequest;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -234,7 +235,7 @@ public class IgniteCacheReadFromBackupTest extends GridCommonAbstractTest {
                     TestRecordingCommunicationSpi spi =
                         (TestRecordingCommunicationSpi)ignite.configuration().getCommunicationSpi();
 
-                    final int grpId = groupIdForCache(ignite, ccfg.getName());
+                    final int grpId = GridTestUtils.groupIdForCache(ignite, ccfg.getName());
 
                     spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                         @Override public boolean apply(ClusterNode node, Message msg) {

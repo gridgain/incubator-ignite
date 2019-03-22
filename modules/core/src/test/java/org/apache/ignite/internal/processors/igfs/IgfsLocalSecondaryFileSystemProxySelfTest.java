@@ -33,6 +33,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiInClosure;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -216,7 +217,7 @@ public class IgfsLocalSecondaryFileSystemProxySelfTest extends IgfsProxySelfTest
                         }
                     }
                 } catch (Exception e) {
-                    fail(e.getMessage());
+                    Assert.fail(e.getMessage());
                 }
             }
         };

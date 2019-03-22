@@ -43,6 +43,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -170,7 +171,7 @@ public class GridSessionJobWaitTaskAttributeSelfTest extends GridCommonAbstractT
                                 if ("testVal".equals(val))
                                     return 1;
 
-                                fail("Invalid test session value: " + val);
+                                Assert.fail("Invalid test session value: " + val);
                             }
                             catch (InterruptedException e) {
                                 throw new IgniteException("Failed to get attribute due to interruption.", e);
@@ -207,13 +208,13 @@ public class GridSessionJobWaitTaskAttributeSelfTest extends GridCommonAbstractT
                 log.info("Reducing job [job=" + this + ", results=" + results + ']');
 
             if (results.size() < SPLIT_COUNT)
-                fail("Results size is less than split count: " + results.size());
+                Assert.fail("Results size is less than split count: " + results.size());
 
             int sum = 0;
 
             for (ComputeJobResult res : results) {
                 if (res.getData() == null)
-                    fail("Got null result data: " + res);
+                    Assert.fail("Got null result data: " + res);
                 else
                     log.info("Reducing result: " + res.getData());
 

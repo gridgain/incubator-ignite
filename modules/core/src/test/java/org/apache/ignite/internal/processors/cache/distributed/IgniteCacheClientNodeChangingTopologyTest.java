@@ -90,6 +90,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -716,7 +717,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
         }
 
         if (key1 == null || key2 == null)
-            fail("Failed to find nodes required for test.");
+            Assert.fail("Failed to find nodes required for test.");
 
         return new IgniteBiTuple<>(key1, key2);
     }
@@ -1739,7 +1740,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
                     return false;
                 }
                 catch (Exception e) {
-                    fail("Unexpected exception: " + e);
+                    Assert.fail("Unexpected exception: " + e);
                 }
 
                 return true;
@@ -1961,7 +1962,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
                     if (barrier0 != null)
                         barrier0.reset();
 
-                    fail("Failed to wait for update.");
+                    Assert.fail("Failed to wait for update.");
                 }
 
                 U.sleep(500);
@@ -2001,7 +2002,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
                     if (barrier0 != null)
                         barrier0.reset();
 
-                    fail("Failed to wait for update.");
+                    Assert.fail("Failed to wait for update.");
                 }
 
                 U.sleep(500);

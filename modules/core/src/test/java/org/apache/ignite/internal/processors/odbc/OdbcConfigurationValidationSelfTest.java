@@ -163,7 +163,7 @@ public class OdbcConfigurationValidationSelfTest extends GridCommonAbstractTest 
      * @param success Success flag. * @throws Exception If failed.
      */
     private void check(OdbcConfiguration odbcCfg, boolean success) throws Exception {
-        final IgniteConfiguration cfg = super.getConfiguration();
+        final IgniteConfiguration cfg = super.getConfiguration("");
 
         cfg.setIgniteInstanceName(OdbcConfigurationValidationSelfTest.class.getName() + "-" +
             NODE_IDX_GEN.incrementAndGet());

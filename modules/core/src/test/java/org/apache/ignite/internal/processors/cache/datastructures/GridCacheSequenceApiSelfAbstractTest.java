@@ -38,6 +38,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -177,7 +178,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
             try {
                 seq.getAndAdd(-15);
 
-                fail("Exception expected.");
+                Assert.fail("Exception expected.");
             }
             catch (IllegalArgumentException e) {
                 info("Caught expected exception: " + e);
@@ -186,7 +187,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
             try {
                 seq.addAndGet(-15);
 
-                fail("Exception expected.");
+                Assert.fail("Exception expected.");
             }
             catch (IllegalArgumentException e) {
                 info("Caught expected exception: " + e);
@@ -336,7 +337,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
         try {
             seq.addAndGet(153);
 
-            fail("Exception expected.");
+            Assert.fail("Exception expected.");
         }
         catch (IllegalStateException e) {
             info("Caught expected exception: " + e);

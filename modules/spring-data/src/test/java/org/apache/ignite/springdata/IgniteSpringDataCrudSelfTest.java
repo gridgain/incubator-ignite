@@ -25,6 +25,7 @@ import org.apache.ignite.springdata.misc.ApplicationConfiguration;
 import org.apache.ignite.springdata.misc.Person;
 import org.apache.ignite.springdata.misc.PersonRepository;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
@@ -95,7 +96,7 @@ public class IgniteSpringDataCrudSelfTest extends GridCommonAbstractTest {
         try {
             repo.save(person);
 
-            fail("Managed to save a Person without ID");
+            Assert.fail("Managed to save a Person without ID");
         }
         catch (UnsupportedOperationException e) {
             //excepted
@@ -124,7 +125,7 @@ public class IgniteSpringDataCrudSelfTest extends GridCommonAbstractTest {
         try {
             repo.save(map.values());
 
-            fail("Managed to save a list of Persons with ids");
+            Assert.fail("Managed to save a list of Persons with ids");
         }
         catch (UnsupportedOperationException e) {
             //expected
@@ -176,7 +177,7 @@ public class IgniteSpringDataCrudSelfTest extends GridCommonAbstractTest {
         try {
             repo.delete(new Person("", ""));
 
-            fail("Managed to delete a Person without id");
+            Assert.fail("Managed to delete a Person without id");
         }
         catch (UnsupportedOperationException e) {
             //expected
@@ -207,7 +208,7 @@ public class IgniteSpringDataCrudSelfTest extends GridCommonAbstractTest {
 
             repo.delete(persons);
 
-            fail("Managed to delete Persons without ids");
+            Assert.fail("Managed to delete Persons without ids");
         }
         catch (UnsupportedOperationException e) {
             //expected

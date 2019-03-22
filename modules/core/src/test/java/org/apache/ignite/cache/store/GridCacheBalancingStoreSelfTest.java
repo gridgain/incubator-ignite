@@ -43,6 +43,7 @@ import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -273,7 +274,7 @@ public class GridCacheBalancingStoreSelfTest extends GridCommonAbstractTest {
                 }
             }
             else
-                fail("Failed to acquire lock for key: " + key);
+                Assert.fail("Failed to acquire lock for key: " + key);
 
             return null;
         }
@@ -299,7 +300,7 @@ public class GridCacheBalancingStoreSelfTest extends GridCommonAbstractTest {
                     }
                 }
                 else
-                    fail("Failed to acquire lock for key: " + key);
+                    Assert.fail("Failed to acquire lock for key: " + key);
             }
 
             return loaded;

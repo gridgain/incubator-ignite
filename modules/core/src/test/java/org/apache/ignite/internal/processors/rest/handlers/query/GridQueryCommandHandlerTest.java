@@ -28,6 +28,7 @@ import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 import java.util.Collection;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -146,7 +147,7 @@ public class GridQueryCommandHandlerTest extends GridCommonAbstractTest {
             IgniteInternalFuture<GridRestResponse> resp = cmdHnd.handleAsync(req);
             resp.get();
 
-            fail("Expected exception not thrown.");
+            Assert.fail("Expected exception not thrown.");
         }
         catch (IgniteCheckedException e) {
             info("Got expected exception: " + e);

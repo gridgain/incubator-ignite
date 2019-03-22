@@ -57,6 +57,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -337,7 +338,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
                 else if (DEFAULT_CACHE_NAME.equals(meta.cacheName()) || noOpCache.getName().equals(meta.cacheName()))
                     assertTrue("Invalid types size", types.isEmpty());
                 else if (!"cacheWithCustomKeyPrecision".equalsIgnoreCase(meta.cacheName()))
-                    fail("Unknown cache: " + meta.cacheName());
+                    Assert.fail("Unknown cache: " + meta.cacheName());
             }
         }
         finally {
@@ -458,7 +459,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
 
                     break;
                 default:
-                    fail("Unknown field - " + meta.fieldName());
+                    Assert.fail("Unknown field - " + meta.fieldName());
             }
         }
 

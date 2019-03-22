@@ -21,6 +21,7 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinderAbstractSelfTest;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.Test;
 
@@ -40,8 +41,8 @@ public class TcpDiscoveryMulticastIpFinderSelfTest
     @Override protected TcpDiscoveryMulticastIpFinder ipFinder() throws Exception {
         TcpDiscoveryMulticastIpFinder ipFinder = new TcpDiscoveryMulticastIpFinder();
 
-        ipFinder.setMulticastGroup(GridTestUtils.getNextMulticastGroup(getClass()));
-        ipFinder.setMulticastPort(GridTestUtils.getNextMulticastPort(getClass()));
+        ipFinder.setMulticastGroup(GridTestPortUtils.getNextMulticastGroup(getClass()));
+        ipFinder.setMulticastPort(GridTestPortUtils.getNextMulticastPort(getClass()));
 
         return ipFinder;
     }

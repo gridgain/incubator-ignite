@@ -35,6 +35,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionTimeoutException;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -98,7 +99,7 @@ public class IgniteTxRemoveTimeoutObjectsTest extends GridCacheAbstractSelfTest 
 
                 tx.commit();
 
-                fail("A timeout should have happened.");
+                Assert.fail("A timeout should have happened.");
             }
             catch (Exception e) {
                 assertTrue(X.hasCause(e, TransactionTimeoutException.class));
@@ -163,7 +164,7 @@ public class IgniteTxRemoveTimeoutObjectsTest extends GridCacheAbstractSelfTest 
         }, getTestTimeout());
 
         if (!noLockTimeoutObjs)
-            fail("Grids contain LockTimeoutObjects.");
+            Assert.fail("Grids contain LockTimeoutObjects.");
     }
 
     /**

@@ -35,6 +35,7 @@ import org.apache.ignite.transactions.TransactionAlreadyCompletedException;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVT_TX_STARTED;
@@ -78,7 +79,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())
@@ -92,7 +93,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())
@@ -135,7 +136,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())
@@ -188,7 +189,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())
@@ -202,7 +203,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())
@@ -257,7 +258,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())
@@ -271,7 +272,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())
@@ -327,7 +328,7 @@ public class TxRollbackOnIncorrectParamsTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Should fail prior this line.");
+            Assert.fail("Should fail prior this line.");
         }
         catch (CacheException ex) {
             if (MvccFeatureChecker.forcedMvcc())

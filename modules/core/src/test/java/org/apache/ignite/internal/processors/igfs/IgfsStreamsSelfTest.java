@@ -49,6 +49,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -426,8 +427,8 @@ public class IgfsStreamsSelfTest extends IgfsCommonAbstractTest {
             int i2 = expIn.read(buf2, 0, Math.max(0, Math.min(i1, read)));
 
             if (i1 != i2) {
-                fail("Expects the same data [read=" + read + ", pos=" + pos + ", seek=" + seek +
-                    ", i1=" + i1 + ", i2=" + i2 + ']');
+                Assert.fail("Expects the same data [read=" + read + ", pos=" + pos + ", seek=" + seek +
+                            ", i1=" + i1 + ", i2=" + i2 + ']');
             }
 
             if (i1 == -1)

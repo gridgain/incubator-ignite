@@ -69,6 +69,7 @@ import org.apache.ignite.spi.eventstorage.memory.MemoryEventStorageSpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -291,7 +292,7 @@ public abstract class IgniteCacheEntryListenerAbstractTest extends IgniteCacheAb
                     assertTrue(syncEvtLatch.await(5000, MILLISECONDS));
                 }
                 catch (InterruptedException e) {
-                    fail("Unexpected exception: " + e);
+                    Assert.fail("Unexpected exception: " + e);
                 }
             }
         };
@@ -831,7 +832,7 @@ public abstract class IgniteCacheEntryListenerAbstractTest extends IgniteCacheAb
                     break;
 
                 default:
-                    fail("Unexpected type: " + evt.getEventType());
+                    Assert.fail("Unexpected type: " + evt.getEventType());
             }
         }
 

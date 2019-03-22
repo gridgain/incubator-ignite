@@ -220,7 +220,7 @@ public class IgniteNodeStoppedDuringDisableWALTest extends GridCommonAbstractTes
                         failed = true;
 
                     if (failed)
-                        fail(msg + " " + filePath + " " + path.toFile().length());
+                        Assert.fail(msg + " " + filePath + " " + path.toFile().length());
 
                     return CONTINUE;
                 }

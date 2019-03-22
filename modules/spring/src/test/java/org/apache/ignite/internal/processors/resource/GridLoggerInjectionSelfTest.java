@@ -28,6 +28,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -62,7 +63,7 @@ public class GridLoggerInjectionSelfTest extends GridCommonAbstractTest implemen
                         category.toString().contains(GridLoggerInjectionSelfTest.class.getName()));
                 }
                 else
-                    fail("This test should be run with proxy logger.");
+                    Assert.fail("This test should be run with proxy logger.");
 
                 return null;
             }
@@ -88,7 +89,7 @@ public class GridLoggerInjectionSelfTest extends GridCommonAbstractTest implemen
                         category.toString().contains(GridLoggerInjectionSelfTest.class.getName()));
                 }
                 else
-                    fail("This test should be run with proxy logger.");
+                    Assert.fail("This test should be run with proxy logger.");
             }
 
             @Override public Object call() throws Exception {
@@ -116,7 +117,7 @@ public class GridLoggerInjectionSelfTest extends GridCommonAbstractTest implemen
                         "GridLoggerInjectionSelfTest".equals(category.toString()));
                 }
                 else
-                    fail("This test should be run with proxy logger.");
+                    Assert.fail("This test should be run with proxy logger.");
             }
 
             @Override public Object call() throws Exception {

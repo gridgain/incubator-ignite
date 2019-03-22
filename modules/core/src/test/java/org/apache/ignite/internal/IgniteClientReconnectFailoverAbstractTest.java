@@ -34,6 +34,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -226,7 +227,7 @@ public abstract class IgniteClientReconnectFailoverAbstractTest extends IgniteCl
 
                 fut.get();
 
-                fail(err);
+                Assert.fail(err);
             }
 
             stop.set(true);

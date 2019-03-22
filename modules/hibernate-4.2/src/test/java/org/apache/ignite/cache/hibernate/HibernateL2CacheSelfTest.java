@@ -52,6 +52,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.hibernate.service.ServiceRegistryBuilder;
 import org.hibernate.stat.NaturalIdCacheStatistics;
 import org.hibernate.stat.SecondLevelCacheStatistics;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -942,7 +943,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (ConstraintViolationException e) {
                 log.info("Expected exception: " + e);
@@ -1084,7 +1085,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (StaleObjectStateException e) {
                 log.info("Expected exception: " + e);
@@ -1233,7 +1234,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (ConstraintViolationException e) {
                 log.info("Expected exception: " + e);
@@ -1325,7 +1326,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (ConstraintViolationException e) {
                 log.info("Expected exception: " + e);
@@ -1358,7 +1359,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (ConstraintViolationException e) {
                 log.info("Expected exception: " + e);
@@ -1402,7 +1403,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (ConstraintViolationException e) {
                 log.info("Expected exception: " + e);
@@ -1429,7 +1430,7 @@ public class HibernateL2CacheSelfTest extends GridCommonAbstractTest {
 
                 tx.commit();
 
-                fail("Commit must fail.");
+                Assert.fail("Commit must fail.");
             }
             catch (ConstraintViolationException e) {
                 log.info("Expected exception: " + e);

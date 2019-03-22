@@ -45,6 +45,7 @@ import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.GridTestMessage;
 import org.apache.ignite.testframework.GridSpiTestContext;
 import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
@@ -367,7 +368,7 @@ public class GridTcpCommunicationSpiRecoveryAckSelfTest<T extends CommunicationS
     protected TcpCommunicationSpi getSpi(int ackCnt, int idleTimeout, int queueLimit) {
         TcpCommunicationSpi spi = new TcpCommunicationSpi();
 
-        spi.setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+        spi.setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
         spi.setIdleConnectionTimeout(idleTimeout);
         spi.setTcpNoDelay(true);
         spi.setAckSendThreshold(ackCnt);

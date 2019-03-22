@@ -36,6 +36,7 @@ import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -299,7 +300,7 @@ public class JdbcThinComplexDmlDdlSelfTest extends GridCommonAbstractTest {
 
         /** {@inheritDoc} */
         @Override public void check(ResultSet rs) {
-            fail("Update results are expected. [rs=" + rs + ']');
+            Assert.fail("Update results are expected. [rs=" + rs + ']');
         }
 
         /** {@inheritDoc} */
@@ -345,7 +346,7 @@ public class JdbcThinComplexDmlDdlSelfTest extends GridCommonAbstractTest {
 
         /** {@inheritDoc} */
         @Override public void check(int updateCount) {
-            fail("Results set is expected. [updateCount=" + updateCount + ']');
+            Assert.fail("Results set is expected. [updateCount=" + updateCount + ']');
         }
 
         /**
@@ -425,7 +426,7 @@ public class JdbcThinComplexDmlDdlSelfTest extends GridCommonAbstractTest {
 
         /** {@inheritDoc} */
         @Override public void check(int updateCount) {
-            fail("Results set is expected. [updateCount=" + updateCount + ']');
+            Assert.fail("Results set is expected. [updateCount=" + updateCount + ']');
         }
     }
 

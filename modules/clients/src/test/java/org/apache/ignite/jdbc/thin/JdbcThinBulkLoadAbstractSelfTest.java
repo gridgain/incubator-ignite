@@ -42,6 +42,7 @@ import org.apache.ignite.internal.processors.bulkload.BulkLoadCsvParser;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -433,7 +434,7 @@ public abstract class JdbcThinBulkLoadAbstractSelfTest extends JdbcThinAbstractD
      */
     @Test
     public void testBulkLoadToNonAffinityNode() throws Exception {
-        IgniteEx client = startGrid(getConfiguration("client").setClientMode(true));
+        IgniteEx client = startGrid("client", (cfg) -> cfg.setClientMode(true));
 
         try (Connection con = connect(client, null)) {
             con.setSchema('"' + DEFAULT_CACHE_NAME + '"');
@@ -763,7 +764,7 @@ public abstract class JdbcThinBulkLoadAbstractSelfTest extends JdbcThinAbstractD
                     assertEquals("LastName456", rs.getString("lastName"));
             }
             else
-                fail("Wrong ID: " + id);
+                Assert.fail("Wrong ID: " + id);
 
             cnt++;
         }
@@ -833,7 +834,7 @@ public abstract class JdbcThinBulkLoadAbstractSelfTest extends JdbcThinAbstractD
                 assertEquals(recoder.apply("Фамилия456"), rs.getString("lastName"));
             }
             else
-                fail("Wrong ID: " + id);
+                Assert.fail("Wrong ID: " + id);
 
             cnt++;
         }

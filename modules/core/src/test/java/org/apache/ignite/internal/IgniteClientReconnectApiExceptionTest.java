@@ -54,6 +54,7 @@ import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.spi.discovery.DiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -710,7 +711,7 @@ public class IgniteClientReconnectApiExceptionTest extends IgniteClientReconnect
                             assertTrue(recvLatch.await(2, SECONDS));
                         }
                         catch (InterruptedException ignored) {
-                            fail("Message wasn't received.");
+                            Assert.fail("Message wasn't received.");
                         }
 
                         return true;
@@ -755,7 +756,7 @@ public class IgniteClientReconnectApiExceptionTest extends IgniteClientReconnect
                             assertEquals(42, (int)fut.get());
                         }
                         catch (Exception ignored) {
-                            fail("Failed submit task.");
+                            Assert.fail("Failed submit task.");
                         }
 
                         return true;
@@ -857,7 +858,7 @@ public class IgniteClientReconnectApiExceptionTest extends IgniteClientReconnect
                 catch (IgniteFutureTimeoutCheckedException e) {
                     e.printStackTrace();
 
-                    fail("Operation timeout. Iteration: " + i + ".");
+                    Assert.fail("Operation timeout. Iteration: " + i + ".");
                 }
             }
         }

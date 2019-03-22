@@ -65,6 +65,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -207,8 +208,8 @@ public class CacheContinuousQueryVariationsTest extends IgniteCacheConfigVariati
     private void testRandomOperation(final boolean jcacheApi, final boolean syncNtf, final boolean withFilter,
         final boolean asyncCallback, final boolean keepBinary)
         throws Exception {
-        if (keepBinary && !(getConfiguration().getMarshaller() == null
-            || getConfiguration().getMarshaller().getClass() == BinaryMarshaller.class))
+        if (keepBinary && !(getConfiguration("").getMarshaller() == null
+            || getConfiguration("").getMarshaller().getClass() == BinaryMarshaller.class))
             return;
 
         runInAllDataModes(new TestRunnable() {
@@ -531,7 +532,7 @@ public class CacheContinuousQueryVariationsTest extends IgniteCacheConfigVariati
                 }
 
                 default:
-                    fail("Op:" + op);
+                    Assert.fail("Op:" + op);
             }
         }
         finally {
@@ -879,7 +880,7 @@ public class CacheContinuousQueryVariationsTest extends IgniteCacheConfigVariati
                     val0 = ((BinaryObject)val).field("val");
                 }
                 else
-                    fail("Unexpected object: " + val);
+                    Assert.fail("Unexpected object: " + val);
 
                 return val0 % 2 == 0;
             }

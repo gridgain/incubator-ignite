@@ -61,7 +61,7 @@ public class TxDeadlockDetectionUnmasrhalErrorsTest extends GridCommonAbstractTe
 
         cfg.setClientMode(client);
 
-        if (isDebug()) {
+        if (GridTestUtils.isDebugMode()) {
             TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
 
             discoSpi.failureDetectionTimeoutEnabled(false);

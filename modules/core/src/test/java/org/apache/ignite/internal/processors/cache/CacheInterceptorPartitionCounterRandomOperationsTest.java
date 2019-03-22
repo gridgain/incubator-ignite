@@ -54,6 +54,7 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -675,7 +676,7 @@ public class CacheInterceptorPartitionCounterRandomOperationsTest extends GridCo
                 }
 
                 default:
-                    fail("Op:" + op);
+                    Assert.fail("Op:" + op);
             }
         }
         finally {

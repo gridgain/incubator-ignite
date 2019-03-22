@@ -37,6 +37,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.GridTestUtils.DiscoveryHook;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -116,7 +117,7 @@ public class IgniteContinuousQueryMetadataUpdateTest extends GridCommonAbstractT
                             U.sleep(50);
                         }
                         catch (IgniteInterruptedCheckedException e) {
-                            fail("Unexpected error:" + e);
+                            Assert.fail("Unexpected error:" + e);
                         }
                     }
                 }

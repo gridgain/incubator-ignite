@@ -56,6 +56,7 @@ import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -245,7 +246,7 @@ public class HadoopClientProtocolSelfTest extends HadoopAbstractSelfTest {
 
         try {
             proto.getJobCounters(new JobID(UUID.randomUUID().toString(), -1));
-            fail("exception must be thrown");
+            Assert.fail("exception must be thrown");
         }
         catch (Exception e) {
             assert e instanceof IOException : "wrong error has been thrown";

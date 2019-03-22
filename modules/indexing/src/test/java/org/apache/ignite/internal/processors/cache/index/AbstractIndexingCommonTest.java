@@ -22,6 +22,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.h2.engine.Session;
 import org.h2.util.CloseWatcher;
+import org.junit.Assert;
 
 /**
  * Base class for all indexing tests to check H2 connection management.
@@ -54,7 +55,7 @@ public class AbstractIndexingCommonTest extends GridCommonAbstractTest {
             // Uncomment and use heap dump to investigate the problem if the test failed.
             // GridDebug.dumpHeap("h2_conn_heap_dmp.hprof", true);
 
-            fail("There are not closed connections. See the log above.");
+            Assert.fail("There are not closed connections. See the log above.");
         }
     }
 

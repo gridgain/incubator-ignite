@@ -34,6 +34,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.junit.Assert;
 
 /**
  *
@@ -92,7 +93,7 @@ public class GridActivateExtensionTest extends GridCacheAbstractFullApiSelfTest 
         int nodes = gridCount();
 
         if (nodes != condId)
-            fail("checking fail");
+            Assert.fail("checking fail");
 
         condId = 0;
 
@@ -158,7 +159,7 @@ public class GridActivateExtensionTest extends GridCacheAbstractFullApiSelfTest 
     }
 
     /** {@inheritDoc} */
-    @Override protected Ignite startGrid(String gridName, GridSpringResourceContext ctx) throws Exception {
+    @Override protected IgniteEx startGrid(String gridName, GridSpringResourceContext ctx) throws Exception {
         if (!gridName.contains("backUp"))
             backUpCluster.put(gridName, gridName);
 

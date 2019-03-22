@@ -44,6 +44,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionTimeoutException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -730,7 +731,7 @@ public class IgniteOptimisticTxSuspendResumeTest extends GridCommonAbstractTest 
                     try {
                         tx.resume();
 
-                        fail("Exception must be thrown");
+                        Assert.fail("Exception must be thrown");
                     }
                     catch (Throwable e) {
                         assertTrue(X.hasCause(e, IgniteException.class));

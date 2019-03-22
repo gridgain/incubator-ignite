@@ -25,6 +25,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.spi.deployment.local.LocalDeploymentSpi;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -349,7 +350,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
             int res = getTarget().gridifyDefault("1");
 
             if (res != 1)
-                fail("Method gridifyDefault returns wrong value [result=" + res + ", expect=1]");
+                Assert.fail("Method gridifyDefault returns wrong value [result=" + res + ", expect=1]");
 
             info("Executed @Gridify method gridifyDefault(1) [result=" + res + ']');
         }
@@ -375,7 +376,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
             int res = getTarget().gridifyNonDefaultClass("1");
 
             if (res != 10)
-                fail("Method gridifyNonDefault returns wrong value [result=" + res + ", expect=1]");
+                Assert.fail("Method gridifyNonDefault returns wrong value [result=" + res + ", expect=1]");
 
             info("Executed @Gridify method gridifyNonDefaultClass(0) [result=" + res + ']');
         }
@@ -401,7 +402,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
             int res = getTarget().gridifyNonDefaultName("2");
 
             if (res != 20)
-                fail("Method gridifyNonDefault returns wrong value [result=" + res + ", expect=2]");
+                Assert.fail("Method gridifyNonDefault returns wrong value [result=" + res + ", expect=2]");
 
             info("Executed @Gridify method gridifyNonDefaultName(0) [result=" + res + ']');
         }
@@ -460,15 +461,15 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
         catch (Exception e) {
             e.printStackTrace();
 
-            fail("@Gridify method gridifyDefaultException(0) returns exception [exception" + e +
-                ", expect=" + TestGridifyException.class.getName() + ']');
+            Assert.fail("@Gridify method gridifyDefaultException(0) returns exception [exception" + e +
+                    ", expect=" + TestGridifyException.class.getName() + ']');
         }
         finally {
             stopGrid();
         }
 
         if (isException == false)
-            fail("@Gridify method gridifyDefaultException(0) does not return any exception.");
+            Assert.fail("@Gridify method gridifyDefaultException(0) does not return any exception.");
     }
 
     /**
@@ -488,7 +489,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
             int res = getTarget().gridifyDefaultResource("0");
 
             if (res != 0)
-                fail("Method gridifyDefaultResource returns wrong value [result=" + res + ", expect=0]");
+                Assert.fail("Method gridifyDefaultResource returns wrong value [result=" + res + ", expect=0]");
 
             info("Executed @Gridify method gridifyDefaultResource(0) [result=" + res + ']');
         }
@@ -514,7 +515,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
             int res = getTarget().gridifyNonDefaultClassResource("3");
 
             if (res != 30)
-                fail("Method gridifyNonDefaultClassResource returns wrong value [result=" + res + ", expect=3]");
+                Assert.fail("Method gridifyNonDefaultClassResource returns wrong value [result=" + res + ", expect=3]");
 
             info("Executed @Gridify method gridifyNonDefaultClassResource(3) [result=" + res + ']');
         }
@@ -540,7 +541,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
             int res = getTarget().gridifyNonDefaultNameResource("4");
 
             if (res != 40)
-                fail("Method gridifyNonDefaultNameResource returns wrong value [result=" + res + ", expect=4]");
+                Assert.fail("Method gridifyNonDefaultNameResource returns wrong value [result=" + res + ", expect=4]");
 
             info("Executed @Gridify method gridifyNonDefaultNameResource(4) [result=" + res + ']');
         }
@@ -549,9 +550,10 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration();
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
         cfg.setDeploymentSpi(new LocalDeploymentSpi());
 
         cfg.setMetricsUpdateFrequency(500);

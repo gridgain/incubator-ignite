@@ -45,6 +45,7 @@ import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.multijvm.IgniteProcessProxy;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -323,14 +324,14 @@ public abstract class AbstractQueryOOMTest extends GridCommonAbstractTest {
                 stopAllGrids();
             }
             catch (IgniteInterruptedCheckedException e) {
-                fail("Unexpected interruption");
+                Assert.fail("Unexpected interruption");
             }
         });
 
         try {
             checkQuery(sql, 0, lazy, collocated);
 
-            fail("Query is not produce OOM");
+            Assert.fail("Query is not produce OOM");
         }
         catch (Exception e) {
             if (hangTimeout.get()) {

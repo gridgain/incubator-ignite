@@ -32,6 +32,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -1650,7 +1651,7 @@ public abstract class IgfsDualAbstractSelfTest extends IgfsAbstractSelfTest {
         try {
             igfs.setTimes(FILE2, MAX_ALIGN_ON_SECOND, MAX_ALIGN_ON_SECOND);
 
-            fail("Exception is not thrown for missing file.");
+            Assert.fail("Exception is not thrown for missing file.");
         } catch (Exception ignore) {
             // No-op.
         }

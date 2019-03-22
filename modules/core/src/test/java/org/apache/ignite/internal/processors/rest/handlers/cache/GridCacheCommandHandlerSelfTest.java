@@ -47,6 +47,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 import javax.cache.processor.EntryProcessorException;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -60,8 +61,9 @@ public class GridCacheCommandHandlerSelfTest extends GridCommonAbstractTest {
         super(true);
     }
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         // Discovery config.
         TcpDiscoverySpi disco = new TcpDiscoverySpi();
 
@@ -76,7 +78,7 @@ public class GridCacheCommandHandlerSelfTest extends GridCommonAbstractTest {
         cacheCfg.setAtomicityMode(atomicityMode());
 
         // Grid config.
-        IgniteConfiguration cfg = super.getConfiguration();
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setLocalHost("127.0.0.1");
 
@@ -118,7 +120,7 @@ public class GridCacheCommandHandlerSelfTest extends GridCommonAbstractTest {
         try {
             hnd.handleAsync(req).get();
 
-            fail("Expected exception not thrown.");
+            Assert.fail("Expected exception not thrown.");
         }
         catch (IgniteCheckedException e) {
             info("Got expected exception: " + e);
@@ -161,7 +163,7 @@ public class GridCacheCommandHandlerSelfTest extends GridCommonAbstractTest {
         try {
             testAppend("as", Arrays.asList("df"), true);
 
-            fail("Expects failed with incompatible types message.");
+            Assert.fail("Expects failed with incompatible types message.");
         }
         catch (IgniteCheckedException e) {
             info("Got expected exception: " + e);

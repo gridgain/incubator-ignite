@@ -23,6 +23,7 @@ import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaS
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.spi.encryption.keystore.KeystoreEncryptionKey;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.managers.encryption.GridEncryptionManager.ENCRYPTION_KEY_PREFIX;
@@ -109,7 +110,7 @@ public class EncryptedCacheDestroyTest extends AbstractEncryptionTest {
 
         for (String cacheName : cacheNames) {
             if (cacheName.equals(encCacheName))
-                fail(encCacheName + " should be destroyed.");
+                Assert.fail(encCacheName + " should be destroyed.");
         }
 
         int grpId = CU.cacheGroupId(encCacheName, grpName);

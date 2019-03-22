@@ -28,6 +28,7 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.TestReconnectPluginProvider;
 import org.apache.ignite.spi.discovery.tcp.TestReconnectProcessor;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_BINARY_MARSHALLER_USE_STRING_SERIALIZATION_VER_2;
@@ -166,11 +167,11 @@ public abstract class GridDiscoveryManagerAttributesSelfTest extends GridCommonA
                 checkIsClientFlag(g);
 
                 if (fail)
-                    fail("Node should not join");
+                    Assert.fail("Node should not join");
             }
             catch (Exception ignored) {
                 if (!fail)
-                    fail("Node should join");
+                    Assert.fail("Node should join");
             }
         }
         finally {
@@ -228,11 +229,11 @@ public abstract class GridDiscoveryManagerAttributesSelfTest extends GridCommonA
                 checkIsClientFlag(g);
 
                 if (fail)
-                    fail("Node should not join");
+                    Assert.fail("Node should not join");
             }
             catch (Exception ignored) {
                 if (!fail)
-                    fail("Node should join");
+                    Assert.fail("Node should join");
             }
         }
         finally {
@@ -321,11 +322,11 @@ public abstract class GridDiscoveryManagerAttributesSelfTest extends GridCommonA
                 checkIsClientFlag(g);
 
                 if (fail)
-                    fail("Node must not join");
+                    Assert.fail("Node must not join");
             }
             catch (Exception e) {
                 if (!fail)
-                    fail("Node must join: " + e.getMessage());
+                    Assert.fail("Node must join: " + e.getMessage());
             }
         }
         finally {

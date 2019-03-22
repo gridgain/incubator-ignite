@@ -36,6 +36,7 @@ import org.apache.ignite.internal.processors.cache.persistence.checkpoint.Checkp
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileDescriptor;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_MAX_CHECKPOINT_MEMORY_HISTORY_SIZE;
@@ -114,7 +115,7 @@ public abstract class WalDeletionArchiveAbstractTest extends GridCommonAbstractT
         try {
             //when: start grid.
             startGrid(getTestIgniteInstanceName(), configuration);
-            fail("Should be fail because both wal history size and max wal archive size was used");
+            Assert.fail("Should be fail because both wal history size and max wal archive size was used");
         }
         catch (IgniteException e) {
             //then: exception is occurrence because should be set just one parameters.

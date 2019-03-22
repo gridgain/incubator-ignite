@@ -34,6 +34,7 @@ import org.apache.ignite.internal.processors.GridProcessor;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -114,7 +115,7 @@ public class IgniteCacheQueryStopOnCancelOrTimeoutDistributedJoinSelfTest extend
             cursor.getAll();
 
             if (checkCanceled)
-                fail("Query not canceled");
+                Assert.fail("Query not canceled");
         }
         catch (CacheException ex) {
             log().error("Got expected exception", ex);

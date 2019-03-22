@@ -970,7 +970,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
         IgniteInternalFuture<?> fut = startGridsAsync(srv0, srvs, 2);
 
         if (latch != null && !latch.await(WAIT_SECONDS, TimeUnit.SECONDS))
-            fail("Failed to wait for expected messages.");
+            Assert.fail("Failed to wait for expected messages.");
 
         stopGrid(getTestIgniteInstanceName(0), true, false);
 
@@ -1014,7 +1014,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
         IgniteInternalFuture<?> fut = startGridsAsync(srv0, srvs, startNodes);
 
         if (latch != null && !latch.await(WAIT_SECONDS, TimeUnit.SECONDS))
-            fail("Failed to wait for expected messages.");
+            Assert.fail("Failed to wait for expected messages.");
 
         stopGrid(getTestIgniteInstanceName(0), true, false);
 
@@ -1049,7 +1049,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
         }, 2, "start-node");
 
         if (latch != null && !latch.await(WAIT_SECONDS, TimeUnit.SECONDS))
-            fail("Failed to wait for expected messages.");
+            Assert.fail("Failed to wait for expected messages.");
 
         stopGrid(getTestIgniteInstanceName(0), true, false);
 
@@ -1089,7 +1089,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
         waitForExchangeStart(ignite(0), nodes + 1);
 
         if (latch != null && !latch.await(WAIT_SECONDS, TimeUnit.SECONDS))
-            fail("Failed to wait for expected messages.");
+            Assert.fail("Failed to wait for expected messages.");
 
         stopGrid(0);
 

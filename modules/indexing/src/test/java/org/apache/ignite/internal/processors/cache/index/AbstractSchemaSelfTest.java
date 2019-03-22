@@ -60,6 +60,7 @@ import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 /**
  * Tests for dynamic schema changes.
@@ -153,10 +154,10 @@ public abstract class AbstractSchemaSelfTest extends AbstractIndexingCommonTest 
             return;
         }
         catch (Exception e) {
-            fail("Unexpected exception: " + e);
+            Assert.fail("Unexpected exception: " + e);
         }
 
-        fail(IgniteSQLException.class.getSimpleName() +  " is not thrown.");
+        Assert.fail(IgniteSQLException.class.getSimpleName() +  " is not thrown.");
     }
 
     /**

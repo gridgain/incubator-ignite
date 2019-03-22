@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.processors.cache.persistence.db.wal;
 
 import java.io.File;
+import java.util.function.Function;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /** Tests equal paths to WAL storage and WAL archive. */
@@ -44,23 +47,30 @@ public class WalPathsTest extends GridCommonAbstractTest {
      * @return Ignite configuration with the same path to wal store and wal archive.
      * @throws Exception If failed.
      */
-    private IgniteConfiguration getConfig(boolean relativePath) throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+    private Function<IgniteConfiguration, IgniteConfiguration> getConfigTransormer(boolean relativePath) {
+        return (cfg) -> {
+            try {
+                DataStorageConfiguration dsCfg = new DataStorageConfiguration();
 
-        DataStorageConfiguration dsCfg = new DataStorageConfiguration();
+                dsCfg.setDefaultDataRegionConfiguration(new DataRegionConfiguration()
+                    .setPersistenceEnabled(true)
+                    .setMaxSize(200 * 1024 * 1024));
 
-        dsCfg.setDefaultDataRegionConfiguration(new DataRegionConfiguration()
-            .setPersistenceEnabled(true)
-            .setMaxSize(200 * 1024 * 1024));
+                walDir = new File(U.defaultWorkDirectory(), getClass().getSimpleName());
 
-        walDir = new File(U.defaultWorkDirectory(), getClass().getSimpleName());
+                dsCfg.setWalPath(walDir.getAbsolutePath());
+                dsCfg.setWalArchivePath(relativePath ? getClass().getSimpleName() : walDir.getAbsolutePath());
 
-        dsCfg.setWalPath(walDir.getAbsolutePath());
-        dsCfg.setWalArchivePath(relativePath ? getClass().getSimpleName() : walDir.getAbsolutePath());
+                cfg.setDataStorageConfiguration(dsCfg);
 
-        cfg.setDataStorageConfiguration(dsCfg);
+                return cfg;
+            }
+            catch (Throwable th) {
+                Assert.fail();
 
-        return cfg;
+                throw new IgniteException(th);
+            }
+        };
     }
 
     /**
@@ -70,9 +80,7 @@ public class WalPathsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWalStoreAndArchivePathsEquality() throws Exception {
-        IgniteConfiguration cfg = getConfig(false);
-
-        startGrid(cfg);
+        startGrid(getConfigTransormer(false));
     }
 
     /**
@@ -82,8 +90,6 @@ public class WalPathsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWalStoreAndArchiveAbsolutAndRelativePathsEquality() throws Exception {
-        final IgniteConfiguration cfg = getConfig(true);
-
-        startGrid(cfg);
+        startGrid(getConfigTransormer(true));
     }
 }

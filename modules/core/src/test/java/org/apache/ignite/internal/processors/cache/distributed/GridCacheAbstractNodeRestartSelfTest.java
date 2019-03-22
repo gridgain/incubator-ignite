@@ -45,6 +45,7 @@ import org.apache.ignite.testframework.GridTestUtils.SF;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -250,14 +251,14 @@ public abstract class GridCacheAbstractNodeRestartSelfTest extends GridCommonAbs
             if (v == null) {
                 printFailureDetails(c, i, attempt);
 
-                fail("Value is null [key=" + i + ", attempt=" + attempt + "]");
+                Assert.fail("Value is null [key=" + i + ", attempt=" + attempt + "]");
             }
 
             if (!Integer.toString(i).equals(v)) {
                 printFailureDetails(c, i, attempt);
 
-                fail("Wrong value for key [key=" +
-                    i + ", actual value=" + v + ", expected value=" + Integer.toString(i) + "]");
+                Assert.fail("Wrong value for key [key=" +
+                            i + ", actual value=" + v + ", expected value=" + Integer.toString(i) + "]");
             }
         }
 

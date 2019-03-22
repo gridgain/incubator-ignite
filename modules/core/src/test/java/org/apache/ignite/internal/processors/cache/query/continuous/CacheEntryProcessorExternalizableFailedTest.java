@@ -40,6 +40,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -704,7 +705,7 @@ public class CacheEntryProcessorExternalizableFailedTest extends GridCommonAbstr
                 @Override public Object call() throws Exception {
                     cache.invoke(KEY, createEntryProcessor());
 
-                    fail("Should never happened.");
+                    Assert.fail("Should never happened.");
 
                     tx.commit();
 

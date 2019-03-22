@@ -44,6 +44,7 @@ import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemTy
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -222,7 +223,7 @@ public class GridCacheMessageSelfTest extends GridCommonAbstractTest {
                     }
                 }
                 catch (Exception e) {
-                    fail("Exception " + e.getMessage());
+                    Assert.fail("Exception " + e.getMessage());
                 }
             }
         });

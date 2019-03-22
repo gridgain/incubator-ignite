@@ -28,6 +28,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -56,32 +57,26 @@ public class TcpDiscoveryIpFinderCleanerTest extends GridCommonAbstractTest {
     public void testNodeStops() throws Exception {
         CustomIpFinder ipFinder = new CustomIpFinder(true);
 
-        Ignite ignite = Ignition.start(getConfiguration(ipFinder));
+        Ignite ignite = startGrid((cfg) -> {
+            TcpDiscoverySpi discoverySpi = new TcpDiscoverySpi()
+                .setIpFinder(ipFinder)
+                .setIpFinderCleanFrequency(IP_FINDER_CLEAN_FREQ);
+
+            cfg.setDiscoverySpi(discoverySpi);
+
+            return cfg;
+        });
 
         try {
             if (!ipFinder.suspend().await(IP_FINDER_CLEAN_FREQ * 5, TimeUnit.MILLISECONDS))
-                fail("Failed to suspend IP finder.");
+                Assert.fail("Failed to suspend IP finder.");
 
             if (!stopNodeAsync(ignite).await(NODE_STOPPING_TIMEOUT, TimeUnit.MILLISECONDS))
-                fail("Node was not stopped.");
+                Assert.fail("Node was not stopped.");
         }
         finally {
             ipFinder.interruptCleanerThread();
         }
-    }
-
-    /**
-     * @param ipFinder IP finder.
-     * @return Grid test configuration.
-     * @throws Exception If failed.
-     */
-    private IgniteConfiguration getConfiguration(TcpDiscoveryIpFinder ipFinder) throws Exception {
-        TcpDiscoverySpi discoverySpi = new TcpDiscoverySpi()
-            .setIpFinder(ipFinder)
-            .setIpFinderCleanFrequency(IP_FINDER_CLEAN_FREQ);
-
-        return getConfiguration()
-            .setDiscoverySpi(discoverySpi);
     }
 
     /**

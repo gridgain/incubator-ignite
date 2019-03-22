@@ -43,6 +43,7 @@ import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -183,7 +184,7 @@ public class GridOrderedMessageCancelSelfTest extends GridCommonAbstractTest {
                     finishLatch.countDown();
             }
             catch (Exception e) {
-                fail("Unexpected error: " + e);
+                Assert.fail("Unexpected error: " + e);
             }
         }
     }

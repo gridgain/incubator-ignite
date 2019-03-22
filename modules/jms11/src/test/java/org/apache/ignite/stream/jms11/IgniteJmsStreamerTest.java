@@ -57,6 +57,7 @@ import org.apache.ignite.events.CacheEvent;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
@@ -658,7 +659,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
                     .getDestinationStatistics().getMessages().getCount());
             }
             catch (Exception e) {
-                fail(e.toString());
+                Assert.fail(e.toString());
             }
         }
 
@@ -700,7 +701,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
                     .getDestinationStatistics().getMessages().getCount());
             }
             catch (Exception e) {
-                fail(e.toString());
+                Assert.fail(e.toString());
             }
         }
 

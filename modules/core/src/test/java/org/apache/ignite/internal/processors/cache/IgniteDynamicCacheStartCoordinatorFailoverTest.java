@@ -41,6 +41,7 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -70,7 +71,7 @@ public class IgniteDynamicCacheStartCoordinatorFailoverTest extends GridCommonAb
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         TcpCommunicationSpi commSpi = new CustomCommunicationSpi();
-        commSpi.setLocalPort(GridTestUtils.getNextCommPort(getClass()));
+        commSpi.setLocalPort(GridTestPortUtils.getNextCommPort(getClass()));
 
         cfg.setCommunicationSpi(commSpi);
 

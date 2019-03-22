@@ -280,9 +280,9 @@ public abstract class IgniteCompatibilityAbstractTest extends GridCommonAbstract
     }
 
     /** {@inheritDoc} */
-    @Override protected Ignite clusterManager__startGrid(String igniteInstanceName, IgniteConfiguration cfg,
+    @Override protected IgniteEx clusterManager__startGrid(String igniteInstanceName, IgniteConfiguration cfg,
         GridSpringResourceContext ctx) throws Exception {
-        final Ignite ignite;
+        final IgniteEx ignite;
 
         // if started node isn't first node in the local JVM then it was checked earlier for join to topology
         // in IgniteProcessProxy constructor.
@@ -299,16 +299,16 @@ public abstract class IgniteCompatibilityAbstractTest extends GridCommonAbstract
         else
             ignite = super.clusterManager__startGrid(igniteInstanceName, cfg, ctx);
 
-        if (locJvmInstance == null && !isRemoteJvm(igniteInstanceName))
+        if (locJvmInstance == null && !(ignite instanceof IgniteProcessProxy))
             locJvmInstance = ignite;
 
         return ignite;
     }
 
     /** {@inheritDoc} */
-    @Override protected void stopGrid(@Nullable String igniteInstanceName, boolean cancel, boolean awaitTop) {
-        if (isRemoteJvm(igniteInstanceName))
-            throw new UnsupportedOperationException("Operation isn't supported yet for remotes nodes, use stopAllGrids() instead.");
+    @Override protected void stopGrid(@Nullable String igniteInstanceName, boolean cancel, boolean awaitTop) throws Exception {
+        if (ignite(igniteInstanceName) instanceof IgniteProcessProxy)
+            IgniteProcessProxy.stop(igniteInstanceName, true);
         else {
             super.stopGrid(igniteInstanceName, cancel, awaitTop);
 

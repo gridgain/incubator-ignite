@@ -48,6 +48,7 @@ import org.apache.ignite.internal.processors.cache.persistence.file.RandomAccess
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.mxbean.CacheGroupMetricsMXBean;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -285,7 +286,7 @@ public class DiskPageCompressionIntegrationTest extends GridCommonAbstractTest {
                 return;
         }
 
-        fail("No files were compacted.");
+        Assert.fail("No files were compacted.");
     }
 
     /**

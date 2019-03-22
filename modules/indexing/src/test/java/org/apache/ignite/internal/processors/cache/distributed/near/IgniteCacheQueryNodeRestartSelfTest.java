@@ -38,6 +38,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
 import org.apache.ignite.internal.util.typedef.CAX;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgnitePredicate;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -129,7 +130,7 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
                                 assertEquals(Integer.valueOf(i), cache.get(i));
                         }
 
-                        fail("res size: " + res.size());
+                        Assert.fail("res size: " + res.size());
                     }
 
                     assertEquals(KEY_CNT, keys.size());

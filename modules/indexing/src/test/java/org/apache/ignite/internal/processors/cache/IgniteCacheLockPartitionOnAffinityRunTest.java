@@ -45,6 +45,7 @@ import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -447,7 +448,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                     }
                     catch (Exception e) {
                         e.printStackTrace();
-                        fail("Unexpected exception");
+                        Assert.fail("Unexpected exception");
                     }
                 }
             });
@@ -467,7 +468,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                     }
                     catch (Exception e) {
                         e.printStackTrace();
-                        fail("Unexpected exception");
+                        Assert.fail("Unexpected exception");
                     }
                     return null;
                 }
@@ -497,14 +498,14 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                         }
                         catch (Exception e) {
                             e.printStackTrace();
-                            fail("Unexpected exception");
+                            Assert.fail("Unexpected exception");
 
                         }
                         throw new RuntimeException("Test job throws exception");
                     }
                 });
 
-            fail("Exception must be thrown");
+            Assert.fail("Exception must be thrown");
         }
         catch (Exception ignored) {
             checkPartitionsReservations(ignite(1), orgId, 0);
@@ -524,13 +525,13 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                         }
                         catch (Exception e) {
                             e.printStackTrace();
-                            fail("Unexpected exception");
+                            Assert.fail("Unexpected exception");
                         }
                         throw new RuntimeException("Test job throws exception");
                     }
                 });
 
-            fail("Exception must be thrown");
+            Assert.fail("Exception must be thrown");
         }
         catch (Exception ignored) {
             checkPartitionsReservations(ignite(1), orgId, 0);
@@ -558,13 +559,13 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                         }
                         catch (Exception e) {
                             e.printStackTrace();
-                            fail("Unexpected exception");
+                            Assert.fail("Unexpected exception");
                         }
                         throw new Error("Test job throws error");
                     }
                 });
 
-            fail("Error must be thrown");
+            Assert.fail("Error must be thrown");
         }
         catch (Throwable ignored) {
             checkPartitionsReservations(ignite(1), orgId, 0);
@@ -584,13 +585,13 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                         }
                         catch (Exception e) {
                             e.printStackTrace();
-                            fail("Unexpected exception");
+                            Assert.fail("Unexpected exception");
                         }
                         throw new Error("Test job throws error");
                     }
                 });
 
-            fail("Error must be thrown");
+            Assert.fail("Error must be thrown");
         }
         catch (Throwable ignored) {
             checkPartitionsReservations(ignite(1), orgId, 0);
@@ -609,7 +610,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new JobFailUnmarshaling());
-            fail("Unmarshaling exception must be thrown");
+            Assert.fail("Unmarshaling exception must be thrown");
         }
         catch (Exception ignored) {
             checkPartitionsReservations(ignite(1), orgId, 0);
@@ -637,7 +638,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                         }
                         catch (Exception e) {
                             e.printStackTrace();
-                            fail("Unexpected exception");
+                            Assert.fail("Unexpected exception");
                         }
 
                         try {
@@ -678,7 +679,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                         }
                         catch (Exception e) {
                             e.printStackTrace();
-                            fail("Unexpected exception");
+                            Assert.fail("Unexpected exception");
                         }
 
                         try {
@@ -731,7 +732,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                         }
                         catch (Exception e) {
                             e.printStackTrace();
-                            fail("Unexpected exception");
+                            Assert.fail("Unexpected exception");
                         }
 
                         try {
@@ -874,7 +875,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
 
         /** {@inheritDoc} */
         @Override public void run() {
-            fail("Must not be executed");
+            Assert.fail("Must not be executed");
         }
     }
 

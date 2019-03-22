@@ -147,7 +147,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testModifications() throws Exception {
-        startGrid(getConfiguration());
+        startGrid(getConfiguration(igniteInstanceName));
 
         assertSqlError("DROP TABLE IGNITE.NODES");
 
@@ -176,9 +176,9 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testIndexesView() throws Exception {
-        IgniteEx srv = startGrid(getConfiguration());
+        IgniteEx srv = startGrid(getConfiguration(igniteInstanceName));
 
-        IgniteEx client = startGrid(getConfiguration().setClientMode(true).setIgniteInstanceName("CLIENT"));
+        IgniteEx client = startGrid(getConfiguration(igniteInstanceName).setClientMode(true).setIgniteInstanceName("CLIENT"));
 
         srv.createCache(cacheConfiguration("TST1"));
 
@@ -523,12 +523,12 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testNodesViews() throws Exception {
-        Ignite igniteSrv = startGrid(getTestIgniteInstanceName(), getConfiguration().setMetricsUpdateFrequency(500L));
+        Ignite igniteSrv = startGrid(getTestIgniteInstanceName(), getConfiguration(igniteInstanceName).setMetricsUpdateFrequency(500L));
 
-        Ignite igniteCli = startGrid(getTestIgniteInstanceName(1), getConfiguration().setMetricsUpdateFrequency(500L)
+        Ignite igniteCli = startGrid(getTestIgniteInstanceName(1), getConfiguration(igniteInstanceName).setMetricsUpdateFrequency(500L)
             .setClientMode(true));
 
-        startGrid(getTestIgniteInstanceName(2), getConfiguration().setMetricsUpdateFrequency(500L).setDaemon(true));
+        startGrid(getTestIgniteInstanceName(2), getConfiguration(igniteInstanceName).setMetricsUpdateFrequency(500L).setDaemon(true));
 
         UUID nodeId0 = igniteSrv.cluster().localNode().id();
 
@@ -779,7 +779,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
                     log.info("Metrics was updated in background, will retry check");
 
                     if (i == METRICS_CHECK_ATTEMPTS - 1)
-                        fail("Failed to check metrics, attempts limit reached (" + METRICS_CHECK_ATTEMPTS + ')');
+                        Assert.fail("Failed to check metrics, attempts limit reached (" + METRICS_CHECK_ATTEMPTS + ')');
                 }
             }
         }
@@ -829,9 +829,10 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
         assertEquals("node2", res.get(0).get(0));
     }
 
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration() throws Exception {
-        return super.getConfiguration().setCacheConfiguration(new CacheConfiguration().setName(DEFAULT_CACHE_NAME));
+    /** {@inheritDoc}
+     * @param igniteInstanceName*/
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        return super.getConfiguration(igniteInstanceName).setCacheConfiguration(new CacheConfiguration().setName(DEFAULT_CACHE_NAME));
     }
 
     /**
@@ -875,7 +876,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testTablesView() throws Exception {
-        IgniteEx ignite = startGrid(getConfiguration());
+        IgniteEx ignite = startGrid(getConfiguration(igniteInstanceName));
 
         GridCacheProcessor cacheProc = ignite.context().cache();
 
@@ -926,7 +927,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
         );
 
         if (!F.eqNotOrdered(allExpRows, allInfos))
-            fail("Returned incorrect rows [expected=" + allExpRows + ", actual=" + allInfos + "].");
+            Assert.fail("Returned incorrect rows [expected=" + allExpRows + ", actual=" + allInfos + "].");
 
         // Filter by cache name:
         assertEquals(
@@ -958,7 +959,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testTablesDropAndCreate() throws Exception {
-        IgniteEx ignite = startGrid(getConfiguration());
+        IgniteEx ignite = startGrid(getConfiguration(igniteInstanceName));
 
         final String selectTabNameCacheName = "SELECT TABLE_NAME, CACHE_NAME FROM IGNITE.TABLES ORDER BY TABLE_NAME";
 
@@ -1026,7 +1027,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testTablesNullAffinityKey() throws Exception {
-        IgniteEx ignite = startGrid(getConfiguration());
+        IgniteEx ignite = startGrid(getConfiguration(igniteInstanceName));
 
         AffinityKeyMapper fakeMapper = new ConstantMapper();
 
@@ -1057,7 +1058,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testTablesViewKeyVal() throws Exception {
-        IgniteEx ignite = startGrid(getConfiguration());
+        IgniteEx ignite = startGrid(getConfiguration(igniteInstanceName));
 
         {
             ignite.getOrCreateCache(defaultCacheConfiguration().setName("NO_ALIAS_NON_SQL_KEY")
@@ -1111,15 +1112,15 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
             .setDataRegionConfigurations(new DataRegionConfiguration().setName("dr1"),
                 new DataRegionConfiguration().setName("dr2"));
 
-        IgniteEx ignite0 = startGrid(getConfiguration().setDataStorageConfiguration(dsCfg));
+        IgniteEx ignite0 = startGrid(getConfiguration(igniteInstanceName).setDataStorageConfiguration(dsCfg));
 
-        Ignite ignite1 = startGrid(getConfiguration().setDataStorageConfiguration(dsCfg).setIgniteInstanceName("node1"));
+        Ignite ignite1 = startGrid(getConfiguration(igniteInstanceName).setDataStorageConfiguration(dsCfg).setIgniteInstanceName("node1"));
 
         ignite0.cluster().active(true);
 
-        Ignite ignite2 = startGrid(getConfiguration().setDataStorageConfiguration(dsCfg).setIgniteInstanceName("node2"));
+        Ignite ignite2 = startGrid(getConfiguration(igniteInstanceName).setDataStorageConfiguration(dsCfg).setIgniteInstanceName("node2"));
 
-        Ignite ignite3 = startGrid(getConfiguration().setDataStorageConfiguration(dsCfg).setIgniteInstanceName("node3")
+        Ignite ignite3 = startGrid(getConfiguration(igniteInstanceName).setDataStorageConfiguration(dsCfg).setIgniteInstanceName("node3")
             .setClientMode(true));
 
         ignite0.getOrCreateCache(new CacheConfiguration<>()
@@ -1324,7 +1325,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testDurationMetricsCanBeLonger24Hours() throws Exception {
-        Ignite ign = startGrid("MockedMetrics", getConfiguration().setMetricsUpdateFrequency(500));
+        Ignite ign = startGrid("MockedMetrics", getConfiguration(igniteInstanceName).setMetricsUpdateFrequency(500));
 
         ClusterNode node = ign.cluster().localNode();
 
@@ -1478,7 +1479,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      * Gets ignite configuration with persistence enabled.
      */
     private IgniteConfiguration getPdsConfiguration(String consistentId) throws Exception {
-        IgniteConfiguration cfg = getConfiguration();
+        IgniteConfiguration cfg = getConfiguration(igniteInstanceName);
 
         cfg.setDataStorageConfiguration(
             new DataStorageConfiguration().setDefaultDataRegionConfiguration(new DataRegionConfiguration()

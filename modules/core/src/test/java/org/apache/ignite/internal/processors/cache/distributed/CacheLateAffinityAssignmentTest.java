@@ -2426,7 +2426,7 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
      * @param cacheName Cache name.
      */
     private void blockSupplySend(TestRecordingCommunicationSpi spi, final String cacheName) {
-        final int grpId = groupIdForCache(spi.ignite(), cacheName);
+        final int grpId = GridTestUtils.groupIdForCache(spi.ignite(), cacheName);
 
         spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
             @Override public boolean apply(ClusterNode node, Message msg) {

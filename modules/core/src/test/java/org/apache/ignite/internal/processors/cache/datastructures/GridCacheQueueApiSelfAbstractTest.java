@@ -46,6 +46,7 @@ import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
@@ -458,7 +459,7 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
                     for (int i = 0; i < (QUEUE_CAPACITY * THREAD_NUM); i++)
                         queue.offer("anything", 3, TimeUnit.MINUTES);
 
-                    fail("Queue failed");
+                    Assert.fail("Queue failed");
                 }
                 catch (IgniteException | IllegalStateException e) {
                     putLatch.countDown();
@@ -484,7 +485,7 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
                         queue.close();
                 }
                 catch (Exception e) {
-                    fail("Unexpected exception: " + e);
+                    Assert.fail("Unexpected exception: " + e);
                 }
                 finally {
                     clearLatch.countDown();
@@ -504,7 +505,7 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
         try {
             assert queue.isEmpty() : queue.size();
 
-            fail("Queue must be removed.");
+            Assert.fail("Queue must be removed.");
         }
         catch (IgniteException | IllegalStateException e) {
             assert e.getMessage().contains("removed");
@@ -697,7 +698,7 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
         try {
             initQueue(0, "Queue2", 0, colCfg2);
 
-            fail("Exception was expected.");
+            Assert.fail("Exception was expected.");
         }
         catch (Exception ex) {
             // Expected

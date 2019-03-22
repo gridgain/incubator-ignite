@@ -59,6 +59,7 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -687,7 +688,7 @@ public class IgniteCachePartitionLossPolicySelfTest extends GridCommonAbstractTe
 
                 if (cache.lostPartitions().contains(i)) {
                     if (safe)
-                        fail("Reading from a lost partition should have failed: " + i + " " + ig.name());
+                        Assert.fail("Reading from a lost partition should have failed: " + i + " " + ig.name());
                     // else we could have read anything.
                 }
                 else

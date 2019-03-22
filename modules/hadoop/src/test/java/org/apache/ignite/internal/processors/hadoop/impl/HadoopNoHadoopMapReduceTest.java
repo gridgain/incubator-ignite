@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.hadoop.impl;
 
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -40,7 +41,7 @@ public class HadoopNoHadoopMapReduceTest extends HadoopMapReduceTest {
         try {
             super.testWholeMapReduceExecution();
 
-            fail("IllegalStateException expected.");
+            Assert.fail("IllegalStateException expected.");
         }
         catch (IllegalStateException ignore) {
             // No-op.

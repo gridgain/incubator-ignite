@@ -25,6 +25,7 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -69,7 +70,7 @@ public class PluginNodeValidationTest extends GridCommonAbstractTest {
             return;
         }
 
-        fail("Exception is expected due validation error in plugin");
+        Assert.fail("Exception is expected due validation error in plugin");
     }
 
     /** Tests that node joins on successful node validation by plugin. */

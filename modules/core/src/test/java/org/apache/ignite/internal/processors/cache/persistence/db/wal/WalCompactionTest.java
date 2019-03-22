@@ -43,6 +43,7 @@ import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStor
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileDescriptor;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_BASELINE_AUTO_ADJUST_ENABLED;
@@ -428,7 +429,7 @@ public class WalCompactionTest extends GridCommonAbstractTest {
                 log.info(f.getAbsolutePath());
 
             // Failed to compress WAL segment shoudn't be deleted.
-            fail("File " + walSegment.getAbsolutePath() + " does not exist.");
+            Assert.fail("File " + walSegment.getAbsolutePath() + " does not exist.");
         }
     }
 

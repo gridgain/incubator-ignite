@@ -26,6 +26,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheMapEntry;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -68,7 +69,7 @@ public class IgnitePartitionedSetNoBackupsSelfTest extends GridCachePartitionedS
                 if (setNodeId == null)
                     setNodeId = grid.localNode().id();
                 else
-                    fail("For collocated set all items should be stored on single node.");
+                    Assert.fail("For collocated set all items should be stored on single node.");
             }
         }
     }

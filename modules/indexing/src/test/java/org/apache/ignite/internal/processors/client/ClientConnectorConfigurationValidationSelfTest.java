@@ -383,7 +383,7 @@ public class ClientConnectorConfigurationValidationSelfTest extends GridCommonAb
      */
     @SuppressWarnings("unchecked")
     private IgniteConfiguration baseConfiguration() throws Exception {
-        final IgniteConfiguration cfg = super.getConfiguration();
+        final IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setIgniteInstanceName(ClientConnectorConfigurationValidationSelfTest.class.getName() + "-" +
             NODE_IDX_GEN.incrementAndGet());

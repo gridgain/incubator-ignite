@@ -24,6 +24,7 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.configuration.DeploymentMode;
 import org.apache.ignite.internal.processors.cache.GridCacheAtomicEntryProcessorDeploymentSelfTest;
 import org.apache.ignite.internal.util.typedef.X;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -113,7 +114,7 @@ public class GridCacheBinaryAtomicEntryProcessorDeploymentSelfTest
                 try {
                     obj.deserialize();
 
-                    fail("Exception did not happened.");
+                    Assert.fail("Exception did not happened.");
                 }
                 catch (BinaryInvalidTypeException ignored) {
                     // No-op.
@@ -123,7 +124,7 @@ public class GridCacheBinaryAtomicEntryProcessorDeploymentSelfTest
                 try {
                     cache0.get("key");
 
-                    fail("Exception did not happened.");
+                    Assert.fail("Exception did not happened.");
                 }
                 catch (CacheException ex) {
                     assertTrue(X.hasCause(ex, BinaryInvalidTypeException.class));

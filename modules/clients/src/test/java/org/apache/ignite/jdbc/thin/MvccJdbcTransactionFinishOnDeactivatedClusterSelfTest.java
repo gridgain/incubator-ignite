@@ -35,6 +35,7 @@ import org.apache.ignite.internal.client.GridClientFactory;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /** */
@@ -106,7 +107,7 @@ public class MvccJdbcTransactionFinishOnDeactivatedClusterSelfTest extends GridC
         catch (Exception e) {
             e.printStackTrace();
 
-            fail("Exception is not expected here");
+            Assert.fail("Exception is not expected here");
         }
     }
 

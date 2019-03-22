@@ -31,6 +31,7 @@ import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.util.typedef.F;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -328,10 +329,10 @@ public abstract class JdbcDynamicIndexAbstractSelfTest extends JdbcAbstractDmlSt
             return;
         }
         catch (Exception e) {
-            fail("Unexpected exception: " + e);
+            Assert.fail("Unexpected exception: " + e);
         }
 
-        fail(SQLException.class.getSimpleName() +  " is not thrown.");
+        Assert.fail(SQLException.class.getSimpleName() +  " is not thrown.");
     }
 
     /**

@@ -39,6 +39,7 @@ import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.scheduler.SchedulerFuture;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -319,7 +320,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             try {
                 fut.get();
 
-                fail("IgniteException must have been thrown");
+                Assert.fail("IgniteException must have been thrown");
             }
             catch (IgniteException e) {
                 info("Caught expected exception: " + e);
@@ -328,7 +329,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             try {
                 fut.get(500, SECONDS);
 
-                fail("IgniteException must have been thrown");
+                Assert.fail("IgniteException must have been thrown");
             }
             catch (IgniteException e) {
                 info("Caught expected exception: " + e);
@@ -357,7 +358,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             // Invalid delay.
             ignite(0).scheduler().scheduleLocal(run, "{sdf, *} * * * * *").get();
 
-            fail("IgniteException must have been thrown");
+            Assert.fail("IgniteException must have been thrown");
         }
         catch (IgniteException e) {
             info("Caught expected exception: " + e);
@@ -367,7 +368,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             // Invalid delay.
             ignite(0).scheduler().scheduleLocal(run, "{**, *} * * * * *").get();
 
-            fail("IgniteException must have been thrown");
+            Assert.fail("IgniteException must have been thrown");
         }
         catch (IgniteException e) {
             info("Caught expected exception: " + e);
@@ -377,7 +378,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             // Invalid number of executions.
             ignite(0).scheduler().scheduleLocal(run, "{1, ghd} * * * * *").get();
 
-            fail("IgniteException must have been thrown");
+            Assert.fail("IgniteException must have been thrown");
         }
         catch (IgniteException e) {
             info("Caught expected exception: " + e);
@@ -387,7 +388,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             // Number of executions in pattern must be greater than zero or equal to "*".
             ignite(0).scheduler().scheduleLocal(run, "{*, 0} * * * * *").get();
 
-            fail("IgniteException must have been thrown");
+            Assert.fail("IgniteException must have been thrown");
         }
         catch (IgniteException e) {
             info("Caught expected exception: " + e);
@@ -397,7 +398,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             // Invalid cron expression.
             ignite(0).scheduler().scheduleLocal(run, "{2, 6} * * * * * * * * * *").get();
 
-            fail("IgniteException must have been thrown");
+            Assert.fail("IgniteException must have been thrown");
         }
         catch (IgniteException e) {
             info("Caught expected exception: " + e);
@@ -407,7 +408,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             // Invalid both delay and number of calls.
             ignite(0).scheduler().scheduleLocal(run, "{-2, -6} * * * * *").get();
 
-            fail("IgniteException must have been thrown");
+            Assert.fail("IgniteException must have been thrown");
         }
         catch (IgniteException e) {
             info("Caught expected exception: " + e);
@@ -430,7 +431,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
         try {
             future.get();
 
-            fail("Accepted wrong cron expression");
+            Assert.fail("Accepted wrong cron expression");
         }
         catch (IgniteException e) {
             assertTrue(e.getMessage().startsWith("Invalid cron expression in schedule pattern"));

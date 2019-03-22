@@ -44,6 +44,7 @@ import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.IgniteMock;
 import org.apache.ignite.testframework.junits.IgniteTestResources;
 import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_MACS;
@@ -113,7 +114,7 @@ public abstract class GridAbstractCommunicationSelfTest<T extends CommunicationS
                 GridTestMessage testMsg = (GridTestMessage)msg;
 
                 if (!testMsg.getSourceNodeId().equals(nodeId))
-                    fail("Listener nodeId not equals to message nodeId.");
+                    Assert.fail("Listener nodeId not equals to message nodeId.");
 
                 synchronized (mux) {
                     // Get list of all recipients for the message.
@@ -122,7 +123,7 @@ public abstract class GridAbstractCommunicationSelfTest<T extends CommunicationS
                     if (recipients != null) {
                         // Remove this node from a list of recipients.
                         if (!recipients.remove(locNodeId))
-                            fail("Received unknown message [locNodeId=" + locNodeId + ", msg=" + testMsg + ']');
+                            Assert.fail("Received unknown message [locNodeId=" + locNodeId + ", msg=" + testMsg + ']');
 
                         // If all recipients received their messages,
                         // remove source nodes from sent messages map.
@@ -133,7 +134,7 @@ public abstract class GridAbstractCommunicationSelfTest<T extends CommunicationS
                             mux.notifyAll();
                     }
                     else
-                        fail("Received unknown message [locNodeId=" + locNodeId + ", msg=" + testMsg + ']');
+                        Assert.fail("Received unknown message [locNodeId=" + locNodeId + ", msg=" + testMsg + ']');
                 }
             }
         }

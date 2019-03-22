@@ -111,6 +111,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.apache.ignite.transactions.TransactionTimeoutException;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.nio.file.Files.delete;
@@ -1362,7 +1363,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             assertSort(keysCount, dumpWithoutZeros);
         }
         else
-            fail("Should be found both files");
+            Assert.fail("Should be found both files");
     }
 
     /**
@@ -1429,7 +1430,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             assertTrue(dumpWithConflicts.contains("found 2 conflict partitions: [counterConflicts=1, hashConflicts=1]"));
         }
         else
-            fail("Should be found dump with conflicts");
+            Assert.fail("Should be found dump with conflicts");
     }
 
     /**
@@ -1630,7 +1631,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             assertTrue(dumpWithConflicts.contains("Node ID: " + unstableNodeId));
         }
         else
-            fail("Should be found dump with conflicts");
+            Assert.fail("Should be found dump with conflicts");
     }
 
     /**
@@ -1691,7 +1692,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
                 "hashConflicts=2]"));
         }
         else
-            fail("Should be found dump with conflicts");
+            Assert.fail("Should be found dump with conflicts");
     }
 
     /**
@@ -1758,7 +1759,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
                 "hashConflicts=1]"));
         }
         else
-            fail("Should be found dump with conflicts");
+            Assert.fail("Should be found dump with conflicts");
     }
 
     /**
@@ -1798,7 +1799,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             assertTrue(dumpWithConflicts.contains("idle_verify check has finished, found 0 partitions"));
         }
         else
-            fail("Should be found dump with conflicts");
+            Assert.fail("Should be found dump with conflicts");
     }
 
     /**
@@ -1846,7 +1847,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             assertTrue(!dumpWithConflicts.contains("shared_grp"));
         }
         else
-            fail("Should be found dump with conflicts");
+            Assert.fail("Should be found dump with conflicts");
     }
 
     /**
@@ -2150,7 +2151,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             assertTrue(outStr.contains("Affinity Function: o.a.i.cache.affinity.rendezvous.RendezvousAffinityFunction"));
         }
         else
-            fail("Unknown output format: " + outputFormat);
+            Assert.fail("Unknown output format: " + outputFormat);
     }
 
     /**
@@ -2339,7 +2340,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
                             tx.commit();
 
-                            fail("Commit must fail");
+                            Assert.fail("Commit must fail");
                         }
                         catch (Exception e) {
                             // No-op.

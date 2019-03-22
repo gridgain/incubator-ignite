@@ -31,6 +31,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFutureTimeoutException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.apache.ignite.testframework.MvccFeatureChecker;
@@ -139,7 +140,7 @@ public class IgniteCacheLockFailoverSelfTest extends GridCacheAbstractSelfTest {
                 catch (IgniteFutureTimeoutException e) {
                     info("Entry: " + adapter.peekEx(key));
 
-                    fail("Lock timeout [fut=" + fut + ", err=" + e + ']');
+                    Assert.fail("Lock timeout [fut=" + fut + ", err=" + e + ']');
                 }
                 catch (Exception e) {
                     log.error("Error: " + e);

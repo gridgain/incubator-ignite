@@ -27,6 +27,7 @@ import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -194,7 +195,7 @@ public class H2ConnectionLeaksSelfTest extends AbstractIndexingCommonTest {
                     log.error("Connection is not closed for thread: " + t.getName());
             }
 
-            fail("H2 JDBC connections leak detected. See the log above.");
+            Assert.fail("H2 JDBC connections leak detected. See the log above.");
         }
     }
 

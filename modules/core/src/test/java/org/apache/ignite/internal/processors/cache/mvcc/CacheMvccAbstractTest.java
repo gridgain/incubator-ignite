@@ -98,6 +98,7 @@ import org.apache.ignite.transactions.TransactionException;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionSerializationException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -1339,7 +1340,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                         stop.set(true);
 
-                        fail("Unexpected error: " + e);
+                        Assert.fail("Unexpected error: " + e);
                     }
 
                     return null;
@@ -1366,7 +1367,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                         stop.set(true);
 
-                        fail("Unexpected error: " + e);
+                        Assert.fail("Unexpected error: " + e);
                     }
 
                     return null;
@@ -1552,7 +1553,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
             }
         }
 
-        fail("Unexpected tx exception. " + X.getFullStackTrace(e));
+        Assert.fail("Unexpected tx exception. " + X.getFullStackTrace(e));
     }
 
     /**
@@ -1670,7 +1671,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                         if (vers.size() > 1) {
                             if (failIfNotCleaned)
-                                fail("[key=" + key.value(null, false) + "; vers=" + vers + ']');
+                                Assert.fail("[key=" + key.value(null, false) + "; vers=" + vers + ']');
                             else
                                 return false;
                         }

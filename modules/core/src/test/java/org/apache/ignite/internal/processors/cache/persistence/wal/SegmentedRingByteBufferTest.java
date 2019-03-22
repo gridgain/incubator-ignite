@@ -39,6 +39,7 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.processors.cache.persistence.wal.SegmentedRingByteBuffer.BufferMode.DIRECT;
@@ -388,7 +389,7 @@ public class SegmentedRingByteBufferTest extends GridCommonAbstractTest {
                     U.sleep(10);
 
                 if (ex.get() != null)
-                    fail("Exception in producer thread, ex=" + ex.get());
+                    Assert.fail("Exception in producer thread, ex=" + ex.get());
 
                 List<SegmentedRingByteBuffer.ReadSegment> segs = buf.poll();
 
@@ -411,7 +412,7 @@ public class SegmentedRingByteBufferTest extends GridCommonAbstractTest {
         fut.get();
 
         if (ex.get() != null)
-            fail("Exception in producer thread, ex=" + ex.get());
+            Assert.fail("Exception in producer thread, ex=" + ex.get());
     }
 
     /**
@@ -512,7 +513,7 @@ public class SegmentedRingByteBufferTest extends GridCommonAbstractTest {
         fut.get();
 
         if (ex.get() != null)
-            fail("Exception in producer thread, ex=" + ex.get());
+            Assert.fail("Exception in producer thread, ex=" + ex.get());
     }
 
     /**
@@ -659,7 +660,7 @@ public class SegmentedRingByteBufferTest extends GridCommonAbstractTest {
         fut.get();
 
         if (ex.get() != null)
-            fail("Exception in producer thread, ex=" + ex.get());
+            Assert.fail("Exception in producer thread, ex=" + ex.get());
 
         List<SegmentedRingByteBuffer.ReadSegment> segs;
 

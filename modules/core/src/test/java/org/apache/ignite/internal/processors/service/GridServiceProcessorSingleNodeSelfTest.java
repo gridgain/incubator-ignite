@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.service;
 
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.IgniteEx;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -53,7 +54,7 @@ public class GridServiceProcessorSingleNodeSelfTest extends GridServiceProcessor
 
             svc.increment();
 
-            fail("Should never reach here.");
+            Assert.fail("Should never reach here.");
         }
         catch (IgniteException e) {
             info("Got expected exception: " + e.getMessage());

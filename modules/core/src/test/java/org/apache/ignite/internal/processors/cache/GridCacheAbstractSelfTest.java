@@ -57,6 +57,7 @@ import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -132,7 +133,7 @@ public abstract class GridCacheAbstractSelfTest extends GridCommonAbstractTest {
         if (tx != null) {
             tx.close();
 
-            fail("Cache transaction remained after test completion: " + tx);
+            Assert.fail("Cache transaction remained after test completion: " + tx);
         }
 
         for (int i = 0; i < gridCount(); i++) {
@@ -207,7 +208,7 @@ public abstract class GridCacheAbstractSelfTest extends GridCommonAbstractTest {
 
         disco.setIpFinder(ipFinder);
 
-        if (isDebug())
+        if (GridTestUtils.isDebugMode())
             disco.setAckTimeout(Integer.MAX_VALUE);
 
         cfg.setDiscoverySpi(disco);

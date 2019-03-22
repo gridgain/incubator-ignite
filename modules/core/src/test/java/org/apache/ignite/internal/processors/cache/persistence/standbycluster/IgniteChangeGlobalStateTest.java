@@ -31,6 +31,7 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.cache.GridCacheProcessor;
 import org.apache.ignite.internal.util.typedef.F;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -589,7 +590,7 @@ public class IgniteChangeGlobalStateTest extends IgniteChangeGlobalStateAbstract
         try {
             ig3CB.active(true);
 
-            fail("Activation should fail");
+            Assert.fail("Activation should fail");
         }
         catch (IgniteException e) {
             log.error("Stack trace from remote node", e);

@@ -84,6 +84,7 @@ import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -1509,7 +1510,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                     System.out.println(">>> EVENT");
 
                     if (evtsDisabled)
-                        fail("Cache events are disabled");
+                        Assert.fail("Cache events are disabled");
 
                     CacheQueryExecutedEvent qe = (CacheQueryExecutedEvent)evt;
 
@@ -1568,7 +1569,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                     assert evt instanceof CacheQueryReadEvent;
 
                     if (evtsDisabled)
-                        fail("Cache events are disabled");
+                        Assert.fail("Cache events are disabled");
 
                     CacheQueryReadEvent<Integer, Integer> qe = (CacheQueryReadEvent<Integer, Integer>)evt;
 
@@ -1597,7 +1598,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                     assert evt instanceof CacheQueryExecutedEvent;
 
                     if (evtsDisabled)
-                        fail("Cache events are disabled");
+                        Assert.fail("Cache events are disabled");
 
                     CacheQueryExecutedEvent qe = (CacheQueryExecutedEvent)evt;
 
@@ -1673,7 +1674,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                     assert evt instanceof CacheQueryReadEvent;
 
                     if (evtsDisabled)
-                        fail("Cache events are disabled");
+                        Assert.fail("Cache events are disabled");
 
                     CacheQueryReadEvent<UUID, Person> qe = (CacheQueryReadEvent<UUID, Person>)evt;
 
@@ -1702,7 +1703,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                     assert evt instanceof CacheQueryExecutedEvent;
 
                     if (evtsDisabled)
-                        fail("Cache events are disabled");
+                        Assert.fail("Cache events are disabled");
 
                     CacheQueryExecutedEvent qe = (CacheQueryExecutedEvent)evt;
 
@@ -1774,7 +1775,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                     assert evt instanceof CacheQueryExecutedEvent;
 
                     if (evtsDisabled)
-                        fail("Cache events are disabled");
+                        Assert.fail("Cache events are disabled");
 
                     CacheQueryExecutedEvent qe = (CacheQueryExecutedEvent)evt;
 

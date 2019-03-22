@@ -86,6 +86,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -419,7 +420,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
                         GridTestUtils.doSleep(r.nextInt(15)); // Wait a bit to reduce chance of rolling back empty transactions.
 
                         if (rolledBackVers.contains(tx.xid()))
-                            fail("Rollback version is expected");
+                            Assert.fail("Rollback version is expected");
 
                         try {
                             if (proc % 2 == 0)
@@ -439,7 +440,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
                         proc++;
                     }
                     catch (IgniteCheckedException e) {
-                        fail(e.getMessage());
+                        Assert.fail(e.getMessage());
                     }
                 }
             }
@@ -520,7 +521,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
 
             tx.commit();
 
-            fail("Commit must fail");
+            Assert.fail("Commit must fail");
         }
         catch (Throwable t) {
             assertTrue(X.hasCause(t, TransactionRollbackException.class));
@@ -720,7 +721,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
                                 break;
 
                             default:
-                                fail("Unexpected opcode");
+                                Assert.fail("Unexpected opcode");
                         }
                     }
 
@@ -842,7 +843,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
             try {
                 tx.timeout(1);
 
-                fail("timeout");
+                Assert.fail("timeout");
             }
             catch (Exception e) {
                 // No-op.
@@ -851,7 +852,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
             try {
                 tx.setRollbackOnly();
 
-                fail("setRollbackOnly");
+                Assert.fail("setRollbackOnly");
             }
             catch (Exception e) {
                 // No-op.
@@ -860,7 +861,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
             try {
                 tx.commit();
 
-                fail("commit");
+                Assert.fail("commit");
             }
             catch (Exception e) {
                 // No-op.
@@ -869,7 +870,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
             try {
                 tx.commitAsync();
 
-                fail("commitAsync");
+                Assert.fail("commitAsync");
             }
             catch (Exception e) {
                 // No-op.
@@ -878,7 +879,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
             try {
                 tx.suspend();
 
-                fail("suspend");
+                Assert.fail("suspend");
             }
             catch (Exception e) {
                 // No-op.
@@ -887,7 +888,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
             try {
                 tx.resume();
 
-                fail("resume");
+                Assert.fail("resume");
             }
             catch (Exception e) {
                 // No-op.

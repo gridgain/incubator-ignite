@@ -933,7 +933,7 @@ public class IgniteUtilsSelfTest extends GridCommonAbstractTest {
                 }
             );
 
-            fail("Should throw timeout exception");
+            Assert.fail("Should throw timeout exception");
         }
         catch (Exception e) {
             assertTrue(e.toString(), X.hasCause(e, TimeoutException.class));
@@ -1183,7 +1183,7 @@ public class IgniteUtilsSelfTest extends GridCommonAbstractTest {
                 }
             );
 
-            fail("Should throw ParallelExecutionException");
+            Assert.fail("Should throw ParallelExecutionException");
         }
         catch (IgniteCheckedException e) {
             assertEquals(expectedException, e.getMessage());

@@ -32,6 +32,7 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityFunctionContextImpl;
 import org.apache.ignite.testframework.GridTestNode;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -123,7 +124,7 @@ public abstract class AbstractAffinityFunctionSelfTest extends GridCommonAbstrac
         try {
             aff.partition(null);
 
-            fail("Should throw IllegalArgumentException due to NULL affinity key.");
+            Assert.fail("Should throw IllegalArgumentException due to NULL affinity key.");
         } catch (IllegalArgumentException e) {
             e.getMessage().contains("Null key is passed for a partition calculation. " +
                 "Make sure that an affinity key that is used is initialized properly.");

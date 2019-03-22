@@ -32,6 +32,7 @@ import org.apache.ignite.internal.processors.odbc.ClientListenerProtocolVersion;
 import org.apache.ignite.internal.util.HostAndPortRange;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -76,7 +77,7 @@ public class JdbcThinTcpIoTest extends GridCommonAbstractTest {
             }
         }
 
-        fail("Server socket wasn't created.");
+        Assert.fail("Server socket wasn't created.");
 
         return null;
     }

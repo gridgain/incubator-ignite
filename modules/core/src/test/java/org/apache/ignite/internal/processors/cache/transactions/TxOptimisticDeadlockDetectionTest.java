@@ -89,7 +89,7 @@ public class TxOptimisticDeadlockDetectionTest extends AbstractDeadlockDetection
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        if (isDebug())
+        if (GridTestUtils.isDebugMode())
             ((TcpDiscoverySpi)cfg.getDiscoverySpi()).failureDetectionTimeoutEnabled(false);
 
         TcpCommunicationSpi commSpi = new TestCommunicationSpi();

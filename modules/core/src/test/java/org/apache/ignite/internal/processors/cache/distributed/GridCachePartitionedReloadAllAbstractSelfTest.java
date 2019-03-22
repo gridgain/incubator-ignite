@@ -37,6 +37,7 @@ import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -152,11 +153,11 @@ public abstract class GridCachePartitionedReloadAllAbstractSelfTest extends Grid
             }
 
             @Override public void write(javax.cache.Cache.Entry<? extends Integer, ? extends String> e) {
-                fail("Should not be called within the test.");
+                Assert.fail("Should not be called within the test.");
             }
 
             @Override public void delete(Object key) {
-                fail("Should not be called within the test.");
+                Assert.fail("Should not be called within the test.");
             }
         };
     }

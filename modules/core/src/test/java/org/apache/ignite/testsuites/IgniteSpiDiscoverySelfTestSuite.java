@@ -67,6 +67,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.jdbc.TcpDiscoveryJdbcIpFinde
 import org.apache.ignite.spi.discovery.tcp.ipfinder.multicast.TcpDiscoveryMulticastIpFinderSelfTest;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinderSelfTest;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinderSelfTest;
+import org.apache.ignite.testframework.GridTestPortUtils;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
@@ -162,6 +163,6 @@ public class IgniteSpiDiscoverySelfTestSuite {
     @BeforeClass
     public static void init() {
         System.setProperty(IGNITE_OVERRIDE_MCAST_GRP,
-            GridTestUtils.getNextMulticastGroup(IgniteSpiDiscoverySelfTestSuite.class));
+            GridTestPortUtils.getNextMulticastGroup(IgniteSpiDiscoverySelfTestSuite.class));
     }
 }

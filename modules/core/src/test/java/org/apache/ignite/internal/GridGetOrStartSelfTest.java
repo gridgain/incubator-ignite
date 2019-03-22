@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import org.apache.ignite.*;
 import org.apache.ignite.configuration.*;
 import org.apache.ignite.testframework.junits.common.*;
+import org.junit.Assert;
 import org.junit.Test;
 
 /**
@@ -44,7 +45,7 @@ public class GridGetOrStartSelfTest extends GridCommonAbstractTest {
         try(Ignite ignite = Ignition.getOrStart(cfg)) {
             try {
                 Ignition.start(cfg);
-                fail("Expected exception after grid started");
+                Assert.fail("Expected exception after grid started");
             }
             catch (IgniteException ignored) {
             }
@@ -62,7 +63,7 @@ public class GridGetOrStartSelfTest extends GridCommonAbstractTest {
         try(Ignite ignite = Ignition.getOrStart(cfg)) {
             try {
                 Ignition.start(cfg);
-                fail("Expected exception after grid started");
+                Assert.fail("Expected exception after grid started");
             }
             catch (IgniteException ignored) {
             }

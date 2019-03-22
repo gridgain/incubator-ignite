@@ -45,6 +45,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -158,7 +159,7 @@ public class SqlQueryHistorySelfTest extends GridCommonAbstractTest {
         try (Connection conn = GridTestUtils.connect(queryNode(), null); Statement stmt = conn.createStatement()) {
             stmt.executeQuery("select * from A.String where A.fail()=1");
 
-            fail("Query should be failed.");
+            Assert.fail("Query should be failed.");
         }
         catch (Exception ignore) {
             //No-Op

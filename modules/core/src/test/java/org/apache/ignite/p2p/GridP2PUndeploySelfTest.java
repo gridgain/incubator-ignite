@@ -49,9 +49,8 @@ public class GridP2PUndeploySelfTest extends GridCommonAbstractTest {
     private Map<String, LocalDeploymentSpi> spis = new HashMap<>();
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName,
-        IgniteTestResources rsrcs) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName, rsrcs);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         LocalDeploymentSpi spi = new LocalDeploymentSpi();
 

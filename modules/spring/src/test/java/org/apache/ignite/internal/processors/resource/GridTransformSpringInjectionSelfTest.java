@@ -36,6 +36,7 @@ import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assert;
 import org.junit.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -127,7 +128,7 @@ public class GridTransformSpringInjectionSelfTest extends GridCacheAbstractSelfT
         Collection<ResourceType> notInjected = ResourceInfoSet.valueOf(flags).notInjected(required);
 
         if (!notInjected.isEmpty())
-            fail("Can't inject resource(s): " + Arrays.toString(notInjected.toArray()));
+            Assert.fail("Can't inject resource(s): " + Arrays.toString(notInjected.toArray()));
 
         Set<String> keys = new HashSet<>(Arrays.asList(UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
@@ -143,7 +144,7 @@ public class GridTransformSpringInjectionSelfTest extends GridCacheAbstractSelfT
             Collection<ResourceType> notInjected1 = ResourceInfoSet.valueOf(res.get()).notInjected(required);
 
             if (!notInjected1.isEmpty())
-                fail("Can't inject resource(s): " + Arrays.toString(notInjected1.toArray()));
+                Assert.fail("Can't inject resource(s): " + Arrays.toString(notInjected1.toArray()));
         }
     }
 
