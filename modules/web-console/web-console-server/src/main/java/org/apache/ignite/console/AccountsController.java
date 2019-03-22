@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1")
 public class AccountsController {
+    /** */
     @RequestMapping(path = "/user", method = RequestMethod.GET)
     public String getUser() {
         System.out.println("getUser");

@@ -15,6 +15,79 @@
  * limitations under the License.
  */
 
+/*
+
+import Sockette from 'sockette';
+import {Subject} from 'rxjs';
+import {filter, take} from 'rxjs/operators';
+
+import uuidv4 from 'uuid/v4';
+
+export default function($scope, $http, $window) {
+    const {host, protocol} = $window.location;
+
+    const uri = `${protocol === 'https' ? 'wss' : 'ws'}://${host}/eventbus`;
+
+    const sbj = new Subject();
+
+    const ws = new Sockette(uri, {
+        timeout: 5000, // Retry every 5 seconds
+        onopen: (evt) => console.log('Connected!', evt),
+        onmessage: (evt) => {
+            console.log('Received:', evt);
+
+            sbj.next(JSON.parse(evt.data));
+
+            console.log('sbj next executed');
+        },
+        onreconnect: (evt) => console.log('Reconnecting...', evt),
+        onmaximum: (evt) => console.log('Stop Attempting!', evt),
+        onclose: (evt) => console.log('Closed!', evt),
+        onerror: (evt) => console.log('Error:', evt)
+    });
+
+    $scope.sendMessageWs = () => {
+        console.log('Send to WS');
+
+        const id = uuidv4();
+
+        setTimeout(() => {
+            ws.json({
+                id,
+                a: Math.round(Math.random() * 100),
+                b: Math.round(Math.random() * 100)
+            });
+        });
+
+        sbj
+            .asObservable()
+            .pipe(
+                filter((data) => data.id === id),
+                take(1)
+            )
+            .toPromise()
+            .then((v) => console.log('foo', v));
+    };
+
+    $scope.sendMessageRest = () => {
+        console.log('Send to rest');
+
+        $http.get('/api/v1/user')
+            .then((data) => {
+                console.log('REST response: ' + JSON.stringify(data.data));
+            })
+            .catch((err) => {
+                console.log('REST error: ' + err);
+            });
+    };
+}
+
+
+
+ */
+
+
+
 import _ from 'lodash';
 import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 
