@@ -79,7 +79,7 @@ public abstract class CacheAbstractRestartSelfTest extends IgniteCacheAbstractTe
 
         assertTrue(ignite(clientGrid).configuration().isClientMode());
 
-        final IgniteEx grid = grid(clientGrid);
+        final IgniteEx grid = ignite(clientGrid);
 
         final IgniteCache cache = jcache(clientGrid);
 

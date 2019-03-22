@@ -379,7 +379,7 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
             Collection<UUID> ids = F.viewReadOnly(evts.get(9), NODE_2ID);
 
             for (int i = 1; i <= 10; i++)
-                assertTrue(ids.contains(grid(i).localNode().id()));
+                assertTrue(ids.contains(ignite(i).localNode().id()));
         }
         finally {
             stopAllGrids();
@@ -397,7 +397,7 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
             final AtomicReference<IgniteCheckedException> err = new AtomicReference<>();
 
             for (int i = 0; i < 3; i++) {
-                Ignite g = grid(i);
+                Ignite g = ignite(i);
 
                 g.events().localListen(new IgnitePredicate<Event>() {
                     @Override public boolean apply(Event evt) {

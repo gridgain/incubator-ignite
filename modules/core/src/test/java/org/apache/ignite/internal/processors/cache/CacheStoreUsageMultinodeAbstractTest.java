@@ -133,7 +133,7 @@ public abstract class CacheStoreUsageMultinodeAbstractTest extends GridCommonAbs
      * @throws Exception If failed.
      */
     protected void checkStoreUpdate(boolean clientStore) throws Exception {
-        Ignite client = grid(3);
+        Ignite client = ignite(3);
 
         assertTrue(client.configuration().isClientMode());
 

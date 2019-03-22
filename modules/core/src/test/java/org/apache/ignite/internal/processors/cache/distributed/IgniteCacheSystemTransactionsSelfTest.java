@@ -79,7 +79,7 @@ public class IgniteCacheSystemTransactionsSelfTest extends GridCommonAbstractTes
     public void testSystemTxInsideUserTx() throws Exception {
         Assume.assumeFalse("https://issues.apache.org/jira/browse/IGNITE-10473", MvccFeatureChecker.forcedMvcc());
 
-        IgniteKernal ignite = (IgniteKernal)grid(0);
+        IgniteKernal ignite = (IgniteKernal)ignite(0);
 
         IgniteCache<Object, Object> jcache = ignite.cache(DEFAULT_CACHE_NAME);
 
@@ -117,7 +117,7 @@ public class IgniteCacheSystemTransactionsSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testGridNearTxLocalDuplicateAsyncCommit() throws Exception {
-        IgniteKernal ignite = (IgniteKernal)grid(0);
+        IgniteKernal ignite = (IgniteKernal)ignite(0);
 
         IgniteInternalCache<Object, Object> utilityCache = ignite.context().cache().utilityCache();
 
@@ -136,7 +136,7 @@ public class IgniteCacheSystemTransactionsSelfTest extends GridCommonAbstractTes
      */
     private void checkTransactionsCommitted() throws Exception {
         for (int i = 0; i < NODES_CNT; i++) {
-            IgniteKernal kernal = (IgniteKernal)grid(i);
+            IgniteKernal kernal = (IgniteKernal)ignite(i);
 
             IgniteTxManager tm = kernal.context().cache().context().tm();
 
@@ -161,7 +161,7 @@ public class IgniteCacheSystemTransactionsSelfTest extends GridCommonAbstractTes
      */
     private void checkEntries(String cacheName, Object... vals) throws Exception {
         for (int g = 0; g < NODES_CNT; g++) {
-            IgniteKernal kernal = (IgniteKernal)grid(g);
+            IgniteKernal kernal = (IgniteKernal)ignite(g);
 
             GridCacheAdapter<Object, Object> cache = kernal.context().cache().internalCache(cacheName);
 

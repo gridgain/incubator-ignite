@@ -30,7 +30,7 @@ public class IgniteOfflineBaselineNodeFullApiSelfTest extends IgniteBaselineAbst
 
         startGrid("offlineBaselineNode");
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         stopGrid("offlineBaselineNode");
 

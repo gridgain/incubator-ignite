@@ -115,10 +115,10 @@ public class DhtAndNearEvictionTest extends GridCommonAbstractTest {
             .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
             .setBackups(1);
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
 
         IgniteInternalFuture<?> fut1 = GridTestUtils.runAsync(() -> {
-            IgniteCache<Integer, Integer> cache = grid(0).cache("mycache");
+            IgniteCache<Integer, Integer> cache = ignite(0).cache("mycache");
 
             for (int i = 0; i < 1000; i++)
                 cache.put(i, i);
@@ -127,7 +127,7 @@ public class DhtAndNearEvictionTest extends GridCommonAbstractTest {
         });
 
         IgniteInternalFuture<?> fut2 = GridTestUtils.runAsync(() -> {
-            IgniteCache<Integer, Integer> cache = grid(1).cache("mycache");
+            IgniteCache<Integer, Integer> cache = ignite(1).cache("mycache");
 
             for (int i = 0; i < 1000; i++)
                 cache.get(i);

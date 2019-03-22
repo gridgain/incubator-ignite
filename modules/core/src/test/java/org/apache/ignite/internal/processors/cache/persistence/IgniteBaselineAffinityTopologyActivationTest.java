@@ -145,7 +145,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         startGridWithConsistentId("B").cluster().active(true);
 
         {
-            IgniteEx nodeA = grid("A");
+            IgniteEx nodeA = ignite("A");
 
             assertNotNull(nodeA.cluster().currentBaselineTopology());
             assertEquals(3, nodeA.cluster().currentBaselineTopology().size());
@@ -159,7 +159,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         startGridWithConsistentId("B");
 
         {
-            IgniteEx nodeA = grid("A");
+            IgniteEx nodeA = ignite("A");
 
             assertNotNull(nodeA.cluster().currentBaselineTopology());
             assertEquals(3, nodeA.cluster().currentBaselineTopology().size());
@@ -404,7 +404,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         startGridWithConsistentId("B");
         startGridWithConsistentId("C");
 
-        IgniteEx grid = grid("B");
+        IgniteEx grid = ignite("B");
 
         grid.cluster().active(true);
 
@@ -462,10 +462,10 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         long expActivationHash = (long)"A".hashCode() + "B".hashCode() + "C".hashCode();
 
-        checkBaselineTopologyOnNode(grid("A"), 1, 1, 1, expActivationHash);
-        checkBaselineTopologyOnNode(grid("B"), 1, 1, 1, expActivationHash);
-        checkBaselineTopologyOnNode(grid("C"), 1, 1, 1, expActivationHash);
-        checkBaselineTopologyOnNode(grid("D"), 1, 1, 1, expActivationHash);
+        checkBaselineTopologyOnNode(ignite("A"), 1, 1, 1, expActivationHash);
+        checkBaselineTopologyOnNode(ignite("B"), 1, 1, 1, expActivationHash);
+        checkBaselineTopologyOnNode(ignite("C"), 1, 1, 1, expActivationHash);
+        checkBaselineTopologyOnNode(ignite("D"), 1, 1, 1, expActivationHash);
     }
 
     /**
@@ -614,7 +614,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         boolean activated = GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
-                return grid("A").active();
+                return ignite("A").active();
             }
         }, 10_000);
 
@@ -629,7 +629,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         activated = GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
-                return grid("A").active();
+                return ignite("A").active();
             }
         }, 10_000);
 
@@ -805,7 +805,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
     public void testAutoActivationSimple() throws Exception {
         startGrids(3);
 
-        IgniteEx srv = grid(0);
+        IgniteEx srv = ignite(0);
 
         srv.cluster().active(true);
 
@@ -817,7 +817,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         //note: no call for activation after grid restart
         startGrids(3);
 
-        final Ignite ig = grid(0);
+        final Ignite ig = ignite(0);
 
         boolean clusterActive = GridTestUtils.waitForCondition(
             new GridAbsPredicate() {
@@ -839,7 +839,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
     public void testNoAutoActivationOnJoinNewNodeToInactiveCluster() throws Exception {
         startGrids(2);
 
-        IgniteEx srv = grid(0);
+        IgniteEx srv = ignite(0);
 
         srv.cluster().active(true);
 
@@ -865,7 +865,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
     public void testBaselineTopologyRemainsTheSameOnClusterDeactivation() throws Exception {
         startGrids(2);
 
-        IgniteEx srv = grid(0);
+        IgniteEx srv = ignite(0);
 
         srv.cluster().active(true);
 

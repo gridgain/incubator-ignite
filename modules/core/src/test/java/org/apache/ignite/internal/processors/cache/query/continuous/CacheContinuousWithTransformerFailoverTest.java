@@ -95,7 +95,7 @@ public class CacheContinuousWithTransformerFailoverTest extends GridCommonAbstra
                 @Override public IgniteCache<Integer, Integer> apply() {
                     ++cnt;
 
-                    return grid(CLIENT_ID).cache(DEFAULT_CACHE_NAME);
+                    return ignite(CLIENT_ID).cache(DEFAULT_CACHE_NAME);
                 }
             };
 
@@ -203,8 +203,8 @@ public class CacheContinuousWithTransformerFailoverTest extends GridCommonAbstra
     public void testCrossCallback() throws Exception {
         startGrids(2);
         try {
-            IgniteCache<Integer, Integer> cache1 = grid(0).cache(DEFAULT_CACHE_NAME);
-            IgniteCache<Integer, Integer> cache2 = grid(1).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> cache1 = ignite(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> cache2 = ignite(1).cache(DEFAULT_CACHE_NAME);
 
             final int key1 = primaryKey(cache1);
             final int key2 = primaryKey(cache2);

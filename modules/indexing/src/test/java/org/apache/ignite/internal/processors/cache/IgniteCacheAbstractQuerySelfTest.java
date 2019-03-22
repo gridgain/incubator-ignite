@@ -227,7 +227,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      * @return cache instance
      */
     protected <K, V> IgniteCache<K, V> jcache(Class<K> clsK, Class<V> clsV) {
-        return jcache(ignite(), clsK, clsV);
+        return jcache(node(), clsK, clsV);
     }
 
     /**
@@ -253,16 +253,16 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
     /**
      * @return Ignite instance.
      */
-    protected Ignite ignite() {
-        return grid(0);
+    protected Ignite node() {
+        return ignite(0);
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         super.afterTest();
 
-        for(String cacheName : ignite().cacheNames())
-            ignite().cache(cacheName).destroy();
+        for(String cacheName : node().cacheNames())
+            node().cache(cacheName).destroy();
     }
 
     /** {@inheritDoc} */
@@ -531,7 +531,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      */
     @Test
     public void testComplexTypeKeepBinary() throws Exception {
-        if (ignite().configuration().getMarshaller() == null || ignite().configuration().getMarshaller() instanceof BinaryMarshaller) {
+        if (node().configuration().getMarshaller() == null || node().configuration().getMarshaller() instanceof BinaryMarshaller) {
             IgniteCache<Key, GridCacheQueryTestValue> cache = jcache(Key.class, GridCacheQueryTestValue.class);
 
             GridCacheQueryTestValue val1 = new GridCacheQueryTestValue();
@@ -629,7 +629,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                 new QueryEntity(Integer.class, Type2.class)
             ));
 
-        final IgniteCache<Integer, Object> cache = ignite().getOrCreateCache(cacheConf);
+        final IgniteCache<Integer, Object> cache = node().getOrCreateCache(cacheConf);
 
         cache.put(10, new Type1(1, "Type1 record #1"));
         cache.put(20, new Type1(2, "Type1 record #2"));
@@ -834,7 +834,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
         assertAnyResTypeEnumQry("type is not null", cache, 50);
 
         // Additional tests for binary enums.
-        IgniteBinary binary = ignite().binary();
+        IgniteBinary binary = node().binary();
 
         if (binary != null) {
             assertEnumQry("type = ?", binaryEnum(binary, EnumType.TYPE_A), EnumType.TYPE_A, cache, 25);
@@ -953,7 +953,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
 
         config.setOnheapCacheEnabled(true);
 
-        IgniteCache<Integer, ObjectValue> cache = jcache(ignite(), config, Integer.class, ObjectValue.class);
+        IgniteCache<Integer, ObjectValue> cache = jcache(node(), config, Integer.class, ObjectValue.class);
 
         boolean partitioned = cache.getConfiguration(CacheConfiguration.class).getCacheMode() == PARTITIONED;
 
@@ -1181,7 +1181,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
            new QueryEntity(String.class, ObjectValueOther.class)
         ));
 
-        IgniteCache<Object, Object> c = jcache(ignite(), conf, Object.class, Object.class);
+        IgniteCache<Object, Object> c = jcache(node(), conf, Object.class, Object.class);
 
         c.put(1, new ObjectValue("ObjectValue str", 1));
         c.put("key", new ObjectValueOther("ObjectValueOther str"));
@@ -1227,7 +1227,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      */
     @Test
     public void testPaginationIteratorDefaultCache() throws Exception {
-        testPaginationIterator(jcache(ignite(), cacheConfiguration(), DEFAULT_CACHE_NAME, Integer.class, Integer.class));
+        testPaginationIterator(jcache(node(), cacheConfiguration(), DEFAULT_CACHE_NAME, Integer.class, Integer.class));
     }
 
     /**
@@ -1235,7 +1235,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      */
     @Test
     public void testPaginationIteratorNamedCache() throws Exception {
-        testPaginationIterator(jcache(ignite(), cacheConfiguration(), Integer.class, Integer.class));
+        testPaginationIterator(jcache(node(), cacheConfiguration(), Integer.class, Integer.class));
     }
 
     /**
@@ -1269,7 +1269,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      */
     @Test
     public void testPaginationGetDefaultCache() throws Exception {
-        testPaginationGet(jcache(ignite(), cacheConfiguration(), DEFAULT_CACHE_NAME, Integer.class, Integer.class));
+        testPaginationGet(jcache(node(), cacheConfiguration(), DEFAULT_CACHE_NAME, Integer.class, Integer.class));
     }
 
     /**
@@ -1277,7 +1277,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      */
     @Test
     public void testPaginationGetNamedCache() throws Exception {
-        testPaginationGet(jcache(ignite(), cacheConfiguration(), Integer.class, Integer.class));
+        testPaginationGet(jcache(node(), cacheConfiguration(), Integer.class, Integer.class));
     }
 
     /**
@@ -1525,7 +1525,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                 }
             };
 
-            grid(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
+            ignite(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
 
             lsnrs[i] = pred;
         }
@@ -1543,7 +1543,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
         }
         finally {
             for (int i = 0; i < gridCount(); i++)
-                grid(i).events().stopLocalListen(lsnrs[i], EVT_CACHE_QUERY_EXECUTED);
+                ignite(i).events().stopLocalListen(lsnrs[i], EVT_CACHE_QUERY_EXECUTED);
         }
     }
 
@@ -1589,7 +1589,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                 }
             };
 
-            grid(i).events().localListen(pred, EVT_CACHE_QUERY_OBJECT_READ);
+            ignite(i).events().localListen(pred, EVT_CACHE_QUERY_OBJECT_READ);
             objReadLsnrs[i] = pred;
 
             IgnitePredicate<Event> execPred = new IgnitePredicate<Event>() {
@@ -1616,7 +1616,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                 }
             };
 
-            grid(i).events().localListen(execPred, EVT_CACHE_QUERY_EXECUTED);
+            ignite(i).events().localListen(execPred, EVT_CACHE_QUERY_EXECUTED);
             qryExecLsnrs[i] = execPred;
         }
 
@@ -1646,8 +1646,8 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
         }
         finally {
             for (int i = 0; i < gridCount(); i++) {
-                grid(i).events().stopLocalListen(objReadLsnrs[i]);
-                grid(i).events().stopLocalListen(qryExecLsnrs[i]);
+                ignite(i).events().stopLocalListen(objReadLsnrs[i]);
+                ignite(i).events().stopLocalListen(qryExecLsnrs[i]);
             }
         }
     }
@@ -1694,7 +1694,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                 }
             };
 
-            grid(i).events().localListen(objReadPred, EVT_CACHE_QUERY_OBJECT_READ);
+            ignite(i).events().localListen(objReadPred, EVT_CACHE_QUERY_OBJECT_READ);
             objReadLsnrs[i] = objReadPred;
 
             IgnitePredicate<Event> qryExecPred = new IgnitePredicate<Event>() {
@@ -1721,7 +1721,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                 }
             };
 
-            grid(i).events().localListen(qryExecPred, EVT_CACHE_QUERY_EXECUTED);
+            ignite(i).events().localListen(qryExecPred, EVT_CACHE_QUERY_EXECUTED);
             qryExecLsnrs[i] = qryExecPred;
         }
 
@@ -1750,8 +1750,8 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
         }
         finally {
             for (int i = 0; i < gridCount(); i++) {
-                grid(i).events().stopLocalListen(objReadLsnrs[i]);
-                grid(i).events().stopLocalListen(qryExecLsnrs[i]);
+                ignite(i).events().stopLocalListen(objReadLsnrs[i]);
+                ignite(i).events().stopLocalListen(qryExecLsnrs[i]);
             }
         }
     }
@@ -1790,7 +1790,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
                 }
             };
 
-            grid(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
+            ignite(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
             qryExecLsnrs[i] = pred;
         }
 
@@ -1807,7 +1807,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
         }
         finally {
             for (int i = 0; i < gridCount(); i++)
-                grid(i).events().stopLocalListen(qryExecLsnrs[i]);
+                ignite(i).events().stopLocalListen(qryExecLsnrs[i]);
         }
     }
 

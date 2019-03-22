@@ -143,8 +143,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
 
         startGrids();
 
-        ClusterNode n1 = F.first(aff.nodes(aff.partition(1), grid(0).cluster().nodes()));
-        final ClusterNode n2 = F.first(aff.nodes(aff.partition(2), grid(0).cluster().nodes()));
+        ClusterNode n1 = F.first(aff.nodes(aff.partition(1), ignite(0).cluster().nodes()));
+        final ClusterNode n2 = F.first(aff.nodes(aff.partition(2), ignite(0).cluster().nodes()));
 
         assertNotNull(n1);
         assertNotNull(n2);
@@ -237,8 +237,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
 
         startGrids();
 
-        ClusterNode n1 = F.first(aff.nodes(aff.partition(1), grid(0).cluster().nodes()));
-        ClusterNode n2 = F.first(aff.nodes(aff.partition(2), grid(0).cluster().nodes()));
+        ClusterNode n1 = F.first(aff.nodes(aff.partition(1), ignite(0).cluster().nodes()));
+        ClusterNode n2 = F.first(aff.nodes(aff.partition(2), ignite(0).cluster().nodes()));
 
         assertNotNull(n1);
         assertNotNull(n2);
@@ -355,8 +355,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         startGrids();
 
         try {
-            IgniteCache<Object, Object> prj0 = grid(0).cache(DEFAULT_CACHE_NAME);
-            IgniteCache<Object, Object> prj1 = grid(1).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> prj0 = ignite(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> prj1 = ignite(1).cache(DEFAULT_CACHE_NAME);
 
             Map<Integer, Integer> putMap = new HashMap<>();
 
@@ -392,9 +392,9 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         startGrids();
 
         try {
-            IgniteCache<Object, Object> prj0 = grid(0).cache(DEFAULT_CACHE_NAME);
-            IgniteCache<Object, Object> prj1 = grid(1).cache(DEFAULT_CACHE_NAME);
-            IgniteCache<Object, Object> prj2 = grid(2).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> prj0 = ignite(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> prj1 = ignite(1).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> prj2 = ignite(2).cache(DEFAULT_CACHE_NAME);
 
             Map<Integer, Integer> putMap = new HashMap<>();
 
@@ -435,7 +435,7 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
 
         startGrids();
 
-        Collection<ClusterNode> nodes = new ArrayList<>(aff.nodes(aff.partition(1), grid(0).cluster().nodes()));
+        Collection<ClusterNode> nodes = new ArrayList<>(aff.nodes(aff.partition(1), ignite(0).cluster().nodes()));
 
         ClusterNode primary = F.first(nodes);
 
@@ -475,12 +475,12 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         int key1 = 3;
         String val1 = Integer.toString(key1);
 
-        assertEquals(grid(0).localNode(), F.first(aff.nodes(aff.partition(key1), grid(0).cluster().nodes())));
+        assertEquals(ignite(0).localNode(), F.first(aff.nodes(aff.partition(key1), ignite(0).cluster().nodes())));
 
         int key2 = 1;
         String val2 = Integer.toString(key2);
 
-        assertEquals(grid(1).localNode(), F.first(aff.nodes(aff.partition(key2), grid(1).cluster().nodes())));
+        assertEquals(ignite(1).localNode(), F.first(aff.nodes(aff.partition(key2), ignite(1).cluster().nodes())));
 
         IgniteCache<Integer, String> cache = jcache(0);
 
@@ -558,12 +558,12 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         int key1 = 3;
         String val1 = Integer.toString(key1);
 
-        assertEquals(grid(0).localNode(), F.first(aff.nodes(aff.partition(key1), grid(0).cluster().nodes())));
+        assertEquals(ignite(0).localNode(), F.first(aff.nodes(aff.partition(key1), ignite(0).cluster().nodes())));
 
         int key2 = 1;
         String val2 = Integer.toString(key2);
 
-        assertEquals(grid(1).localNode(), F.first(aff.nodes(aff.partition(key2), grid(1).cluster().nodes())));
+        assertEquals(ignite(1).localNode(), F.first(aff.nodes(aff.partition(key2), ignite(1).cluster().nodes())));
 
         IgniteCache<Integer, String> cache = jcache(0);
 

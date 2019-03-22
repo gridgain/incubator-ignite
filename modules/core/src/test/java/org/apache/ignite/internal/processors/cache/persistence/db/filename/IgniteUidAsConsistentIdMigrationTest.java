@@ -311,7 +311,7 @@ public class IgniteUidAsConsistentIdMigrationTest extends GridCommonAbstractTest
         {
             final Ignite igniteRestart = startActivateGrid(1);
 
-            grid(0).active(true);
+            ignite(0).active(true);
             final Object consIdRestart = igniteRestart.cluster().localNode().consistentId();
 
             assertPdsDirsDefaultExist(genNewStyleSubfolderName(1, igniteRestart));

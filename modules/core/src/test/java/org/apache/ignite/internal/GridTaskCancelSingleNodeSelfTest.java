@@ -51,7 +51,7 @@ import static org.apache.ignite.events.EventType.EVT_JOB_STARTED;
 public class GridTaskCancelSingleNodeSelfTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -87,7 +87,7 @@ public class GridTaskCancelSingleNodeSelfTest extends GridCommonAbstractTest {
 
         final AtomicBoolean jobStarted = new AtomicBoolean();
 
-        grid().events().localListen(new IgnitePredicate<Event>() {
+        ignite().events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 info("Received event: " + evt);
 
@@ -120,7 +120,7 @@ public class GridTaskCancelSingleNodeSelfTest extends GridCommonAbstractTest {
             }
         }, EVT_JOB_STARTED, EVT_JOB_FINISHED, EVT_JOB_CANCELLED, EVT_JOB_REJECTED);
 
-        ComputeTaskFuture<?> fut = grid().compute().executeAsync(TestTask.class, null);
+        ComputeTaskFuture<?> fut = ignite().compute().executeAsync(TestTask.class, null);
 
         if (timeoutBeforeCancel > 0L)
             Thread.sleep(timeoutBeforeCancel);

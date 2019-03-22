@@ -158,9 +158,9 @@ public class IgniteCacheLockPartitionOnAffinityRunAbstractTest extends GridCache
 
     /** {@inheritDoc} */
     @Override protected void afterTestsStopped() throws Exception {
-        grid(0).destroyCache(Organization.class.getSimpleName());
-        grid(0).destroyCache(Person.class.getSimpleName());
-        grid(0).destroyCache(OTHER_CACHE_NAME);
+        ignite(0).destroyCache(Organization.class.getSimpleName());
+        ignite(0).destroyCache(Person.class.getSimpleName());
+        ignite(0).destroyCache(OTHER_CACHE_NAME);
 
         super.afterTestsStopped();
     }
@@ -192,20 +192,20 @@ public class IgniteCacheLockPartitionOnAffinityRunAbstractTest extends GridCache
      * @throws Exception If failed.
      */
     private void createCacheWithAffinity(String cacheName) throws Exception {
-        CacheConfiguration ccfg = cacheConfiguration(grid(0).name());
+        CacheConfiguration ccfg = cacheConfiguration(ignite(0).name());
         ccfg.setName(cacheName);
 
         ccfg.setAffinity(new DummyAffinity());
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
     }
 
     /**
      * @throws Exception If failed.
      */
     protected void fillCaches() throws Exception {
-        grid(0).createCache(Organization.class.getSimpleName());
-        grid(0).createCache(Person.class.getSimpleName());
+        ignite(0).createCache(Organization.class.getSimpleName());
+        ignite(0).createCache(Person.class.getSimpleName());
 
         createCacheWithAffinity(OTHER_CACHE_NAME);
 
@@ -214,13 +214,13 @@ public class IgniteCacheLockPartitionOnAffinityRunAbstractTest extends GridCache
         orgIds = new ArrayList<>(ORGS_COUNT_PER_NODE * RESTARTED_NODE_CNT);
 
         for (int i = GRID_CNT - RESTARTED_NODE_CNT; i < GRID_CNT; ++i)
-            orgIds.addAll(primaryKeys(grid(i).cache(Organization.class.getSimpleName()), ORGS_COUNT_PER_NODE));
+            orgIds.addAll(primaryKeys(ignite(i).cache(Organization.class.getSimpleName()), ORGS_COUNT_PER_NODE));
 
         try (
             IgniteDataStreamer<Integer, Organization> orgStreamer =
-                grid(0).dataStreamer(Organization.class.getSimpleName());
+                ignite(0).dataStreamer(Organization.class.getSimpleName());
             IgniteDataStreamer<Person.Key, Person> persStreamer =
-                grid(0).dataStreamer(Person.class.getSimpleName())) {
+                ignite(0).dataStreamer(Person.class.getSimpleName())) {
 
             int persId = 0;
             for (int orgId : orgIds) {

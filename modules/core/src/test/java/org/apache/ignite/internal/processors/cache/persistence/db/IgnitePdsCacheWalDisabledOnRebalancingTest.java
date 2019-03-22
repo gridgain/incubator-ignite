@@ -185,7 +185,7 @@ public class IgnitePdsCacheWalDisabledOnRebalancingTest extends GridCommonAbstra
         for (int i = 1; i < 4; i++)
           fillCache(ig0.dataStreamer("cache" + i), CACHE_SIZE, GENERATING_FUNC);
 
-        String ig1Name = "node01-" + grid(1).localNode().consistentId();
+        String ig1Name = "node01-" + ignite(1).localNode().consistentId();
 
         stopGrid(1);
 
@@ -238,8 +238,8 @@ public class IgnitePdsCacheWalDisabledOnRebalancingTest extends GridCommonAbstra
 
         fillCache(ig0.dataStreamer(CACHE3_NAME), CACHE_SIZE, GENERATING_FUNC);
 
-        List<Integer> nonAffinityKeys1 = nearKeys(grid(1).cache(CACHE3_NAME), 100, CACHE_SIZE / 2);
-        List<Integer> nonAffinityKeys2 = nearKeys(grid(2).cache(CACHE3_NAME), 100, CACHE_SIZE / 2);
+        List<Integer> nonAffinityKeys1 = nearKeys(ignite(1).cache(CACHE3_NAME), 100, CACHE_SIZE / 2);
+        List<Integer> nonAffinityKeys2 = nearKeys(ignite(2).cache(CACHE3_NAME), 100, CACHE_SIZE / 2);
 
         stopGrid(1);
         stopGrid(2);
@@ -295,7 +295,7 @@ public class IgnitePdsCacheWalDisabledOnRebalancingTest extends GridCommonAbstra
         stopGrid(2);
 
         // Stop idx=1 and cleanup LFS to trigger full rebalancing after it restart.
-        String ig1Name = "node01-" + grid(1).localNode().consistentId();
+        String ig1Name = "node01-" + ignite(1).localNode().consistentId();
         stopGrid(1);
         cleanPersistenceFiles(ig1Name);
 

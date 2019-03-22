@@ -312,7 +312,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
         IgniteInternalFuture updateFut = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     int key = ThreadLocalRandom.current().nextInt(0, LARGE_CACHE_SIZE);
                     int val = ThreadLocalRandom.current().nextInt();
@@ -507,7 +507,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                 boolean exists = false;
 
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     IgniteInternalFuture fut;
 
@@ -584,7 +584,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                 boolean exists = false;
 
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     IgniteInternalFuture fut;
 
@@ -617,7 +617,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
         IgniteInternalFuture qryFut = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     assertSqlSimpleData(node, SQL_SIMPLE_FIELD_1, KEY_AFTER - SQL_ARG_1);
                 }
@@ -833,7 +833,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                 boolean exists = false;
 
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     IgniteInternalFuture fut;
 
@@ -907,7 +907,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                 boolean exists = false;
 
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     if (exists) {
                         destroySqlCache(node);
@@ -935,7 +935,7 @@ public abstract class DynamicIndexAbstractConcurrentSelfTest extends DynamicInde
                 boolean exists = false;
 
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     IgniteInternalFuture fut;
 

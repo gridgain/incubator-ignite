@@ -346,7 +346,7 @@ public class MvccUnsupportedTxModesTest extends GridCommonAbstractTest {
 
     /** */
     private void assertNotSupportedInTx(Runnable action, TransactionConcurrency conc, TransactionIsolation iso) {
-        try (Transaction ignored = grid(0).transactions().txStart(conc, iso)) {
+        try (Transaction ignored = ignite(0).transactions().txStart(conc, iso)) {
             action.run();
 
             fail("Action failure is expected.");
@@ -358,7 +358,7 @@ public class MvccUnsupportedTxModesTest extends GridCommonAbstractTest {
 
     /** */
     private void assertSupportedInTx(Runnable action, TransactionConcurrency conc, TransactionIsolation iso) {
-        try (Transaction tx = grid(0).transactions().txStart(conc, iso)) {
+        try (Transaction tx = ignite(0).transactions().txStart(conc, iso)) {
             action.run();
 
             tx.commit();

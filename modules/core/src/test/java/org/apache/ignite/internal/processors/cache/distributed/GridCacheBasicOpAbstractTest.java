@@ -58,9 +58,9 @@ public abstract class GridCacheBasicOpAbstractTest extends GridCommonAbstractTes
     @Override protected void beforeTestsStarted() throws Exception {
         startGridsMultiThreaded(3);
 
-        ignite1 = grid(0);
-        ignite2 = grid(1);
-        ignite3 = grid(2);
+        ignite1 = ignite(0);
+        ignite2 = ignite(1);
+        ignite3 = ignite(2);
     }
 
     /** {@inheritDoc} */

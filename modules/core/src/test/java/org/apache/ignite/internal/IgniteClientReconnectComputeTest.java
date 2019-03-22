@@ -47,7 +47,7 @@ public class IgniteClientReconnectComputeTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testReconnectAffinityCallInProgress() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -102,7 +102,7 @@ public class IgniteClientReconnectComputeTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testReconnectBroadcastInProgress() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -152,7 +152,7 @@ public class IgniteClientReconnectComputeTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testReconnectApplyInProgress() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 

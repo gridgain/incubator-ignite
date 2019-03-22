@@ -74,7 +74,7 @@ public class IgnitePdsCacheObjectBinaryProcessorOnDiscoveryTest extends GridComm
 
         stopGrid(0);
 
-        Ignite ig1 = grid(1);
+        Ignite ig1 = ignite(1);
 
         // Modify existing type.
         addBinaryType(ig1, "test_1", new IgniteBiTuple<>("id", Integer.class));

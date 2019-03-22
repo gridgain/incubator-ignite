@@ -139,8 +139,8 @@ public class GridCachePartitionedPreloadLifecycleSelfTest extends GridCachePrelo
             info("Checking '" + (i + 1) + "' nodes...");
 
             for (int j = 0; j < G.allGrids().size(); j++) {
-                IgniteCache<Object, MyValue> c1 = grid(j).cache("one");
-                IgniteCache<Object, MyValue> c2 = grid(j).cache("two");
+                IgniteCache<Object, MyValue> c1 = ignite(j).cache("one");
+                IgniteCache<Object, MyValue> c2 = ignite(j).cache("two");
 
                 int k = 0;
 

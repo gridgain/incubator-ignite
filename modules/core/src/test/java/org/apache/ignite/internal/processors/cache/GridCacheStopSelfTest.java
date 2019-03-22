@@ -298,7 +298,7 @@ public class GridCacheStopSelfTest extends GridCommonAbstractTest {
 
             final CountDownLatch readyLatch = new CountDownLatch(PUT_THREADS);
 
-            final IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            final IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             assertNotNull(cache);
 
@@ -319,7 +319,7 @@ public class GridCacheStopSelfTest extends GridCommonAbstractTest {
                                 TransactionConcurrency concurrency =
                                     atomicityMode != TRANSACTIONAL_SNAPSHOT && (key % 2 == 0) ? OPTIMISTIC : PESSIMISTIC;
 
-                                try (Transaction tx = grid(0).transactions().txStart(concurrency, REPEATABLE_READ)) {
+                                try (Transaction tx = ignite(0).transactions().txStart(concurrency, REPEATABLE_READ)) {
                                     cache.put(key, key);
 
                                     readyLatch.countDown();

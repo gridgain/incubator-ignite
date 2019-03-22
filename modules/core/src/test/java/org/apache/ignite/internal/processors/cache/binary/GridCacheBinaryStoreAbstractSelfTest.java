@@ -84,7 +84,7 @@ public abstract class GridCacheBinaryStoreAbstractSelfTest extends GridCommonAbs
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

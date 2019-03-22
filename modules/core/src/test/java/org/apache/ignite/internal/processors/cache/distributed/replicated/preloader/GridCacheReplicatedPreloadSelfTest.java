@@ -310,7 +310,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             IgniteCache<Integer, Object> cache1 = g1.cache(DEFAULT_CACHE_NAME);
             IgniteCache<Integer, Object> cache2 = g2.cache(DEFAULT_CACHE_NAME);
 
-            ClassLoader ldr = grid(1).configuration().getClassLoader();
+            ClassLoader ldr = ignite(1).configuration().getClassLoader();
 
             Object v1 = ldr.loadClass("org.apache.ignite.tests.p2p.CacheDeploymentTestValue3").newInstance();
 
@@ -326,7 +326,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             assert v2.toString().equals(v1.toString());
             assert !v2.getClass().getClassLoader().equals(getClass().getClassLoader());
             assert v2.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader") ||
-                grid(2).configuration().getMarshaller() instanceof BinaryMarshaller;
+                ignite(2).configuration().getMarshaller() instanceof BinaryMarshaller;
 
             Object e1 = ldr.loadClass("org.apache.ignite.tests.p2p.CacheDeploymentTestEnumValue").getEnumConstants()[0];
 
@@ -346,7 +346,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             assert e2.toString().equals(e1.toString());
             assert !e2.getClass().getClassLoader().equals(getClass().getClassLoader());
             assert e2.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader") ||
-                grid(2).configuration().getMarshaller() instanceof BinaryMarshaller;
+                ignite(2).configuration().getMarshaller() instanceof BinaryMarshaller;
 
             stopGrid(1);
 
@@ -364,7 +364,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             assert v3.toString().equals(v1.toString());
             assert !v3.getClass().getClassLoader().equals(getClass().getClassLoader());
             assert v3.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader") ||
-                grid(3).configuration().getMarshaller() instanceof BinaryMarshaller;
+                ignite(3).configuration().getMarshaller() instanceof BinaryMarshaller;
         }
         finally {
             stopAllGrids();
@@ -778,7 +778,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             for (int i = 0; i < cnt; i++) {
                 if (i % 100 == 0) {
                     if (map != null && !map.isEmpty()) {
-                        grid(0).cache(DEFAULT_CACHE_NAME).putAll(map);
+                        ignite(0).cache(DEFAULT_CACHE_NAME).putAll(map);
 
                         info("Put entries count: " + i);
                     }
@@ -790,11 +790,11 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             }
 
             if (map != null && !map.isEmpty())
-                grid(0).cache(DEFAULT_CACHE_NAME).putAll(map);
+                ignite(0).cache(DEFAULT_CACHE_NAME).putAll(map);
 
             for (int gridIdx = 0; gridIdx < gridCnt; gridIdx++) {
-                assert grid(gridIdx).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.ALL) == cnt :
-                    "Actual size: " + grid(gridIdx).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.ALL);
+                assert ignite(gridIdx).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.ALL) == cnt :
+                    "Actual size: " + ignite(gridIdx).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.ALL);
 
                 info("Cache size is OK for grid index: " + gridIdx);
             }

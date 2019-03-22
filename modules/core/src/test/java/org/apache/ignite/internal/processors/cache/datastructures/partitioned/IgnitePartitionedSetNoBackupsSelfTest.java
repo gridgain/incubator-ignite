@@ -46,7 +46,7 @@ public class IgnitePartitionedSetNoBackupsSelfTest extends GridCachePartitionedS
      */
     @Test
     public void testCollocation() throws Exception {
-        Set<Integer> set0 = grid(0).set(SET_NAME, config(true));
+        Set<Integer> set0 = ignite(0).set(SET_NAME, config(true));
 
         for (int i = 0; i < 1000; i++)
             assertTrue(set0.add(i));
@@ -58,7 +58,7 @@ public class IgnitePartitionedSetNoBackupsSelfTest extends GridCachePartitionedS
         UUID setNodeId = null;
 
         for (int i = 0; i < gridCount(); i++) {
-            IgniteKernal grid = (IgniteKernal)grid(i);
+            IgniteKernal grid = (IgniteKernal)ignite(i);
 
             GridCacheAdapter cache  = grid.context().cache().internalCache(cctx.name());
 

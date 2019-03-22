@@ -257,11 +257,11 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
     private void localServerInternal(boolean async) throws Exception {
         int messages = MSGS;
 
-        Ignite ignite = grid(SERVER_NODE_IDX);
+        Ignite ignite = ignite(SERVER_NODE_IDX);
 
         LATCH = new CountDownLatch(messages);
 
-        ClusterGroup grp = grid(SERVER_NODE_IDX).cluster().forLocal();
+        ClusterGroup grp = ignite(SERVER_NODE_IDX).cluster().forLocal();
 
         UUID opId = registerListener(grp);
 
@@ -284,11 +284,11 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
     private void localListenerInternal() throws Exception {
         int messages = MSGS;
 
-        Ignite ignite = grid(SERVER_NODE_IDX);
+        Ignite ignite = ignite(SERVER_NODE_IDX);
 
         LATCH = new CountDownLatch(messages);
 
-        ClusterGroup grp = grid(SERVER_NODE_IDX).cluster().forLocal();
+        ClusterGroup grp = ignite(SERVER_NODE_IDX).cluster().forLocal();
 
         MessageListener c = new MessageListener();
 
@@ -313,7 +313,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If failed.
      */
     private void serverClientMessage(boolean async) throws Exception {
-        Ignite ignite = grid(SERVER_NODE_IDX);
+        Ignite ignite = ignite(SERVER_NODE_IDX);
 
         ClusterGroup grp = ignite.cluster().forClients();
 
@@ -329,7 +329,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If failed.
      */
     private void clientClientMessage(boolean async) throws Exception {
-        Ignite ignite = grid(CLIENT_NODE_IDX);
+        Ignite ignite = ignite(CLIENT_NODE_IDX);
 
         ClusterGroup grp = ignite.cluster().forClients();
 
@@ -345,7 +345,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If failed.
      */
     private void clientServerMessage(boolean async) throws Exception {
-        Ignite ignite = grid(CLIENT_NODE_IDX);
+        Ignite ignite = ignite(CLIENT_NODE_IDX);
 
         ClusterGroup grp = ignite.cluster().forServers();
 
@@ -384,7 +384,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If fail.
      */
     private void collectionMessage() throws Exception {
-        Ignite ignite = grid(SERVER_NODE_IDX);
+        Ignite ignite = ignite(SERVER_NODE_IDX);
 
         ClusterGroup grp = gridCount() > 1 ? ignite.cluster().forRemotes() : ignite.cluster().forLocal();
 
@@ -415,7 +415,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If fail.
      */
     private void orderedMessage() throws Exception {
-        Ignite ignite = grid(SERVER_NODE_IDX);
+        Ignite ignite = ignite(SERVER_NODE_IDX);
 
         ClusterGroup grp = gridCount() > 1 ? ignite.cluster().forRemotes() : ignite.cluster().forLocal();
 
@@ -428,7 +428,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If fail.
      */
     private void clientServerOrderedMessage() throws Exception {
-        Ignite ignite = grid(CLIENT_NODE_IDX);
+        Ignite ignite = ignite(CLIENT_NODE_IDX);
 
         ClusterGroup grp = ignite.cluster().forServers();
 
@@ -441,7 +441,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If fail.
      */
     private void clientClientOrderedMessage() throws Exception {
-        Ignite ignite = grid(CLIENT_NODE_IDX);
+        Ignite ignite = ignite(CLIENT_NODE_IDX);
 
         ClusterGroup grp = ignite.cluster().forClients();
 
@@ -454,7 +454,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If fail.
      */
     private void serverClientOrderedMessage() throws Exception {
-        Ignite ignite = grid(SERVER_NODE_IDX);
+        Ignite ignite = ignite(SERVER_NODE_IDX);
 
         ClusterGroup grp = ignite.cluster().forClients();
 
@@ -507,7 +507,7 @@ public class IgniteMessagingConfigVariationFullApiTest extends IgniteConfigVaria
      * @throws Exception If failed.
      */
     private UUID registerListener(ClusterGroup grp) throws Exception {
-        Ignite ignite = grid(SERVER_NODE_IDX);
+        Ignite ignite = ignite(SERVER_NODE_IDX);
 
         IgniteBiPredicate<UUID,Object> lsnr = new MessageListener();
 

@@ -66,7 +66,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
         inclEvtTypes = null;
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             final AtomicInteger cnt = new AtomicInteger();
 
@@ -101,7 +101,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
         inclEvtTypes = new int[] { EVT_TASK_STARTED, EVT_TASK_FINISHED };
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             final AtomicInteger cnt = new AtomicInteger();
 
@@ -136,7 +136,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
         inclEvtTypes = null;
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             g.events().enableLocal(EVT_TASK_STARTED, EVT_TASK_FINISHED, EVT_JOB_STARTED);
 
@@ -173,7 +173,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
         inclEvtTypes = null;
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             IgniteEvents evts = g.events();
 
@@ -196,7 +196,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
     public void testInvalidTypes() throws Exception {
         inclEvtTypes = new int[]{EVT_TASK_STARTED};
 
-        try (Ignite g = startGrid()) {
+        try (Ignite g = clusterManager__startGrid()) {
             assertTrue(g.events().isEnabled(EVT_TASK_STARTED));
 
             try {
@@ -214,7 +214,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
 
         inclEvtTypes = new int[]{-13};
 
-        try (Ignite g = startGrid()) {
+        try (Ignite g = clusterManager__startGrid()) {
             fail("Expected IgniteCheckedException");
         }
         catch (IgniteCheckedException e) {
@@ -233,7 +233,7 @@ public class GridEventStorageRuntimeConfigurationSelfTest extends GridCommonAbst
         inclEvtTypes = new int[]{EVT_TASK_STARTED, EVT_TASK_FINISHED, 30000};
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             assertEqualsWithoutOrder(inclEvtTypes, getEnabledEvents(g));
             assertEqualsWithoutOrder(inclEvtTypes, getEnabledEvents(1013, g, 30000));

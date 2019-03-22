@@ -111,7 +111,7 @@ public class NodeWithFilterRestartTest extends GridCommonAbstractTest {
                 cfg2.setBackups(0);
                 cfg2.setAffinity(new RendezvousAffinityFunction(false, 256));
 
-                grid(0).getOrCreateCaches(Arrays.asList(cfg1, cfg2));
+                ignite(0).getOrCreateCaches(Arrays.asList(cfg1, cfg2));
             }
 
             stopGrid(5, true);

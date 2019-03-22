@@ -236,8 +236,8 @@ public abstract class GridCacheAbstractFailoverSelfTest extends GridCacheAbstrac
         try {
             while (!fut.isDone() && !isInterrupted) {
                 if (tx) {
-                    remove(grid(0), jcache(), half, concurrency, isolation);
-                    put(grid(0), jcache(), half, concurrency, isolation);
+                    remove(ignite(0), jcache(), half, concurrency, isolation);
+                    put(ignite(0), jcache(), half, concurrency, isolation);
                 }
                 else {
                     remove(jcache(), half);

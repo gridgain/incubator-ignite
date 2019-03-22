@@ -129,7 +129,7 @@ public class GridCacheEvictionLockUnlockSelfTest extends GridCommonAbstractTest 
             startGridsMultiThreaded(gridCnt);
 
             for (int i = 0; i < gridCnt; i++)
-                grid(i).events().localListen(new EvictListener(), EVT_CACHE_ENTRY_EVICTED);
+                ignite(i).events().localListen(new EvictListener(), EVT_CACHE_ENTRY_EVICTED);
 
             for (int i = 0; i < gridCnt; i++) {
                 reset();

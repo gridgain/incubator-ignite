@@ -106,8 +106,8 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
      * Check CacheAffinityProxy methods.
      */
     private void checkAffinity() {
-        checkAffinity(grid(0).affinity(DEFAULT_CACHE_NAME), internalCache(1, DEFAULT_CACHE_NAME).affinity());
-        checkAffinity(grid(0).affinity(CACHE2), internalCache(1, CACHE2).affinity());
+        checkAffinity(ignite(0).affinity(DEFAULT_CACHE_NAME), internalCache(1, DEFAULT_CACHE_NAME).affinity());
+        checkAffinity(ignite(0).affinity(CACHE2), internalCache(1, CACHE2).affinity());
     }
 
     /**
@@ -301,6 +301,6 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
      * @return Cluster nodes.
      */
     private Collection<ClusterNode> nodes() {
-        return grid(0).cluster().nodes();
+        return ignite(0).cluster().nodes();
     }
 }

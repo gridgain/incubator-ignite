@@ -188,7 +188,7 @@ public class SlowHistoricalRebalanceSmallHistoryTest extends GridCommonAbstractT
 
         stopGrid(0);
 
-        IgniteCache<Object, Object> anotherCacheGrid1 = grid(1).cache(REGULAR_CACHE);
+        IgniteCache<Object, Object> anotherCacheGrid1 = ignite(1).cache(REGULAR_CACHE);
 
         for (int i = 0; i < 500; i++)
             anotherCacheGrid1.put(i, new byte[5 * 1000]);
@@ -197,7 +197,7 @@ public class SlowHistoricalRebalanceSmallHistoryTest extends GridCommonAbstractT
 
         awaitPartitionMapExchange();
 
-        assertEquals(2, grid(1).context().discovery().aliveServerNodes().size());
+        assertEquals(2, ignite(1).context().discovery().aliveServerNodes().size());
     }
 
     /**

@@ -77,7 +77,7 @@ public abstract class CacheMvccSelectForUpdateQueryAbstractTest extends CacheMvc
             execute(c, "create table person_seg (id int primary key, firstName varchar, lastName varchar) " +
                 "with \"atomicity=transactional_snapshot,cache_name=PersonSeg,template=segmented\"");
 
-            try (Transaction tx = grid(0).transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+            try (Transaction tx = ignite(0).transactions().txStart(TransactionConcurrency.PESSIMISTIC,
                 TransactionIsolation.REPEATABLE_READ)) {
 
                 for (int i = 1; i <= CACHE_SIZE; i++) {
@@ -133,7 +133,7 @@ public abstract class CacheMvccSelectForUpdateQueryAbstractTest extends CacheMvc
      * @throws Exception If failed.
      */
     void doTestSelectForUpdateLocal(String cacheName, boolean outsideTx) throws Exception {
-        Ignite node = grid(0);
+        Ignite node = ignite(0);
 
         IgniteCache<Integer, ?> cache = node.cache(cacheName);
 
@@ -168,7 +168,7 @@ public abstract class CacheMvccSelectForUpdateQueryAbstractTest extends CacheMvc
     void doTestSelectForUpdateDistributed(String cacheName, boolean outsideTx) throws Exception {
         awaitPartitionMapExchange();
 
-        Ignite node = grid(0);
+        Ignite node = ignite(0);
 
         IgniteCache<Integer, ?> cache = node.cache(cacheName);
 
@@ -241,7 +241,7 @@ public abstract class CacheMvccSelectForUpdateQueryAbstractTest extends CacheMvc
     public void testSelectForUpdateAfterAbortedTx() throws Exception {
         assert disableScheduledVacuum;
 
-        Ignite node = grid(0);
+        Ignite node = ignite(0);
 
         IgniteCache<Integer, ?> cache = node.cache("Person");
 
@@ -359,7 +359,7 @@ public abstract class CacheMvccSelectForUpdateQueryAbstractTest extends CacheMvc
      */
     @SuppressWarnings("ThrowableNotThrown")
     private void assertQueryThrows(String qry, String exMsg, boolean loc) {
-        Ignite node = grid(0);
+        Ignite node = ignite(0);
 
         GridTestUtils.assertThrows(null, new Callable<Object>() {
             @Override public Object call() {

@@ -68,8 +68,8 @@ public class AtomicOperationsInTxTest extends GridCommonAbstractTest {
     @Test
     public void testEnablingAtomicOperationDuringTransaction() throws Exception {
         GridTestUtils.assertThrows(log, (Callable<IgniteCache>)() -> {
-            try (Transaction tx = grid(0).transactions().txStart()) {
-                return grid(0).cache(DEFAULT_CACHE_NAME).withAllowAtomicOpsInTx();
+            try (Transaction tx = ignite(0).transactions().txStart()) {
+                return ignite(0).cache(DEFAULT_CACHE_NAME).withAllowAtomicOpsInTx();
             }
         },
             IllegalStateException.class,
@@ -171,7 +171,7 @@ public class AtomicOperationsInTxTest extends GridCommonAbstractTest {
      * @param op Operation.
      */
     private void checkOperation(boolean isAtomicCacheAllowedInTx, Consumer<IgniteCache<Integer, Integer>> op) {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         if (isAtomicCacheAllowedInTx)
             cache = cache.withAllowAtomicOpsInTx();
@@ -182,7 +182,7 @@ public class AtomicOperationsInTxTest extends GridCommonAbstractTest {
 
         IgniteException err = null;
 
-        try (Transaction tx = grid(0).transactions().txStart()) {
+        try (Transaction tx = ignite(0).transactions().txStart()) {
             op.accept(cache);
         } catch (IgniteException e) {
             err = e;
@@ -205,11 +205,11 @@ public class AtomicOperationsInTxTest extends GridCommonAbstractTest {
         String eMsg;
 
         if (isAtomicCacheAllowedInTx) {
-            cache = grid(0).cache(DEFAULT_CACHE_NAME).withAllowAtomicOpsInTx();
+            cache = ignite(0).cache(DEFAULT_CACHE_NAME).withAllowAtomicOpsInTx();
             eCls = CacheException.class;
             eMsg = "Explicit lock can't be acquired within a transaction.";
         } else {
-            cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            cache = ignite(0).cache(DEFAULT_CACHE_NAME);
             eCls = IgniteException.class;
             eMsg = "Transaction spans operations on atomic cache";
         }
@@ -217,7 +217,7 @@ public class AtomicOperationsInTxTest extends GridCommonAbstractTest {
         Lock lock = cache.lock(1);
 
         GridTestUtils.assertThrows(log, (Callable<Void>)() -> {
-            try (Transaction tx = grid(0).transactions().txStart()) {
+            try (Transaction tx = ignite(0).transactions().txStart()) {
                 lock.lock();
             }
 

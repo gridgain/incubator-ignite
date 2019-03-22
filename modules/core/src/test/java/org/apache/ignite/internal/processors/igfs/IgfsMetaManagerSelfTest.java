@@ -63,7 +63,7 @@ public class IgfsMetaManagerSelfTest extends IgfsCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        IgfsEx igfs = (IgfsEx)grid(0).fileSystem("igfs");
+        IgfsEx igfs = (IgfsEx)ignite(0).fileSystem("igfs");
 
         mgr = igfs.context().meta();
     }

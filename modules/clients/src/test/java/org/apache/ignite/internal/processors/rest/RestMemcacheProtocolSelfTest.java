@@ -48,7 +48,7 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -60,8 +60,8 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
     @Override protected void afterTest() throws Exception {
         client.shutdown();
 
-        grid().cache(DEFAULT_CACHE_NAME).clear();
-        grid().cache(CACHE_NAME).clear();
+        ignite().cache(DEFAULT_CACHE_NAME).clear();
+        ignite().cache(CACHE_NAME).clear();
     }
 
     /** {@inheritDoc} */
@@ -113,10 +113,10 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
     @Test
     public void testPut() throws Exception {
         assertTrue(client.cachePut(null, "key1", "val1"));
-        assertEquals("val1", grid().cache(DEFAULT_CACHE_NAME).get("key1"));
+        assertEquals("val1", ignite().cache(DEFAULT_CACHE_NAME).get("key1"));
 
         assertTrue(client.cachePut(CACHE_NAME, "key1", "val1"));
-        assertEquals("val1", grid().cache(CACHE_NAME).get("key1"));
+        assertEquals("val1", ignite().cache(CACHE_NAME).get("key1"));
     }
 
     /**
@@ -124,11 +124,11 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testGet() throws Exception {
-        grid().cache(DEFAULT_CACHE_NAME).put("key", "val");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key", "val");
 
         Assert.assertEquals("val", client.cacheGet(null, "key"));
 
-        grid().cache(CACHE_NAME).put("key", "val");
+        ignite().cache(CACHE_NAME).put("key", "val");
 
         Assert.assertEquals("val", client.cacheGet(CACHE_NAME, "key"));
     }
@@ -138,19 +138,19 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testRemove() throws Exception {
-        grid().cache(DEFAULT_CACHE_NAME).put("key", "val");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key", "val");
 
         assertTrue(client.cacheRemove(null, "key"));
         assertFalse(client.cacheRemove(null, "wrongKey"));
 
-        assertNull(grid().cache(DEFAULT_CACHE_NAME).get("key"));
+        assertNull(ignite().cache(DEFAULT_CACHE_NAME).get("key"));
 
-        grid().cache(CACHE_NAME).put("key", "val");
+        ignite().cache(CACHE_NAME).put("key", "val");
 
         assertTrue(client.cacheRemove(CACHE_NAME, "key"));
         assertFalse(client.cacheRemove(CACHE_NAME, "wrongKey"));
 
-        assertNull(grid().cache(CACHE_NAME).get("key"));
+        assertNull(ignite().cache(CACHE_NAME).get("key"));
     }
 
     /**
@@ -159,14 +159,14 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
     @Test
     public void testAdd() throws Exception {
         assertTrue(client.cacheAdd(null, "key", "val"));
-        assertEquals("val", grid().cache(DEFAULT_CACHE_NAME).get("key"));
+        assertEquals("val", ignite().cache(DEFAULT_CACHE_NAME).get("key"));
         assertFalse(client.cacheAdd(null, "key", "newVal"));
-        assertEquals("val", grid().cache(DEFAULT_CACHE_NAME).get("key"));
+        assertEquals("val", ignite().cache(DEFAULT_CACHE_NAME).get("key"));
 
         assertTrue(client.cacheAdd(CACHE_NAME, "key", "val"));
-        assertEquals("val", grid().cache(CACHE_NAME).get("key"));
+        assertEquals("val", ignite().cache(CACHE_NAME).get("key"));
         assertFalse(client.cacheAdd(CACHE_NAME, "key", "newVal"));
-        assertEquals("val", grid().cache(CACHE_NAME).get("key"));
+        assertEquals("val", ignite().cache(CACHE_NAME).get("key"));
     }
 
     /**
@@ -175,17 +175,17 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
     @Test
     public void testReplace() throws Exception {
         assertFalse(client.cacheReplace(null, "key1", "val1"));
-        grid().cache(DEFAULT_CACHE_NAME).put("key1", "val1");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key1", "val1");
         assertTrue(client.cacheReplace(null, "key1", "val2"));
 
         assertFalse(client.cacheReplace(null, "key2", "val1"));
-        grid().cache(DEFAULT_CACHE_NAME).put("key2", "val1");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key2", "val1");
         assertTrue(client.cacheReplace(null, "key2", "val2"));
 
-        grid().cache(DEFAULT_CACHE_NAME).clear();
+        ignite().cache(DEFAULT_CACHE_NAME).clear();
 
         assertFalse(client.cacheReplace(CACHE_NAME, "key1", "val1"));
-        grid().cache(CACHE_NAME).put("key1", "val1");
+        ignite().cache(CACHE_NAME).put("key1", "val1");
         assertTrue(client.cacheReplace(CACHE_NAME, "key1", "val2"));
     }
 
@@ -194,24 +194,24 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testMetrics() throws Exception {
-        grid().cache(DEFAULT_CACHE_NAME).localMxBean().clear();
-        grid().cache(CACHE_NAME).localMxBean().clear();
+        ignite().cache(DEFAULT_CACHE_NAME).localMxBean().clear();
+        ignite().cache(CACHE_NAME).localMxBean().clear();
 
-        grid().cache(DEFAULT_CACHE_NAME).put("key1", "val");
-        grid().cache(DEFAULT_CACHE_NAME).put("key2", "val");
-        grid().cache(DEFAULT_CACHE_NAME).put("key2", "val");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key1", "val");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key2", "val");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key2", "val");
 
-        grid().cache(DEFAULT_CACHE_NAME).get("key1");
-        grid().cache(DEFAULT_CACHE_NAME).get("key2");
-        grid().cache(DEFAULT_CACHE_NAME).get("key2");
+        ignite().cache(DEFAULT_CACHE_NAME).get("key1");
+        ignite().cache(DEFAULT_CACHE_NAME).get("key2");
+        ignite().cache(DEFAULT_CACHE_NAME).get("key2");
 
-        grid().cache(CACHE_NAME).put("key1", "val");
-        grid().cache(CACHE_NAME).put("key2", "val");
-        grid().cache(CACHE_NAME).put("key2", "val");
+        ignite().cache(CACHE_NAME).put("key1", "val");
+        ignite().cache(CACHE_NAME).put("key2", "val");
+        ignite().cache(CACHE_NAME).put("key2", "val");
 
-        grid().cache(CACHE_NAME).get("key1");
-        grid().cache(CACHE_NAME).get("key2");
-        grid().cache(CACHE_NAME).get("key2");
+        ignite().cache(CACHE_NAME).get("key1");
+        ignite().cache(CACHE_NAME).get("key2");
+        ignite().cache(CACHE_NAME).get("key2");
 
         Map<String, Long> m = client.cacheMetrics(null);
 
@@ -234,22 +234,22 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
     @Test
     public void testIncrement() throws Exception {
         assertEquals(15L, client().increment("key", 10L, 5L));
-        assertEquals(15L, grid().atomicLong("key", 0, true).get());
+        assertEquals(15L, ignite().atomicLong("key", 0, true).get());
 
         assertEquals(18L, client().increment("key", 20L, 3L));
-        assertEquals(18L, grid().atomicLong("key", 0, true).get());
+        assertEquals(18L, ignite().atomicLong("key", 0, true).get());
 
         assertEquals(20L, client().increment("key", null, 2L));
-        assertEquals(20L, grid().atomicLong("key", 0, true).get());
+        assertEquals(20L, ignite().atomicLong("key", 0, true).get());
 
         assertEquals(15L, client().increment("key1", 10L, 5L));
-        assertEquals(15L, grid().atomicLong("key1", 0, true).get());
+        assertEquals(15L, ignite().atomicLong("key1", 0, true).get());
 
         assertEquals(18L, client().increment("key1", 20L, 3L));
-        assertEquals(18L, grid().atomicLong("key1", 0, true).get());
+        assertEquals(18L, ignite().atomicLong("key1", 0, true).get());
 
         assertEquals(20L, client().increment("key1", null, 2L));
-        assertEquals(20L, grid().atomicLong("key1", 0, true).get());
+        assertEquals(20L, ignite().atomicLong("key1", 0, true).get());
     }
 
     /**
@@ -258,22 +258,22 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
     @Test
     public void testDecrement() throws Exception {
         assertEquals(15L, client().decrement("key", 20L, 5L));
-        assertEquals(15L, grid().atomicLong("key", 0, true).get());
+        assertEquals(15L, ignite().atomicLong("key", 0, true).get());
 
         assertEquals(12L, client().decrement("key", 20L, 3L));
-        assertEquals(12L, grid().atomicLong("key", 0, true).get());
+        assertEquals(12L, ignite().atomicLong("key", 0, true).get());
 
         assertEquals(10L, client().decrement("key", null, 2L));
-        assertEquals(10L, grid().atomicLong("key", 0, true).get());
+        assertEquals(10L, ignite().atomicLong("key", 0, true).get());
 
         assertEquals(15L, client().decrement("key1", 20L, 5L));
-        assertEquals(15L, grid().atomicLong("key1", 0, true).get());
+        assertEquals(15L, ignite().atomicLong("key1", 0, true).get());
 
         assertEquals(12L, client().decrement("key1", 20L, 3L));
-        assertEquals(12L, grid().atomicLong("key1", 0, true).get());
+        assertEquals(12L, ignite().atomicLong("key1", 0, true).get());
 
         assertEquals(10L, client().decrement("key1", null, 2L));
-        assertEquals(10L, grid().atomicLong("key1", 0, true).get());
+        assertEquals(10L, ignite().atomicLong("key1", 0, true).get());
     }
 
     /**
@@ -284,13 +284,13 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
         assertFalse(client.cacheAppend(null, "wrongKey", "_suffix"));
         assertFalse(client.cacheAppend(CACHE_NAME, "wrongKey", "_suffix"));
 
-        grid().cache(DEFAULT_CACHE_NAME).put("key", "val");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key", "val");
         assertTrue(client.cacheAppend(null, "key", "_suffix"));
-        assertEquals("val_suffix", grid().cache(DEFAULT_CACHE_NAME).get("key"));
+        assertEquals("val_suffix", ignite().cache(DEFAULT_CACHE_NAME).get("key"));
 
-        grid().cache(CACHE_NAME).put("key", "val");
+        ignite().cache(CACHE_NAME).put("key", "val");
         assertTrue(client.cacheAppend(CACHE_NAME, "key", "_suffix"));
-        assertEquals("val_suffix", grid().cache(CACHE_NAME).get("key"));
+        assertEquals("val_suffix", ignite().cache(CACHE_NAME).get("key"));
     }
 
     /**
@@ -301,13 +301,13 @@ public class RestMemcacheProtocolSelfTest extends GridCommonAbstractTest {
         assertFalse(client.cachePrepend(null, "wrongKey", "prefix_"));
         assertFalse(client.cachePrepend(CACHE_NAME, "wrongKey", "prefix_"));
 
-        grid().cache(DEFAULT_CACHE_NAME).put("key", "val");
+        ignite().cache(DEFAULT_CACHE_NAME).put("key", "val");
         assertTrue(client.cachePrepend(null, "key", "prefix_"));
-        assertEquals("prefix_val", grid().cache(DEFAULT_CACHE_NAME).get("key"));
+        assertEquals("prefix_val", ignite().cache(DEFAULT_CACHE_NAME).get("key"));
 
-        grid().cache(CACHE_NAME).put("key", "val");
+        ignite().cache(CACHE_NAME).put("key", "val");
         assertTrue(client.cachePrepend(CACHE_NAME, "key", "prefix_"));
-        assertEquals("prefix_val", grid().cache(CACHE_NAME).get("key"));
+        assertEquals("prefix_val", ignite().cache(CACHE_NAME).get("key"));
     }
 
     /**

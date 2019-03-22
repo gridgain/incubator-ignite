@@ -343,14 +343,14 @@ public abstract class IgniteCacheAbstractStopBusySelfTest extends GridCommonAbst
      * @return Client cache.
      */
     private Ignite clientNode() {
-        return grid(CLN_GRD);
+        return ignite(CLN_GRD);
     }
 
     /**
      * @return Client cache.
      */
     private IgniteCache<Object, Object> clientCache() {
-        return grid(CLN_GRD).cache(CACHE_NAME);
+        return ignite(CLN_GRD).cache(CACHE_NAME);
     }
 
     /**

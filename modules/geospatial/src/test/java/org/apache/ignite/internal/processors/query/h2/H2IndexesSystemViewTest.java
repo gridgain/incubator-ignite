@@ -85,7 +85,7 @@ public class H2IndexesSystemViewTest extends GridCommonAbstractTest {
      * @param args Args.
      */
     private List<List<?>> execSql(String sql, Object... args) {
-        return execSql(grid(), sql, args);
+        return execSql(ignite(), sql, args);
     }
 
     /**

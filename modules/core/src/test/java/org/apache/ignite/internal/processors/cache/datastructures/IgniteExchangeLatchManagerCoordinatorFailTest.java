@@ -250,7 +250,7 @@ public class IgniteExchangeLatchManagerCoordinatorFailTest extends GridCommonAbs
         IgniteEx crd = (IgniteEx) startGridsMultiThreaded(5);
         crd.cluster().active(true);
 
-        IgniteEx latchCrd = grid(LATCH_CRD_INDEX);
+        IgniteEx latchCrd = ignite(LATCH_CRD_INDEX);
 
         // Latch to synchronize node states.
         CountDownLatch syncLatch = new CountDownLatch(5);
@@ -265,7 +265,7 @@ public class IgniteExchangeLatchManagerCoordinatorFailTest extends GridCommonAbs
             if (nodeId == LATCH_CRD_INDEX)
                 continue;
 
-            IgniteEx grid = grid(nodeId);
+            IgniteEx grid = ignite(nodeId);
 
             ExchangeLatchManager latchMgr = grid.context().cache().context().exchange().latch();
 
@@ -315,7 +315,7 @@ public class IgniteExchangeLatchManagerCoordinatorFailTest extends GridCommonAbs
 
         assertTrue(GridTestUtils.waitForCondition(() -> {
             for (int i = 0; i < 5; i++) {
-                if (!grid(0).context().cache().context().exchange().readyAffinityVersion().equals(latchTopVer))
+                if (!ignite(0).context().cache().context().exchange().readyAffinityVersion().equals(latchTopVer))
                     return false;
             }
 
@@ -325,7 +325,7 @@ public class IgniteExchangeLatchManagerCoordinatorFailTest extends GridCommonAbs
         Latch[] latches = new Latch[5];
 
         for (int i = 0; i < 5; i++) {
-            ExchangeLatchManager latchMgr = grid(i).context().cache().context().exchange().latch();
+            ExchangeLatchManager latchMgr = ignite(i).context().cache().context().exchange().latch();
 
             latches[i] = latchMgr.getOrCreate(LATCH_DROP_NAME, latchTopVer);
 

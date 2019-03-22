@@ -118,10 +118,10 @@ public class JdbcThinStatementCancelSelfTest extends JdbcThinAbstractSelfTest {
         startGridsMultiThreaded(NODES_COUNT);
 
         for (int i = 0; i < MAX_ROWS; ++i)
-            grid(0).cache(DEFAULT_CACHE_NAME).put(i, i);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(i, i);
 
         for (int i = 0; i < MAX_ROWS; ++i)
-            grid(0).cache(DEFAULT_CACHE_NAME).put((long)i, (long)i);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put((long)i, (long)i);
     }
 
     /**

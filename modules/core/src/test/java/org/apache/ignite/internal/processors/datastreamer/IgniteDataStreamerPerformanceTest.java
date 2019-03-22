@@ -124,7 +124,7 @@ public class IgniteDataStreamerPerformanceTest extends GridCommonAbstractTest {
 
             useCache = false;
 
-            Ignite ignite = startGrid();
+            Ignite ignite = clusterManager__startGrid();
 
             final IgniteDataStreamer<Integer, String> ldr = ignite.dataStreamer(DEFAULT_CACHE_NAME);
 

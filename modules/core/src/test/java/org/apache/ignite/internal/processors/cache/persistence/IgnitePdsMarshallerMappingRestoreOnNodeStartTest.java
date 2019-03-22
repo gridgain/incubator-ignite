@@ -73,7 +73,7 @@ public class IgnitePdsMarshallerMappingRestoreOnNodeStartTest extends GridCommon
     public void testStaticMetadataIsRestoredOnRestart() throws Exception {
         startGrids(1);
 
-        Ignite ignite0 = grid(0);
+        Ignite ignite0 = ignite(0);
 
         ignite0.active(true);
 
@@ -85,7 +85,7 @@ public class IgnitePdsMarshallerMappingRestoreOnNodeStartTest extends GridCommon
 
         startGrids(1);
 
-        ignite0 = grid(0);
+        ignite0 = ignite(0);
 
         ignite0.active(true);
 

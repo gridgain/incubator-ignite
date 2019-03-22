@@ -70,7 +70,7 @@ public class ClientTcpTaskExecutionAfterTopologyRestartSelfTest extends GridComm
 
         stopAllGrids();
 
-        startGrid();
+        clusterManager__startGrid();
 
         cli.compute().execute(ClientTcpTask.class.getName(), Collections.singletonList("arg"));
     }

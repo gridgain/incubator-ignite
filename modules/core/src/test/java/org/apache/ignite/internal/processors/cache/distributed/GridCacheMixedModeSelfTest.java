@@ -68,7 +68,7 @@ public class GridCacheMixedModeSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testBasicOps() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 1000; i++)
             cache.put(i, i);

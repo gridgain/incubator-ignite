@@ -45,6 +45,7 @@ import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -81,13 +82,13 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
 
         startGrids(3);
 
-        Ignite node0 = grid(0);
-        Ignite node1 = grid(1);
-        Ignite node2 = grid(2);
+        Ignite node0 = ignite(0);
+        Ignite node1 = ignite(1);
+        Ignite node2 = ignite(2);
 
         client = true;
 
-        Ignite client = startGrid();
+        Ignite client = clusterManager__startGrid();
 
         awaitPartitionMapExchange();
 
@@ -196,12 +197,12 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
 
         startGrids(2);
 
-        Ignite node1 = grid(0);
-        Ignite node2 = grid(1);
+        Ignite node1 = ignite(0);
+        Ignite node2 = ignite(1);
 
         client = true;
 
-        Ignite client = startGrid();
+        Ignite client = clusterManager__startGrid();
 
         awaitPartitionMapExchange();
 
@@ -295,12 +296,12 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
 
         startGrids(2);
 
-        Ignite node1 = grid(0);
-        Ignite node2 = grid(1);
+        Ignite node1 = ignite(0);
+        Ignite node2 = ignite(1);
 
         client = true;
 
-        Ignite client = startGrid();
+        Ignite client = clusterManager__startGrid();
 
         awaitPartitionMapExchange();
 
@@ -347,14 +348,14 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
         spi1.closure(new IgniteBiInClosure<ClusterNode, Message>() {
             @Override public void apply(ClusterNode node, Message msg) {
                 if (msg instanceof GridDhtTxQueryEnlistResponse)
-                    doSleep(100);
+                    GridTestUtils.doSleep(100);
             }
         });
 
         spi2.closure(new IgniteBiInClosure<ClusterNode, Message>() {
             @Override public void apply(ClusterNode node, Message msg) {
                 if (msg instanceof GridDhtTxQueryEnlistResponse)
-                    doSleep(100);
+                    GridTestUtils.doSleep(100);
             }
         });
 
@@ -441,7 +442,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
             new InitIndexing(Integer.class, MvccTestAccount.class), true, SQL, DML, 5_000, null);
 
         for (int i = 0; i < srvs - 1; i++) {
-            Ignite node1 = grid(i);
+            Ignite node1 = ignite(i);
 
             IgniteCache cache1 = node1.cache(DEFAULT_CACHE_NAME);
 
@@ -453,7 +454,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
 
             awaitPartitionMapExchange();
 
-            Ignite node2 = grid(i + 1);
+            Ignite node2 = ignite(i + 1);
 
             IgniteCache cache2 = node2.cache(DEFAULT_CACHE_NAME);
 
@@ -531,7 +532,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
         spi.closure(new IgniteBiInClosure<ClusterNode, Message>() {
             @Override public void apply(ClusterNode node, Message msg) {
                 if (delayRebalance && msg instanceof GridDhtPartitionSupplyMessage)
-                    doSleep(500);
+                    GridTestUtils.doSleep(500);
 
                 if (msg instanceof GridDhtForceKeysResponse)
                     fail("Force key request");
@@ -562,7 +563,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
 
         awaitPartitionMapExchange();
 
-        doSleep(2000);
+        GridTestUtils.doSleep(2000);
 
         stopGrid(1);
 
@@ -576,7 +577,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
             tx.commit();
         }
 
-        doSleep(1000);
+        GridTestUtils.doSleep(1000);
     }
 
     /**
@@ -606,7 +607,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
 
         client = true;
 
-        final Ignite node = startClient ? startGrid(4) : grid(0);
+        final Ignite node = startClient ? startGrid(4) : ignite(0);
 
         final IgniteCache<Object, Object> cache = node.createCache(
             cacheConfiguration(cacheMode(), FULL_SYNC, 2, 16)
@@ -615,7 +616,7 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
         List<Integer> keys = new ArrayList<>();
 
         for (int i = 0; i < 4; i++)
-            keys.addAll(primaryKeys(grid(i).cache(DEFAULT_CACHE_NAME), 2));
+            keys.addAll(primaryKeys(ignite(i).cache(DEFAULT_CACHE_NAME), 2));
 
         try (Transaction tx = node.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             StringBuilder sb = new StringBuilder("INSERT INTO Integer (_key, _val) values ");
@@ -652,11 +653,11 @@ public abstract class CacheMvccBackupsAbstractTest extends CacheMvccAbstractTest
             List<CacheDataRow> vers = null;
 
             for (int i = 0; i < 3; i++) {
-                ClusterNode n = grid(i).cluster().localNode();
+                ClusterNode n = ignite(i).cluster().localNode();
 
                 if (node.affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(n, key)) {
 
-                    List<CacheDataRow> vers0 = allKeyVersions(grid(i).cache(DEFAULT_CACHE_NAME), key);
+                    List<CacheDataRow> vers0 = allKeyVersions(ignite(i).cache(DEFAULT_CACHE_NAME), key);
 
                     if (vers != null)
                         assertKeyVersionsEquals(vers, vers0);

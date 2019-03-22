@@ -170,18 +170,18 @@ public class GridCacheRabalancingDelayedPartitionMapExchangeSelfTest extends Gri
 
         awaitPartitionMapExchange();
 
-        long topVer0 = grid(0).context().cache().context().exchange().readyAffinityVersion().topologyVersion();
-        long topVer1 = grid(1).context().cache().context().exchange().readyAffinityVersion().topologyVersion();
-        long topVer2 = grid(2).context().cache().context().exchange().readyAffinityVersion().topologyVersion();
+        long topVer0 = ignite(0).context().cache().context().exchange().readyAffinityVersion().topologyVersion();
+        long topVer1 = ignite(1).context().cache().context().exchange().readyAffinityVersion().topologyVersion();
+        long topVer2 = ignite(2).context().cache().context().exchange().readyAffinityVersion().topologyVersion();
 
         stopGrid(4); // Should force exchange in case exchange manager alive.
 
         awaitPartitionMapExchange();
 
         // Will fail in case exchange-workers are dead.
-        assert grid(0).context().cache().context().exchange().readyAffinityVersion().topologyVersion() > topVer0;
-        assert grid(1).context().cache().context().exchange().readyAffinityVersion().topologyVersion() > topVer1;
-        assert grid(2).context().cache().context().exchange().readyAffinityVersion().topologyVersion() > topVer2;
+        assert ignite(0).context().cache().context().exchange().readyAffinityVersion().topologyVersion() > topVer0;
+        assert ignite(1).context().cache().context().exchange().readyAffinityVersion().topologyVersion() > topVer1;
+        assert ignite(2).context().cache().context().exchange().readyAffinityVersion().topologyVersion() > topVer2;
     }
 
     /**

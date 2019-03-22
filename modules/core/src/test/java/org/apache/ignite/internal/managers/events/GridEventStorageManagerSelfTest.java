@@ -63,7 +63,7 @@ public class GridEventStorageManagerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWaitForEvent() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         final int usrType = Integer.MAX_VALUE - 1;
 
@@ -96,7 +96,7 @@ public class GridEventStorageManagerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWaitForEventContinuationTimeout() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         try {
             // We'll never wait for nonexistent type of event.
@@ -116,7 +116,7 @@ public class GridEventStorageManagerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testUserEvent() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         try {
             ignite.events().recordLocal(new EventAdapter(null, "Test message.", EventType.EVT_NODE_FAILED) {

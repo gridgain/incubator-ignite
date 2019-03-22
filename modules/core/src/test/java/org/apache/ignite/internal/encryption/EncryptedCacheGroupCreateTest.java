@@ -63,7 +63,7 @@ public class EncryptedCacheGroupCreateTest extends AbstractEncryptionTest {
         ccfg.setEncryptionEnabled(true);
         ccfg.setGroupName(ENCRYPTED_GROUP);
 
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         grid.createCache(ccfg);
 
@@ -84,7 +84,7 @@ public class EncryptedCacheGroupCreateTest extends AbstractEncryptionTest {
     public void testCreateNotEncryptedCacheInEncryptedGroupFails() throws Exception {
         createEncryptedCache(ENCRYPTED_CACHE + "3", ENCRYPTED_GROUP + "3");
 
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         GridTestUtils.assertThrowsWithCause(() -> {
             grid.createCache(new CacheConfiguration<>(ENCRYPTED_CACHE + "4")
@@ -100,7 +100,7 @@ public class EncryptedCacheGroupCreateTest extends AbstractEncryptionTest {
         ccfg.setEncryptionEnabled(true);
         ccfg.setGroupName(grpName);
 
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         grid.createCache(ccfg);
 

@@ -52,7 +52,7 @@ public class IgniteClientReconnectServicesTest extends IgniteClientReconnectAbst
      */
     @Test
     public void testReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -64,7 +64,7 @@ public class IgniteClientReconnectServicesTest extends IgniteClientReconnectAbst
 
         assertNotNull(srvc);
 
-        long topVer = grid(0).cluster().topologyVersion();
+        long topVer = ignite(0).cluster().topologyVersion();
 
         assertEquals((Object)topVer, srvc.test());
 
@@ -88,7 +88,7 @@ public class IgniteClientReconnectServicesTest extends IgniteClientReconnectAbst
      */
     @Test
     public void testServiceRemove() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -133,7 +133,7 @@ public class IgniteClientReconnectServicesTest extends IgniteClientReconnectAbst
     public void testReconnectInDeploying() throws Exception {
         Assume.assumeTrue(!isEventDrivenServiceProcessorEnabled());
 
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -184,7 +184,7 @@ public class IgniteClientReconnectServicesTest extends IgniteClientReconnectAbst
     public void testReconnectInDeployingNew() throws Exception {
         Assume.assumeTrue(isEventDrivenServiceProcessorEnabled());
 
-        IgniteEx client = grid(serverCount());
+        IgniteEx client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -227,7 +227,7 @@ public class IgniteClientReconnectServicesTest extends IgniteClientReconnectAbst
      */
     @Test
     public void testReconnectInProgress() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 

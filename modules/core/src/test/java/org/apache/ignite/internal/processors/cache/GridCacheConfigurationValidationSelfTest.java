@@ -198,7 +198,7 @@ public class GridCacheConfigurationValidationSelfTest extends GridCommonAbstract
         try {
             startGridsMultiThreaded(2);
 
-            Collection<String> names = grid(0).cacheNames();
+            Collection<String> names = ignite(0).cacheNames();
 
             assertEquals(3, names.size());
 

@@ -601,9 +601,9 @@ public class CacheEntryProcessorExternalizableFailedTest extends GridCommonAbstr
     @SuppressWarnings("unchecked")
     private void doTestInvokeTest(CacheConfiguration ccfg, TransactionConcurrency txConcurrency,
         TransactionIsolation txIsolation) throws Exception {
-        IgniteEx cln = grid(getServerNodeCount());
+        IgniteEx cln = ignite(getServerNodeCount());
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
 
         IgniteCache clnCache;
 
@@ -628,7 +628,7 @@ public class CacheEntryProcessorExternalizableFailedTest extends GridCommonAbstr
             }
 
             // From affinity node.
-            Ignite grid = grid(ThreadLocalRandom.current().nextInt(NODES));
+            Ignite grid = ignite(ThreadLocalRandom.current().nextInt(NODES));
 
             final IgniteCache cache = grid.cache(ccfg.getName());
 
@@ -666,7 +666,7 @@ public class CacheEntryProcessorExternalizableFailedTest extends GridCommonAbstr
             e.printStackTrace();
         }
         finally {
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
         }
     }
 

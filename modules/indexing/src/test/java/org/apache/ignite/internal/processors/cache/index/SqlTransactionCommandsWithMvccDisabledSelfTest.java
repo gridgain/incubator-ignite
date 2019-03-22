@@ -32,7 +32,7 @@ public class SqlTransactionCommandsWithMvccDisabledSelfTest extends AbstractSche
 
         startGrid(commonConfiguration(0));
 
-        super.execute(grid(0), "CREATE TABLE INTS(k int primary key, v int) WITH \"wrap_value=false,cache_name=ints," +
+        super.execute(ignite(0), "CREATE TABLE INTS(k int primary key, v int) WITH \"wrap_value=false,cache_name=ints," +
             "atomicity=transactional\"");
     }
 
@@ -43,7 +43,7 @@ public class SqlTransactionCommandsWithMvccDisabledSelfTest extends AbstractSche
     public void testBeginWithMvccDisabled() throws Exception {
         GridTestUtils.assertThrows(null, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                execute(grid(0), "BEGIN");
+                execute(ignite(0), "BEGIN");
 
                 return null;
             }
@@ -55,7 +55,7 @@ public class SqlTransactionCommandsWithMvccDisabledSelfTest extends AbstractSche
      */
     @Test
     public void testCommitWithMvccDisabled() throws Exception {
-        execute(grid(0), "COMMIT");
+        execute(ignite(0), "COMMIT");
         // assert no exception
     }
 
@@ -64,7 +64,7 @@ public class SqlTransactionCommandsWithMvccDisabledSelfTest extends AbstractSche
      */
     @Test
     public void testRollbackWithMvccDisabled() throws Exception {
-        execute(grid(0), "ROLLBACK");
+        execute(ignite(0), "ROLLBACK");
         // assert no exception
     }
 }

@@ -100,7 +100,7 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
             ATOMIC,
             false);
 
-        final IgniteCache<Object, Object> cache = grid(0).createCache(ccfg);
+        final IgniteCache<Object, Object> cache = ignite(0).createCache(ccfg);
 
         UUID uuid = null;
 
@@ -120,7 +120,7 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
                 }
             };
 
-            uuid = grid(0).context().cache().cache(cache.getName()).context().continuousQueries()
+            uuid = ignite(0).context().cache().cache(cache.getName()).context().continuousQueries()
                 .executeInternalQuery(lsnr, new SerializableFilter(), false, true, true, false);
 
             for (int i = 10; i < 20; i++)
@@ -130,10 +130,10 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
         }
         finally {
             if (uuid != null)
-                grid(0).context().cache().cache(cache.getName()).context().continuousQueries()
+                ignite(0).context().cache().cache(cache.getName()).context().continuousQueries()
                     .cancelInternalQuery(uuid);
 
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
         }
     }
 
@@ -177,7 +177,7 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
                         log.info("Iteration: " + i);
 
                     for (int idx = 0; idx < NODES; idx++)
-                        randomUpdate(rnd, evtsQueues, expData, partCntr, grid(idx).cache(ccfg.getName()));
+                        randomUpdate(rnd, evtsQueues, expData, partCntr, ignite(idx).cache(ccfg.getName()));
                 }
             }
             finally {
@@ -185,7 +185,7 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
                     cur.close();
 
                 for (T2<Integer, MutableCacheEntryListenerConfiguration> e : lsnrCfgs)
-                    grid(e.get1()).cache(ccfg.getName()).deregisterCacheEntryListener(e.get2());
+                    ignite(e.get1()).cache(ccfg.getName()).deregisterCacheEntryListener(e.get2());
             }
         }
         finally {
@@ -222,7 +222,7 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
                     sync
                 );
 
-            grid(nodeIdx).cache(cacheName).registerCacheEntryListener((CacheEntryListenerConfiguration)lsnrCfg);
+            ignite(nodeIdx).cache(cacheName).registerCacheEntryListener((CacheEntryListenerConfiguration)lsnrCfg);
 
             lsnrCfgs.add(new T2<Integer, MutableCacheEntryListenerConfiguration>(nodeIdx, lsnrCfg));
         }
@@ -239,7 +239,7 @@ public class CacheContinuousQueryFactoryFilterRandomOperationTest extends CacheC
 
             qry.setRemoteFilterFactory(createFilterFactory());
 
-            QueryCursor<?> cur = grid(nodeIdx).cache(cacheName).query(qry);
+            QueryCursor<?> cur = ignite(nodeIdx).cache(cacheName).query(qry);
 
             curs.add(cur);
         }

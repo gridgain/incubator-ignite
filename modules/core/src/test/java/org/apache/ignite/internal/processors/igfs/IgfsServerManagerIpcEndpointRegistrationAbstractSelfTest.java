@@ -103,7 +103,7 @@ public abstract class IgfsServerManagerIpcEndpointRegistrationAbstractSelfTest e
      * @throws Exception If failed.
      */
     protected T2<Integer, Integer> checkRegisteredIpcEndpoints() throws Exception {
-        GridKernalContext ctx = ((IgniteKernal)grid()).context();
+        GridKernalContext ctx = ((IgniteKernal)ignite()).context();
 
         int tcp = 0;
         int shmem = 0;

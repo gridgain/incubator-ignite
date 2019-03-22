@@ -120,7 +120,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
         incNodes.clear();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            UUID id = grid(i).localNode().id();
+            UUID id = ignite(i).localNode().id();
 
             allNodes.add(id);
 
@@ -148,7 +148,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testNullTopic() throws Exception {
         latch = new CountDownLatch(MSG_CNT * GRID_CNT);
 
-        listen(grid(0).cluster(), null, true);
+        listen(ignite(0).cluster(), null, true);
 
         send();
 
@@ -169,7 +169,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testNonNullTopic() throws Exception {
         latch = new CountDownLatch(MSG_CNT * GRID_CNT);
 
-        listen(grid(0).cluster(), TOPIC, true);
+        listen(ignite(0).cluster(), TOPIC, true);
 
         send();
 
@@ -190,7 +190,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testStopListen() throws Exception {
         latch = new CountDownLatch(GRID_CNT);
 
-        listen(grid(0).cluster(), null, false);
+        listen(ignite(0).cluster(), null, false);
 
         send();
 
@@ -216,7 +216,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testProjection() throws Exception {
         latch = new CountDownLatch(MSG_CNT * (GRID_CNT - 1));
 
-        listen(grid(0).cluster().forRemotes(), null, true);
+        listen(ignite(0).cluster().forRemotes(), null, true);
 
         send();
 
@@ -236,7 +236,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testNodeJoin() throws Exception {
         latch = new CountDownLatch(MSG_CNT * (GRID_CNT + 1));
 
-        listen(grid(0).cluster(), null, true);
+        listen(ignite(0).cluster(), null, true);
 
         try {
             Ignite g = startGrid("anotherGrid");
@@ -269,7 +269,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testNodeJoinWithProjection() throws Exception {
         latch = new CountDownLatch(MSG_CNT * GRID_CNT);
 
-        listen(grid(0).cluster().forAttribute(INC_ATTR, null), null, true);
+        listen(ignite(0).cluster().forAttribute(INC_ATTR, null), null, true);
 
         try {
             include = true;
@@ -309,7 +309,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testNullTopicWithDeployment() throws Exception {
         Class<?> cls = getExternalClassLoader().loadClass(LSNR_CLS_NAME);
 
-        grid(0).message().remoteListen(null, (IgniteBiPredicate<UUID, Object>)cls.newInstance());
+        ignite(0).message().remoteListen(null, (IgniteBiPredicate<UUID, Object>)cls.newInstance());
 
         send();
 
@@ -334,7 +334,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
 
         Object topic = topicCls.newInstance();
 
-        grid(0).message().remoteListen(topic, (IgniteBiPredicate<UUID, Object>)lsnrCls.newInstance());
+        ignite(0).message().remoteListen(topic, (IgniteBiPredicate<UUID, Object>)lsnrCls.newInstance());
 
         send(topic);
 
@@ -354,7 +354,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     public void testListenActor() throws Exception {
         latch = new CountDownLatch(MSG_CNT * (GRID_CNT + 1));
 
-        grid(0).message().remoteListen(null, new Actor(grid(0).localNode().id()));
+        ignite(0).message().remoteListen(null, new Actor(ignite(0).localNode().id()));
 
         try {
             Ignite g = startGrid("anotherGrid");
@@ -389,7 +389,7 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
     private void listen(final ClusterGroup prj, @Nullable Object topic, final boolean ret) throws Exception {
         assert prj != null;
 
-        message(prj).remoteListen(topic, new Listener(grid(0).localNode().id(), ret));
+        message(prj).remoteListen(topic, new Listener(ignite(0).localNode().id(), ret));
     }
 
     /**
@@ -407,10 +407,10 @@ public class GridMessageListenSelfTest extends GridCommonAbstractTest {
         assert topic != null;
 
         for (int i = 0; i < MSG_CNT; i++)
-            grid(0).message().send(null, MSG);
+            ignite(0).message().send(null, MSG);
 
         for (int i = 0; i < MSG_CNT; i++)
-            grid(0).message().send(topic, MSG);
+            ignite(0).message().send(topic, MSG);
     }
 
     /**

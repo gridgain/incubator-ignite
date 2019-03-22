@@ -55,7 +55,7 @@ public class IgniteBaselineLockPartitionOnAffinityRunTxCacheTest extends IgniteC
 
         startGrids(gridCnt + 1);
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         stopGrid(gridCnt);
 

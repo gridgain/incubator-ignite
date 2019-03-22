@@ -52,7 +52,7 @@ public class IgniteCacheFieldsQueryNoDataSelfTest extends GridCommonAbstractTest
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /**
@@ -60,7 +60,7 @@ public class IgniteCacheFieldsQueryNoDataSelfTest extends GridCommonAbstractTest
      */
     @Test
     public void testQuery() throws Exception {
-        Collection<Cache.Entry<Object, Object>> res = grid().cache(DEFAULT_CACHE_NAME)
+        Collection<Cache.Entry<Object, Object>> res = ignite().cache(DEFAULT_CACHE_NAME)
             .query(new SqlQuery("Integer", "from Integer")).getAll();
 
         assert res != null;

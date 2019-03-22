@@ -150,7 +150,7 @@ public class CacheKeepBinaryIterationTest extends GridCommonAbstractTest {
      */
     private void doTestScanQuery(final CacheConfiguration<Object, Object> ccfg, boolean keepBinary,
         boolean primitives) throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).createCache(ccfg);
+        IgniteCache<Object, Object> cache = ignite(0).createCache(ccfg);
 
         assertEquals(0, cache.size());
 
@@ -162,7 +162,7 @@ public class CacheKeepBinaryIterationTest extends GridCommonAbstractTest {
                     cache.put(new QueryTestKey(i), new QueryTestValue(i));
 
             for (int i = 0; i < getServerNodeCount(); i++) {
-                IgniteCache<Object, Object> cache0 = grid(i).cache(ccfg.getName());
+                IgniteCache<Object, Object> cache0 = ignite(i).cache(ccfg.getName());
 
                 if (keepBinary)
                     cache0 = cache0.withKeepBinary();
@@ -205,7 +205,7 @@ public class CacheKeepBinaryIterationTest extends GridCommonAbstractTest {
                 startGridsMultiThreaded(getServerNodeCount());
             }
             else
-                grid(0).destroyCache(ccfg.getName());
+                ignite(0).destroyCache(ccfg.getName());
         }
     }
 
@@ -215,7 +215,7 @@ public class CacheKeepBinaryIterationTest extends GridCommonAbstractTest {
     private void doTestLocalEntries(final CacheConfiguration<Object, Object> ccfg,
         boolean keepBinary,
         boolean primitives) throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).createCache(ccfg);
+        IgniteCache<Object, Object> cache = ignite(0).createCache(ccfg);
 
         assertEquals(0, cache.size());
 
@@ -227,7 +227,7 @@ public class CacheKeepBinaryIterationTest extends GridCommonAbstractTest {
                     cache.put(new QueryTestKey(i), new QueryTestValue(i));
 
             for (int i = 0; i < getServerNodeCount(); i++) {
-                IgniteCache<Object, Object> cache0 = grid(i).cache(ccfg.getName());
+                IgniteCache<Object, Object> cache0 = ignite(i).cache(ccfg.getName());
 
                 if (keepBinary)
                     cache0 = cache0.withKeepBinary();
@@ -270,7 +270,7 @@ public class CacheKeepBinaryIterationTest extends GridCommonAbstractTest {
                 startGridsMultiThreaded(getServerNodeCount());
             }
             else
-                grid(0).destroyCache(ccfg.getName());
+                ignite(0).destroyCache(ccfg.getName());
         }
     }
 

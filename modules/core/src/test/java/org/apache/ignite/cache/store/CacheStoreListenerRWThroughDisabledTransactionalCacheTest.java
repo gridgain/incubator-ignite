@@ -77,11 +77,11 @@ public class CacheStoreListenerRWThroughDisabledTransactionalCacheTest extends C
      * @param isolation Transaction isolation level.
      */
     private void testTransactionalLookup(TransactionConcurrency concurrency, TransactionIsolation isolation) {
-        IgniteCache cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
-        try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+        try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
             for (int i = 0; i < CNT; ++i)
                 cache.get(r.nextInt());
 
@@ -108,11 +108,11 @@ public class CacheStoreListenerRWThroughDisabledTransactionalCacheTest extends C
      * @param isolation Transaction isolation level.
      */
     private void testTransactionalUpdate(TransactionConcurrency concurrency, TransactionIsolation isolation) {
-        IgniteCache cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
-        try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+        try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
             for (int i = 0; i < CNT; ++i)
                 cache.put(r.nextInt(), "test-value");
 
@@ -139,11 +139,11 @@ public class CacheStoreListenerRWThroughDisabledTransactionalCacheTest extends C
      * @param isolation Transaction isolation level.
      */
     private void testTransactionalRemove(TransactionConcurrency concurrency, TransactionIsolation isolation) {
-        IgniteCache cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
-        try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+        try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
             for (int i = 0; i < CNT; ++i) {
                 int key = r.nextInt();
 

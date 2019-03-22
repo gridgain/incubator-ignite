@@ -60,7 +60,7 @@ public class CacheOffheapBatchIndexingMultiTypeTest extends CacheOffheapBatchInd
         int entitiesCnt,
         Class<?>[] entityClasses,
         boolean preloadInStreamer) {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         final IgniteCache<Object, Object> cache =
             ignite.createCache(cacheConfiguration(entityClasses));

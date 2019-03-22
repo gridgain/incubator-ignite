@@ -82,7 +82,7 @@ public class BinaryObjectExceptionSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testUnexpectedFieldType() throws Exception {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         IgniteCache<String, Value> cache = grid.cache(cacheName);
 

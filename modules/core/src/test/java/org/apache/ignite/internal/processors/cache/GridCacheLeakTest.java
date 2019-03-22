@@ -100,7 +100,7 @@ public class GridCacheLeakTest extends GridCommonAbstractTest {
         try {
             int i = 0;
 
-            IgniteCache<Object, Object> cache = grid(0).cache(CACHE_NAME);
+            IgniteCache<Object, Object> cache = ignite(0).cache(CACHE_NAME);
 
             while (!Thread.currentThread().isInterrupted()) {
                 UUID key = UUID.randomUUID();
@@ -117,7 +117,7 @@ public class GridCacheLeakTest extends GridCommonAbstractTest {
 
                 if (i % 5000 == 0) {
                     for (int g = 0; g < 3; g++) {
-                        GridCacheConcurrentMap map = ((IgniteKernal)grid(g)).internalCache(CACHE_NAME).map();
+                        GridCacheConcurrentMap map = ((IgniteKernal)ignite(g)).internalCache(CACHE_NAME).map();
 
                         info("Map size for cache [g=" + g + ", size=" + map.internalSize() +
                             ", pubSize=" + map.publicSize(CU.cacheId(CACHE_NAME)) + ']');

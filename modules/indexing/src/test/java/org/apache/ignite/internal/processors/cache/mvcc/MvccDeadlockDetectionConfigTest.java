@@ -62,7 +62,7 @@ public class MvccDeadlockDetectionConfigTest extends GridCommonAbstractTest  {
     public void deadlockDetectionDisabled() throws Exception {
         deadlockDetectionEnabled = false;
 
-        Ignite ign = startGrid();
+        Ignite ign = clusterManager__startGrid();
 
         IgniteCache<Object, Object> cache = ign.createCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
             .setAtomicityMode(TRANSACTIONAL_SNAPSHOT));
@@ -101,7 +101,7 @@ public class MvccDeadlockDetectionConfigTest extends GridCommonAbstractTest  {
     public void deadlockDetectionEnabled() throws Exception {
         deadlockDetectionEnabled = true;
 
-        Ignite ign = startGrid();
+        Ignite ign = clusterManager__startGrid();
 
         IgniteCache<Object, Object> cache = ign.createCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
             .setAtomicityMode(TRANSACTIONAL_SNAPSHOT));

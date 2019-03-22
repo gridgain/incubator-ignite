@@ -118,7 +118,7 @@ public class LruNearEvictionPolicySelfTest extends GridCommonAbstractTest {
 
             info("Inserting " + cnt + " keys to cache.");
 
-            try (IgniteDataStreamer<Integer, String> ldr = grid(0).dataStreamer(DEFAULT_CACHE_NAME)) {
+            try (IgniteDataStreamer<Integer, String> ldr = ignite(0).dataStreamer(DEFAULT_CACHE_NAME)) {
                 for (int i = 0; i < cnt; i++)
                     ldr.addData(i, Integer.toString(i));
             }
@@ -130,7 +130,7 @@ public class LruNearEvictionPolicySelfTest extends GridCommonAbstractTest {
             info("Getting " + cnt + " keys from cache.");
 
             for (int i = 0; i < cnt; i++) {
-                IgniteCache<Integer, String> cache = grid(rand.nextInt(GRID_COUNT)).cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Integer, String> cache = ignite(rand.nextInt(GRID_COUNT)).cache(DEFAULT_CACHE_NAME);
 
                 assertTrue(cache.get(i).equals(Integer.toString(i)));
             }

@@ -146,7 +146,7 @@ public abstract class AbstractCacheJtaSelfTest extends GridCacheAbstractSelfTest
     public void testJtaTwoCaches() throws Exception {
         UserTransaction jtaTx = jotm.getUserTransaction();
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         IgniteCache<String, Integer> cache1 = jcache();
 
@@ -202,7 +202,7 @@ public abstract class AbstractCacheJtaSelfTest extends GridCacheAbstractSelfTest
 
         Callable<Object> c = new Callable<Object>() {
             @Override public Object call() throws Exception {
-                assertNull(grid(0).transactions().tx());
+                assertNull(ignite(0).transactions().tx());
 
                 UserTransaction jtaTx = jotm.getUserTransaction();
 
@@ -213,7 +213,7 @@ public abstract class AbstractCacheJtaSelfTest extends GridCacheAbstractSelfTest
 
                     cache.putAsync("key", 1);
 
-                    assertEquals(grid(0).transactions().tx().state(), ACTIVE);
+                    assertEquals(ignite(0).transactions().tx().state(), ACTIVE);
 
                     latch.countDown();
 

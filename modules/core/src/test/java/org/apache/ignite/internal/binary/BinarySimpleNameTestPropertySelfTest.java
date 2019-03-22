@@ -85,7 +85,7 @@ public class BinarySimpleNameTestPropertySelfTest extends GridCommonAbstractTest
     @Test
     public void testBinaryDisabled() throws Exception {
         enableJdkMarshaller = true;
-        assertNull(startGrid().binary());
+        assertNull(clusterManager__startGrid().binary());
     }
 
     /**
@@ -93,7 +93,7 @@ public class BinarySimpleNameTestPropertySelfTest extends GridCommonAbstractTest
      * @throws Exception If failed.
      */
     private void checkProperty(String expTypeName) throws Exception {
-        IgniteBinary binary = startGrid().binary();
+        IgniteBinary binary = clusterManager__startGrid().binary();
 
         BinaryObjectBuilder builder = binary.builder("org.ignite.test.TestClass");
 

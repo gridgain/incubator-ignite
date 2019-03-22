@@ -888,7 +888,7 @@ public class IgniteTxCachePrimarySyncTest extends GridCommonAbstractTest {
         boolean wait = GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 for (ClusterNode node : nodes) {
-                    Ignite ignite = grid(node);
+                    Ignite ignite = ignite(node);
 
                     if (!key.equals(ignite.cache(cacheName).get(key)))
                         return false;

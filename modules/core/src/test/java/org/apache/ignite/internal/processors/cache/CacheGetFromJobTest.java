@@ -78,7 +78,7 @@ public class CacheGetFromJobTest extends GridCacheAbstractSelfTest {
         int cntr = 0;
 
         while (!fut.isDone()) {
-            grid(0).compute().broadcast(new TestJob());
+            ignite(0).compute().broadcast(new TestJob());
 
             cntr++;
         }

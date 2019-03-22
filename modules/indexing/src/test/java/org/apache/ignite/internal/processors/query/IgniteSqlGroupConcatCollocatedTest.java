@@ -72,7 +72,7 @@ public class IgniteSqlGroupConcatCollocatedTest extends AbstractIndexingCommonTe
             Ignition.setClientMode(false);
         }
 
-        IgniteCache c = grid(CLIENT).cache(CACHE_NAME);
+        IgniteCache c = ignite(CLIENT).cache(CACHE_NAME);
 
         int k = 0;
 

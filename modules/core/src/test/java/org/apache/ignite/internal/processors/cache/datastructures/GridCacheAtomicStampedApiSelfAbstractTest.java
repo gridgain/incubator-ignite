@@ -52,8 +52,8 @@ public abstract class GridCacheAtomicStampedApiSelfAbstractTest extends IgniteAt
         String initVal = "1";
         String initStamp = "2";
 
-        IgniteAtomicStamped<String, String> atomic1 = grid(0).atomicStamped(atomicName1, initVal, initStamp, true);
-        IgniteAtomicStamped<String, String> atomic2 = grid(0).atomicStamped(atomicName1, null, null, true);
+        IgniteAtomicStamped<String, String> atomic1 = ignite(0).atomicStamped(atomicName1, initVal, initStamp, true);
+        IgniteAtomicStamped<String, String> atomic2 = ignite(0).atomicStamped(atomicName1, null, null, true);
 
         assertNotNull(atomic1);
         assertNotNull(atomic2);
@@ -66,7 +66,7 @@ public abstract class GridCacheAtomicStampedApiSelfAbstractTest extends IgniteAt
         atomic1.close();
         atomic2.close();
 
-        assertNull(grid(0).atomicStamped(atomicName1, null, null, false));
+        assertNull(ignite(0).atomicStamped(atomicName1, null, null, false));
 
         try {
             atomic1.get();
@@ -90,7 +90,7 @@ public abstract class GridCacheAtomicStampedApiSelfAbstractTest extends IgniteAt
         String initVal = "qwerty";
         String initStamp = "asdfgh";
 
-        IgniteAtomicStamped<String, String> atomic = grid(0).atomicStamped(atomicName, initVal, initStamp, true);
+        IgniteAtomicStamped<String, String> atomic = ignite(0).atomicStamped(atomicName, initVal, initStamp, true);
 
         assertEquals(initVal, atomic.value());
         assertEquals(initStamp, atomic.stamp());
@@ -115,7 +115,7 @@ public abstract class GridCacheAtomicStampedApiSelfAbstractTest extends IgniteAt
         String initVal = "qwerty";
         String initStamp = "asdfgh";
 
-        IgniteAtomicStamped<String, String> atomic = grid(0).atomicStamped(atomicName, initVal, initStamp, true);
+        IgniteAtomicStamped<String, String> atomic = ignite(0).atomicStamped(atomicName, initVal, initStamp, true);
 
         assertEquals(initVal, atomic.value());
         assertEquals(initStamp, atomic.stamp());
@@ -138,7 +138,7 @@ public abstract class GridCacheAtomicStampedApiSelfAbstractTest extends IgniteAt
      */
     @Test
     public void testIsolation() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         CacheConfiguration cfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
@@ -193,7 +193,7 @@ public abstract class GridCacheAtomicStampedApiSelfAbstractTest extends IgniteAt
      */
     @Test
     public void testMultipleStructuresInDifferentGroups() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         AtomicConfiguration cfg = new AtomicConfiguration().setGroupName("grp1");
 

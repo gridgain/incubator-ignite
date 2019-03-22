@@ -55,7 +55,7 @@ public class GridLocalCacheStoreManagerDeserializationTest extends GridCacheStor
     public void testUpdate() throws Exception {
         // Goal is to check correct saving to store (no exception must be thrown)
 
-        final Ignite grid = startGrid();
+        final Ignite grid = clusterManager__startGrid();
 
         final IgniteCache<TestObj, TestObj> cache = grid.createCache(CACHE_NAME);
 

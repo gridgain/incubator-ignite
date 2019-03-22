@@ -28,7 +28,7 @@ public class IgniteAllBaselineNodesOnlineFullApiSelfTest extends IgniteBaselineA
 
         startGrids(gridCount());
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         awaitPartitionMapExchange();
     }

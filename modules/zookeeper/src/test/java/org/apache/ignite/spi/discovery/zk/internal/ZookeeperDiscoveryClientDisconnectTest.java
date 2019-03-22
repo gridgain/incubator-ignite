@@ -96,7 +96,7 @@ public class ZookeeperDiscoveryClientDisconnectTest extends ZookeeperDiscoverySp
 
         MBeanServer srv = ManagementFactory.getPlatformMBeanServer();
 
-        IgniteEx ignite = grid("server1-block");
+        IgniteEx ignite = ignite("server1-block");
 
         ObjectName spiName = U.makeMBeanName(ignite.context().igniteInstanceName(), "SPIs",
             ZookeeperDiscoverySpi.class.getSimpleName());

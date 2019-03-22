@@ -172,7 +172,7 @@ public class ComplexSecondaryKeyUnwrapSelfTest extends AbstractIndexingCommonTes
      * @return Node to initiate operations from.
      */
     private IgniteEx node() {
-        return grid(0);
+        return ignite(0);
     }
 
     /**

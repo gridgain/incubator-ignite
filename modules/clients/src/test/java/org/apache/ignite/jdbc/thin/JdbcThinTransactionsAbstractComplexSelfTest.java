@@ -904,7 +904,7 @@ public abstract class JdbcThinTransactionsAbstractComplexSelfTest extends JdbcTh
      * @return Default node to fire queries from.
      */
     private IgniteEx node() {
-        return grid(nodeIndex());
+        return ignite(nodeIndex());
     }
 
     /**

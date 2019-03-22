@@ -392,12 +392,12 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
 
         assertEquals(getClientFsUser(), fs.getFileStatus(file1).getOwner());
 
-        assertEquals(4, grid(0).cluster().nodes().size());
+        assertEquals(4, ignite(0).cluster().nodes().size());
 
         long used = 0, max = 0;
 
         for (int i = 0; i < 4; i++) {
-            IgniteFileSystem igfs = grid(i).fileSystem("igfs");
+            IgniteFileSystem igfs = ignite(i).fileSystem("igfs");
 
             IgfsMetrics metrics = igfs.metrics();
 
@@ -1434,7 +1434,7 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
                 out.write(new byte[1024 * 1024]);
             }
 
-            IgniteFileSystem igfs = grid(0).fileSystem("igfs");
+            IgniteFileSystem igfs = ignite(0).fileSystem("igfs");
 
             IgfsPath filePath = new IgfsPath("/someFile");
 
@@ -1470,32 +1470,30 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
 
         final Collection<Integer> errs = new GridConcurrentHashSet<>(THREAD_CNT, 1.0f, THREAD_CNT);
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                int idx = cnt.getAndIncrement();
+        GridTestUtils.runMultiThreaded(() -> {
+            int idx = cnt.getAndIncrement();
 
-                byte[] data = new byte[256];
+            byte[] data = new byte[256];
 
-                Arrays.fill(data, (byte)idx);
+            Arrays.fill(data, (byte)idx);
 
-                FSDataOutputStream os = null;
+            FSDataOutputStream os = null;
 
-                try {
-                    os = fs.create(file, EnumSet.of(CreateFlag.OVERWRITE),
-                        Options.CreateOpts.perms(FsPermission.getDefault()));
+            try {
+                os = fs.create(file, EnumSet.of(CreateFlag.OVERWRITE),
+                    Options.CreateOpts.perms(FsPermission.getDefault()));
 
-                    os.write(data);
-                }
-                catch (IOException ignore) {
-                    errs.add(idx);
-                }
-                finally {
-                    U.awaitQuiet(barrier);
-
-                    U.closeQuiet(os);
-                }
+                os.write(data);
             }
-        }, THREAD_CNT);
+            catch (IOException ignore) {
+                errs.add(idx);
+            }
+            finally {
+                U.awaitQuiet(barrier);
+
+                U.closeQuiet(os);
+            }
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         // Only one thread could obtain write lock on the file.
         assert errs.size() == THREAD_CNT - 1 : "Invalid errors count [expected=" + (THREAD_CNT - 1) + ", actual=" +
@@ -1546,34 +1544,33 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
 
         final Collection<Integer> errs = new GridConcurrentHashSet<>(THREAD_CNT, 1.0f, THREAD_CNT);
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                int idx = cnt.getAndIncrement();
+        GridTestUtils.runMultiThreaded(() -> {
+            int idx = cnt.getAndIncrement();
 
-                byte[] data = new byte[256];
+            byte[] data = new byte[256];
 
-                Arrays.fill(data, (byte)idx);
+            Arrays.fill(data, (byte)idx);
 
+            U.awaitQuiet(barrier);
+
+            FSDataOutputStream os = null;
+
+            try {
+                os = fs.create(file, EnumSet.of(CreateFlag.APPEND),
+                    Options.CreateOpts.perms(FsPermission.getDefault()));
+
+                os.write(data);
+            }
+            catch (IOException ignore) {
+                errs.add(idx);
+            }
+            finally {
                 U.awaitQuiet(barrier);
 
-                FSDataOutputStream os = null;
-
-                try {
-                    os = fs.create(file, EnumSet.of(CreateFlag.APPEND),
-                        Options.CreateOpts.perms(FsPermission.getDefault()));
-
-                    os.write(data);
-                }
-                catch (IOException ignore) {
-                    errs.add(idx);
-                }
-                finally {
-                    U.awaitQuiet(barrier);
-
-                    U.closeQuiet(os);
-                }
+                U.closeQuiet(os);
             }
-        }, THREAD_CNT);
+
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         // Only one thread could obtain write lock on the file.
         assert errs.size() == THREAD_CNT - 1;
@@ -1632,46 +1629,43 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicBoolean err = new AtomicBoolean();
 
-        multithreaded(new Runnable() {
-            @Override
-            public void run() {
-                FSDataInputStream is = null;
+        GridTestUtils.runMultiThreaded(() -> {
+            FSDataInputStream is = null;
+
+            try {
+                int pos = ThreadLocalRandom.current().nextInt(2048);
 
                 try {
-                    int pos = ThreadLocalRandom.current().nextInt(2048);
-
-                    try {
-                        is = fs.open(file);
-                    }
-                    finally {
-                        U.awaitQuiet(barrier);
-                    }
-
-                    is.seek(256 * pos);
-
-                    byte[] buf = new byte[256];
-
-                    for (int i = pos; i < 2048; i++) {
-                        // First perform normal read.
-                        int read = is.read(buf);
-
-                        assert read == 256;
-
-                        Arrays.equals(dataChunk, buf);
-                    }
-
-                    int res = is.read(buf);
-
-                    assert res == -1;
-                }
-                catch (IOException ignore) {
-                    err.set(true);
+                    is = fs.open(file);
                 }
                 finally {
-                    U.closeQuiet(is);
+                    U.awaitQuiet(barrier);
                 }
+
+                is.seek(256 * pos);
+
+                byte[] buf = new byte[256];
+
+                for (int i = pos; i < 2048; i++) {
+                    // First perform normal read.
+                    int read = is.read(buf);
+
+                    assert read == 256;
+
+                    Arrays.equals(dataChunk, buf);
+                }
+
+                int res = is.read(buf);
+
+                assert res == -1;
             }
-        }, THREAD_CNT);
+            catch (IOException ignore) {
+                err.set(true);
+            }
+            finally {
+                U.closeQuiet(is);
+            }
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         assert !err.get();
     }
@@ -1692,40 +1686,39 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicBoolean err = new AtomicBoolean();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                Deque<IgniteBiTuple<Integer, Path>> queue = new ArrayDeque<>();
+        GridTestUtils.runMultiThreaded(() -> {
+            Deque<IgniteBiTuple<Integer, Path>> queue = new ArrayDeque<>();
 
-                queue.add(F.t(0, dir));
+            queue.add(F.t(0, dir));
 
-                U.awaitQuiet(barrier);
+            U.awaitQuiet(barrier);
 
-                while (!queue.isEmpty()) {
-                    IgniteBiTuple<Integer, Path> t = queue.pollFirst();
+            while (!queue.isEmpty()) {
+                IgniteBiTuple<Integer, Path> t = queue.pollFirst();
 
-                    int curDepth = t.getKey();
-                    Path curPath = t.getValue();
+                int curDepth = t.getKey();
+                Path curPath = t.getValue();
 
-                    if (curDepth <= depth) {
-                        int newDepth = curDepth + 1;
+                if (curDepth <= depth) {
+                    int newDepth = curDepth + 1;
 
-                        // Create directories.
-                        for (int i = 0; i < entryCnt; i++) {
-                            Path subDir = new Path(curPath, "dir-" + newDepth + "-" + i);
+                    // Create directories.
+                    for (int i = 0; i < entryCnt; i++) {
+                        Path subDir = new Path(curPath, "dir-" + newDepth + "-" + i);
 
-                            try {
-                                fs.mkdir(subDir, FsPermission.getDefault(), true);
-                            }
-                            catch (IOException ignore) {
-                                err.set(true);
-                            }
-
-                            queue.addLast(F.t(newDepth, subDir));
+                        try {
+                            fs.mkdir(subDir, FsPermission.getDefault(), true);
                         }
+                        catch (IOException ignore) {
+                            err.set(true);
+                        }
+
+                        queue.addLast(F.t(newDepth, subDir));
                     }
                 }
             }
-        }, THREAD_CNT);
+
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         // Ensure there were no errors.
         assert !err.get();
@@ -1806,21 +1799,20 @@ public abstract class HadoopIgfs20FileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicBoolean err = new AtomicBoolean();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                try {
-                    U.awaitQuiet(barrier);
+        GridTestUtils.runMultiThreaded(() -> {
+            try {
+                U.awaitQuiet(barrier);
 
-                    fs.delete(dir, true);
-                }
-                catch (FileNotFoundException ignore) {
-                    // No-op.
-                }
-                catch (IOException ignore) {
-                    err.set(true);
-                }
+                fs.delete(dir, true);
             }
-        }, THREAD_CNT);
+            catch (FileNotFoundException ignore) {
+                // No-op.
+            }
+            catch (IOException ignore) {
+                err.set(true);
+            }
+
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         // Ensure there were no errors.
         assert !err.get();

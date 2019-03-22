@@ -83,14 +83,14 @@ public class JdbcComplexQuerySelfTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         startGrids(3);
 
-        IgniteCache<String, Organization> orgCache = grid(0).cache("org");
+        IgniteCache<String, Organization> orgCache = ignite(0).cache("org");
 
         assert orgCache != null;
 
         orgCache.put("o1", new Organization(1, "A"));
         orgCache.put("o2", new Organization(2, "B"));
 
-        IgniteCache<AffinityKey, Person> personCache = grid(0).cache("pers");
+        IgniteCache<AffinityKey, Person> personCache = ignite(0).cache("pers");
 
         assert personCache != null;
 

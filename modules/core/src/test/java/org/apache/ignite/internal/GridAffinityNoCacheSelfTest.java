@@ -70,7 +70,7 @@ public class GridAffinityNoCacheSelfTest extends GridCommonAbstractTest {
      * @param key Key.
      */
     private void checkAffinityProxyNoCache(Object key) {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         final Affinity<Object> affinity = ignite.affinity("noCache");
 
@@ -101,11 +101,11 @@ public class GridAffinityNoCacheSelfTest extends GridCommonAbstractTest {
      * @param key Key.
      */
     private void checkAffinityImplCacheDeleted(Object key) throws InterruptedException {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         final String cacheName = "cacheToBeDeleted";
 
-        grid(1).getOrCreateCache(cacheName);
+        ignite(1).getOrCreateCache(cacheName);
 
         awaitPartitionMapExchange();
 

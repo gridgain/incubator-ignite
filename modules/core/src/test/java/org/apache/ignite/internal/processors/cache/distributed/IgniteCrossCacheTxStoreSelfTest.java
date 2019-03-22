@@ -111,9 +111,9 @@ public class IgniteCrossCacheTxStoreSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).cache("cacheA").removeAll();
-        grid(0).cache("cacheB").removeAll();
-        grid(0).cache("cacheC").removeAll();
+        ignite(0).cache("cacheA").removeAll();
+        ignite(0).cache("cacheB").removeAll();
+        ignite(0).cache("cacheC").removeAll();
 
         for (CacheStore store : firstStores.values())
             ((TestStore)store).clear();
@@ -127,7 +127,7 @@ public class IgniteCrossCacheTxStoreSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSameStore() throws Exception {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         TestStore firstStore = (TestStore)firstStores.get(grid.name());
         TestStore secondStore = (TestStore)secondStores.get(grid.name());
@@ -180,7 +180,7 @@ public class IgniteCrossCacheTxStoreSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testDifferentStores() throws Exception {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         TestStore firstStore = (TestStore)firstStores.get(grid.name());
         TestStore secondStore = (TestStore)secondStores.get(grid.name());
@@ -236,7 +236,7 @@ public class IgniteCrossCacheTxStoreSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNonPersistentCache() throws Exception {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         TestStore firstStore = (TestStore)firstStores.get(grid.name());
         TestStore secondStore = (TestStore)secondStores.get(grid.name());

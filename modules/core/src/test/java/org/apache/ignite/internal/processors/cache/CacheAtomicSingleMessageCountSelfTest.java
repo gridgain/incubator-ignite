@@ -83,7 +83,7 @@ public class CacheAtomicSingleMessageCountSelfTest extends GridCommonAbstractTes
         try {
             awaitPartitionMapExchange();
 
-            TestCommunicationSpi commSpi = (TestCommunicationSpi)grid(0).configuration().getCommunicationSpi();
+            TestCommunicationSpi commSpi = (TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi();
             commSpi.resetCount();
 
             commSpi.registerMessage(GridNearAtomicFullUpdateRequest.class);
@@ -113,12 +113,12 @@ public class CacheAtomicSingleMessageCountSelfTest extends GridCommonAbstractTes
     public void testSingleTransformMessage() throws Exception {
         startGrids(2);
 
-        int cacheId = ((IgniteKernal)grid(0)).internalCache(DEFAULT_CACHE_NAME).context().cacheId();
+        int cacheId = ((IgniteKernal)ignite(0)).internalCache(DEFAULT_CACHE_NAME).context().cacheId();
 
         try {
             awaitPartitionMapExchange();
 
-            TestCommunicationSpi commSpi = (TestCommunicationSpi)grid(0).configuration().getCommunicationSpi();
+            TestCommunicationSpi commSpi = (TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi();
 
             commSpi.resetCount();
             commSpi.filterCacheId(cacheId);
@@ -159,7 +159,7 @@ public class CacheAtomicSingleMessageCountSelfTest extends GridCommonAbstractTes
         try {
             awaitPartitionMapExchange();
 
-            TestCommunicationSpi commSpi = (TestCommunicationSpi)grid(0).configuration().getCommunicationSpi();
+            TestCommunicationSpi commSpi = (TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi();
 
             commSpi.resetCount();
 

@@ -109,7 +109,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
      * @return Cache.
      */
     protected <K, V> IgniteCache<K, V> cache(Class<K> clsK, Class<V> clsV) {
-        return jcache(grid(0), cacheConfiguration(), clsK, clsV);
+        return jcache(ignite(0), cacheConfiguration(), clsK, clsV);
     }
 
 
@@ -129,7 +129,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
 
         // Clean up all caches.
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteCache<Object, Object> c = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> c = ignite(i).cache(DEFAULT_CACHE_NAME);
 
             assertEquals(0, c.size());
         }
@@ -148,8 +148,8 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
 
         // Clean up all caches.
         for (int i = 0; i < GRID_CNT; i++) {
-            for(String cacheName : grid(i).cacheNames()) {
-                IgniteCache<Object, Object> c = grid(i).cache(cacheName);
+            for(String cacheName : ignite(i).cacheNames()) {
+                IgniteCache<Object, Object> c = ignite(i).cache(cacheName);
 
                 c.removeAll();
 
@@ -167,8 +167,8 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         U.sleep(5000);
 
         for (int i = 0; i < GRID_CNT; i++) {
-            for(String cacheName : grid(i).cacheNames()) {
-                IgniteCache<Object, Object> c = grid(i).cache(cacheName);
+            for(String cacheName : ignite(i).cacheNames()) {
+                IgniteCache<Object, Object> c = ignite(i).cache(cacheName);
 
                 assertEquals(0, c.size(CachePeekMode.OFFHEAP));
                 assertEquals(0, c.size(CachePeekMode.PRIMARY));
@@ -209,7 +209,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 2000;
         final int valCnt = 10000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, String> c = cache(Integer.class, String.class);
@@ -280,7 +280,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 2000;
         final int valCnt = 10000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, Long> c = cache(Integer.class, Long.class);
@@ -352,7 +352,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 2000;
         final int valCnt = 10000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, Object> c = cache(Integer.class, Object.class);
@@ -424,7 +424,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 4000;
         final int valCnt = 10000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, TestValue> c = cache(Integer.class, TestValue.class);
@@ -497,7 +497,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 10;
         final int logMod = 5000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, Integer> c = cache(Integer.class, Integer.class);
@@ -561,7 +561,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 10;
         final int logMod = 5000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, Integer> c = cache(Integer.class, Integer.class);
@@ -621,7 +621,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 500;
         final int logMod = 5000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, Integer> c = cache(Integer.class, Integer.class);
@@ -680,7 +680,7 @@ public class IgniteCacheQueryMultiThreadedSelfTest extends AbstractIndexingCommo
         final int keyCnt = 1100; // set resultSet size bigger than page size
         final int logMod = 5000;
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         // Put test values into cache.
         final IgniteCache<Integer, TestValue> c = cache(Integer.class, TestValue.class);

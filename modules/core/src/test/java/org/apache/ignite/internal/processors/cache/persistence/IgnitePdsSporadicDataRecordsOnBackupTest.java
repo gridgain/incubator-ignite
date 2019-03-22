@@ -114,25 +114,25 @@ public class IgnitePdsSporadicDataRecordsOnBackupTest extends GridCommonAbstract
         IgniteEx ig0 = startGrid(0);
         IgniteEx ig1 = startGrid(1);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         String nodeFolderName0 = ig0.context().pdsFolderResolver().resolveFolders().folderName();
         String nodeFolderName1 = ig1.context().pdsFolderResolver().resolveFolders().folderName();
 
-        IgniteCache<Integer, Long> cache = grid(0).cache(TX_CACHE_NAME);
+        IgniteCache<Integer, Long> cache = ignite(0).cache(TX_CACHE_NAME);
 
         for (int i = 0; i < KEYS_CNT; ++i)
             cache.put(i, (long)i);
 
         IgniteInternalFuture txLoadFut = startTxLoad(5, null);
 
-        doSleep(10_000);
+        GridTestUtils.doSleep(10_000);
 
         txStop.set(true);
 
         txLoadFut.get();
 
-        grid(0).cluster().active(false);
+        ignite(0).cluster().active(false);
 
         stopAllGrids();
 
@@ -195,7 +195,7 @@ public class IgnitePdsSporadicDataRecordsOnBackupTest extends GridCommonAbstract
                 ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
                 while (!txStop.get()) {
-                    Ignite ig = ignite == null ? grid(rnd.nextInt(GRID_CNT)) : ignite;
+                    Ignite ig = ignite == null ? ignite(rnd.nextInt(GRID_CNT)) : ignite;
 
                     if (ig == null)
                         continue;

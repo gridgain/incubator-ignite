@@ -71,7 +71,7 @@ public class IgniteMvccTxTimeoutAbstractTest extends GridCommonAbstractTest {
      * @return Cache.
      */
     @Override protected <K, V> IgniteCache<K, V> jcache(int i) {
-        return grid(i).cache(DEFAULT_CACHE_NAME);
+        return ignite(i).cache(DEFAULT_CACHE_NAME);
     }
 
     /**

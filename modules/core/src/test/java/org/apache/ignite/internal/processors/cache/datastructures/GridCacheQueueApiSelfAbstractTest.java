@@ -78,7 +78,7 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
      */
     protected <T> IgniteQueue<T> initQueue(int idx, String name, int cap,
         @Nullable CollectionConfiguration cfg) {
-        IgniteQueue<T> queue = grid(idx).queue(name, cap, cfg);
+        IgniteQueue<T> queue = ignite(idx).queue(name, cap, cfg);
 
         if (queue != null && BINARY_QUEUE_MODE)
             return queue.withKeepBinary();
@@ -170,7 +170,7 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
 
         IgniteQueue<T> queue = initQueue(0, queueName, 0, config(false));
 
-        SameHashInstanceFactory<T> factory = new SameHashInstanceFactory<T>(grid(0));
+        SameHashInstanceFactory<T> factory = new SameHashInstanceFactory<T>(ignite(0));
 
         int retries = 100;
 
@@ -717,12 +717,12 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(0).cache(ccfg.getName());
+                ignite(0).cache(ccfg.getName());
                 return null;
             }
         }, IllegalStateException.class, "Failed to get cache because it is a system cache");
 
-        assertNotNull(((IgniteKernal)grid(0)).internalCache(ccfg.getName()));
+        assertNotNull(((IgniteKernal)ignite(0)).internalCache(ccfg.getName()));
     }
 
     /**
@@ -833,7 +833,7 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
      */
     @Test
     public void testIsolation() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         CacheConfiguration cfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 

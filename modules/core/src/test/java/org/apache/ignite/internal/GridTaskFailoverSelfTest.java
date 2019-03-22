@@ -52,7 +52,7 @@ public class GridTaskFailoverSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testFailover() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         try {
             ignite.compute().localDeployTask(GridFailoverTestTask.class, GridFailoverTestTask.class.getClassLoader());

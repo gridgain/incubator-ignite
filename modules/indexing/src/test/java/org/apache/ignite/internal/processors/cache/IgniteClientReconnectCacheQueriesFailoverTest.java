@@ -63,7 +63,7 @@ public class IgniteClientReconnectCacheQueriesFailoverTest extends IgniteClientR
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        final IgniteCache<Integer, Person> cache = grid(serverCount()).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, Person> cache = ignite(serverCount()).cache(DEFAULT_CACHE_NAME);
 
         assertNotNull(cache);
 
@@ -76,7 +76,7 @@ public class IgniteClientReconnectCacheQueriesFailoverTest extends IgniteClientR
      */
     @Test
     public void testReconnectCacheQueries() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         final IgniteCache<Integer, Person> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -124,7 +124,7 @@ public class IgniteClientReconnectCacheQueriesFailoverTest extends IgniteClientR
      */
     @Test
     public void testReconnectScanQuery() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         final IgniteCache<Integer, Person> cache = client.cache(DEFAULT_CACHE_NAME);
 

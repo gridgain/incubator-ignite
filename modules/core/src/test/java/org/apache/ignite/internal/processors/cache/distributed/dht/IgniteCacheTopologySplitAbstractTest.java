@@ -103,7 +103,7 @@ public abstract class IgniteCacheTopologySplitAbstractTest extends GridCommonAbs
         if (log.isInfoEnabled())
             log.info(">>> Simulating split");
 
-        long topVer = grid(0).cluster().topologyVersion();
+        long topVer = ignite(0).cluster().topologyVersion();
 
         // Trigger segmentation.
         segmented = true;

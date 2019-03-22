@@ -63,12 +63,12 @@ public class RocketMQStreamerTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Override protected void beforeTest() throws Exception {
-        grid().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
+        ignite().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid().cache(DEFAULT_CACHE_NAME).clear();
+        ignite().cache(DEFAULT_CACHE_NAME).clear();
     }
 
     /** {@inheritDoc} */
@@ -96,7 +96,7 @@ public class RocketMQStreamerTest extends GridCommonAbstractTest {
     public void testStreamer() throws Exception {
         RocketMQStreamer<String, byte[]> streamer = null;
 
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         try (IgniteDataStreamer<String, byte[]> dataStreamer = ignite.dataStreamer(DEFAULT_CACHE_NAME)) {
             dataStreamer.allowOverwrite(true);

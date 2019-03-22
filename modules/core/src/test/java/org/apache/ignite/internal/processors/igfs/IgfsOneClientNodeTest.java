@@ -97,7 +97,7 @@ public class IgfsOneClientNodeTest extends GridCommonAbstractTest {
      */
     @Test
     public void testStartIgfs() throws Exception {
-        final IgfsImpl igfs = (IgfsImpl) grid(0).fileSystem("igfs");
+        final IgfsImpl igfs = (IgfsImpl) ignite(0).fileSystem("igfs");
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {

@@ -28,7 +28,7 @@ import org.junit.Test;
 public class GridCacheEmptyEntriesLocalSelfTest extends GridCacheEmptyEntriesAbstractSelfTest {
     /** {@inheritDoc} */
     @Override protected Ignite startGrids() throws Exception {
-        return startGrid();
+        return clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

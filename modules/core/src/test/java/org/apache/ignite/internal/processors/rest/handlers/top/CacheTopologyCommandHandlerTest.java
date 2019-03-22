@@ -76,7 +76,7 @@ public class CacheTopologyCommandHandlerTest extends GridCommonAbstractTest {
         GridRestTopologyRequest req = new GridRestTopologyRequest();
         req.command(GridRestCommand.TOPOLOGY);
 
-        topologyCommandOnDynamicCacheCreateDestroy(startGrid(), req);
+        topologyCommandOnDynamicCacheCreateDestroy(clusterManager__startGrid(), req);
     }
 
     /**
@@ -84,7 +84,7 @@ public class CacheTopologyCommandHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNodeCommandOnDynamicCacheCreateDestroy1() throws Exception {
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         GridRestTopologyRequest req = new GridRestTopologyRequest();
         req.command(GridRestCommand.NODE);
@@ -98,7 +98,7 @@ public class CacheTopologyCommandHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNodeCommandOnDynamicCacheCreateDestroy2() throws Exception {
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         GridRestTopologyRequest req = new GridRestTopologyRequest();
         req.command(GridRestCommand.NODE);

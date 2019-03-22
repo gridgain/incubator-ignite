@@ -339,7 +339,7 @@ public class RetryCauseMessageSelfTest extends AbstractIndexingCommonTest {
     @Override protected void beforeTest() throws Exception {
         Ignite ignite = startGridsMultiThreaded(NODES_COUNT, false);
 
-        GridQueryProcessor qryProc = grid(ignite.name()).context().query();
+        GridQueryProcessor qryProc = ignite(ignite.name()).context().query();
 
         h2Idx = GridTestUtils.getFieldValue(qryProc, GridQueryProcessor.class, "idx");
 

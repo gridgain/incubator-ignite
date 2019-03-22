@@ -375,7 +375,7 @@ public class IgniteCacheEntryProcessorNodeJoinTest extends GridCommonAbstractTes
                 for (int g = 0; g < GRID_CNT + started; g++) {
                     Integer val = ignite(g).<Integer, Integer>cache(DEFAULT_CACHE_NAME).get(i);
 
-                    GridCacheEntryEx entry = ((IgniteKernal)grid(g)).internalCache(DEFAULT_CACHE_NAME).peekEx(i);
+                    GridCacheEntryEx entry = ((IgniteKernal)ignite(g)).internalCache(DEFAULT_CACHE_NAME).peekEx(i);
 
                     if (updVal != val)
                         info("Invalid value for grid [g=" + g + ", entry=" + entry + ']');

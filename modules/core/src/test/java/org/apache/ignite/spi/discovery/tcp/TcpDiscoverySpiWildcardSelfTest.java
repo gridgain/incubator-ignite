@@ -46,7 +46,7 @@ public class TcpDiscoverySpiWildcardSelfTest extends GridCommonAbstractTest {
             startGridsMultiThreaded(NODES);
 
             for (int i = 0; i < NODES; i++)
-                assertEquals(NODES, grid(i).cluster().nodes().size());
+                assertEquals(NODES, ignite(i).cluster().nodes().size());
         }
         finally {
             stopAllGrids();

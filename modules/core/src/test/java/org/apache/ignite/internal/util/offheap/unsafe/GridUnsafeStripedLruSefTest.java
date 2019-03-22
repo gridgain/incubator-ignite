@@ -20,6 +20,7 @@ package org.apache.ignite.internal.util.offheap.unsafe;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -200,37 +201,35 @@ public class GridUnsafeStripedLruSefTest extends GridCommonAbstractTest {
 
         final AtomicInteger idGen = new AtomicInteger();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                int id = idGen.getAndIncrement();
+        GridTestUtils.runMultiThreaded(() -> {
+            int id = idGen.getAndIncrement();
 
-                int step = 10;
+            int step = 10;
 
-                assert cnt % step == 0;
+            assert cnt % step == 0;
 
-                int start = id * cnt;
-                int end = start + cnt;
+            int start = id * cnt;
+            int end = start + cnt;
 
-                Collection<Long> set = new HashSet<>(step);
+            Collection<Long> set = new HashSet<>(step);
 
-                for (int i = start; i < end; i++)
-                    lru.offer(0, i, i);
+            for (int i = start; i < end; i++)
+                lru.offer(0, i, i);
 
-                for (int i = start; i < end; i += step) {
-                    for (int j = 0; j < step; j++) {
-                        long qAddr = lru.prePoll();
+            for (int i = start; i < end; i += step) {
+                for (int j = 0; j < step; j++) {
+                    long qAddr = lru.prePoll();
 
-                        assertTrue(qAddr != 0);
-                        assertTrue(set.add(qAddr));
-                    }
-
-                    for (long qAddr : set)
-                        lru.poll(qAddr);
-
-                    set.clear();
+                    assertTrue(qAddr != 0);
+                    assertTrue(set.add(qAddr));
                 }
+
+                for (long qAddr : set)
+                    lru.poll(qAddr);
+
+                set.clear();
             }
-        }, 10);
+        }, 10, getTestIgniteInstanceName());
 
         assertEquals(0, lru.size());
     }

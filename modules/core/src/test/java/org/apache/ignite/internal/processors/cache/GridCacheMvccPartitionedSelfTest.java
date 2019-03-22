@@ -51,7 +51,7 @@ public class GridCacheMvccPartitionedSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        grid = (IgniteKernal)grid();
+        grid = (IgniteKernal)ignite();
     }
 
     /** {@inheritDoc} */

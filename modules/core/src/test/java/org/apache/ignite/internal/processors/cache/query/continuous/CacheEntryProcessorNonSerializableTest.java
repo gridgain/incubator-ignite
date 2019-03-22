@@ -429,9 +429,9 @@ public class CacheEntryProcessorNonSerializableTest extends GridCommonAbstractTe
         if (ccfg.getNearConfiguration() != null)
             MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.NEAR_CACHE);
 
-        IgniteEx cln = grid(getServerNodeCount());
+        IgniteEx cln = ignite(getServerNodeCount());
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
 
         IgniteCache clnCache;
 
@@ -454,7 +454,7 @@ public class CacheEntryProcessorNonSerializableTest extends GridCommonAbstractTe
             }
 
             // From affinity node.
-            Ignite grid = grid(ThreadLocalRandom.current().nextInt(NODES));
+            Ignite grid = ignite(ThreadLocalRandom.current().nextInt(NODES));
 
             final IgniteCache cache = grid.cache(ccfg.getName());
 
@@ -484,7 +484,7 @@ public class CacheEntryProcessorNonSerializableTest extends GridCommonAbstractTe
             assertEquals(EXPECTED_VALUE, clnCache.get(KEY));
         }
         finally {
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
         }
     }
 

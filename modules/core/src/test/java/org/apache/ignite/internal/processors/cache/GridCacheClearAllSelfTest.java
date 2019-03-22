@@ -152,30 +152,30 @@ public class GridCacheClearAllSelfTest extends GridCommonAbstractTest {
     public void performTest() throws Exception {
         // Put values into normal replicated cache.
         for (int i = 0; i < KEY_CNT; i++)
-            grid(0).cache(CACHE_NAME).put(i, "val" + i);
+            ignite(0).cache(CACHE_NAME).put(i, "val" + i);
 
         // Put values into a cache with another name.
         for (int i = 0; i < KEY_CNT_OTHER; i++)
-            grid(GRID_CNT - 1).cache(CACHE_NAME_OTHER).put(i, "val" + i);
+            ignite(GRID_CNT - 1).cache(CACHE_NAME_OTHER).put(i, "val" + i);
 
         // Check cache sizes.
         for (int i = 0; i < GRID_CNT - 1; i++) {
-            IgniteCache<Object, Object> cache = grid(i).cache(CACHE_NAME);
+            IgniteCache<Object, Object> cache = ignite(i).cache(CACHE_NAME);
 
             assertEquals("Key set [i=" + i + ']', KEY_CNT, cache.localSize(CachePeekMode.ALL));
         }
 
-        assert grid(GRID_CNT - 1).cache(CACHE_NAME_OTHER).localSize() == KEY_CNT_OTHER;
+        assert ignite(GRID_CNT - 1).cache(CACHE_NAME_OTHER).localSize() == KEY_CNT_OTHER;
 
         // Perform clear.
-        grid(0).cache(CACHE_NAME).clear();
+        ignite(0).cache(CACHE_NAME).clear();
 
         // Expect caches with the given name to be clear on all nodes.
         for (int i = 0; i < GRID_CNT - 1; i++)
-            assert grid(i).cache(CACHE_NAME).localSize() == 0;
+            assert ignite(i).cache(CACHE_NAME).localSize() == 0;
 
         // ... but cache with another name should remain untouched.
-        assert grid(GRID_CNT - 1).cache(CACHE_NAME_OTHER).localSize() == KEY_CNT_OTHER;
+        assert ignite(GRID_CNT - 1).cache(CACHE_NAME_OTHER).localSize() == KEY_CNT_OTHER;
     }
 
     /** {@inheritDoc} */

@@ -95,11 +95,11 @@ public class JdbcThinSelectAfterAlterTable extends GridCommonAbstractTest {
         conn.close();
 
         // Destroy all SQL caches after test.
-        for (String cacheName : grid(0).cacheNames()) {
-            DynamicCacheDescriptor cacheDesc = grid(0).context().cache().cacheDescriptor(cacheName);
+        for (String cacheName : ignite(0).cacheNames()) {
+            DynamicCacheDescriptor cacheDesc = ignite(0).context().cache().cacheDescriptor(cacheName);
 
             if (cacheDesc != null && cacheDesc.sql())
-                grid(0).destroyCache0(cacheName, true);
+                ignite(0).destroyCache0(cacheName, true);
         }
 
         super.afterTest();

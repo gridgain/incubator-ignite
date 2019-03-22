@@ -120,7 +120,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      * @param args Args.
      */
     private List<List<?>> execSql(String sql, Object... args) {
-        return execSql(grid(), sql, args);
+        return execSql(ignite(), sql, args);
     }
 
     /**
@@ -497,7 +497,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testCacheToViewJoin() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.createCache(new CacheConfiguration<>().setName(DEFAULT_CACHE_NAME).setQueryEntities(
             Collections.singleton(new QueryEntity(Integer.class.getName(), String.class.getName()))));
@@ -687,7 +687,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
                             Random rnd = new Random();
 
                             try {
-                                doSleep(rnd.nextInt(100));
+                                GridTestUtils.doSleep(rnd.nextInt(100));
                             }
                             catch (Throwable ignore) {
                                 // No-op.
@@ -699,7 +699,7 @@ public class SqlSystemViewsSelfTest extends AbstractIndexingCommonTest {
                 fut.cancel();
         }
 
-        doSleep(igniteSrv.configuration().getMetricsUpdateFrequency() * 3L);
+        GridTestUtils.doSleep(igniteSrv.configuration().getMetricsUpdateFrequency() * 3L);
 
         for (Ignite grid : G.allGrids()) {
             UUID nodeId = grid.cluster().localNode().id();

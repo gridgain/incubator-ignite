@@ -109,9 +109,9 @@ public class JdbcMergeStatementSelfTest extends JdbcAbstractDmlStatementSelfTest
             }
         }
 
-        grid(0).cache(DEFAULT_CACHE_NAME).clear();
+        ignite(0).cache(DEFAULT_CACHE_NAME).clear();
 
-        assertEquals(0, grid(0).cache(DEFAULT_CACHE_NAME).size(CachePeekMode.ALL));
+        assertEquals(0, ignite(0).cache(DEFAULT_CACHE_NAME).size(CachePeekMode.ALL));
 
         super.afterTest();
 

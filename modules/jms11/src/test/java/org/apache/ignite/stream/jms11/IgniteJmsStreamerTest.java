@@ -100,7 +100,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
      */
     @SuppressWarnings("unchecked")
     @Override public void beforeTest() throws Exception {
-        grid().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
+        ignite().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
 
         broker = new BrokerService();
         broker.setDeleteAllMessagesOnStartup(true);
@@ -126,7 +126,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
      * @throws Exception Iff ailed.
      */
     @Override public void afterTest() throws Exception {
-        grid().cache(DEFAULT_CACHE_NAME).clear();
+        ignite().cache(DEFAULT_CACHE_NAME).clear();
 
         broker.stop();
         broker.deleteAllMessages();
@@ -142,7 +142,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce messages into the queue
         produceObjectMessages(dest, false);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<ObjectMessage, String, String> jmsStreamer = newJmsStreamer(ObjectMessage.class, dataStreamer);
             jmsStreamer.setDestinationType(Queue.class);
             jmsStreamer.setDestinationName(QUEUE_NAME);
@@ -172,7 +172,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // should not produced messages until subscribed to the topic; otherwise they will be missed because this is not
         // a durable subscriber (for which a dedicated test exists)
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<ObjectMessage, String, String> jmsStreamer = newJmsStreamer(ObjectMessage.class, dataStreamer);
             jmsStreamer.setDestinationType(Topic.class);
             jmsStreamer.setDestinationName(TOPIC_NAME);
@@ -205,7 +205,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce messages into the queue
         produceObjectMessages(dest, false);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<ObjectMessage, String, String> jmsStreamer = newJmsStreamer(ObjectMessage.class, dataStreamer);
             jmsStreamer.setDestination(dest);
 
@@ -235,7 +235,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // should not produced messages until subscribed to the topic; otherwise they will be missed because this is not
         // a durable subscriber (for which a dedicated test exists)
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<ObjectMessage, String, String> jmsStreamer = newJmsStreamer(ObjectMessage.class, dataStreamer);
             jmsStreamer.setDestination(dest);
 
@@ -267,7 +267,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce A SINGLE MESSAGE, containing all data, into the queue
         produceStringMessages(dest, true);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<TextMessage, String, String> jmsStreamer = newJmsStreamer(TextMessage.class, dataStreamer);
             jmsStreamer.setDestination(dest);
 
@@ -293,7 +293,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
     public void testDurableSubscriberStartStopStart() throws Exception {
         Destination dest = new ActiveMQTopic(TOPIC_NAME);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<TextMessage, String, String> jmsStreamer = newJmsStreamer(TextMessage.class, dataStreamer);
             jmsStreamer.setDestination(dest);
             jmsStreamer.setDurableSubscription(true);
@@ -337,7 +337,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce multiple messages into the queue
         produceStringMessages(dest, false);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<TextMessage, String, String> jmsStreamer = newJmsStreamer(TextMessage.class, dataStreamer);
             jmsStreamer.setDestination(dest);
             jmsStreamer.setBatched(true);
@@ -377,7 +377,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce multiple messages into the queue
         produceStringMessages(dest, false);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<TextMessage, String, String> jmsStreamer = newJmsStreamer(TextMessage.class, dataStreamer);
             jmsStreamer.setDestination(dest);
             jmsStreamer.setBatched(true);
@@ -428,7 +428,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce multiple messages into the queue
         produceStringMessages(dest, false);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<TextMessage, String, String> jmsStreamer = newJmsStreamer(TextMessage.class, dataStreamer);
             // override the transformer with one that generates no cache entries
             jmsStreamer.setTransformer(TestTransformers.generateNoEntries());
@@ -457,7 +457,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce multiple messages into the queue
         produceStringMessages(dest, false);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<TextMessage, String, String> jmsStreamer = newJmsStreamer(TextMessage.class, dataStreamer);
             jmsStreamer.setTransacted(true);
             jmsStreamer.setDestination(dest);
@@ -487,7 +487,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         // produce messages into the queue
         produceObjectMessages(dest, false);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<ObjectMessage, String, String> jmsStreamer = newJmsStreamer(ObjectMessage.class, dataStreamer);
             jmsStreamer.setDestination(dest);
             jmsStreamer.setThreads(5);
@@ -540,7 +540,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
 
         Destination dest = new ActiveMQQueue(QUEUE_NAME);
 
-        try (IgniteDataStreamer<String, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<String, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             JmsStreamer<ObjectMessage, String, String> jmsStreamer = newJmsStreamer(ObjectMessage.class, dataStreamer);
 
             jmsStreamer.setExceptionListener(new ExceptionListener() {
@@ -582,7 +582,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
      */
     private void assertAllCacheEntriesLoaded() {
         // Get the cache and check that the entries are present
-        IgniteCache<String, String> cache = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<String, String> cache = ignite().cache(DEFAULT_CACHE_NAME);
         for (Map.Entry<String, String> entry : TEST_DATA.entrySet())
             assertEquals(entry.getValue(), cache.get(entry.getKey()));
     }
@@ -592,7 +592,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
         IgniteDataStreamer<String, String> dataStreamer) {
 
         JmsStreamer<T, String, String> jmsStreamer = new JmsStreamer<>();
-        jmsStreamer.setIgnite(grid());
+        jmsStreamer.setIgnite(ignite());
         jmsStreamer.setStreamer(dataStreamer);
         jmsStreamer.setConnectionFactory(connFactory);
 
@@ -611,7 +611,7 @@ public class IgniteJmsStreamerTest extends GridCommonAbstractTest {
      * @return Event receive latch.
      */
     private CountDownLatch subscribeToPutEvents(int expect) {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         // Listen to cache PUT events and expect as many as messages as test data items
         final CountDownLatch latch = new CountDownLatch(expect);

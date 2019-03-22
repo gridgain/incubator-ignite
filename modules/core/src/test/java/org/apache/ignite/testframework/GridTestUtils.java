@@ -91,6 +91,7 @@ import org.apache.ignite.internal.processors.cache.verify.IdleVerifyResultV2;
 import org.apache.ignite.internal.processors.odbc.ClientListenerProcessor;
 import org.apache.ignite.internal.processors.port.GridPortRecord;
 import org.apache.ignite.internal.util.GridBusyLock;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.lang.GridAbsClosure;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgnitePredicate;
@@ -110,6 +112,9 @@ import org.apache.ignite.spi.discovery.DiscoverySpiListener;
 import org.apache.ignite.ssl.SslContextFactory;
 import org.apache.ignite.testframework.config.GridTestProperties;
 import org.apache.ignite.testframework.junits.GridAbstractTest;
+import org.apache.ignite.testframework.junits.multijvm.IgniteCacheProcessProxy;
+import org.apache.ignite.testframework.junits.multijvm.IgniteNodeRunner;
+import org.apache.ignite.testframework.junits.multijvm.IgniteProcessProxy;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -127,6 +132,52 @@ public final class GridTestUtils {
 
     /** */
     static final String ALPHABETH = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890_";
+
+    /**
+     * @param cache Cache.
+     * @return <code>True</code> if cache is an instance of {@link IgniteCacheProcessProxy}
+     */
+    public static boolean isMultiJvmObject(IgniteCache cache) {
+        return cache instanceof IgniteCacheProcessProxy;
+    }
+
+    /**
+     * @param ignite Ignite.
+     * @return <code>True</code> if cache is an instance of {@link IgniteProcessProxy}
+     */
+    public static boolean isMultiJvmObject(Ignite ignite) {
+        return ignite instanceof IgniteProcessProxy;
+    }
+
+    /**
+     * @return <code>True</code> if current JVM contains remote started node
+     * (It differs from JVM where tests executing).
+     */
+    public static boolean isCurrentJvmRemote() {
+        return IgniteNodeRunner.hasStartedInstance();
+    }
+
+    /**
+     * Calls job on remote JVM.
+     *
+     * @param proxy Ignite.
+     * @param job Job.
+     */
+    public static <R> R executeRemotely(IgniteProcessProxy proxy, final GridAbstractTest.TestIgniteCallable<R> job) {
+        return proxy.remoteCompute().call(new TestRemoteTask<>(proxy.getId(), job));
+    }
+
+    /**
+     * @param millis Time to sleep.
+     */
+    public static void doSleep(long millis) {
+        try {
+            U.sleep(millis);
+        }
+        catch (Exception e) {
+            throw new IgniteException(e);
+        }
+    }
 
     /**
      * Hook object intervenes to discovery message handling
@@ -2004,6 +2055,21 @@ public final class GridTestUtils {
             new AffinityTopologyVersion(topVer, 0), mergedEvts);
     }
 
+    /**
+     * @param cls Class to create.
+     * @return Instance of class.
+     */
+    @Nullable public static <T> T allocateInstance0(Class<T> cls) {
+        try {
+            return (T)GridUnsafe.allocateInstance(cls);
+        }
+        catch (InstantiationException e) {
+            e.printStackTrace();
+
+            return null;
+        }
+    }
+
     /** Test parameters scale factor util. */
     private static class ScaleFactorUtil {
         /** Test speed scale factor property name. */
@@ -2143,6 +2209,36 @@ public final class GridTestUtils {
             can_fail();
 
             return sleep;
+        }
+    }
+
+    /**
+     * Remote computation task.
+     */
+    private static class TestRemoteTask<R> implements IgniteCallable<R> {
+        /** */
+        private static final long serialVersionUID = 0L;
+
+        /** Node ID. */
+        private final UUID id;
+
+        /** Job. */
+        private final GridAbstractTest.TestIgniteCallable<R> job;
+
+        /**
+         * @param id Id.
+         * @param job Job.
+         */
+        public TestRemoteTask(UUID id, GridAbstractTest.TestIgniteCallable<R> job) {
+            this.id = id;
+            this.job = job;
+        }
+
+        /** {@inheritDoc} */
+        @Override public R call() throws Exception {
+            Ignite ignite = Ignition.ignite(id);
+
+            return job.call(ignite);
         }
     }
 }

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.util.GridConcurrentHashSet;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -121,13 +122,13 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
     private void doFailNodes(boolean simulateNodeFailure) throws Exception {
         startGrids(5);
 
-        grid(0).events().enabledEvents();
+        ignite(0).events().enabledEvents();
 
-        failedNodes = new HashSet<>(Arrays.asList(grid(3).cluster().localNode(), grid(4).cluster().localNode()));
+        failedNodes = new HashSet<>(Arrays.asList(ignite(3).cluster().localNode(), ignite(4).cluster().localNode()));
 
         CountDownLatch latch = new CountDownLatch(failedNodes.size());
 
-        grid(0).events().localListen(e -> {
+        ignite(0).events().localListen(e -> {
             DiscoveryEvent evt = (DiscoveryEvent)e;
 
             if (failedNodes.contains(evt.eventNode()))
@@ -136,10 +137,10 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
             return true;
         }, EventType.EVT_NODE_FAILED);
 
-        compromisedNode = (TcpDiscoveryNode)grid(2).localNode();
+        compromisedNode = (TcpDiscoveryNode)ignite(2).localNode();
 
         for (int i = 3; i < 5; i++)
-            failedAddrs.addAll(((TcpDiscoveryNode)grid(i).localNode()).socketAddresses());
+            failedAddrs.addAll(((TcpDiscoveryNode)ignite(i).localNode()).socketAddresses());
 
         System.out.println(">> Start failing nodes");
 
@@ -147,12 +148,12 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
 
         if (simulateNodeFailure) {
             for (int i = 3; i < 5; i++)
-                ((TcpDiscoverySpi)grid(i).configuration().getDiscoverySpi()).simulateNodeFailure();
+                ((TcpDiscoverySpi)ignite(i).configuration().getDiscoverySpi()).simulateNodeFailure();
         }
 
         assert latch.await(waitTime(), TimeUnit.MILLISECONDS);
 
-        assertEquals(3, grid(0).cluster().forServers().nodes().size());
+        assertEquals(3, ignite(0).cluster().forServers().nodes().size());
     }
 
     /**
@@ -171,11 +172,11 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
     public void testMassiveFailSelfKill() throws Exception {
         startGrids(5);
 
-        grid(0).events().enabledEvents();
+        ignite(0).events().enabledEvents();
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        grid(0).events().localListen((e) -> {
+        ignite(0).events().localListen((e) -> {
             DiscoveryEvent evt = (DiscoveryEvent)e;
 
             if (evt.eventNode().equals(compromisedNode))
@@ -184,10 +185,10 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
             return true;
         }, EventType.EVT_NODE_FAILED);
 
-        compromisedNode = (TcpDiscoveryNode)grid(2).localNode();
+        compromisedNode = (TcpDiscoveryNode)ignite(2).localNode();
 
         for (int i = 3; i < 5; i++)
-            failedAddrs.addAll(((TcpDiscoveryNode)grid(i).localNode()).socketAddresses());
+            failedAddrs.addAll(((TcpDiscoveryNode)ignite(i).localNode()).socketAddresses());
 
         System.out.println(">> Start failing nodes");
 
@@ -195,7 +196,7 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
 
         assert latch.await(waitTime(), TimeUnit.MILLISECONDS);
 
-        assertEquals(4, grid(0).cluster().forServers().nodes().size());
+        assertEquals(4, ignite(0).cluster().forServers().nodes().size());
     }
 
     /**
@@ -207,11 +208,11 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
     public void testMassiveFailAndRecovery() throws Exception {
         startGrids(5);
 
-        grid(0).events().enabledEvents();
+        ignite(0).events().enabledEvents();
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        grid(0).events().localListen(e -> {
+        ignite(0).events().localListen(e -> {
             DiscoveryEvent evt = (DiscoveryEvent)e;
 
             if (evt.eventNode().equals(compromisedNode))
@@ -220,16 +221,16 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
             return true;
         }, EventType.EVT_NODE_FAILED);
 
-        compromisedNode = (TcpDiscoveryNode)grid(2).localNode();
+        compromisedNode = (TcpDiscoveryNode)ignite(2).localNode();
 
         for (int i = 3; i < 5; i++)
-            failedAddrs.addAll(((TcpDiscoveryNode)grid(i).localNode()).socketAddresses());
+            failedAddrs.addAll(((TcpDiscoveryNode)ignite(i).localNode()).socketAddresses());
 
         System.out.println(">> Start failing nodes");
 
         forceFailConnectivity = true;
 
-        doSleep(timeout / 4); // wait 1 try
+        GridTestUtils.doSleep(timeout / 4); // wait 1 try
 
         forceFailConnectivity = false;
 
@@ -238,8 +239,8 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
         assert !latch.await(waitTime(), TimeUnit.MILLISECONDS);
 
         // Topology is not changed
-        assertEquals(5, grid(0).cluster().forServers().nodes().size());
-        assertEquals(5, grid(0).cluster().topologyVersion());
+        assertEquals(5, ignite(0).cluster().forServers().nodes().size());
+        assertEquals(5, ignite(0).cluster().topologyVersion());
     }
 
     /**
@@ -284,17 +285,17 @@ public class IgniteDiscoveryMassiveNodeFailTest extends GridCommonAbstractTest {
     public void testRecoveryOnDisconnect() throws Exception {
         startGrids(3);
 
-        IgniteEx ignite1 = grid(1);
-        IgniteEx ignite2 = grid(2);
+        IgniteEx ignite1 = ignite(1);
+        IgniteEx ignite2 = ignite(2);
 
         ((TcpDiscoverySpi)ignite1.configuration().getDiscoverySpi()).brakeConnection();
         ((TcpDiscoverySpi)ignite2.configuration().getDiscoverySpi()).brakeConnection();
 
-        doSleep(FAILURE_DETECTION_TIMEOUT);
+        GridTestUtils.doSleep(FAILURE_DETECTION_TIMEOUT);
 
-        assertEquals(3, grid(0).cluster().nodes().size());
-        assertEquals(3, grid(1).cluster().nodes().size());
-        assertEquals(3, grid(2).cluster().nodes().size());
+        assertEquals(3, ignite(0).cluster().nodes().size());
+        assertEquals(3, ignite(1).cluster().nodes().size());
+        assertEquals(3, ignite(2).cluster().nodes().size());
     }
 
     /**

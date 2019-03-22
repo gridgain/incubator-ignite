@@ -370,7 +370,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1");
             MockEntry e2 = new MockEntry("2");
@@ -428,7 +428,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             EvictionPolicyProxy p = proxy(policy());
 
@@ -453,7 +453,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             EvictionPolicyProxy p = proxy(policy());
 
@@ -503,7 +503,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
         policyFactory = createPolicyFactory();
 
         try {
-            Ignite ignite = startGrid();
+            Ignite ignite = clusterManager__startGrid();
 
             IgniteCache<Object, Object> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
@@ -619,7 +619,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
 
     /** @return Policy. */
     protected T policy() {
-        CacheEvictionManager evictMgr = grid().cachex(DEFAULT_CACHE_NAME).context().evicts();
+        CacheEvictionManager evictMgr = ignite().cachex(DEFAULT_CACHE_NAME).context().evicts();
 
         assert evictMgr instanceof GridCacheEvictionManager : evictMgr;
 
@@ -631,7 +631,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
      * @return Policy.
      */
     protected T policy(int i) {
-        CacheEvictionManager evictMgr = grid(i).cachex(DEFAULT_CACHE_NAME).context().evicts();
+        CacheEvictionManager evictMgr = ignite(i).cachex(DEFAULT_CACHE_NAME).context().evicts();
 
         assert evictMgr instanceof GridCacheEvictionManager : evictMgr;
 
@@ -643,7 +643,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
      * @return Policy.
      */
     protected T nearPolicy(int i) {
-        CacheEvictionManager evictMgr = grid(i).cachex(DEFAULT_CACHE_NAME).context().near().context().evicts();
+        CacheEvictionManager evictMgr = ignite(i).cachex(DEFAULT_CACHE_NAME).context().near().context().evicts();
 
         assert evictMgr instanceof GridCacheEvictionManager : evictMgr;
 
@@ -779,7 +779,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
             int cnt = 500;
 
             for (int i = 0; i < cnt; i++) {
-                IgniteCache<Integer, String> cache = grid(rand.nextInt(2)).cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Integer, String> cache = ignite(rand.nextInt(2)).cache(DEFAULT_CACHE_NAME);
 
                 int key = rand.nextInt(100);
                 String val = Integer.toString(key);
@@ -848,7 +848,7 @@ public abstract class EvictionPolicyFactoryAbstractTest<T extends EvictionPolicy
                     int cnt = 100;
 
                     for (int i = 0; i < cnt && !Thread.currentThread().isInterrupted(); i++) {
-                        IgniteEx grid = grid(rand.nextInt(2));
+                        IgniteEx grid = ignite(rand.nextInt(2));
 
                         IgniteCache<Integer, String> cache = grid.cache(DEFAULT_CACHE_NAME);
 

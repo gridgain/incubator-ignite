@@ -127,8 +127,8 @@ public class GridCommunicationSendMessageSelfTest extends GridCommonAbstractTest
      * @throws Exception If failed.
      */
     private void doSend(Message msg, final Class<?> msgCls) throws Exception {
-        GridIoManager mgr0 = grid(0).context().io();
-        GridIoManager mgr1 = grid(1).context().io();
+        GridIoManager mgr0 = ignite(0).context().io();
+        GridIoManager mgr1 = ignite(1).context().io();
 
         String topic = "test-topic";
 
@@ -144,7 +144,7 @@ public class GridCommunicationSendMessageSelfTest extends GridCommonAbstractTest
         long time = System.nanoTime();
 
         for (int i = 1; i <= SAMPLE_CNT; i++) {
-            mgr0.sendToCustomTopic(grid(1).localNode(), topic, msg, GridIoPolicy.PUBLIC_POOL);
+            mgr0.sendToCustomTopic(ignite(1).localNode(), topic, msg, GridIoPolicy.PUBLIC_POOL);
 
             if (i % 500 == 0)
                 info("Sent messages count: " + i);

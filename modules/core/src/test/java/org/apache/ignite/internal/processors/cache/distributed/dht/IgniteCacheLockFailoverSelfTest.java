@@ -96,7 +96,7 @@ public class IgniteCacheLockFailoverSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testLockFailover() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         Integer key = backupKey(cache);
 
@@ -127,7 +127,7 @@ public class IgniteCacheLockFailoverSelfTest extends GridCacheAbstractSelfTest {
 
                 iter++;
 
-                GridCacheAdapter<Object, Object> adapter = ((IgniteKernal)grid(0)).internalCache(DEFAULT_CACHE_NAME);
+                GridCacheAdapter<Object, Object> adapter = ((IgniteKernal)ignite(0)).internalCache(DEFAULT_CACHE_NAME);
 
                 IgniteInternalFuture<Boolean> fut = adapter.lockAsync(key, 0);
 
@@ -161,9 +161,9 @@ public class IgniteCacheLockFailoverSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testUnlockPrimaryLeft() throws Exception {
-        GridCacheAdapter<Integer, Integer> cache = ((IgniteKernal)grid(0)).internalCache(DEFAULT_CACHE_NAME);
+        GridCacheAdapter<Integer, Integer> cache = ((IgniteKernal)ignite(0)).internalCache(DEFAULT_CACHE_NAME);
 
-        Integer key = backupKey(grid(0).cache(DEFAULT_CACHE_NAME));
+        Integer key = backupKey(ignite(0).cache(DEFAULT_CACHE_NAME));
 
         cache.lock(key, 0);
 

@@ -249,7 +249,7 @@ public class IgniteTopologyValidatorGridSplitCacheTest extends IgniteCacheTopolo
     private void testTopologyValidator0(boolean useCacheGrp) throws Exception {
         this.useCacheGrp = useCacheGrp;
 
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         grid.getOrCreateCaches(getCacheConfigurations());
 
@@ -363,7 +363,7 @@ public class IgniteTopologyValidatorGridSplitCacheTest extends IgniteCacheTopolo
      */
     private void clearAll(int g) {
         for (int i = 0; i < CACHES_CNT; i++)
-            grid(g).cache(testCacheName(i)).clear();
+            ignite(g).cache(testCacheName(i)).clear();
     }
 
     /** */
@@ -422,7 +422,7 @@ public class IgniteTopologyValidatorGridSplitCacheTest extends IgniteCacheTopolo
      * @throws AssertionError If some of tries to put was failed.
      */
     private int tryPut(int idx) {
-        IgniteEx g = grid(idx);
+        IgniteEx g = ignite(idx);
 
         int putCnt = 0;
 

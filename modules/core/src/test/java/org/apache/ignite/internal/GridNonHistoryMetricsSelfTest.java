@@ -40,7 +40,7 @@ import org.junit.Test;
 public class GridNonHistoryMetricsSelfTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -64,7 +64,7 @@ public class GridNonHistoryMetricsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSingleTaskMetrics() throws Exception {
-        final Ignite ignite = grid();
+        final Ignite ignite = ignite();
 
         ignite.compute().execute(new TestTask(), "testArg");
 

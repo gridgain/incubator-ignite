@@ -96,10 +96,10 @@ public class GridCachePartitionedGetSelfTest extends GridCommonAbstractTest {
     @Test
     public void testGetFromPrimaryNode() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteCache<String, Integer> c = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> c = ignite(i).cache(DEFAULT_CACHE_NAME);
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimary(grid(i).localNode(), KEY)) {
-                info("Primary node: " + grid(i).localNode().id());
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimary(ignite(i).localNode(), KEY)) {
+                info("Primary node: " + ignite(i).localNode().id());
 
                 c.get(KEY);
 
@@ -120,10 +120,10 @@ public class GridCachePartitionedGetSelfTest extends GridCommonAbstractTest {
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.EVICTION);
 
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteCache<String, Integer> c = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> c = ignite(i).cache(DEFAULT_CACHE_NAME);
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isBackup(grid(i).localNode(), KEY)) {
-                info("Backup node: " + grid(i).localNode().id());
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isBackup(ignite(i).localNode(), KEY)) {
+                info("Backup node: " + ignite(i).localNode().id());
 
                 Integer val = c.get(KEY);
 
@@ -152,10 +152,10 @@ public class GridCachePartitionedGetSelfTest extends GridCommonAbstractTest {
     @Test
     public void testGetFromNearNode() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteCache<String, Integer> c = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> c = ignite(i).cache(DEFAULT_CACHE_NAME);
 
-            if (!grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), KEY)) {
-                info("Near node: " + grid(i).localNode().id());
+            if (!ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), KEY)) {
+                info("Near node: " + ignite(i).localNode().id());
 
                 Integer val = c.get(KEY);
 
@@ -197,9 +197,9 @@ public class GridCachePartitionedGetSelfTest extends GridCommonAbstractTest {
      */
     private void prepare() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimary(grid(i).localNode(), KEY)) {
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimary(ignite(i).localNode(), KEY)) {
                 info("Primary node: " + g.cluster().localNode().id());
 
                 // Put value.

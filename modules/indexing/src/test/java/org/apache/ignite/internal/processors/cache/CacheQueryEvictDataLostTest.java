@@ -100,7 +100,7 @@ public class CacheQueryEvictDataLostTest extends GridCommonAbstractTest {
             }
 
             @Override public void apply(Integer idx) {
-                IgniteCache<Object, Object> cache1 = grid().cache("cache-1");
+                IgniteCache<Object, Object> cache1 = ignite().cache("cache-1");
 
                 while (U.currentTimeMillis() < stopTime) {
                     if (idx == 0)

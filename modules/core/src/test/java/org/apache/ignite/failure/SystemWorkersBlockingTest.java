@@ -86,7 +86,7 @@ public class SystemWorkersBlockingTest extends GridCommonAbstractTest {
      */
     @Test
     public void testBlockingWorker() throws Exception {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         GridWorker worker = new GridWorker(ignite.name(), "test-worker", log) {
             @Override protected void body() throws InterruptedException {

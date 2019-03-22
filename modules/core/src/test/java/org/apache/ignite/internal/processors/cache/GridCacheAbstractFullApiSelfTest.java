@@ -246,7 +246,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
                 super.beforeTestsStarted();
 
                 for (Map.Entry<String, CacheConfiguration[]> entry : cacheCfgMap.entrySet()) {
-                    Ignite ignite = grid(entry.getKey());
+                    Ignite ignite = ignite(entry.getKey());
 
                     for (CacheConfiguration cfg : entry.getValue())
                         ignite.getOrCreateCache(cfg);
@@ -278,7 +278,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         }
 
         for (int i = 0; i < gridCount(); i++)
-            info("Grid " + i + ": " + grid(i).localNode().id());
+            info("Grid " + i + ": " + ignite(i).localNode().id());
     }
 
     /**
@@ -319,7 +319,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         IgniteCache<String, Integer> cache = jcache(0);
 
-        try (final Transaction transaction = grid(0).transactions().txStart()) {
+        try (final Transaction transaction = ignite(0).transactions().txStart()) {
             // retrieve market type from the grid
             Integer old = cache.withSkipStore().get(key);
 
@@ -350,7 +350,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         storeStgy.putToStore(key, 2);
 
-        try (final Transaction transaction = grid(0).transactions().txStart()) {
+        try (final Transaction transaction = ignite(0).transactions().txStart()) {
             Integer old = cache.get(key);
 
             assertEquals((Integer)1, old);
@@ -366,7 +366,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
     }
 
     /** {@inheritDoc} */
-    @Override protected Ignite startGrid(String igniteInstanceName, GridSpringResourceContext ctx) throws Exception {
+    @Override protected IgniteEx startGrid(String igniteInstanceName, GridSpringResourceContext ctx) throws Exception {
         if (cacheCfgMap == null)
             return super.startGrid(igniteInstanceName, ctx);
 
@@ -377,9 +377,9 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         cfg.setCacheConfiguration();
 
         if (!isRemoteJvm(igniteInstanceName))
-            return IgnitionEx.start(optimize(cfg), ctx);
+            return (IgniteEx)IgnitionEx.start(optimize(cfg), ctx);
         else
-            return startRemoteGrid(igniteInstanceName, optimize(cfg), ctx);
+            return startRemoteGrid(igniteInstanceName, optimize(cfg));
     }
 
     /** {@inheritDoc} */
@@ -394,7 +394,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         assertEquals(0, cache.localSize());
         assertEquals(0, cache.size());
 
-        dfltIgnite = grid(0);
+        dfltIgnite = ignite(0);
     }
 
     /** {@inheritDoc} */
@@ -432,10 +432,10 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             map.put("key" + i, i);
 
         // Put in primary nodes to avoid near readers which will prevent entry from being cleared.
-        Map<ClusterNode, Collection<String>> mapped = grid(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(map.keySet());
+        Map<ClusterNode, Collection<String>> mapped = ignite(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(map.keySet());
 
         for (int i = 0; i < gridCount(); i++) {
-            Collection<String> keys = mapped.get(grid(i).localNode());
+            Collection<String> keys = mapped.get(ignite(i).localNode());
 
             if (!F.isEmpty(keys)) {
                 for (String key : keys)
@@ -445,7 +445,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         map.remove("key0");
 
-        mapped = grid(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(map.keySet());
+        mapped = ignite(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(map.keySet());
 
         for (int i = 0; i < gridCount(); i++) {
             // Will actually delete entry from map.
@@ -453,7 +453,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
             assertNull("Failed check for grid: " + i, jcache(i).localPeek("key0", ONHEAP));
 
-            Collection<String> keysCol = mapped.get(grid(i).localNode());
+            Collection<String> keysCol = mapped.get(ignite(i).localNode());
 
             assert jcache(i).localSize() != 0 || F.isEmpty(keysCol);
         }
@@ -462,7 +462,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             executeOnLocalOrRemoteJvm(i, new CheckCacheSizeTask(map));
 
         for (int i = 0; i < gridCount(); i++) {
-            Collection<String> keysCol = mapped.get(grid(i).localNode());
+            Collection<String> keysCol = mapped.get(ignite(i).localNode());
 
             assertEquals("Failed check for grid: " + i, !F.isEmpty(keysCol) ? keysCol.size() : 0,
                 jcache(i).localSize(PRIMARY));
@@ -1559,7 +1559,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         assertEquals(exp, cache.get(key));
 
         for (int i = 0; i < gridCount(); i++) {
-            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key))
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key))
                 assertEquals(exp, peek(jcache(i), key));
         }
     }
@@ -2353,8 +2353,8 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         assert cache.getAndPutIfAbsent("key", 2) != null;
 
         for (int i = 0; i < gridCount(); i++) {
-            info("Peek on node [i=" + i + ", id=" + grid(i).localNode().id() + ", val=" +
-                grid(i).cache(DEFAULT_CACHE_NAME).localPeek("key", ONHEAP) + ']');
+            info("Peek on node [i=" + i + ", id=" + ignite(i).localNode().id() + ", val=" +
+                ignite(i).cache(DEFAULT_CACHE_NAME).localPeek("key", ONHEAP) + ']');
         }
 
         assertEquals((Integer)1, cache.getAndPutIfAbsent("key", 2));
@@ -2816,11 +2816,11 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            info("Peek key on grid [i=" + i + ", nodeId=" + grid(i).localNode().id() +
-                ", peekVal=" + grid(i).cache(DEFAULT_CACHE_NAME).localPeek("key", ONHEAP) + ']');
+            info("Peek key on grid [i=" + i + ", nodeId=" + ignite(i).localNode().id() +
+                ", peekVal=" + ignite(i).cache(DEFAULT_CACHE_NAME).localPeek("key", ONHEAP) + ']');
 
-            info("Peek key2 on grid [i=" + i + ", nodeId=" + grid(i).localNode().id() +
-                ", peekVal=" + grid(i).cache(DEFAULT_CACHE_NAME).localPeek("key2", ONHEAP) + ']');
+            info("Peek key2 on grid [i=" + i + ", nodeId=" + ignite(i).localNode().id() +
+                ", peekVal=" + ignite(i).cache(DEFAULT_CACHE_NAME).localPeek("key2", ONHEAP) + ']');
         }
 
         if (!isMultiJvm())
@@ -3267,13 +3267,13 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             storeStgy.putToStore(key, Integer.parseInt(key));
 
         for (int g = 0; g < gridCount(); g++)
-            grid(g).cache(DEFAULT_CACHE_NAME).localLoadCache(null);
+            ignite(g).cache(DEFAULT_CACHE_NAME).localLoadCache(null);
 
         for (int g = 0; g < gridCount(); g++) {
             for (int i = 0; i < cnt; i++) {
                 String key = String.valueOf(i);
 
-                if (grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key).contains(grid(g).localNode()))
+                if (ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key).contains(ignite(g).localNode()))
                     assertEquals((Integer)i, peek(jcache(g), key));
                 else
                     assertNull(peek(jcache(g), key));
@@ -3302,13 +3302,13 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             storeStgy.putToStore(key, Integer.parseInt(key));
 
         for (int g = 0; g < gridCount(); g++)
-            grid(g).cache(DEFAULT_CACHE_NAME).localLoadCacheAsync(null).get();
+            ignite(g).cache(DEFAULT_CACHE_NAME).localLoadCacheAsync(null).get();
 
         for (int g = 0; g < gridCount(); g++) {
             for (int i = 0; i < cnt; i++) {
                 String key = String.valueOf(i);
 
-                if (grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key).contains(grid(g).localNode()))
+                if (ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key).contains(ignite(g).localNode()))
                     assertEquals((Integer)i, peek(jcache(g), key));
                 else
                     assertNull(peek(jcache(g), key));
@@ -3588,7 +3588,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             }
         }, NullPointerException.class, null);
 
-        assertEquals(0, grid(0).cache(DEFAULT_CACHE_NAME).localSize());
+        assertEquals(0, ignite(0).cache(DEFAULT_CACHE_NAME).localSize());
 
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -3744,7 +3744,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
      */
     @Test
     public void testRemoveAfterClear() throws Exception {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         boolean affNode = ignite.context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinityNode();
 
@@ -3752,7 +3752,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             if (gridCount() < 2)
                 return;
 
-            ignite = grid(1);
+            ignite = ignite(1);
         }
 
         IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
@@ -3778,7 +3778,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         cache.clear();
 
         for (int g = 0; g < gridCount(); g++) {
-            Ignite grid0 = grid(g);
+            Ignite grid0 = ignite(g);
 
             grid0.cache(DEFAULT_CACHE_NAME).removeAll();
 
@@ -3995,7 +3995,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             final CountDownLatch lockCnt = new CountDownLatch(1);
             final CountDownLatch unlockCnt = new CountDownLatch(1);
 
-            grid(0).events().localListen(new IgnitePredicate<Event>() {
+            ignite(0).events().localListen(new IgnitePredicate<Event>() {
                 @Override public boolean apply(Event evt) {
                     switch (evt.type()) {
                         case EVT_CACHE_OBJECT_LOCKED:
@@ -4187,7 +4187,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         final ExpiryPolicy expiry = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-        grid(0).cache(DEFAULT_CACHE_NAME).withExpiryPolicy(expiry).put(key, 1);
+        ignite(0).cache(DEFAULT_CACHE_NAME).withExpiryPolicy(expiry).put(key, 1);
 
         final Affinity<String> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
@@ -4216,10 +4216,10 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         load(cache, key, true);
 
         for (int i = 0; i < gridCount(); i++) {
-            if (aff.isPrimary(grid(i).cluster().localNode(), key))
+            if (aff.isPrimary(ignite(i).cluster().localNode(), key))
                 assertEquals((Integer)1, peek(jcache(i), key));
 
-            if (aff.isBackup(grid(i).cluster().localNode(), key))
+            if (aff.isBackup(ignite(i).cluster().localNode(), key))
                 assertEquals((Integer)1, peek(jcache(i), key));
         }
     }
@@ -4269,10 +4269,10 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             final String key = "1";
             int ttl = 500;
 
-            try (Transaction tx = grid(0).transactions().txStart()) {
+            try (Transaction tx = ignite(0).transactions().txStart()) {
                 final ExpiryPolicy expiry = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-                grid(0).cache(DEFAULT_CACHE_NAME).withExpiryPolicy(expiry).put(key, 1);
+                ignite(0).cache(DEFAULT_CACHE_NAME).withExpiryPolicy(expiry).put(key, 1);
 
                 tx.commit();
             }
@@ -4379,7 +4379,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         long[] expireTimes = new long[gridCount()];
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4407,7 +4407,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4435,7 +4435,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4467,7 +4467,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         log.info("Put 4 done");
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4509,7 +4509,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         IgniteCache fullCache = fullCache();
 
-        if (!isMultiJvmObject(fullCache)) {
+        if (!GridTestUtils.isMultiJvmObject(fullCache)) {
             GridCacheAdapter internalCache = internalCache(fullCache);
 
             if (internalCache.isLocal())
@@ -4585,13 +4585,13 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         Affinity<String> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < gridCount(); i++) {
-            if (aff.isPrimaryOrBackup(grid(i).cluster().localNode(), key1))
+            if (aff.isPrimaryOrBackup(ignite(i).cluster().localNode(), key1))
                 assertEquals((Integer)1, peek(jcache(i), key1));
 
-            if (aff.isPrimaryOrBackup(grid(i).cluster().localNode(), key2))
+            if (aff.isPrimaryOrBackup(ignite(i).cluster().localNode(), key2))
                 assertEquals((Integer)2, peek(jcache(i), key2));
 
-            if (aff.isPrimaryOrBackup(grid(i).cluster().localNode(), key3))
+            if (aff.isPrimaryOrBackup(ignite(i).cluster().localNode(), key3))
                 assertEquals((Integer)3, peek(jcache(i), key3));
         }
     }
@@ -4621,7 +4621,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         final ExpiryPolicy expiry = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-        grid(0).cache(DEFAULT_CACHE_NAME).withExpiryPolicy(expiry).put(key, 1);
+        ignite(0).cache(DEFAULT_CACHE_NAME).withExpiryPolicy(expiry).put(key, 1);
 
         waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -4881,7 +4881,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
      * @return Ignite instance for primary node.
      */
     protected Ignite primaryIgnite(String key) {
-        ClusterNode node = grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key);
+        ClusterNode node = ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key);
 
         if (node == null)
             throw new IgniteException("Failed to find primary node.");
@@ -4889,7 +4889,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         UUID nodeId = node.id();
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).localNode().id().equals(nodeId))
+            if (ignite(i).localNode().id().equals(nodeId))
                 return ignite(i);
         }
 
@@ -4939,7 +4939,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
      */
     @Test
     public void testIterator() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         final int KEYS = 1000;
 
@@ -4948,7 +4948,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
 
         // Try to initialize readers in case when near cache is enabled.
         for (int i = 0; i < gridCount(); i++) {
-            cache = grid(i).cache(DEFAULT_CACHE_NAME);
+            cache = ignite(i).cache(DEFAULT_CACHE_NAME);
 
             for (int k = 0; k < KEYS; k++)
                 assertEquals((Object)k, cache.get(k));
@@ -5242,11 +5242,11 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             boolean found = primaryIgnite(key).cache(DEFAULT_CACHE_NAME).localPeek(key) != null;
 
             if (keyToRmv.equals(key)) {
-                Collection<ClusterNode> nodes = grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+                Collection<ClusterNode> nodes = ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key);
 
                 for (int j = 0; j < gridCount(); ++j) {
-                    if (nodes.contains(grid(j).localNode()) && grid(j) != primaryIgnite(key))
-                        assertTrue("Not found on backup removed key ", grid(j).cache(DEFAULT_CACHE_NAME).localPeek(key) != null);
+                    if (nodes.contains(ignite(j).localNode()) && ignite(j) != primaryIgnite(key))
+                        assertTrue("Not found on backup removed key ", ignite(j).cache(DEFAULT_CACHE_NAME).localPeek(key) != null);
                 }
 
                 assertFalse("Found removed key " + key, found);
@@ -5263,19 +5263,19 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
     public void testLocalClearKeys() throws Exception {
         Map<String, List<String>> keys = addKeys();
 
-        Ignite g = grid(0);
+        Ignite g = ignite(0);
 
         Set<String> keysToRmv = new HashSet<>();
 
         for (int i = 0; i < gridCount(); ++i) {
-            List<String> gridKeys = keys.get(grid(i).name());
+            List<String> gridKeys = keys.get(ignite(i).name());
 
             if (gridKeys.size() > 2) {
                 keysToRmv.add(gridKeys.get(0));
 
                 keysToRmv.add(gridKeys.get(1));
 
-                g = grid(i);
+                g = ignite(i);
 
                 break;
             }
@@ -5313,7 +5313,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
         Map<String, List<String>> keys = new HashMap<>();
 
         for (int i = 0; i < gridCount(); ++i)
-            keys.put(grid(i).name(), new ArrayList<String>());
+            keys.put(ignite(i).name(), new ArrayList<String>());
 
         for (int i = 0; i < 500; ++i) {
             String key = "key" + i;
@@ -5693,7 +5693,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
     @Test
     public void testWithSkipStoreTx() throws Exception {
         if (txShouldBeUsed()) {
-            IgniteCache<String, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             IgniteCache<String, Integer> cacheSkipStore = cache.withSkipStore();
 
@@ -6030,7 +6030,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             cache.put(keys.get(0), 0);
             cache.put(keys.get(1), 1);
 
-            grid(0).events().localListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
+            ignite(0).events().localListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
 
             try (Transaction tx = transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 Integer val0;
@@ -6063,7 +6063,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
                         return lockEvtCnt.get() == 0;
 
                     if (cacheMode() == PARTITIONED && nearEnabled()) {
-                        if (!grid(0).configuration().isClientMode())
+                        if (!ignite(0).configuration().isClientMode())
                             return lockEvtCnt.get() == 4;
                     }
 
@@ -6072,7 +6072,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
             }, 15000));
         }
         finally {
-            grid(0).events().stopLocalListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
+            ignite(0).events().stopLocalListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
         }
     }
 
@@ -6145,12 +6145,12 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
      */
     @Test
     public void testTransformResourceInjection() throws Exception {
-        ClusterGroup servers = grid(0).cluster().forServers();
+        ClusterGroup servers = ignite(0).cluster().forServers();
 
         if(F.isEmpty(servers.nodes()))
             return;
 
-        grid(0).services( grid(0).cluster()).deployNodeSingleton(SERVICE_NAME1, new DummyServiceImpl());
+        ignite(0).services( ignite(0).cluster()).deployNodeSingleton(SERVICE_NAME1, new DummyServiceImpl());
 
         IgniteCache<String, Integer> cache = jcache();
         Ignite ignite = ignite(0);

@@ -206,13 +206,13 @@ public class GridCachePartitionedEvictionSelfTest extends GridCacheAbstractSelfT
 
             for (String key : dht0.keySet())
                 info("[key=" + key + ", primary=" +
-                    F.eqNodes(grid(0).localNode(), aff.mapKeyToNode(key)) + ']');
+                    F.eqNodes(ignite(0).localNode(), aff.mapKeyToNode(key)) + ']');
 
             info("Printing keys in dht1...");
 
             for (String key : dht1.keySet())
                 info("[key=" + key + ", primary=" +
-                    F.eqNodes(grid(1).localNode(), aff.mapKeyToNode(key)) + ']');
+                    F.eqNodes(ignite(1).localNode(), aff.mapKeyToNode(key)) + ']');
         }
 
         assertEquals(EVICT_CACHE_SIZE, dht0.size());

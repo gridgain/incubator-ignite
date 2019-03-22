@@ -107,9 +107,9 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
         assert G.allGrids().size() == GRID_CNT;
 
         for (int i = 0; i < KEY_CNT; i++) {
-            grid(0).cache(DEFAULT_CACHE_NAME).put(i, i);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(i, i);
 
-            grid(0).cache(NON_DFLT_CACHE_NAME).put(i, i);
+            ignite(0).cache(NON_DFLT_CACHE_NAME).put(i, i);
         }
     }
 
@@ -121,7 +121,7 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
     @Test
     public void testAffinityRun() throws Exception {
         for (int i = 0; i < KEY_CNT; i++)
-            grid(0).compute().affinityRun(NON_DFLT_CACHE_NAME, i, new CheckRunnable(i, i));
+            ignite(0).compute().affinityRun(NON_DFLT_CACHE_NAME, i, new CheckRunnable(i, i));
     }
 
     /**
@@ -131,7 +131,7 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
     public void testAffinityCallRestartFails() throws Exception {
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(0).compute().affinityCall(NON_DFLT_CACHE_NAME, "key",
+                ignite(0).compute().affinityCall(NON_DFLT_CACHE_NAME, "key",
                     new FailedCallable("key", MAX_FAILOVER_ATTEMPTS + 1));
                 return null;
             }
@@ -144,7 +144,7 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
     @Test
     public void testAffinityCallRestart() throws Exception {
         assertEquals(MAX_FAILOVER_ATTEMPTS,
-            grid(0).compute().affinityCall(NON_DFLT_CACHE_NAME, "key",
+            ignite(0).compute().affinityCall(NON_DFLT_CACHE_NAME, "key",
                 new FailedCallable("key", MAX_FAILOVER_ATTEMPTS)));
     }
 
@@ -155,7 +155,7 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
     public void testAffinityRunRestartFails() throws Exception {
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(0).compute().affinityRun(NON_DFLT_CACHE_NAME, "key",
+                ignite(0).compute().affinityRun(NON_DFLT_CACHE_NAME, "key",
                     new FailedRunnable("key", MAX_FAILOVER_ATTEMPTS + 1));
                 return null;
             }
@@ -167,7 +167,7 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAffinityRunRestart() throws Exception {
-        grid(0).compute().affinityRun(NON_DFLT_CACHE_NAME, "key", new FailedRunnable("key", MAX_FAILOVER_ATTEMPTS));
+        ignite(0).compute().affinityRun(NON_DFLT_CACHE_NAME, "key", new FailedRunnable("key", MAX_FAILOVER_ATTEMPTS));
     }
 
     /**
@@ -180,8 +180,8 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
         for (int i = 0; i < KEY_CNT; i++) {
             AffinityTestKey key = new AffinityTestKey(i);
 
-            grid(0).compute().affinityRun(NON_DFLT_CACHE_NAME, i, new CheckRunnable(i, key));
-            grid(0).compute().affinityRun(NON_DFLT_CACHE_NAME, key, new CheckRunnable(i, key));
+            ignite(0).compute().affinityRun(NON_DFLT_CACHE_NAME, i, new CheckRunnable(i, key));
+            ignite(0).compute().affinityRun(NON_DFLT_CACHE_NAME, key, new CheckRunnable(i, key));
         }
     }
 
@@ -193,7 +193,7 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
     @Test
     public void testAffinityCall() throws Exception {
         for (int i = 0; i < KEY_CNT; i++)
-            grid(0).compute().affinityCall(NON_DFLT_CACHE_NAME, i, new CheckCallable(i, i));
+            ignite(0).compute().affinityCall(NON_DFLT_CACHE_NAME, i, new CheckCallable(i, i));
     }
 
     /**
@@ -206,8 +206,8 @@ public class GridCacheAffinityRoutingSelfTest extends GridCommonAbstractTest {
         for (int i = 0; i < KEY_CNT; i++) {
             final AffinityTestKey key = new AffinityTestKey(i);
 
-            grid(0).compute().affinityCall(NON_DFLT_CACHE_NAME, i, new CheckCallable(i, key));
-            grid(0).compute().affinityCall(NON_DFLT_CACHE_NAME, key, new CheckCallable(i, key));
+            ignite(0).compute().affinityCall(NON_DFLT_CACHE_NAME, i, new CheckCallable(i, key));
+            ignite(0).compute().affinityCall(NON_DFLT_CACHE_NAME, key, new CheckCallable(i, key));
         }
     }
 

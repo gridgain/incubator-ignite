@@ -23,6 +23,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.client.GridClientCompute;
 import org.apache.ignite.internal.client.GridClientNode;
 import org.apache.ignite.internal.client.GridClientPredicate;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -34,7 +35,7 @@ import static org.apache.ignite.testframework.GridTestUtils.assertThrows;
  */
 public class ClientComputeImplSelfTest extends GridCommonAbstractTest {
     /** Mocked client compute. */
-    private GridClientCompute compute = allocateInstance0(GridClientComputeImpl.class);
+    private GridClientCompute compute = GridTestUtils.allocateInstance0(GridClientComputeImpl.class);
 
     /**
      * @throws Exception If failed.

@@ -93,7 +93,7 @@ public class IgniteCacheQueryNodeFailTest extends GridCommonAbstractTest {
 
         assertFalse(failSrv.configuration().isClientMode());
 
-        Ignite client = grid(1);
+        Ignite client = ignite(1);
 
         final IgniteCache<Integer, Integer> cache = client.cache(DEFAULT_CACHE_NAME);
 

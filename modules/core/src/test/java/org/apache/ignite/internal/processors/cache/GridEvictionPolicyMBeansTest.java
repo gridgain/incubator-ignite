@@ -125,8 +125,8 @@ public class GridEvictionPolicyMBeansTest extends GridCommonAbstractTest {
 
     /** Checks that a bean with the specified group and name is available and has the expected attribute */
     private void checkBean(String grp, String name, String attributeName, Object expAttributeVal) throws Exception {
-        ObjectName mBeanName = IgniteUtils.makeMBeanName(grid().name(), grp, name);
-        Object attributeVal = grid().configuration().getMBeanServer().getAttribute(mBeanName, attributeName);
+        ObjectName mBeanName = IgniteUtils.makeMBeanName(ignite().name(), grp, name);
+        Object attributeVal = ignite().configuration().getMBeanServer().getAttribute(mBeanName, attributeName);
 
         assertEquals(expAttributeVal, attributeVal);
     }

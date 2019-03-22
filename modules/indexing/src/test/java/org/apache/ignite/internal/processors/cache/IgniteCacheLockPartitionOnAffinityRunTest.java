@@ -270,7 +270,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
         super.beforeTest();
 
         // Workaround for initial update job metadata.
-        grid(0).compute().affinityCall(
+        ignite(0).compute().affinityCall(
             Arrays.asList(Person.class.getSimpleName(), Organization.class.getSimpleName()),
             0,
             new TestAffinityCall(new PersonsCountGetter() {
@@ -279,7 +279,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                 }
             }, 0));
 
-        grid(0).compute().affinityRun(
+        ignite(0).compute().affinityRun(
             Arrays.asList(Person.class.getSimpleName(), Organization.class.getSimpleName()),
             0,
             new TestAffinityRun(new PersonsCountGetter() {
@@ -316,7 +316,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                                 if (System.currentTimeMillis() >= endTime)
                                     break;
 
-                                grid(0).compute().affinityRun(Person.class.getSimpleName(),
+                                ignite(0).compute().affinityRun(Person.class.getSimpleName(),
                                     new Person(0, orgId).createKey(),
                                     new TestAffinityRun(personsCntGetter, orgId));
                             }
@@ -328,7 +328,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                                 if (System.currentTimeMillis() >= endTime)
                                     break;
 
-                                int personsCnt = grid(0).compute().affinityCall(Person.class.getSimpleName(),
+                                int personsCnt = ignite(0).compute().affinityCall(Person.class.getSimpleName(),
                                     new Person(0, orgId).createKey(),
                                     new TestAffinityCall(personsCntGetter, orgId));
 
@@ -372,7 +372,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                                 if (System.currentTimeMillis() >= endTime)
                                     break;
 
-                                grid(0).compute().affinityRun(
+                                ignite(0).compute().affinityRun(
                                     Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                                     new Integer(orgId),
                                     new TestAffinityRun(personsCntGetter, orgId));
@@ -385,7 +385,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                                 if (System.currentTimeMillis() >= endTime)
                                     break;
 
-                                int personsCnt = grid(0).compute().affinityCall(
+                                int personsCnt = ignite(0).compute().affinityCall(
                                     Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                                     new Integer(orgId),
                                     new TestAffinityCall(personsCntGetter, orgId));
@@ -409,11 +409,11 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
      */
     @Test
     public void testCheckReservePartitionException() throws Exception {
-        int orgId = primaryKey(grid(1).cache(Organization.class.getSimpleName()));
+        int orgId = primaryKey(ignite(1).cache(Organization.class.getSimpleName()));
 
         GridTestUtils.assertThrowsAnyCause(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).compute().affinityRun(
+                ignite(0).compute().affinityRun(
                     Arrays.asList(Organization.class.getSimpleName(), OTHER_CACHE_NAME),
                     new Integer(orgId),
                     new IgniteRunnable() {
@@ -432,9 +432,9 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
      */
     @Test
     public void testReleasePartitionJobCompletesNormally() throws Exception {
-        final int orgId = primaryKey(grid(1).cache(Organization.class.getSimpleName()));
+        final int orgId = primaryKey(ignite(1).cache(Organization.class.getSimpleName()));
 
-        grid(0).compute().affinityRun(
+        ignite(0).compute().affinityRun(
             Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
             new Integer(orgId),
             new IgniteRunnable() {
@@ -452,9 +452,9 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                 }
             });
 
-        checkPartitionsReservations(grid(1), orgId, 0);
+        checkPartitionsReservations(ignite(1), orgId, 0);
 
-        grid(0).compute().affinityCall(
+        ignite(0).compute().affinityCall(
             Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
             new Integer(orgId),
             new IgniteCallable<Object>() {
@@ -473,7 +473,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
                 }
             });
 
-        checkPartitionsReservations(grid(1), orgId, 0);
+        checkPartitionsReservations(ignite(1), orgId, 0);
     }
 
     /**
@@ -481,10 +481,10 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
      */
     @Test
     public void testReleasePartitionJobThrowsException() throws Exception {
-        final int orgId = primaryKey(grid(1).cache(Organization.class.getSimpleName()));
+        final int orgId = primaryKey(ignite(1).cache(Organization.class.getSimpleName()));
 
         try {
-            grid(0).compute().affinityRun(
+            ignite(0).compute().affinityRun(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new IgniteRunnable() {
@@ -507,11 +507,11 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
             fail("Exception must be thrown");
         }
         catch (Exception ignored) {
-            checkPartitionsReservations(grid(1), orgId, 0);
+            checkPartitionsReservations(ignite(1), orgId, 0);
         }
 
         try {
-            grid(0).compute().affinityCall(
+            ignite(0).compute().affinityCall(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new IgniteCallable<Object>() {
@@ -533,7 +533,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
             fail("Exception must be thrown");
         }
         catch (Exception ignored) {
-            checkPartitionsReservations(grid(1), orgId, 0);
+            checkPartitionsReservations(ignite(1), orgId, 0);
         }
     }
 
@@ -542,10 +542,10 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
      */
     @Test
     public void testReleasePartitionJobThrowsError() throws Exception {
-        final int orgId = primaryKey(grid(1).cache(Organization.class.getSimpleName()));
+        final int orgId = primaryKey(ignite(1).cache(Organization.class.getSimpleName()));
 
         try {
-            grid(0).compute().affinityRun(
+            ignite(0).compute().affinityRun(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new IgniteRunnable() {
@@ -567,11 +567,11 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
             fail("Error must be thrown");
         }
         catch (Throwable ignored) {
-            checkPartitionsReservations(grid(1), orgId, 0);
+            checkPartitionsReservations(ignite(1), orgId, 0);
         }
 
         try {
-            grid(0).compute().affinityCall(
+            ignite(0).compute().affinityCall(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new IgniteCallable<Object>() {
@@ -593,7 +593,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
             fail("Error must be thrown");
         }
         catch (Throwable ignored) {
-            checkPartitionsReservations(grid(1), orgId, 0);
+            checkPartitionsReservations(ignite(1), orgId, 0);
         }
     }
 
@@ -602,17 +602,17 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
      */
     @Test
     public void testReleasePartitionJobUnmarshalingFails() throws Exception {
-        final int orgId = primaryKey(grid(1).cache(Organization.class.getSimpleName()));
+        final int orgId = primaryKey(ignite(1).cache(Organization.class.getSimpleName()));
 
         try {
-            grid(0).compute().affinityRun(
+            ignite(0).compute().affinityRun(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new JobFailUnmarshaling());
             fail("Unmarshaling exception must be thrown");
         }
         catch (Exception ignored) {
-            checkPartitionsReservations(grid(1), orgId, 0);
+            checkPartitionsReservations(ignite(1), orgId, 0);
         }
     }
 
@@ -621,10 +621,10 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
      */
     @Test
     public void testReleasePartitionJobMasterLeave() throws Exception {
-        final int orgId = primaryKey(grid(0).cache(Organization.class.getSimpleName()));
+        final int orgId = primaryKey(ignite(0).cache(Organization.class.getSimpleName()));
 
         try {
-            grid(1).compute().affinityRunAsync(
+            ignite(1).compute().affinityRunAsync(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new IgniteRunnable() {
@@ -655,7 +655,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
 
             awaitPartitionMapExchange();
 
-            checkPartitionsReservations(grid(0), orgId, 0);
+            checkPartitionsReservations(ignite(0), orgId, 0);
         }
         finally {
             startGrid(1);
@@ -665,7 +665,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
 
 
         try {
-            grid(1).compute().affinityCallAsync(
+            ignite(1).compute().affinityCallAsync(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new IgniteCallable<Object>() {
@@ -697,7 +697,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
 
             awaitPartitionMapExchange();
 
-            checkPartitionsReservations(grid(0), orgId, 0);
+            checkPartitionsReservations(ignite(0), orgId, 0);
         }
         finally {
             startGrid(1);
@@ -711,10 +711,10 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
      */
     @Test
     public void testReleasePartitionJobImplementMasterLeave() throws Exception {
-        final int orgId = primaryKey(grid(0).cache(Organization.class.getSimpleName()));
+        final int orgId = primaryKey(ignite(0).cache(Organization.class.getSimpleName()));
 
         try {
-            grid(1).compute().affinityRunAsync(
+            ignite(1).compute().affinityRunAsync(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new RunnableWithMasterLeave() {
@@ -749,7 +749,7 @@ public class IgniteCacheLockPartitionOnAffinityRunTest extends IgniteCacheLockPa
 
             awaitPartitionMapExchange();
 
-            checkPartitionsReservations(grid(0), orgId, 0);
+            checkPartitionsReservations(ignite(0), orgId, 0);
         }
         finally {
             startGrid(1);

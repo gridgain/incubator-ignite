@@ -231,7 +231,7 @@ public class GridP2PLocalDeploymentSelfTest extends GridCommonAbstractTest {
         System.setProperty(IGNITE_DEPLOYMENT_ADDITIONAL_CHECK, "true");
 
         try {
-            final Ignite ignite = startGrid();
+            final Ignite ignite = clusterManager__startGrid();
 
             final ClassLoader delegate = ignite.getClass().getClassLoader();
 

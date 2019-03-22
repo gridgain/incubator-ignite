@@ -93,7 +93,7 @@ public class IgfsCacheSelfTest extends IgfsCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /**
@@ -103,7 +103,7 @@ public class IgfsCacheSelfTest extends IgfsCommonAbstractTest {
      */
     @Test
     public void testCache() throws Exception {
-        final Ignite g = grid();
+        final Ignite g = ignite();
 
         Collection<IgniteCacheProxy<?, ?>> caches = ((IgniteKernal)g).caches();
 

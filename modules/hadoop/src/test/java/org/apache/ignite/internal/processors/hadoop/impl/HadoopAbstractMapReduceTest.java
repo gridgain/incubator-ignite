@@ -209,7 +209,7 @@ public class HadoopAbstractMapReduceTest extends HadoopAbstractWordCountTest {
 
         HadoopJobId jobId = new HadoopJobId(UUID.randomUUID(), 1);
 
-        IgniteInternalFuture<?> fut = grid(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
+        IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
 
         fut.get();
 
@@ -249,7 +249,7 @@ public class HadoopAbstractMapReduceTest extends HadoopAbstractWordCountTest {
      * @throws IgniteCheckedException
      */
     private void checkJobStatistics(HadoopJobId jobId) throws IgniteCheckedException, IOException {
-        HadoopCounters cntrs = grid(0).hadoop().counters(jobId);
+        HadoopCounters cntrs = ignite(0).hadoop().counters(jobId);
 
         HadoopPerformanceCounter perfCntr = HadoopPerformanceCounter.getCounter(cntrs, null);
 

@@ -76,7 +76,7 @@ public class GridCacheIncrementTransformTest extends GridCommonAbstractTest {
         grids = new AtomicReferenceArray<>(GRID_CNT);
 
         for (int i = 0; i < GRID_CNT; i++)
-            grids.set(i, grid(i));
+            grids.set(i, ignite(i));
 
         jcache(0).put("key", new TestObject(0));
     }
@@ -158,7 +158,7 @@ public class GridCacheIncrementTransformTest extends GridCommonAbstractTest {
             while (ignite == null) {
                 idx = rnd.nextInt(GRID_CNT);
 
-                ignite = restarts ? grids.getAndSet(idx, null) : grid(idx);
+                ignite = restarts ? grids.getAndSet(idx, null) : ignite(idx);
             }
 
             IgniteCache<String, TestObject> cache = ignite.<String, TestObject>cache(DEFAULT_CACHE_NAME).withNoRetries();

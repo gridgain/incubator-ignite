@@ -32,7 +32,7 @@ public class SqlPushDownFunctionTest extends AbstractIndexingCommonTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        node = (IgniteEx)startGrid();
+        node = (IgniteEx)clusterManager__startGrid();
 
         startGrid(2);
     }

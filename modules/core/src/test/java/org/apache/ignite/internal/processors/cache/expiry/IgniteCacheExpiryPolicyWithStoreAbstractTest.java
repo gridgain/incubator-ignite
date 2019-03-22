@@ -236,7 +236,7 @@ public abstract class IgniteCacheExpiryPolicyWithStoreAbstractTest extends Ignit
         for (Integer key : keys)
             storeMap.put(key, key);
 
-        IgniteTransactions transactions = grid(0).transactions();
+        IgniteTransactions transactions = ignite(0).transactions();
 
         Transaction tx = txConcurrency != null ? transactions.txStart(txConcurrency, txIsolation) : null;
 
@@ -298,7 +298,7 @@ public abstract class IgniteCacheExpiryPolicyWithStoreAbstractTest extends Ignit
         boolean found = false;
 
         for (int i = 0; i < gridCount(); i++) {
-            IgniteKernal grid = (IgniteKernal)grid(i);
+            IgniteKernal grid = (IgniteKernal)ignite(i);
 
             GridCacheAdapter<Object, Object> cache = grid.context().cache().internalCache(DEFAULT_CACHE_NAME);
 

@@ -197,7 +197,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
     public void testSimpleUpdateDistributedReplicated() throws Exception {
         fillCaches();
 
-        IgniteCache<Integer, Position> cache = grid(NODE_CLIENT).cache(CACHE_POSITION);
+        IgniteCache<Integer, Position> cache = ignite(NODE_CLIENT).cache(CACHE_POSITION);
 
         Position p = cache.get(1);
 
@@ -217,7 +217,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
     public void testSimpleUpdateDistributedPartitioned() throws Exception {
         fillCaches();
 
-        IgniteCache<PersonKey, Person> cache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        IgniteCache<PersonKey, Person> cache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         List<List<?>> r = cache.query(new SqlFieldsQueryEx(
             "UPDATE Person SET position = CASEWHEN(position = 1, 1, position - 1)", false)
@@ -235,7 +235,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
         // UPDATE can produce failed keys due to concurrent modification
         fillCaches();
 
-        final IgniteCache<Integer, Organization> cache = grid(NODE_CLIENT).cache(CACHE_ORG);
+        final IgniteCache<Integer, Organization> cache = ignite(NODE_CLIENT).cache(CACHE_ORG);
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() {
@@ -253,7 +253,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
     public void testDistributedUpdateFail() throws Exception {
         fillCaches();
 
-        final IgniteCache cache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        final IgniteCache cache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() {
@@ -276,7 +276,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
             .setQueryParallelism(4)
             .setName(cacheName);
 
-        IgniteCache<Integer, Organization> cache = grid(NODE_CLIENT).createCache(cfg);
+        IgniteCache<Integer, Organization> cache = ignite(NODE_CLIENT).createCache(cfg);
 
         for (int i = 0; i < 1024; i++)
             cache.put(i, new Organization("Acme Inc #" + i, 0));
@@ -310,9 +310,9 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
         };
 
         for (int idx = 0; idx < NODE_COUNT; idx++)
-            grid(idx).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
+            ignite(idx).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
 
-        IgniteCache<Integer, Organization> cache = grid(NODE_CLIENT).cache(CACHE_ORG);
+        IgniteCache<Integer, Organization> cache = ignite(NODE_CLIENT).cache(CACHE_ORG);
 
         for (int i = 0; i < 1024; i++)
             cache.put(i, new Organization("Acme Inc #" + i, 0));
@@ -323,7 +323,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
         assertTrue(latch.await(5000, MILLISECONDS));
 
         for (int idx = 0; idx < NODE_COUNT; idx++)
-            grid(idx).events().stopLocalListen(pred);
+            ignite(idx).events().stopLocalListen(pred);
     }
 
     /**
@@ -334,7 +334,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
     public void testSpecificPartitionsUpdate() throws Exception {
         fillCaches();
 
-        Affinity aff = grid(NODE_CLIENT).affinity(CACHE_PERSON);
+        Affinity aff = ignite(NODE_CLIENT).affinity(CACHE_PERSON);
 
         int numParts = aff.partitions();
         int parts[] = new int[numParts / 2];
@@ -342,7 +342,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
         for (int idx = 0; idx < numParts / 2; idx++)
             parts[idx] = idx * 2;
 
-        IgniteCache<PersonKey, Person> cache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        IgniteCache<PersonKey, Person> cache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         // UPDATE over even partitions
         cache.query(new SqlFieldsQueryEx("UPDATE Person SET position = 0", false)
@@ -370,7 +370,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
 
         fillCaches();
 
-        final IgniteCache<Integer, Organization> cache = grid(NODE_CLIENT).cache(CACHE_ORG);
+        final IgniteCache<Integer, Organization> cache = ignite(NODE_CLIENT).cache(CACHE_ORG);
 
         final IgniteInternalFuture<Object> fut = GridTestUtils.runAsync(new Callable<Object>() {
             @Override public Object call() {
@@ -382,7 +382,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 Collection<GridRunningQueryInfo> qCol =
-                    grid(NODE_CLIENT).context().query().runningQueries(0);
+                    ignite(NODE_CLIENT).context().query().runningQueries(0);
 
                 if (qCol.isEmpty())
                     return false;
@@ -417,7 +417,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
 
         latch = new CountDownLatch(NODE_COUNT + 1 + 1);
 
-        final IgniteCache<Integer, Organization> cache = grid(NODE_CLIENT).cache(CACHE_ORG);
+        final IgniteCache<Integer, Organization> cache = ignite(NODE_CLIENT).cache(CACHE_ORG);
 
         final IgniteInternalFuture<Object> fut = GridTestUtils.runAsync(new Callable<Object>() {
             @Override public Object call() {
@@ -449,7 +449,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
      * Ensure there are no leaks in data structures associated with distributed dml execution.
      */
     private void checkNoLeaks() {
-        GridQueryProcessor qryProc = grid(NODE_CLIENT).context().query();
+        GridQueryProcessor qryProc = ignite(NODE_CLIENT).context().query();
 
         IgniteH2Indexing h2Idx = GridTestUtils.getFieldValue(qryProc, GridQueryProcessor.class, "idx");
 
@@ -460,7 +460,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
         assertEquals(0, updRuns.size());
 
         for (int idx = 0; idx < NODE_COUNT; idx++) {
-            qryProc = grid(idx).context().query();
+            qryProc = ignite(idx).context().query();
 
             h2Idx = GridTestUtils.getFieldValue(qryProc, GridQueryProcessor.class, "idx");
 
@@ -480,7 +480,7 @@ public class IgniteSqlSkipReducerOnUpdateDmlSelfTest extends AbstractIndexingCom
      * Fills caches with initial data.
      */
     private void fillCaches() {
-        Ignite client = grid(NODE_CLIENT);
+        Ignite client = ignite(NODE_CLIENT);
 
         IgniteCache<Integer, Position> posCache = client.cache(CACHE_POSITION);
 

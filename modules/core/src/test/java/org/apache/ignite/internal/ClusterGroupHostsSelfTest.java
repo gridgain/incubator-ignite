@@ -42,7 +42,7 @@ public class ClusterGroupHostsSelfTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -66,7 +66,7 @@ public class ClusterGroupHostsSelfTest extends GridCommonAbstractTest {
         if (!tcpDiscovery())
             return;
 
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         assertEquals(1, ignite.cluster().forHost("h_1").nodes().size());
         assertEquals(1, ignite.cluster().forHost("h_1", "h_3").nodes().size());
@@ -93,7 +93,7 @@ public class ClusterGroupHostsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testHostNames() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         Collection<String> locNodeHosts = ignite.cluster().localNode().hostNames();
         Collection<String> clusterHosts = ignite.cluster().hostNames();

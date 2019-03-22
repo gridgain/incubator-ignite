@@ -168,7 +168,7 @@ public class DdlTransactionSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTxIsCommittedOnDdlRequest() throws Exception {
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         IgniteCache<Object, Object> cache = node.cache(DEFAULT_CACHE_NAME);
 
@@ -295,7 +295,7 @@ public class DdlTransactionSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testDdlRequestWithoutTx() throws Exception {
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         IgniteCache<Object, Object> cache = node.cache(DEFAULT_CACHE_NAME);
 

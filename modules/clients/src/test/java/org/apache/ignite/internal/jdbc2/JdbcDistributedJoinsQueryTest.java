@@ -68,14 +68,14 @@ public class JdbcDistributedJoinsQueryTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         startGrids(3);
 
-        IgniteCache<String, Organization> orgCache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<String, Organization> orgCache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         assert orgCache != null;
 
         orgCache.put("o1", new Organization(1, "A"));
         orgCache.put("o2", new Organization(2, "B"));
 
-        IgniteCache<String, Person> personCache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<String, Person> personCache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         assert personCache != null;
 

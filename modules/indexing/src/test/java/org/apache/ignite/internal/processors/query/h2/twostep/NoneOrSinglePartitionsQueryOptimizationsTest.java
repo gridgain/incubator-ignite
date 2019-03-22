@@ -255,7 +255,7 @@ public class NoneOrSinglePartitionsQueryOptimizationsTest extends GridCommonAbst
     @Test
     public void testQueryWithNonePartititons() throws Exception {
         TestCommunicationSpi commSpi =
-            (TestCommunicationSpi)grid(NODES_COUNT).configuration().
+            (TestCommunicationSpi)ignite(NODES_COUNT).configuration().
                 getCommunicationSpi();
 
         commSpi.resetQueries();
@@ -282,7 +282,7 @@ public class NoneOrSinglePartitionsQueryOptimizationsTest extends GridCommonAbst
     @SuppressWarnings("unchecked")
     public void testQueryWithNonePartititonsAndParams() throws Exception {
         TestCommunicationSpi commSpi =
-            (TestCommunicationSpi)grid(NODES_COUNT).configuration().
+            (TestCommunicationSpi)ignite(NODES_COUNT).configuration().
                 getCommunicationSpi();
 
         commSpi.resetQueries();
@@ -452,7 +452,7 @@ public class NoneOrSinglePartitionsQueryOptimizationsTest extends GridCommonAbst
         Object... args)
         throws Exception {
         TestCommunicationSpi commSpi =
-            (TestCommunicationSpi)grid(NODES_COUNT).configuration().
+            (TestCommunicationSpi)ignite(NODES_COUNT).configuration().
                 getCommunicationSpi();
 
         commSpi.resetQueries();

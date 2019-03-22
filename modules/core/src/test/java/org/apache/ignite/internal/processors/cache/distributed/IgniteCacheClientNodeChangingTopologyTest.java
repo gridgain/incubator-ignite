@@ -2014,7 +2014,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
         fut.get(30_000);
 
         if (testType != TestType.LOCK)
-            checkData(null, putKeys, grid(SRV_CNT).cache(DEFAULT_CACHE_NAME), SRV_CNT + CLIENT_CNT);
+            checkData(null, putKeys, ignite(SRV_CNT).cache(DEFAULT_CACHE_NAME), SRV_CNT + CLIENT_CNT);
     }
 
     /**
@@ -2053,7 +2053,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
         fut.get();
 
         for (int i = 0; i < CLIENTS; i++) {
-            Ignite ignite = grid(i + 2);
+            Ignite ignite = ignite(i + 2);
 
             assertEquals(CLIENTS, ignite.cluster().nodes().size());
         }
@@ -2066,7 +2066,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
         awaitPartitionMapExchange();
 
         for (int i = 0; i < CLIENTS; i++) {
-            Ignite ignite = grid(i + 2);
+            Ignite ignite = ignite(i + 2);
 
             IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 

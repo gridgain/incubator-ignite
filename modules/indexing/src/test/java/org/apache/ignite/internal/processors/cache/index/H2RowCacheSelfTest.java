@@ -53,7 +53,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -84,17 +84,17 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
         final String cacheName0 = "cache0";
         final String cacheName1 = "cache1";
 
-        grid().getOrCreateCache(cacheConfiguration(cacheName0, false));
+        ignite().getOrCreateCache(cacheConfiguration(cacheName0, false));
 
-        int grpId = grid().cachex(cacheName0).context().groupId();
+        int grpId = ignite().cachex(cacheName0).context().groupId();
 
-        assertNull(rowCache(grid(), grpId));
+        assertNull(rowCache(ignite(), grpId));
 
-        grid().getOrCreateCache(cacheConfiguration(cacheName1, true));
+        ignite().getOrCreateCache(cacheConfiguration(cacheName1, true));
 
-        assertEquals(grpId, grid().cachex(cacheName1).context().groupId());
+        assertEquals(grpId, ignite().cachex(cacheName1).context().groupId());
 
-        assertNotNull(rowCache(grid(), grpId));
+        assertNotNull(rowCache(ignite(), grpId));
     }
 
     /**
@@ -110,7 +110,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testDestroyCacheWithOtherCacheInGroup() throws IgniteCheckedException {
-        grid().getOrCreateCache(cacheConfiguration("cacheWithoutOnheapCache", false));
+        ignite().getOrCreateCache(cacheConfiguration("cacheWithoutOnheapCache", false));
 
         checkDestroyCache();
     }
@@ -128,7 +128,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testDeleteEntryWithOtherCacheInGroup() throws Exception {
-        grid().getOrCreateCache(cacheConfiguration("cacheWithoutOnheapCache", false));
+        ignite().getOrCreateCache(cacheConfiguration("cacheWithoutOnheapCache", false));
 
         checkDeleteEntry();
     }
@@ -146,7 +146,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
      */
     @Test
     public void testUpdateEntryWithOtherCacheInGroup() throws Exception {
-        grid().getOrCreateCache(cacheConfiguration("cacheWithoutOnheapCache", false));
+        ignite().getOrCreateCache(cacheConfiguration("cacheWithoutOnheapCache", false));
 
         checkUpdateEntry();
     }
@@ -161,15 +161,15 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
 
         CacheConfiguration ccfg = cacheConfiguration(cacheName, true).setSqlOnheapCacheMaxSize(maxSize);
 
-        IgniteCache cache = grid().getOrCreateCache(ccfg);
+        IgniteCache cache = ignite().getOrCreateCache(ccfg);
 
-        int grpId = grid().cachex(cacheName).context().groupId();
+        int grpId = ignite().cachex(cacheName).context().groupId();
 
         // Fill half.
         for (int i = 0; i < maxSize / 2; i++)
             cache.put(i, new Value(1));
 
-        H2RowCache rowCache = rowCache(grid(), grpId);
+        H2RowCache rowCache = rowCache(ignite(), grpId);
 
         assertEquals(0, rowCache.size());
 
@@ -223,24 +223,24 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
         final String cacheName0 = "cache0";
         final String cacheName1 = "cache1";
 
-        grid().getOrCreateCache(cacheConfiguration(cacheName0, true));
-        grid().getOrCreateCache(cacheConfiguration(cacheName1, true));
+        ignite().getOrCreateCache(cacheConfiguration(cacheName0, true));
+        ignite().getOrCreateCache(cacheConfiguration(cacheName1, true));
 
-        int grpId = grid().cachex(cacheName0).context().groupId();
+        int grpId = ignite().cachex(cacheName0).context().groupId();
 
-        assertEquals(grpId, grid().cachex(cacheName1).context().groupId());
+        assertEquals(grpId, ignite().cachex(cacheName1).context().groupId());
 
-        try(IgniteDataStreamer<Integer, Value> streamer = grid().dataStreamer(cacheName0)) {
+        try(IgniteDataStreamer<Integer, Value> streamer = ignite().dataStreamer(cacheName0)) {
             for (int i = 0; i < ENTRIES / 2; ++i)
                 streamer.addData(i, new Value(i));
         }
 
-        try(IgniteDataStreamer<Integer, Value> streamer = grid().dataStreamer(cacheName1)) {
+        try(IgniteDataStreamer<Integer, Value> streamer = ignite().dataStreamer(cacheName1)) {
             for (int i = ENTRIES / 2; i < ENTRIES; ++i)
                 streamer.addData(i, new Value(i));
         }
 
-        H2RowCache rowCache = rowCache(grid(), grpId);
+        H2RowCache rowCache = rowCache(ignite(), grpId);
 
         assertNotNull(rowCache);
 
@@ -248,21 +248,21 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
         Set<Long> linksOfCache1 = new HashSet<>(ENTRIES / 2);
 
         for (int i = 0; i < ENTRIES / 2; ++i)
-            linksOfCache0.add(getLinkForKey(cacheName0, rowCache(grid(), grpId), i));
+            linksOfCache0.add(getLinkForKey(cacheName0, rowCache(ignite(), grpId), i));
 
         for (int i = ENTRIES / 2; i < ENTRIES; ++i)
-            linksOfCache1.add(getLinkForKey(cacheName1, rowCache(grid(), grpId), i));
+            linksOfCache1.add(getLinkForKey(cacheName1, rowCache(ignite(), grpId), i));
 
-        grid().destroyCache(cacheName0);
+        ignite().destroyCache(cacheName0);
 
-        assertNotNull(rowCache(grid(), grpId));
+        assertNotNull(rowCache(ignite(), grpId));
 
         for (long link : linksOfCache0)
-            assertNull(rowCache(grid(), grpId).get(link));
+            assertNull(rowCache(ignite(), grpId).get(link));
 
-        grid().destroyCache(cacheName1);
+        ignite().destroyCache(cacheName1);
 
-        assertNull(rowCache(grid(), grpId));
+        assertNull(rowCache(ignite(), grpId));
     }
 
     /**
@@ -272,15 +272,15 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
     private void checkDeleteEntry() throws Exception {
         final String cacheName = "cache";
 
-        grid().getOrCreateCache(cacheConfiguration(cacheName, true));
+        ignite().getOrCreateCache(cacheConfiguration(cacheName, true));
 
-        int grpId = grid().cachex(cacheName).context().groupId();
+        int grpId = ignite().cachex(cacheName).context().groupId();
 
-        assertEquals(grpId, grid().cachex(cacheName).context().groupId());
+        assertEquals(grpId, ignite().cachex(cacheName).context().groupId());
 
         fillCache(cacheName);
 
-        H2RowCache rowCache = rowCache(grid(), grpId);
+        H2RowCache rowCache = rowCache(ignite(), grpId);
 
         fillRowCache(cacheName);
 
@@ -288,7 +288,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
 
         int key = RND.nextInt(ENTRIES);
 
-        grid().cache(cacheName)
+        ignite().cache(cacheName)
             .query(new SqlQuery(Value.class, "_key = " + key)).getAll();
 
         int rowCacheSize = rowCache.size();
@@ -298,7 +298,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
         assertNotNull(rowCache.get(rowLink));
 
         // Remove
-        grid().cache(cacheName).remove(key);
+        ignite().cache(cacheName).remove(key);
 
         assertNull(rowCache.get(rowLink));
 
@@ -314,15 +314,15 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
     private void checkUpdateEntry() throws Exception {
         final String cacheName = "cache";
 
-        grid().getOrCreateCache(cacheConfiguration(cacheName, true));
+        ignite().getOrCreateCache(cacheConfiguration(cacheName, true));
 
-        int grpId = grid().cachex(cacheName).context().groupId();
+        int grpId = ignite().cachex(cacheName).context().groupId();
 
-        assertEquals(grpId, grid().cachex(cacheName).context().groupId());
+        assertEquals(grpId, ignite().cachex(cacheName).context().groupId());
 
         fillCache(cacheName);
 
-        H2RowCache rowCache = rowCache(grid(), grpId);
+        H2RowCache rowCache = rowCache(ignite(), grpId);
 
         fillRowCache(cacheName);
 
@@ -337,7 +337,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
         assertNotNull(rowCache.get(rowLink));
 
         // Update row
-        grid().cache(cacheName).put(key, new Value(key + 1));
+        ignite().cache(cacheName).put(key, new Value(key + 1));
 
         assertNull(rowCache.get(rowLink));
 
@@ -346,7 +346,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
         assertEquals(rowCacheSize - 1, rowCacheSizeAfterUpdate);
 
         // Check updated value.
-        List<Cache.Entry<Integer, Value>> res = grid().<Integer, Value>cache(cacheName)
+        List<Cache.Entry<Integer, Value>> res = ignite().<Integer, Value>cache(cacheName)
             .query(new SqlQuery(Value.class, "_key = " + key)).getAll();
 
         assertEquals(1, res.size());
@@ -360,7 +360,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
      * @return Row's link.
      */
     private long getLinkForKey(String cacheName, H2RowCache rowCache, int key) {
-        grid().cache(cacheName)
+        ignite().cache(cacheName)
             .query(new SqlQuery(Value.class, "_key = " + key)).getAll().size();
 
         ConcurrentLinkedHashMap<Long, H2CacheRow> rowsMap = GridTestUtils.getFieldValue(rowCache, "rows");
@@ -392,7 +392,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
      * @param name Cache name.
      */
     private void fillCache(String name) {
-        try(IgniteDataStreamer<Integer, Value> streamer = grid().dataStreamer(name)) {
+        try(IgniteDataStreamer<Integer, Value> streamer = ignite().dataStreamer(name)) {
             for (int i = 0; i < ENTRIES; ++i)
                 streamer.addData(i, new Value(i));
         }
@@ -404,7 +404,7 @@ public class H2RowCacheSelfTest extends AbstractIndexingCommonTest {
     @SuppressWarnings("unchecked")
     private void fillRowCache(String name) {
         for (int i = 0; i < ENTRIES; ++i)
-            grid().cache(name).query(new SqlQuery(Value.class, "_key = " + i)).getAll().size();
+            ignite().cache(name).query(new SqlQuery(Value.class, "_key = " + i)).getAll().size();
     }
 
     /**

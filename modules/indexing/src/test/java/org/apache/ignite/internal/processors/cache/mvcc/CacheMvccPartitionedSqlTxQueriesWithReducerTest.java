@@ -51,7 +51,7 @@ public class CacheMvccPartitionedSqlTxQueriesWithReducerTest extends CacheMvccSq
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(grid(1));
+        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(ignite(1));
 
         spi.blockMessages((node, msg) -> {
             if (msg instanceof GridDhtPartitionsSingleMessage) {

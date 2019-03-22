@@ -380,7 +380,7 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
      * @throws SQLException if failed.
      */
     private void doTestAutoCommit(boolean batched) throws SQLException {
-        IgniteCache<Integer, ?> cache = grid(0).cache("ints");
+        IgniteCache<Integer, ?> cache = ignite(0).cache("ints");
 
         try (Connection c = c(false, NestedTxMode.ERROR)) {
             try (Statement s = c.createStatement()) {
@@ -421,7 +421,7 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
             try (Statement s = c.createStatement()) {
                 s.execute("INSERT INTO INTS(k, v) values(1, 1)");
 
-                assertEquals(1, grid(0).cache("ints").get(1));
+                assertEquals(1, ignite(0).cache("ints").get(1));
 
                 GridTestUtils.assertThrows(null, new Callable<Void>() {
                     @Override public Void call() throws Exception {
@@ -433,7 +433,7 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
 
                 s.execute("INSERT INTO INTS(k, v) values(2, 2)");
 
-                assertEquals(2, grid(0).cache("ints").get(2));
+                assertEquals(2, ignite(0).cache("ints").get(2));
             }
         }
     }
@@ -461,8 +461,8 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
                 c.commit();
             }
 
-            assertEquals(1, grid(0).cache("ints").get(1));
-            assertEquals(2, grid(0).cache("ints").get(2));
+            assertEquals(1, ignite(0).cache("ints").get(1));
+            assertEquals(2, ignite(0).cache("ints").get(2));
         }
     }
 }

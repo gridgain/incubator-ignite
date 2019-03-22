@@ -83,7 +83,7 @@ public class IgniteCacheClientNearCacheExpiryTest extends IgniteCacheAbstractTes
      */
     @Test
     public void testExpirationOnClient() throws Exception {
-        Ignite ignite = grid(NODES - 1);
+        Ignite ignite = ignite(NODES - 1);
 
         // Check size of near entries via reflection because entries is filtered for size() API call.
         IgniteEx igniteEx = (IgniteEx)ignite;

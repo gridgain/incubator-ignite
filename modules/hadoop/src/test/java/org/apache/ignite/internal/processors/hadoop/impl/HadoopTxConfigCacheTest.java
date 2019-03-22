@@ -34,7 +34,7 @@ public class HadoopTxConfigCacheTest extends IgniteTxConfigCacheSelfTest {
      */
     @Test
     @Override public void testSystemCacheTx() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final IgniteInternalCache<Object, Object> hadoopCache = getSystemCache(ignite, CU.SYS_CACHE_HADOOP_MR);
 

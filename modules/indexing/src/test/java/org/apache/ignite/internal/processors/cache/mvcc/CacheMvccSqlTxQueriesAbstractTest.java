@@ -326,8 +326,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -372,8 +372,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -403,8 +403,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -450,8 +450,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -496,8 +496,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -542,8 +542,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -587,8 +587,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -632,8 +632,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -669,8 +669,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -711,8 +711,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -775,50 +775,48 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
         final AtomicInteger idx = new AtomicInteger();
         final AtomicReference<Exception> ex = new AtomicReference<>();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                int id = idx.getAndIncrement();
+        GridTestUtils.runMultiThreaded(() -> {
+            int id = idx.getAndIncrement();
 
-                IgniteEx node = grid(id);
+            IgniteEx node = ignite(id);
 
-                try {
-                    try (Transaction tx = node.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                        if (timeoutMode == TimeoutMode.TX)
-                            tx.timeout(TX_TIMEOUT);
+            try {
+                try (Transaction tx = node.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                    if (timeoutMode == TimeoutMode.TX)
+                        tx.timeout(TX_TIMEOUT);
 
-                        IgniteCache<Object, Object> cache0 = node.cache(DEFAULT_CACHE_NAME);
+                    IgniteCache<Object, Object> cache0 = node.cache(DEFAULT_CACHE_NAME);
 
-                        String qry1 = "INSERT INTO Integer (_key, _val) values (1,1),(2,2),(3,3)";
-                        String qry2 = "INSERT INTO Integer (_key, _val) values (4,4),(5,5),(6,6)";
+                    String qry1 = "INSERT INTO Integer (_key, _val) values (1,1),(2,2),(3,3)";
+                    String qry2 = "INSERT INTO Integer (_key, _val) values (4,4),(5,5),(6,6)";
 
-                        SqlFieldsQuery qry = new SqlFieldsQuery((id % 2) == 0 ? qry1 : qry2);
+                    SqlFieldsQuery qry = new SqlFieldsQuery((id % 2) == 0 ? qry1 : qry2);
 
-                        if (timeoutMode == TimeoutMode.STMT)
-                            qry.setTimeout(TX_TIMEOUT, TimeUnit.MILLISECONDS);
+                    if (timeoutMode == TimeoutMode.STMT)
+                        qry.setTimeout(TX_TIMEOUT, TimeUnit.MILLISECONDS);
 
-                        try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
-                            cur.getAll();
-                        }
-
-                        barrier.await();
-
-                        qry = new SqlFieldsQuery((id % 2) == 0 ? qry2 : qry1);
-
-                        if (timeoutMode == TimeoutMode.STMT)
-                            qry.setTimeout(TX_TIMEOUT, TimeUnit.MILLISECONDS);
-
-                        try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
-                            cur.getAll();
-                        }
-
-                        tx.commit();
+                    try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
+                        cur.getAll();
                     }
-                }
-                catch (Exception e) {
-                    onException(ex, e);
+
+                    barrier.await();
+
+                    qry = new SqlFieldsQuery((id % 2) == 0 ? qry2 : qry1);
+
+                    if (timeoutMode == TimeoutMode.STMT)
+                        qry.setTimeout(TX_TIMEOUT, TimeUnit.MILLISECONDS);
+
+                    try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
+                        cur.getAll();
+                    }
+
+                    tx.commit();
                 }
             }
-        }, 2);
+            catch (Exception e) {
+                onException(ex, e);
+            }
+        }, 2, getTestIgniteInstanceName());
 
         Exception ex0 = ex.get();
 
@@ -843,7 +841,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         GridTestUtils.runAsync(new Runnable() {
             @Override public void run() {
-                IgniteEx node = grid(0);
+                IgniteEx node = ignite(0);
 
                 try {
                     try (Transaction tx = node.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
@@ -871,7 +869,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         phaser.arriveAndAwaitAdvance();
 
-        IgniteEx node = grid(1);
+        IgniteEx node = ignite(1);
 
         IgniteCache<Object, Object> cache0 = node.cache(DEFAULT_CACHE_NAME);
 
@@ -913,8 +911,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         awaitPartitionMapExchange();
 
-        Ignite checkNode = grid(0);
-        Ignite updateNode = grid(1);
+        Ignite checkNode = ignite(0);
+        Ignite updateNode = ignite(1);
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -963,8 +961,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         awaitPartitionMapExchange();
 
-        Ignite checkNode = grid(0);
-        Ignite updateNode = grid(1);
+        Ignite checkNode = ignite(0);
+        Ignite updateNode = ignite(1);
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -996,8 +994,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -1040,8 +1038,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -1079,8 +1077,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -1123,8 +1121,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache<Object, Object> cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -1169,51 +1167,48 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         final AtomicInteger seq = new AtomicInteger();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                for (int r = 0; r < ROUNDS; r++) {
-                    StringBuilder bldr = new StringBuilder("INSERT INTO Integer (_key, _val) values ");
+        GridTestUtils.runMultiThreaded(() -> {
+            for (int r = 0; r < ROUNDS; r++) {
+                StringBuilder bldr = new StringBuilder("INSERT INTO Integer (_key, _val) values ");
 
-                    int start = seq.getAndAdd(BATCH_SIZE);
+                int start = seq.getAndAdd(BATCH_SIZE);
 
-                    for (int i = start, end = start + BATCH_SIZE; i < end; i++) {
-                        if (i != start)
-                            bldr.append(',');
+                for (int i = start, end = start + BATCH_SIZE; i < end; i++) {
+                    if (i != start)
+                        bldr.append(',');
 
-                        bldr
-                            .append('(')
-                            .append(i)
-                            .append(',')
-                            .append(i)
-                            .append(')');
-                    }
-
-                    Random rnd = ThreadLocalRandom.current();
-
-                    Ignite checkNode = grid(rnd.nextInt(4));
-                    Ignite updateNode = grid(rnd.nextInt(4));
-
-                    IgniteCache<Object, Object> cache = checkNode.cache(DEFAULT_CACHE_NAME);
-
-                    // no tx timeout here, deadlocks should not happen because all keys are unique
-                    try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                        SqlFieldsQuery qry = new SqlFieldsQuery(bldr.toString()).setPageSize(100);
-
-                        IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
-
-                        try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
-                            assertEquals((long)BATCH_SIZE, cur.iterator().next().get(0));
-                        }
-
-                        tx.commit();
-                    }
-
-                    for (int i = start, end = start + BATCH_SIZE; i < end; i++)
-                        assertEquals(i, cache.get(i));
+                    bldr
+                        .append('(')
+                        .append(i)
+                        .append(',')
+                        .append(i)
+                        .append(')');
                 }
 
+                Random rnd = ThreadLocalRandom.current();
+
+                Ignite checkNode = ignite(rnd.nextInt(4));
+                Ignite updateNode = ignite(rnd.nextInt(4));
+
+                IgniteCache<Object, Object> cache = checkNode.cache(DEFAULT_CACHE_NAME);
+
+                // no tx timeout here, deadlocks should not happen because all keys are unique
+                try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                    SqlFieldsQuery qry = new SqlFieldsQuery(bldr.toString()).setPageSize(100);
+
+                    IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
+
+                    try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
+                        assertEquals((long)BATCH_SIZE, cur.iterator().next().get(0));
+                    }
+
+                    tx.commit();
+                }
+
+                for (int i = start, end = start + BATCH_SIZE; i < end; i++)
+                    assertEquals(i, cache.get(i));
             }
-        }, THREAD_CNT);
+        }, THREAD_CNT, getTestIgniteInstanceName());
     }
 
     /**
@@ -1233,7 +1228,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         fut.add(multithreadedAsync(new Runnable() {
             @Override public void run() {
-                IgniteEx node = grid(0);
+                IgniteEx node = ignite(0);
 
                 try {
                     while (true) {
@@ -1273,7 +1268,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         fut.add(multithreadedAsync(new Runnable() {
             @Override public void run() {
-                IgniteEx node = grid(1);
+                IgniteEx node = ignite(1);
 
                 try {
                     phaser.arriveAndAwaitAdvance();
@@ -1327,7 +1322,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
         if (ex0 != null)
             throw ex0;
 
-        IgniteCache cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         assertEquals(10, cache.get(1));
         assertEquals(20, cache.get(2));
@@ -1347,7 +1342,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         startGridsMultiThreaded(2);
 
-        IgniteCache cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val) values (1,1)");
 
@@ -1360,7 +1355,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         runMultiThreaded(new Runnable() {
             @Override public void run() {
-                IgniteEx node = grid(0);
+                IgniteEx node = ignite(0);
 
                 try {
                     try (Transaction tx = node.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
@@ -1410,9 +1405,9 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         startGridsMultiThreaded(2);
 
-        IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<?, ?> cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-        try (Transaction tx1 = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx1 = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             // obtain tx version
             cache0.query(new SqlFieldsQuery("select * from Integer where _key = 1"));
 
@@ -1441,9 +1436,9 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         startGridsMultiThreaded(2);
 
-        IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<?, ?> cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-        try (Transaction tx1 = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx1 = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             // obtain tx version
             cache0.query(new SqlFieldsQuery("select * from Integer where _key = 1"));
 
@@ -1472,7 +1467,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         startGridsMultiThreaded(2);
 
-        IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<?, ?> cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         try {
             for (int i = 0; i < 100; i++) {
@@ -1506,8 +1501,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -1547,8 +1542,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        final Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        final Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -1589,7 +1584,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        final Ignite updateNode = grid(rnd.nextInt(4));
+        final Ignite updateNode = ignite(rnd.nextInt(4));
 
         GridTestUtils.assertThrows(null, new Callable<Object>() {
             @Override public Object call() throws Exception {
@@ -1622,8 +1617,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite checkNode = grid(rnd.nextInt(4));
-        final Ignite updateNode = grid(rnd.nextInt(4));
+        Ignite checkNode = ignite(rnd.nextInt(4));
+        final Ignite updateNode = ignite(rnd.nextInt(4));
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
@@ -1691,7 +1686,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite node = grid(rnd.nextInt(4));
+        Ignite node = ignite(rnd.nextInt(4));
 
         IgniteCache<Object, Object> cache = node.cache(DEFAULT_CACHE_NAME);
 
@@ -1726,14 +1721,14 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         Random rnd = ThreadLocalRandom.current();
 
-        IgniteCache<Object, Object> cache = grid(rnd.nextInt(4)).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(rnd.nextInt(4)).cache(DEFAULT_CACHE_NAME);
 
         try (FieldsQueryCursor<List<?>> cur = cache.query(
             new SqlFieldsQuery("INSERT INTO MvccTestSqlIndexValue (_key, idxVal1) values (1,1),(2,2),(3,3)"))) {
             assertEquals(3L, cur.iterator().next().get(0));
         }
 
-        Ignite node = grid(rnd.nextInt(4));
+        Ignite node = ignite(rnd.nextInt(4));
         IgniteCache<Object, Object> cache0 = node.cache(DEFAULT_CACHE_NAME);
         SqlFieldsQuery qry = new SqlFieldsQuery("SELECT * FROM MvccTestSqlIndexValue");
 
@@ -1746,7 +1741,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
             runAsync(new Runnable() {
                 @Override public void run() {
-                    IgniteCache<Object, Object> cache = grid(ThreadLocalRandom.current().nextInt(4))
+                    IgniteCache<Object, Object> cache = ignite(ThreadLocalRandom.current().nextInt(4))
                         .cache(DEFAULT_CACHE_NAME);
 
                     try (FieldsQueryCursor<List<?>> cur = cache.query(

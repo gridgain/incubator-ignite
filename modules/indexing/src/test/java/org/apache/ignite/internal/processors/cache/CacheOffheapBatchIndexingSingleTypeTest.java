@@ -41,7 +41,7 @@ public class CacheOffheapBatchIndexingSingleTypeTest extends CacheOffheapBatchIn
      */
     @Test
     public void testBatchRemove() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         CacheConfiguration<Object, Object> ccfg = cacheConfiguration(
             new Class<?>[] {Integer.class, CacheOffheapBatchIndexingBaseTest.Organization.class});
@@ -116,7 +116,7 @@ public class CacheOffheapBatchIndexingSingleTypeTest extends CacheOffheapBatchIn
         int entitiesCnt,
         Class<?>[] entityClasses,
         boolean preloadInStreamer) {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         final IgniteCache<Object, Object> cache =
             ignite.createCache(cacheConfiguration(entityClasses));

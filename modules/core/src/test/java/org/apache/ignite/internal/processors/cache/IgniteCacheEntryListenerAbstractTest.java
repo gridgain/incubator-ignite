@@ -144,7 +144,7 @@ public abstract class IgniteCacheEntryListenerAbstractTest extends IgniteCacheAb
         super.afterTest();
 
         for (int i = 0; i < gridCount(); i++) {
-            GridContinuousProcessor proc = grid(i).context().continuous();
+            GridContinuousProcessor proc = ignite(i).context().continuous();
 
             final ConcurrentMap<?, ?> syncMsgFuts = GridTestUtils.getFieldValue(proc, "syncMsgFuts");
 

@@ -157,7 +157,7 @@ public class ServiceDeploymentOnActivationTest extends GridCommonAbstractTest {
         for (int i = 0; i < clientsNum; i++)
             startGrid(srvsNum + i);
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         ignite.cluster().active(true);
 

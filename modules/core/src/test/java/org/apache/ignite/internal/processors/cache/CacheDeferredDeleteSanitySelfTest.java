@@ -114,9 +114,9 @@ public class CacheDeferredDeleteSanitySelfTest extends GridCommonAbstractTest {
         IgniteCache cache = null;
 
         try {
-            cache = grid(0).getOrCreateCache(ccfg);
+            cache = ignite(0).getOrCreateCache(ccfg);
 
-            assertEquals(expVal, ((IgniteCacheProxy)grid(0).cache(DEFAULT_CACHE_NAME)).context().deferredDelete());
+            assertEquals(expVal, ((IgniteCacheProxy)ignite(0).cache(DEFAULT_CACHE_NAME)).context().deferredDelete());
         }
         finally {
             if (cache != null)

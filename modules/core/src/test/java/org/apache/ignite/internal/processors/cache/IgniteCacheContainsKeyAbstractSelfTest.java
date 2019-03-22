@@ -105,7 +105,7 @@ public abstract class IgniteCacheContainsKeyAbstractSelfTest extends GridCacheAb
 
             for (TransactionConcurrency conc : TransactionConcurrency.values()) {
                 for (TransactionIsolation iso : TransactionIsolation.values()) {
-                    try (Transaction tx = grid(0).transactions().txStart(conc, iso)) {
+                    try (Transaction tx = ignite(0).transactions().txStart(conc, iso)) {
                         assertFalse("Invalid result on grid inside tx", cache.containsKey(key));
 
                         assertFalse("Key was enlisted to transaction: " + tx, txContainsKey(tx, key));

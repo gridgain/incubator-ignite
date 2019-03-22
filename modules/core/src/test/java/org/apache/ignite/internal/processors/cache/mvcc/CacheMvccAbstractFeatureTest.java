@@ -73,7 +73,7 @@ public abstract class CacheMvccAbstractFeatureTest extends CacheMvccAbstractTest
 
         startGrids(4);
 
-        node = grid(0);
+        node = ignite(0);
     }
 
     /** {@inheritDoc} */

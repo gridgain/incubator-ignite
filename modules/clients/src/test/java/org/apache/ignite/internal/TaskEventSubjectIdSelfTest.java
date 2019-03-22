@@ -81,7 +81,7 @@ public class TaskEventSubjectIdSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        Ignite g = startGrid();
+        Ignite g = clusterManager__startGrid();
 
         g.events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
@@ -121,7 +121,7 @@ public class TaskEventSubjectIdSelfTest extends GridCommonAbstractTest {
     public void testSimpleTask() throws Exception {
         latch = new CountDownLatch(3);
 
-        grid().compute().execute(new SimpleTask(), null);
+        ignite().compute().execute(new SimpleTask(), null);
 
         assert latch.await(1000, MILLISECONDS);
 
@@ -170,7 +170,7 @@ public class TaskEventSubjectIdSelfTest extends GridCommonAbstractTest {
             log,
             new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    grid().compute().execute(new FailedTask(), null);
+                    ignite().compute().execute(new FailedTask(), null);
 
                     return null;
                 }
@@ -217,7 +217,7 @@ public class TaskEventSubjectIdSelfTest extends GridCommonAbstractTest {
             log,
             new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    grid().compute().withTimeout(100).execute(new TimedOutTask(), null);
+                    ignite().compute().withTimeout(100).execute(new TimedOutTask(), null);
 
                     return null;
                 }
@@ -269,7 +269,7 @@ public class TaskEventSubjectIdSelfTest extends GridCommonAbstractTest {
     public void testClosure() throws Exception {
         latch = new CountDownLatch(3);
 
-        grid().compute().run(new IgniteRunnable() {
+        ignite().compute().run(new IgniteRunnable() {
             @Override public void run() {
                 // No-op.
             }

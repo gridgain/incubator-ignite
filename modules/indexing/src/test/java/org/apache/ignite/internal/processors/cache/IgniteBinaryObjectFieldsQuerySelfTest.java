@@ -175,7 +175,7 @@ public class IgniteBinaryObjectFieldsQuerySelfTest extends GridCommonAbstractTes
      * @throws Exception If failed.
      */
     private void checkFieldsQuery(CacheMode cacheMode, CacheAtomicityMode atomicity) throws Exception {
-        IgniteCache<Object, Object>cache = grid(GRID_CNT - 1).getOrCreateCache(cache(cacheMode, atomicity));
+        IgniteCache<Object, Object>cache = ignite(GRID_CNT - 1).getOrCreateCache(cache(cacheMode, atomicity));
 
         try {
             populate(cache);
@@ -197,7 +197,7 @@ public class IgniteBinaryObjectFieldsQuerySelfTest extends GridCommonAbstractTes
             }
         }
         finally {
-            grid(3).destroyCache(DEFAULT_CACHE_NAME);
+            ignite(3).destroyCache(DEFAULT_CACHE_NAME);
         }
     }
 
@@ -205,7 +205,7 @@ public class IgniteBinaryObjectFieldsQuerySelfTest extends GridCommonAbstractTes
      * @throws Exception If failed.
      */
     private void checkQuery(CacheMode cacheMode, CacheAtomicityMode atomicity) throws Exception {
-        IgniteCache<Object, Object> cache = grid(GRID_CNT - 1).getOrCreateCache(cache(cacheMode, atomicity));
+        IgniteCache<Object, Object> cache = ignite(GRID_CNT - 1).getOrCreateCache(cache(cacheMode, atomicity));
 
         try {
             populate(cache);
@@ -231,7 +231,7 @@ public class IgniteBinaryObjectFieldsQuerySelfTest extends GridCommonAbstractTes
             // Check local scan query with keepBinary flag set.
             ScanQuery<BinaryObject, BinaryObject> scanQry = new ScanQuery<>(new PersonKeyFilter(max));
 
-            QueryCursor<Cache.Entry<BinaryObject, BinaryObject>> curs = grid(GRID_CNT - 1)
+            QueryCursor<Cache.Entry<BinaryObject, BinaryObject>> curs = ignite(GRID_CNT - 1)
                 .cache(DEFAULT_CACHE_NAME).withKeepBinary().query(scanQry);
 
             List<Cache.Entry<BinaryObject, BinaryObject>> records = curs.getAll();
@@ -247,8 +247,8 @@ public class IgniteBinaryObjectFieldsQuerySelfTest extends GridCommonAbstractTes
             }
         }
         finally {
-            grid(GRID_CNT - 1).cache(DEFAULT_CACHE_NAME).removeAll();
-            grid(GRID_CNT - 1).destroyCache(DEFAULT_CACHE_NAME);
+            ignite(GRID_CNT - 1).cache(DEFAULT_CACHE_NAME).removeAll();
+            ignite(GRID_CNT - 1).destroyCache(DEFAULT_CACHE_NAME);
         }
     }
 

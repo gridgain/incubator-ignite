@@ -107,7 +107,7 @@ public class RestProtocolStartTest extends GridCommonAbstractTest {
 
         ((TcpDiscoverySpi)ignite.configuration().getDiscoverySpi()).brakeConnection();
 
-        doSleep(FAILURE_DETECTION_TIMEOUT);
+        GridTestUtils.doSleep(FAILURE_DETECTION_TIMEOUT);
 
         recordingCommunicationSpi.stopBlock();
 

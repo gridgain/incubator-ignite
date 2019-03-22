@@ -47,7 +47,7 @@ public class IgniteLocalLockSelfTest extends IgniteLockAbstractSelfTest {
     @Test
     @Override public void testReentrantLock() throws Exception {
         // Test main functionality.
-        IgniteLock lock = grid(0).reentrantLock("lock", true, false, true);
+        IgniteLock lock = ignite(0).reentrantLock("lock", true, false, true);
 
         assertNotNull(lock);
 
@@ -58,7 +58,7 @@ public class IgniteLocalLockSelfTest extends IgniteLockAbstractSelfTest {
         IgniteInternalFuture<?> fut = GridTestUtils.runMultiThreadedAsync(
             new Callable<Object>() {
                 @Nullable @Override public Object call() throws Exception {
-                    IgniteLock lock = grid(0).reentrantLock("lock", true, false, true);
+                    IgniteLock lock = ignite(0).reentrantLock("lock", true, false, true);
 
                     assert lock != null;
 
@@ -101,7 +101,7 @@ public class IgniteLocalLockSelfTest extends IgniteLockAbstractSelfTest {
         fut.get();
 
         // Test operations on removed lock.
-        IgniteLock lock0 = grid(0).reentrantLock("lock", true, false, false);
+        IgniteLock lock0 = ignite(0).reentrantLock("lock", true, false, false);
 
         assertNotNull(lock0);
 

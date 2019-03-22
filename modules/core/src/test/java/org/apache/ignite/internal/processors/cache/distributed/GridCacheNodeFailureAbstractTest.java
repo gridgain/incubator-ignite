@@ -169,7 +169,7 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
 
         info("Grid will be stopped: " + idx);
 
-        Ignite g = grid(idx);
+        Ignite g = ignite(idx);
 
         Transaction tx = g.transactions().txStart(concurrency, isolation);
 
@@ -180,7 +180,7 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
 
             info("Check grid index: " + checkIdx);
 
-            IgniteFuture<?> f = waitForLocalEvent(grid(checkIdx).events(), new P1<Event>() {
+            IgniteFuture<?> f = waitForLocalEvent(ignite(checkIdx).events(), new P1<Event>() {
                 @Override public boolean apply(Event e) {
                     info("Received grid event: " + e);
 
@@ -242,7 +242,7 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
 
         info("Grid will be stopped: " + idx);
 
-        info("Nodes for key [id=" + grid(idx).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(KEY) +
+        info("Nodes for key [id=" + ignite(idx).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(KEY) +
             ", key=" + KEY + ']');
 
         IgniteCache<Integer, String> cache = jcache(idx);
@@ -261,7 +261,7 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
 
         assert !checkCache.lock(KEY).tryLock();
 
-        IgniteFuture<?> f = waitForLocalEvent(grid(checkIdx).events(), new P1<Event>() {
+        IgniteFuture<?> f = waitForLocalEvent(ignite(checkIdx).events(), new P1<Event>() {
             @Override public boolean apply(Event e) {
                 info("Received grid event: " + e);
 

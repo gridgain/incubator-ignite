@@ -94,7 +94,7 @@ public class GridCachePartitionedQueueEntryMoveSelfTest extends IgniteCollection
 
         IgniteInternalFuture<?> fut1 = GridTestUtils.runAsync(new Callable<Void>() {
             @Override public Void call() throws IgniteInterruptedCheckedException {
-                Ignite ignite = grid(0);
+                Ignite ignite = ignite(0);
 
                 IgniteQueue<Integer> queue = ignite.queue(queueName, QUEUE_CAP, config(true));
 
@@ -133,7 +133,7 @@ public class GridCachePartitionedQueueEntryMoveSelfTest extends IgniteCollection
 
         IgniteInternalFuture<?> fut2 = GridTestUtils.runAsync(new Callable<Void>() {
             @Override public Void call() throws IgniteCheckedException {
-                Ignite ignite = grid(GRID_CNT);
+                Ignite ignite = ignite(GRID_CNT);
 
                 IgniteQueue<Integer> queue = ignite.queue(queueName, QUEUE_CAP, config(true));
 

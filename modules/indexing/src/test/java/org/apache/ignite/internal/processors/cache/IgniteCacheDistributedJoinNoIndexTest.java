@@ -125,7 +125,7 @@ public class IgniteCacheDistributedJoinNoIndexTest extends GridCommonAbstractTes
      */
     @Test
     public void testJoin() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         Affinity<Object> aff = client.affinity(PERSON_CACHE);
 

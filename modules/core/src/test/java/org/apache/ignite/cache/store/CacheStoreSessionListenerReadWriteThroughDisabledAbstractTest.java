@@ -84,7 +84,7 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
      */
     @Test
     public void testLookup() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
@@ -101,7 +101,7 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
      */
     @Test
     public void testBatchLookup() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
@@ -122,7 +122,7 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
      */
     @Test
     public void testUpdate() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
@@ -139,7 +139,7 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
      */
     @Test
     public void testBatchUpdate() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
@@ -160,7 +160,7 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
      */
     @Test
     public void testRemove() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 
@@ -182,7 +182,7 @@ public abstract class CacheStoreSessionListenerReadWriteThroughDisabledAbstractT
      */
     @Test
     public void testBatchRemove() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         Random r = new Random();
 

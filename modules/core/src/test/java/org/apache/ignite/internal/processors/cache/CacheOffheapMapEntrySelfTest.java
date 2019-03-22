@@ -125,17 +125,17 @@ public class CacheOffheapMapEntrySelfTest extends GridCacheAbstractSelfTest {
     {
         log.info("Test cache [atomicityMode=" + atomicityMode + ", cacheMode=" + cacheMode + ']');
 
-        CacheConfiguration cfg = cacheConfiguration(grid(0).name(),
+        CacheConfiguration cfg = cacheConfiguration(ignite(0).name(),
             atomicityMode,
             cacheMode,
             "Cache");
 
-        IgniteCache jcache = grid(0).getOrCreateCache(cfg);
+        IgniteCache jcache = ignite(0).getOrCreateCache(cfg);
 
         try {
-            GridCacheAdapter<Integer, String> cache = ((IgniteKernal)grid(0)).internalCache(jcache.getName());
+            GridCacheAdapter<Integer, String> cache = ((IgniteKernal)ignite(0)).internalCache(jcache.getName());
 
-            Integer key = primaryKey(grid(0).cache(DEFAULT_CACHE_NAME));
+            Integer key = primaryKey(ignite(0).cache(DEFAULT_CACHE_NAME));
 
             cache.put(key, "val");
 

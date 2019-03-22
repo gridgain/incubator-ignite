@@ -60,7 +60,7 @@ public class IgniteClientReconnectContinuousProcessorTest extends IgniteClientRe
      */
     @Test
     public void testEventListenerReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -134,7 +134,7 @@ public class IgniteClientReconnectContinuousProcessorTest extends IgniteClientRe
      * @throws Exception If failed.
      */
     private void testMessageListenerReconnect(boolean stopFromClient) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -218,7 +218,7 @@ public class IgniteClientReconnectContinuousProcessorTest extends IgniteClientRe
      */
     @Test
     public void testCacheContinuousQueryReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -256,7 +256,7 @@ public class IgniteClientReconnectContinuousProcessorTest extends IgniteClientRe
      */
     @Test
     public void testCacheContinuousQueryReconnectNewServer() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 

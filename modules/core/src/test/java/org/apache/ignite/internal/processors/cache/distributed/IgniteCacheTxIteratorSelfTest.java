@@ -141,7 +141,7 @@ public class IgniteCacheTxIteratorSelfTest extends GridCommonAbstractTest {
                 return; // Nothing to do. Mode is not supported.
         }
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final CacheConfiguration<String, TestClass> ccfg = cacheConfiguration(
             mode,
@@ -185,7 +185,7 @@ public class IgniteCacheTxIteratorSelfTest extends GridCommonAbstractTest {
             }
         }
         finally {
-            grid(0).destroyCache(CACHE_NAME);
+            ignite(0).destroyCache(CACHE_NAME);
         }
     }
 

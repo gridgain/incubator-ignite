@@ -115,7 +115,7 @@ public abstract class AffinityFunctionExcludeNeighborsAbstractSelfTest extends G
             int copies = backups + 1;
 
             for (int i = 0; i < grids; i++) {
-                final Ignite g = grid(i);
+                final Ignite g = ignite(i);
 
                 Affinity<Object> aff = g.affinity(DEFAULT_CACHE_NAME);
 
@@ -157,7 +157,7 @@ public abstract class AffinityFunctionExcludeNeighborsAbstractSelfTest extends G
      */
     @Test
     public void testAffinitySingleNode() throws Exception {
-        Ignite g = startGrid();
+        Ignite g = clusterManager__startGrid();
 
         try {
             Object key = 12345;

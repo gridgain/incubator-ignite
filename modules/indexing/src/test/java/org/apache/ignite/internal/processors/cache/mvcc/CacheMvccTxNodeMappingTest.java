@@ -82,7 +82,7 @@ public class CacheMvccTxNodeMappingTest extends CacheMvccAbstractTest {
         IgniteEx ign;
 
         if (nearSrv)
-            ign = grid(0);
+            ign = ignite(0);
         else {
             client = true;
 
@@ -96,18 +96,18 @@ public class CacheMvccTxNodeMappingTest extends CacheMvccAbstractTest {
         Integer k1 = null, k2 = null;
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(0).localNode(), i)
-                && aff.isBackup(grid(1).localNode(), i)
-                && aff.isBackup(grid(2).localNode(), i)) {
+            if (aff.isPrimary(ignite(0).localNode(), i)
+                && aff.isBackup(ignite(1).localNode(), i)
+                && aff.isBackup(ignite(2).localNode(), i)) {
                 k1 = i;
                 break;
             }
         }
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(1).localNode(), i)
-                && aff.isBackup(grid(0).localNode(), i)
-                && aff.isBackup(grid(2).localNode(), i)) {
+            if (aff.isPrimary(ignite(1).localNode(), i)
+                && aff.isBackup(ignite(0).localNode(), i)
+                && aff.isBackup(ignite(2).localNode(), i)) {
                 k2 = i;
                 break;
             }
@@ -122,8 +122,8 @@ public class CacheMvccTxNodeMappingTest extends CacheMvccAbstractTest {
         cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, 42)").setArgs(key2));
 
         ImmutableMap<UUID, Set<UUID>> txNodes = ImmutableMap.of(
-            grid(0).localNode().id(), Sets.newHashSet(grid(1).localNode().id(), grid(2).localNode().id()),
-            grid(1).localNode().id(), Sets.newHashSet(grid(0).localNode().id(), grid(2).localNode().id())
+            ignite(0).localNode().id(), Sets.newHashSet(ignite(1).localNode().id(), ignite(2).localNode().id()),
+            ignite(1).localNode().id(), Sets.newHashSet(ignite(0).localNode().id(), ignite(2).localNode().id())
         );
 
         // cache put
@@ -151,8 +151,8 @@ public class CacheMvccTxNodeMappingTest extends CacheMvccAbstractTest {
 
         // select for update does not start remote tx on backup
         ImmutableMap<UUID, Set<UUID>> sfuTxNodes = ImmutableMap.of(
-            grid(0).localNode().id(), Collections.emptySet(),
-            grid(1).localNode().id(), Collections.emptySet()
+            ignite(0).localNode().id(), Collections.emptySet(),
+            ignite(1).localNode().id(), Collections.emptySet()
         );
 
         // cursor select for update
@@ -178,7 +178,7 @@ public class CacheMvccTxNodeMappingTest extends CacheMvccAbstractTest {
             nearTx.prepareNearTxLocal().get();
 
             List<IgniteInternalTx> txs = IntStream.range(0, srvCnt)
-                .mapToObj(i -> txsOnNode(grid(i), nearTx.nearXidVersion()))
+                .mapToObj(i -> txsOnNode(ignite(i), nearTx.nearXidVersion()))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
 

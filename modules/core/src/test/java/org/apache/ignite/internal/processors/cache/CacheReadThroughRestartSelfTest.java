@@ -98,7 +98,7 @@ public class CacheReadThroughRestartSelfTest extends GridCacheAbstractSelfTest {
      * @throws Exception If failed.
      */
     private void testReadThroughInTx(boolean needVer) throws Exception {
-        IgniteCache<String, Integer> cache = grid(1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<String, Integer> cache = ignite(1).cache(DEFAULT_CACHE_NAME);
 
         for (int k = 0; k < 1000; k++)
             cache.put("key" + k, k);
@@ -109,7 +109,7 @@ public class CacheReadThroughRestartSelfTest extends GridCacheAbstractSelfTest {
 
         awaitPartitionMapExchange();
 
-        Ignite ignite = grid(1);
+        Ignite ignite = ignite(1);
 
         cache = ignite.cache(DEFAULT_CACHE_NAME).withAllowAtomicOpsInTx();
 
@@ -158,7 +158,7 @@ public class CacheReadThroughRestartSelfTest extends GridCacheAbstractSelfTest {
      * @throws Exception If failed.
      */
     private void testReadThrough(boolean needVer) throws Exception {
-        IgniteCache<String, Integer> cache = grid(1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<String, Integer> cache = ignite(1).cache(DEFAULT_CACHE_NAME);
 
         for (int k = 0; k < 1000; k++)
             cache.put("key" + k, k);
@@ -167,7 +167,7 @@ public class CacheReadThroughRestartSelfTest extends GridCacheAbstractSelfTest {
 
         startGrids(2);
 
-        Ignite ignite = grid(1);
+        Ignite ignite = ignite(1);
 
         cache = ignite.cache(DEFAULT_CACHE_NAME);
 

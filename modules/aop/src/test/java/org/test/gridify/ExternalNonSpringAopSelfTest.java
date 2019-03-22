@@ -342,7 +342,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
 
             info("Start Gridify test with Default AOP Task in Deployment Mode : " + depMode);
 
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 
@@ -368,7 +368,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
 
             info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 
@@ -394,7 +394,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
 
             info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 
@@ -419,7 +419,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
         info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 
@@ -446,7 +446,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
         boolean isException = false;
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 
@@ -481,7 +481,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
         info("Start Gridify test with Default AOP Task in Deployment Mode : " + depMode);
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 
@@ -507,7 +507,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
         info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 
@@ -533,7 +533,7 @@ public class ExternalNonSpringAopSelfTest extends GridCommonAbstractTest {
         info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             deployTask();
 

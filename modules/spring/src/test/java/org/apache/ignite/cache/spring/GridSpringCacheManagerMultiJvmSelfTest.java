@@ -78,7 +78,7 @@ public class GridSpringCacheManagerMultiJvmSelfTest extends GridCommonAbstractTe
                 @Override public Integer call() throws Exception {
                     latch.await();
 
-                    return executeRemotely((IgniteProcessProxy)remote, new TestIgniteCallable<Integer>() {
+                    return GridTestUtils.executeRemotely((IgniteProcessProxy)remote, new TestIgniteCallable<Integer>() {
                         @Override public Integer call(Ignite ignite) throws Exception {
                             BeanFactory factory =
                                 new ClassPathXmlApplicationContext(

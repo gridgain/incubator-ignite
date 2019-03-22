@@ -384,7 +384,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
             // Shutdown gracefully to ensure there is a checkpoint with index.bin.
             // Otherwise index.bin rebuilding may not work.
-            grid(0).cluster().active(false);
+            ignite(0).cluster().active(false);
 
             stopAllGrids();
 
@@ -392,7 +392,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
             startGridsMultiThreaded(gridCount());
 
-            grid(0).cache(DEFAULT_CACHE_NAME).indexReadyFuture().get();
+            ignite(0).cache(DEFAULT_CACHE_NAME).indexReadyFuture().get();
 
             checkAll();
 
@@ -433,7 +433,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
             // Shutdown gracefully to ensure there is a checkpoint with index.bin.
             // Otherwise index.bin rebuilding may not work.
-            grid(0).cluster().active(false);
+            ignite(0).cluster().active(false);
 
             stopAllGrids();
 
@@ -441,7 +441,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
             startGridsMultiThreaded(gridCount());
 
-            grid(0).cache(DEFAULT_CACHE_NAME).indexReadyFuture().get();
+            ignite(0).cache(DEFAULT_CACHE_NAME).indexReadyFuture().get();
 
             checkAll();
 
@@ -482,7 +482,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
             // Shutdown gracefully to ensure there is a checkpoint with index.bin.
             // Otherwise index.bin rebuilding may not work.
-            grid(0).cluster().active(false);
+            ignite(0).cluster().active(false);
 
             stopAllGrids();
 
@@ -490,7 +490,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
             startGridsMultiThreaded(gridCount());
 
-            grid(0).cache(DEFAULT_CACHE_NAME).indexReadyFuture().get();
+            ignite(0).cache(DEFAULT_CACHE_NAME).indexReadyFuture().get();
 
             checkAll();
 
@@ -502,7 +502,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
     /** */
     private void checkAll() {
-        IgniteCache<Key, Val> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Key, Val> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         checkRemovePut(cache);
 
@@ -519,7 +519,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
     /** */
     private void populateCache() {
-        IgniteCache<Key, Val> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Key, Val> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         // Be paranoid and populate first even indexes in ascending order, then odd indexes in descending
         // to check that inserting in the middle works.
@@ -681,7 +681,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
     /** */
     private void createDynamicIndexes(String... cols) {
-        IgniteCache<Key, Val> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Key, Val> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (String col : cols) {
             String indexName = col + "_idx";
@@ -697,7 +697,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
 
     /** */
     private void dropDynamicIndexes(String... cols) {
-        IgniteCache<Key, Val> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Key, Val> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (String col : cols) {
             String indexName = col + "_idx";

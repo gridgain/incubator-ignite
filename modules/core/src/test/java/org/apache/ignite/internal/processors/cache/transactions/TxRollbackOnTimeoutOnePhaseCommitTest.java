@@ -31,6 +31,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrep
 import org.apache.ignite.internal.processors.cache.verify.IdleVerifyResultV2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
@@ -106,7 +107,7 @@ public class TxRollbackOnTimeoutOnePhaseCommitTest extends GridCommonAbstractTes
     /** */
     @Test
     public void testUnlockOptimistic() throws IgniteCheckedException {
-        IgniteEx client = grid("client");
+        IgniteEx client = ignite("client");
 
         assertNotNull(client.cache(DEFAULT_CACHE_NAME));
 
@@ -161,7 +162,7 @@ public class TxRollbackOnTimeoutOnePhaseCommitTest extends GridCommonAbstractTes
 
     /** */
     private void doTestRollbackOnTimeoutPartitionDesync(TransactionConcurrency concurrency) throws Exception {
-        IgniteEx client = grid("client");
+        IgniteEx client = ignite("client");
 
         assertNotNull(client.cache(DEFAULT_CACHE_NAME));
 
@@ -181,7 +182,7 @@ public class TxRollbackOnTimeoutOnePhaseCommitTest extends GridCommonAbstractTes
                 fail();
             }
 
-            doSleep(500);
+            GridTestUtils.doSleep(500);
 
             backupSpi.stopBlock();
         });

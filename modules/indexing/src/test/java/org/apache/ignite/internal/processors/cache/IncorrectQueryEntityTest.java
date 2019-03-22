@@ -67,7 +67,7 @@ public class IncorrectQueryEntityTest extends GridCommonAbstractTest {
     @Test
     public void testIncorrectQueryField() throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
         }
         catch (Exception exception) {
             if (!exception.getMessage().contains(

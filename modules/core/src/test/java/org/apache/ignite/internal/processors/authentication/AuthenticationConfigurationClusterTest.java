@@ -123,9 +123,9 @@ public class AuthenticationConfigurationClusterTest extends GridCommonAbstractTe
 
         startGrid(configuration(1, false, client));
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
-        AuthorizationContext actx = grid(1).context().authentication().authenticate("ignite", "ignite");
+        AuthorizationContext actx = ignite(1).context().authentication().authenticate("ignite", "ignite");
 
         assertNotNull(actx);
 
@@ -157,11 +157,11 @@ public class AuthenticationConfigurationClusterTest extends GridCommonAbstractTe
     public void testDisabledAuthentication() throws Exception {
         startGrid(configuration(0, false, false));
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    grid(0).context().authentication().addUser("test", "test");
+                    ignite(0).context().authentication().addUser("test", "test");
 
                     return null;
                 }
@@ -170,7 +170,7 @@ public class AuthenticationConfigurationClusterTest extends GridCommonAbstractTe
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    grid(0).context().authentication().removeUser("test");
+                    ignite(0).context().authentication().removeUser("test");
 
                     return null;
                 }
@@ -179,7 +179,7 @@ public class AuthenticationConfigurationClusterTest extends GridCommonAbstractTe
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    grid(0).context().authentication().updateUser("test", "test");
+                    ignite(0).context().authentication().updateUser("test", "test");
 
                     return null;
                 }
@@ -188,7 +188,7 @@ public class AuthenticationConfigurationClusterTest extends GridCommonAbstractTe
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    grid(0).context().authentication().authenticate("test", "test");
+                    ignite(0).context().authentication().authenticate("test", "test");
 
                     return null;
                 }

@@ -63,7 +63,7 @@ public class CacheConfigurationLeakTest extends GridCommonAbstractTest {
      */
     @Test
     public void testCacheCreateLeak() throws Exception {
-        final Ignite ignite = grid();
+        final Ignite ignite = ignite();
 
         GridTestUtils.runMultiThreaded(new IgniteInClosure<Integer>() {
             @Override public void apply(Integer idx) {

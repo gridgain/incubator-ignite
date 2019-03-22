@@ -1233,7 +1233,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
             }
         }
 
-        TestRecordingCommunicationSpi crdSpi = TestRecordingCommunicationSpi.spi(grid(0));
+        TestRecordingCommunicationSpi crdSpi = TestRecordingCommunicationSpi.spi(ignite(0));
 
         TestRecordingCommunicationSpi clientSpi = TestRecordingCommunicationSpi.spi(client);
 
@@ -2613,7 +2613,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
                 }
             }, NODES - 1, "get-thread");
 
-            doSleep(1000);
+            GridTestUtils.doSleep(1000);
 
             TestRecordingCommunicationSpi crdSpi = TestRecordingCommunicationSpi.spi(ignite(0));
 
@@ -2627,7 +2627,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
             stopGrid(0);
 
-            doSleep(1000);
+            GridTestUtils.doSleep(1000);
 
             done.set(true);
 

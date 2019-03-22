@@ -69,7 +69,7 @@ public class JdbcThinMultiStatementSelfTest extends GridCommonAbstractTest {
      * Execute sql script using thin driver.
      */
     private void execute(String sql) throws Exception {
-        try (Connection c = GridTestUtils.connect(grid(0), null)) {
+        try (Connection c = GridTestUtils.connect(ignite(0), null)) {
             try (Statement stmt = c.createStatement()) {
                 stmt.executeUpdate(sql);
             }
@@ -126,7 +126,7 @@ public class JdbcThinMultiStatementSelfTest extends GridCommonAbstractTest {
                 "DELETE FROM TEST_TX WHERE age < ?; " +   // 5
                 "COMMIT;";
 
-        try (Connection c = GridTestUtils.connect(grid(0), null)) {
+        try (Connection c = GridTestUtils.connect(ignite(0), null)) {
             try (PreparedStatement p = c.prepareStatement(complexQuery)) {
                 p.setInt(1, leoAge);
                 p.setString(2, nickolas);

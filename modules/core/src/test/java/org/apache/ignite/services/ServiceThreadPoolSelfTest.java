@@ -80,7 +80,7 @@ public class ServiceThreadPoolSelfTest extends GridCommonAbstractTest {
 
         Ignition.setClientMode(true);
 
-        Ignite ignite = startGrid(); // Client.
+        Ignite ignite = clusterManager__startGrid(); // Client.
 
         ignite.services().deployClusterSingleton("my-service", new MyServiceImpl());
 

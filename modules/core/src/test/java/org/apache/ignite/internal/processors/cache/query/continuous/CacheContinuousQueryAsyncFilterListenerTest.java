@@ -49,6 +49,7 @@ import org.apache.ignite.lang.IgniteAsyncCallback;
 import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.spi.eventstorage.memory.MemoryEventStorageSpi;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionSerializationException;
@@ -456,7 +457,7 @@ public class CacheContinuousQueryAsyncFilterListenerTest extends GridCommonAbstr
                 int nodeIdx = i % NODES;
 
                 final String cacheName = ccfg.getName();
-                final IgniteCache cache = grid(nodeIdx).cache(cacheName);
+                final IgniteCache cache = ignite(nodeIdx).cache(cacheName);
 
                 final QueryTestKey key = NODES - 1 != nodeIdx ? affinityKey(cache) : new QueryTestKey(1);
 
@@ -507,7 +508,7 @@ public class CacheContinuousQueryAsyncFilterListenerTest extends GridCommonAbstr
                                     v = cache0.get(key);
 
                                     if (v == null)
-                                        doSleep(50);
+                                        GridTestUtils.doSleep(50);
                                 }
                             }
 
@@ -631,7 +632,7 @@ public class CacheContinuousQueryAsyncFilterListenerTest extends GridCommonAbstr
                 int nodeIdx = i % NODES;
 
                 final String cacheName = ccfg.getName();
-                final IgniteCache cache = grid(nodeIdx).cache(cacheName);
+                final IgniteCache cache = ignite(nodeIdx).cache(cacheName);
 
                 final QueryTestKey key = NODES - 1 != nodeIdx ? affinityKey(cache) : new QueryTestKey(1);
 

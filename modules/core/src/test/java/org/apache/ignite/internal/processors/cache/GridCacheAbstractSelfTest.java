@@ -360,7 +360,7 @@ public abstract class GridCacheAbstractSelfTest extends GridCommonAbstractTest {
      * @return Transactions instance.
      */
     protected IgniteTransactions transactions() {
-        return grid(0).transactions();
+        return ignite(0).transactions();
     }
 
     /**
@@ -384,11 +384,11 @@ public abstract class GridCacheAbstractSelfTest extends GridCommonAbstractTest {
      * @return Cache context.
      */
     protected GridCacheContext<String, Integer> context(final int idx) {
-        if (isRemoteJvm(idx) && !isRemoteJvm())
+        if (isRemoteJvm(idx) && !GridTestUtils.isCurrentJvmRemote())
             throw new UnsupportedOperationException("Operation can't be done automatically via proxy. " +
                 "Send task with this logic on remote jvm instead.");
 
-        return ((IgniteKernal)grid(idx)).<String, Integer>internalCache(DEFAULT_CACHE_NAME).context();
+        return ((IgniteKernal)ignite(idx)).<String, Integer>internalCache(DEFAULT_CACHE_NAME).context();
     }
 
     /**

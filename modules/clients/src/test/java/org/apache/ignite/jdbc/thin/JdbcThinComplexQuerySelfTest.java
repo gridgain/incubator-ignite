@@ -75,7 +75,7 @@ public class JdbcThinComplexQuerySelfTest extends JdbcThinAbstractSelfTest {
 
         startGrids(3);
 
-        IgniteCache<String, Organization> orgCache = jcache(grid(0), cacheConfiguration(), "org",
+        IgniteCache<String, Organization> orgCache = jcache(ignite(0), cacheConfiguration(), "org",
             String.class, Organization.class);
 
         assert orgCache != null;
@@ -83,7 +83,7 @@ public class JdbcThinComplexQuerySelfTest extends JdbcThinAbstractSelfTest {
         orgCache.put("o1", new Organization(1, "A"));
         orgCache.put("o2", new Organization(2, "B"));
 
-        IgniteCache<AffinityKey, Person> personCache = jcache(grid(0), cacheConfiguration(), "pers",
+        IgniteCache<AffinityKey, Person> personCache = jcache(ignite(0), cacheConfiguration(), "pers",
             AffinityKey.class, Person.class);
 
         assert personCache != null;

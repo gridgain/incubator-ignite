@@ -364,7 +364,7 @@ public class CacheContinuousQueryOrderingEventTest extends GridCommonAbstractTes
 
                     rcvdEvts.add(queue);
 
-                    IgniteCache<Object, Object> cache = grid(idx).cache(ccfg.getName());
+                    IgniteCache<Object, Object> cache = ignite(idx).cache(ccfg.getName());
 
                     QueryCursor qryCursor = cache.query(qry);
 
@@ -378,7 +378,7 @@ public class CacheContinuousQueryOrderingEventTest extends GridCommonAbstractTes
 
                     for (int i = 0; i < ITERATION_CNT; i++) {
                         IgniteCache<QueryTestKey, QueryTestValue> cache =
-                            grid(rnd.nextInt(NODES)).cache(ccfg.getName());
+                            ignite(rnd.nextInt(NODES)).cache(ccfg.getName());
 
                         QueryTestKey key = new QueryTestKey(rnd.nextInt(KEYS));
 

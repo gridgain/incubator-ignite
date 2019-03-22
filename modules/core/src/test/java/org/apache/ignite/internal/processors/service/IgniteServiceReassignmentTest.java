@@ -197,7 +197,7 @@ public class IgniteServiceReassignmentTest extends GridCommonAbstractTest {
                 if (nodeIdx == stopIdx)
                     continue;
 
-                waitForService(grid(nodeIdx));
+                waitForService(ignite(nodeIdx));
 
                 assertEquals(42, serviceProxy(ignite(nodeIdx)).foo());
             }
@@ -224,7 +224,7 @@ public class IgniteServiceReassignmentTest extends GridCommonAbstractTest {
         try {
             startGridsMultiThreaded(nodesCnt);
 
-            IgniteEx ignite = grid(0);
+            IgniteEx ignite = ignite(0);
 
             IgniteInternalCache<GridServiceAssignmentsKey, Object> sysCache = ignite.utilityCache();
 
@@ -240,7 +240,7 @@ public class IgniteServiceReassignmentTest extends GridCommonAbstractTest {
 
                 GridServiceAssignmentsKey key = new GridServiceAssignmentsKey(name);
 
-                UUID nodeId = grid(i % nodesCnt).localNode().id();
+                UUID nodeId = ignite(i % nodesCnt).localNode().id();
 
                 sysCache.put(key, new GridServiceAssignments(svcCfg, nodeId, ignite.cluster().topologyVersion()));
 
@@ -280,7 +280,7 @@ public class IgniteServiceReassignmentTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(nodesCnt);
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         IgniteInternalCache<GridServiceAssignmentsKey, Object> sysCache = ignite.utilityCache();
 
@@ -294,7 +294,7 @@ public class IgniteServiceReassignmentTest extends GridCommonAbstractTest {
 
             GridServiceAssignmentsKey key = new GridServiceAssignmentsKey(name);
 
-            UUID nodeId = grid(i % nodesCnt).localNode().id();
+            UUID nodeId = ignite(i % nodesCnt).localNode().id();
 
             sysCache.put(key, new GridServiceAssignments(svcCfg, nodeId, ignite.cluster().topologyVersion()));
         }

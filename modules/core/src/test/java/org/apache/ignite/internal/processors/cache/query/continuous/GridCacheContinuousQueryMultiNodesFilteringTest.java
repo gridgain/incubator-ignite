@@ -154,7 +154,7 @@ public class GridCacheContinuousQueryMultiNodesFilteringTest extends GridCommonA
 
         CacheConfiguration ccfg = cacheConfiguration(new NodeFilterByRegexp(".*(0|1)$"));
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
 
         final AtomicInteger cntr = new AtomicInteger();
 
@@ -191,7 +191,7 @@ public class GridCacheContinuousQueryMultiNodesFilteringTest extends GridCommonA
 
             qry.setLocalListener(lsnr);
 
-            Ignite ignite = grid(i);
+            Ignite ignite = ignite(i);
 
             log.info("Try to start CQ on node: " + ignite.cluster().localNode().id());
 
@@ -210,13 +210,13 @@ public class GridCacheContinuousQueryMultiNodesFilteringTest extends GridCommonA
 
         qry.setLocalListener(lsnr);
 
-        qryCursors.add(grid(nodesCnt).cache(ccfg.getName()).query(qry));
+        qryCursors.add(ignite(nodesCnt).cache(ccfg.getName()).query(qry));
 
         for (int i = 0; i <= nodesCnt; i++) {
             for (int key = 0; key < KEYS; key++) {
                 int val = (i * KEYS) + key;
 
-                grid(i).cache(ccfg.getName()).put(val, val);
+                ignite(i).cache(ccfg.getName()).put(val, val);
             }
         }
 

@@ -53,7 +53,7 @@ public class GridJobServicesAddNodeTest extends GridCommonAbstractTest {
         startGrid(1);
         startGrid(2);
 
-        assertEquals(2, grid(1).cluster().nodes().size());
+        assertEquals(2, ignite(1).cluster().nodes().size());
     }
 
     /** {@inheritDoc} */
@@ -77,7 +77,7 @@ public class GridJobServicesAddNodeTest extends GridCommonAbstractTest {
         final int tasks = 5000;
         final int threads = 10;
 
-        final Ignite ignite1 = grid(1);
+        final Ignite ignite1 = ignite(1);
         final CountDownLatch latch = new CountDownLatch(tasks);
         final AtomicInteger jobsCnt = new AtomicInteger();
         final AtomicInteger resCnt = new AtomicInteger();

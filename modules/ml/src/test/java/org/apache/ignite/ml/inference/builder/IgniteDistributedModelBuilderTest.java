@@ -45,7 +45,7 @@ public class IgniteDistributedModelBuilderTest extends GridCommonAbstractTest {
      */
     @Override protected void beforeTest() {
         /* Grid instance. */
-        ignite = grid(NODE_COUNT);
+        ignite = ignite(NODE_COUNT);
         ignite.configuration().setPeerClassLoadingEnabled(true);
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
     }

@@ -47,7 +47,7 @@ public class IgniteLocalSemaphoreSelfTest extends IgniteSemaphoreAbstractSelfTes
     @Test
     @Override public void testSemaphore() throws Exception {
         // Test main functionality.
-        IgniteSemaphore semaphore = grid(0).semaphore("semaphore", -2, false, true);
+        IgniteSemaphore semaphore = ignite(0).semaphore("semaphore", -2, false, true);
 
         assertNotNull(semaphore);
 
@@ -56,7 +56,7 @@ public class IgniteLocalSemaphoreSelfTest extends IgniteSemaphoreAbstractSelfTes
         IgniteInternalFuture<?> fut = GridTestUtils.runMultiThreadedAsync(
             new Callable<Object>() {
                 @Nullable @Override public Object call() throws Exception {
-                    IgniteSemaphore semaphore = grid(0).semaphore("semaphore", -2, false, true);
+                    IgniteSemaphore semaphore = ignite(0).semaphore("semaphore", -2, false, true);
 
                     assert semaphore != null && semaphore.availablePermits() == -2;
 
@@ -89,7 +89,7 @@ public class IgniteLocalSemaphoreSelfTest extends IgniteSemaphoreAbstractSelfTes
         fut.get();
 
         // Test operations on removed latch.
-        IgniteSemaphore semaphore0 = grid(0).semaphore("semaphore", 0, false, false);
+        IgniteSemaphore semaphore0 = ignite(0).semaphore("semaphore", 0, false, false);
 
         assertNotNull(semaphore0);
 

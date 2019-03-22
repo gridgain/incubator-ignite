@@ -92,17 +92,17 @@ public class IgniteCacheQueryNodeRestartDistributedJoinSelfTest extends IgniteCa
         else
             qry0 = new SqlFieldsQuery(QRY_0).setDistributedJoins(true);
 
-        String plan = queryPlan(grid(0).cache("pu"), qry0);
+        String plan = queryPlan(ignite(0).cache("pu"), qry0);
 
         X.println("Plan1: " + plan);
 
         assertEquals(broadcastQry, plan.contains("batched:broadcast"));
 
-        final List<List<?>> goldenRes = grid(0).cache("pu").query(qry0).getAll();
+        final List<List<?>> goldenRes = ignite(0).cache("pu").query(qry0).getAll();
 
         Thread.sleep(3000);
 
-        assertEquals(goldenRes, grid(0).cache("pu").query(qry0).getAll());
+        assertEquals(goldenRes, ignite(0).cache("pu").query(qry0).getAll());
 
         final SqlFieldsQuery qry1;
 
@@ -111,13 +111,13 @@ public class IgniteCacheQueryNodeRestartDistributedJoinSelfTest extends IgniteCa
         else
             qry1 = new SqlFieldsQuery(QRY_1).setDistributedJoins(true);
 
-        plan = queryPlan(grid(0).cache("co"), qry1);
+        plan = queryPlan(ignite(0).cache("co"), qry1);
 
         X.println("Plan2: " + plan);
 
         assertEquals(broadcastQry, plan.contains("batched:broadcast"));
 
-        final List<List<?>> rRes = grid(0).cache("co").query(qry1).getAll();
+        final List<List<?>> rRes = ignite(0).cache("co").query(qry1).getAll();
 
         assertFalse(goldenRes.isEmpty());
         assertFalse(rRes.isEmpty());
@@ -144,7 +144,7 @@ public class IgniteCacheQueryNodeRestartDistributedJoinSelfTest extends IgniteCa
                         while (!locks.compareAndSet(g, 0, 1));
 
                         if (rnd.nextBoolean()) {
-                            IgniteCache<?, ?> cache = grid(g).cache("pu");
+                            IgniteCache<?, ?> cache = ignite(g).cache("pu");
 
                             SqlFieldsQuery qry;
 
@@ -188,7 +188,7 @@ public class IgniteCacheQueryNodeRestartDistributedJoinSelfTest extends IgniteCa
                             }
                         }
                         else {
-                            IgniteCache<?, ?> cache = grid(g).cache("co");
+                            IgniteCache<?, ?> cache = ignite(g).cache("co");
 
                             assertEquals(rRes, cache.query(qry1).getAll());
                         }

@@ -240,19 +240,19 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWaitingTxUnblockedOnTimeout() throws Exception {
-        waitingTxUnblockedOnTimeout(grid(0), grid(0));
+        waitingTxUnblockedOnTimeout(ignite(0), ignite(0));
 
-        waitingTxUnblockedOnTimeout(grid(0), grid(1));
+        waitingTxUnblockedOnTimeout(ignite(0), ignite(1));
 
         Ignite client = startClient();
 
-        waitingTxUnblockedOnTimeout(grid(0), client);
+        waitingTxUnblockedOnTimeout(ignite(0), client);
 
-        waitingTxUnblockedOnTimeout(grid(1), client);
+        waitingTxUnblockedOnTimeout(ignite(1), client);
 
-        waitingTxUnblockedOnTimeout(client, grid(0));
+        waitingTxUnblockedOnTimeout(client, ignite(0));
 
-        waitingTxUnblockedOnTimeout(client, grid(1));
+        waitingTxUnblockedOnTimeout(client, ignite(1));
 
         waitingTxUnblockedOnTimeout(client, client);
     }
@@ -264,19 +264,19 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWaitingTxUnblockedOnThreadDeath() throws Exception {
-        waitingTxUnblockedOnThreadDeath(grid(0), grid(0));
+        waitingTxUnblockedOnThreadDeath(ignite(0), ignite(0));
 
-        waitingTxUnblockedOnThreadDeath(grid(0), grid(1));
+        waitingTxUnblockedOnThreadDeath(ignite(0), ignite(1));
 
         Ignite client = startClient();
 
-        waitingTxUnblockedOnThreadDeath(grid(0), client);
+        waitingTxUnblockedOnThreadDeath(ignite(0), client);
 
-        waitingTxUnblockedOnThreadDeath(grid(1), client);
+        waitingTxUnblockedOnThreadDeath(ignite(1), client);
 
-        waitingTxUnblockedOnThreadDeath(client, grid(0));
+        waitingTxUnblockedOnThreadDeath(client, ignite(0));
 
-        waitingTxUnblockedOnThreadDeath(client, grid(1));
+        waitingTxUnblockedOnThreadDeath(client, ignite(1));
 
         waitingTxUnblockedOnThreadDeath(client, client);
     }
@@ -374,13 +374,13 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
         final int modesCnt = 5;
 
         for (int i = 0; i < modesCnt; i++)
-            testTimeoutRemoval0(grid(0), i, TX_TIMEOUT);
+            testTimeoutRemoval0(ignite(0), i, TX_TIMEOUT);
 
         for (int i = 0; i < modesCnt; i++)
             testTimeoutRemoval0(client, i, TX_TIMEOUT);
 
         for (int i = 0; i < modesCnt; i++)
-            testTimeoutRemoval0(grid(0), i, TX_MIN_TIMEOUT);
+            testTimeoutRemoval0(ignite(0), i, TX_MIN_TIMEOUT);
 
         for (int i = 0; i < modesCnt; i++)
             testTimeoutRemoval0(client, i, TX_MIN_TIMEOUT);
@@ -424,7 +424,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
         final int threadsCnt = Runtime.getRuntime().availableProcessors() * 2;
 
         for (int k = 0; k < threadsCnt; k++)
-            grid(0).cache(CACHE_NAME).put(k, (long)0);
+            ignite(0).cache(CACHE_NAME).put(k, (long)0);
 
         final TransactionConcurrency[] TC_VALS = TransactionConcurrency.values();
         final TransactionIsolation[] TI_VALS = TransactionIsolation.values();
@@ -439,7 +439,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
                 while (!stop.get()) {
                     int nodeId = r.nextInt(GRID_CNT + 1);
 
-                    Ignite node = nodeId == GRID_CNT || nearCacheEnabled() ? client : grid(nodeId);
+                    Ignite node = nodeId == GRID_CNT || nearCacheEnabled() ? client : ignite(nodeId);
 
                     TransactionConcurrency conc = TC_VALS[r.nextInt(TC_VALS.length)];
                     TransactionIsolation isolation = TI_VALS[r.nextInt(TI_VALS.length)];
@@ -516,7 +516,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTimeoutOnPrimaryDHTNode() throws Exception {
-        final ClusterNode n0 = grid(0).affinity(CACHE_NAME).mapKeyToNode(0);
+        final ClusterNode n0 = ignite(0).affinity(CACHE_NAME).mapKeyToNode(0);
 
         final Ignite prim = G.ignite(n0.id());
 
@@ -711,16 +711,16 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
         boolean clientWait) throws Exception {
         IgniteEx client = (IgniteEx)startClient();
 
-        Ignite crd = grid(0);
+        Ignite crd = ignite(0);
 
         assertTrue(crd.cluster().localNode().order() == 1);
 
-        List<Integer> keys = movingKeysAfterJoin(grid(1), CACHE_NAME, 1);
+        List<Integer> keys = movingKeysAfterJoin(ignite(1), CACHE_NAME, 1);
 
         // Delay exchange finish on server nodes if clientWait=true, or on all nodes otherwise (excluding joining node).
         TestRecordingCommunicationSpi.spi(crd).blockMessages((node,
             msg) -> node.order() < 5 && msg instanceof GridDhtPartitionsFullMessage &&
-            (!clientWait || node.order() != grid(1).cluster().localNode().order()));
+            (!clientWait || node.order() != ignite(1).cluster().localNode().order()));
 
         // Delay prepare until exchange is finished.
         TestRecordingCommunicationSpi.spi(client).blockMessages((node, msg) -> {
@@ -859,14 +859,12 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
         final int val = 0;
 
         try {
-            multithreaded(new Runnable() {
-                @Override public void run() {
-                    try (Transaction txOpt = prim.transactions().txStart(conc, isolation, 300, 1)) {
+            GridTestUtils.runMultiThreaded(() -> {
+                try (Transaction txOpt = prim.transactions().txStart(conc, isolation, 300, 1)) {
 
-                        prim.cache(CACHE_NAME).put(val, val);
+                    prim.cache(CACHE_NAME).put(val, val);
 
-                        txOpt.commit();
-                    }
+                    txOpt.commit();
                 }
             }, 1, "tx-async-thread");
 
@@ -911,7 +909,7 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void testSimple0(TransactionConcurrency concurrency, TransactionIsolation isolation, int op) throws Exception {
-        Ignite near = grid(0);
+        Ignite near = ignite(0);
 
         final int key = 1, val = 1;
 

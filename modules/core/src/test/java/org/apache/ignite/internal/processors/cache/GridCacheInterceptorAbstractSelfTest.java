@@ -1364,7 +1364,7 @@ public abstract class GridCacheInterceptorAbstractSelfTest extends GridCacheAbst
         for (int i = 0; i < 10_000; i++) {
             String key = String.valueOf(i);
 
-            if (aff.isPrimary(grid(idx).localNode(), key)) {
+            if (aff.isPrimary(ignite(idx).localNode(), key)) {
                 keys.add(key);
 
                 if (keys.size() == cnt)
@@ -1387,7 +1387,7 @@ public abstract class GridCacheInterceptorAbstractSelfTest extends GridCacheAbst
         String key = null;
 
         for (int i = 0; i < 10_000; i++) {
-            if (aff.isBackup(grid(idx).localNode(), String.valueOf(i))) {
+            if (aff.isBackup(ignite(idx).localNode(), String.valueOf(i))) {
                 key = String.valueOf(i);
 
                 break;
@@ -1409,7 +1409,7 @@ public abstract class GridCacheInterceptorAbstractSelfTest extends GridCacheAbst
         String key = null;
 
         for (int i = 0; i < 10_000; i++) {
-            if (!aff.isPrimaryOrBackup(grid(idx).localNode(), String.valueOf(i))) {
+            if (!aff.isPrimaryOrBackup(ignite(idx).localNode(), String.valueOf(i))) {
                 key = String.valueOf(i);
 
                 break;
@@ -1434,7 +1434,7 @@ public abstract class GridCacheInterceptorAbstractSelfTest extends GridCacheAbst
 
         try {
             for (int i = 0; i < gridCount(); i++)
-                assertEquals("Unexpected value for grid " + i, expVal, grid(i).cache(DEFAULT_CACHE_NAME).get(key));
+                assertEquals("Unexpected value for grid " + i, expVal, ignite(i).cache(DEFAULT_CACHE_NAME).get(key));
         }
         finally {
             interceptor.disabled = false;

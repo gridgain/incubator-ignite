@@ -118,7 +118,7 @@ public class HadoopExternalTaskExecutionSelfTest extends HadoopAbstractSelfTest 
 
         job.setJarByClass(getClass());
 
-        IgniteInternalFuture<?> fut = grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
+        IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
             createJobInfo(job.getConfiguration(), null));
 
         fut.get();
@@ -155,7 +155,7 @@ public class HadoopExternalTaskExecutionSelfTest extends HadoopAbstractSelfTest 
 
         job.setJarByClass(getClass());
 
-        IgniteInternalFuture<?> fut = grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
+        IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
             createJobInfo(job.getConfiguration(), null));
 
         try {
@@ -174,7 +174,7 @@ public class HadoopExternalTaskExecutionSelfTest extends HadoopAbstractSelfTest 
      * @throws Exception If failed.
      */
     private void prepareTestFile(String filePath) throws Exception {
-        IgniteFileSystem igfs = grid(0).fileSystem(igfsName);
+        IgniteFileSystem igfs = ignite(0).fileSystem(igfsName);
 
         try (IgfsOutputStream out = igfs.create(new IgfsPath(filePath), true)) {
             PrintWriter wr = new PrintWriter(new OutputStreamWriter(out));

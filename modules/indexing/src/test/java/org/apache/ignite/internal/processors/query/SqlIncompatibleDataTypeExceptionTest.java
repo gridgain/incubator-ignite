@@ -36,7 +36,7 @@ public class SqlIncompatibleDataTypeExceptionTest extends AbstractIndexingCommon
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         super.beforeTestsStarted();
     }
@@ -58,7 +58,7 @@ public class SqlIncompatibleDataTypeExceptionTest extends AbstractIndexingCommon
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid().destroyCaches(grid().cacheNames());
+        ignite().destroyCaches(ignite().cacheNames());
 
         GridTestUtils.setFieldValue(UpdatePlanBuilder.class, "ALLOW_KEY_VAL_UPDATES", oldAllowColumnsVal);
 
@@ -78,7 +78,7 @@ public class SqlIncompatibleDataTypeExceptionTest extends AbstractIndexingCommon
         // Composite key.
         execSql("CREATE TABLE test (id0 integer, id1 integer, val varchar, primary key (id0, id1))");
 
-        final BinaryObjectBuilder bob = grid().binary().builder("key");
+        final BinaryObjectBuilder bob = ignite().binary().builder("key");
         bob.setField("id0", 0);
         bob.setField("id1", 1);
 
@@ -109,7 +109,7 @@ public class SqlIncompatibleDataTypeExceptionTest extends AbstractIndexingCommon
         // Composite value.
         execSql("CREATE TABLE test (id integer primary key, val varchar)");
 
-        final BinaryObjectBuilder bob = grid().binary().builder("val");
+        final BinaryObjectBuilder bob = ignite().binary().builder("val");
         bob.setField("val", "0");
 
         GridTestUtils.assertThrows(log, ()-> {
@@ -140,7 +140,7 @@ public class SqlIncompatibleDataTypeExceptionTest extends AbstractIndexingCommon
 
         execSql("CREATE TABLE test (id0 integer, id1 integer, val varchar, primary key (id0, id1))");
 
-        final BinaryObjectBuilder bob = grid().binary().builder("val");
+        final BinaryObjectBuilder bob = ignite().binary().builder("val");
         bob.setField("id0", 0);
         bob.setField("id1", 0);
 
@@ -162,7 +162,7 @@ public class SqlIncompatibleDataTypeExceptionTest extends AbstractIndexingCommon
 
         execSql("CREATE TABLE test (id integer primary key, val varchar)");
 
-        final BinaryObjectBuilder bob = grid().binary().builder("val");
+        final BinaryObjectBuilder bob = ignite().binary().builder("val");
         bob.setField("val", "0");
 
         // Invalid usage, but allowed for backward compatibility
@@ -194,6 +194,6 @@ public class SqlIncompatibleDataTypeExceptionTest extends AbstractIndexingCommon
      * @return Query results.
      */
     private List<List<?>> execSql(String sql, Object... args) {
-        return execSql(grid(), sql, args);
+        return execSql(ignite(), sql, args);
     }
 }

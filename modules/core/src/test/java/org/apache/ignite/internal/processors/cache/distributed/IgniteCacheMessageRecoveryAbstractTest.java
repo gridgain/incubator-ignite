@@ -95,7 +95,7 @@ public abstract class IgniteCacheMessageRecoveryAbstractTest extends GridCommonA
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
-            final IgniteKernal grid = (IgniteKernal)grid(i);
+            final IgniteKernal grid = (IgniteKernal)ignite(i);
 
             GridTestUtils.retryAssert(log, 10, 500, new CA() {
                 @Override public void apply() {
@@ -110,7 +110,7 @@ public abstract class IgniteCacheMessageRecoveryAbstractTest extends GridCommonA
      */
     @Test
     public void testMessageRecovery() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final IgniteCache<Object, String> cache = ignite.cache(DEFAULT_CACHE_NAME);
 

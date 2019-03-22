@@ -159,7 +159,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (int i = 0; i < gridCount(); i++) {
-            GridCacheAdapter<Object, Object> c = ((IgniteKernal)grid(i)).internalCache(DEFAULT_CACHE_NAME);
+            GridCacheAdapter<Object, Object> c = ((IgniteKernal)ignite(i)).internalCache(DEFAULT_CACHE_NAME);
 
             for (GridCacheEntryEx e : c.map().entries(c.context().cacheId())) {
                 Object key = e.key().value(c.context().cacheObjectContext(), false);
@@ -297,7 +297,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
 
         IgniteCache<Integer, BinaryObject> kpc = keepBinaryCache();
 
-        BinaryObjectBuilder bldr = grid(0).binary().builder(TestObject.class.getName());
+        BinaryObjectBuilder bldr = ignite(0).binary().builder(TestObject.class.getName());
 
         bldr.setField("val", -42);
 
@@ -628,7 +628,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             c.put(i, new TestObject(i));
 
         for (int i = 0; i < ENTRY_CNT; i++) {
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 TestObject obj = c.get(i);
 
                 assertEquals(i, obj.val);
@@ -638,7 +638,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
         }
 
         for (int i = 0; i < ENTRY_CNT; i++) {
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 BinaryObject val = kbCache.get(i);
 
                 assertFalse("Key=" + i, val instanceof BinaryObjectOffheapImpl);
@@ -683,7 +683,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             c.put(i, new TestObject(i));
 
         for (int i = 0; i < ENTRY_CNT; i++) {
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
 
                 TestObject obj = c.getAsync(i).get();
 
@@ -694,7 +694,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
         }
 
         for (int i = 0; i < ENTRY_CNT; i++) {
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 BinaryObject val = kbCache.getAsync(i).get();
 
                 assertFalse("Key=" + i, val instanceof BinaryObjectOffheapImpl);
@@ -722,7 +722,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             c.put(i, new TestObject(i));
 
         for (int i = 0; i < ENTRY_CNT; i++) {
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 TestObject obj = c.getAsync(i).get();
 
                 assertEquals(i, obj.val);
@@ -734,7 +734,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
         IgniteCache<Integer, BinaryObject> kpc = keepBinaryCache();
 
         for (int i = 0; i < ENTRY_CNT; i++) {
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 BinaryObject po = kpc.getAsync(i).get();
 
                 assertEquals(i, (int)po.field("val"));
@@ -862,7 +862,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             for (int j = 0; j < 10; j++)
                 keys.add(i++);
 
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 Map<Integer, TestObject> objs = c.getAll(keys);
 
                 assertEquals(10, objs.size());
@@ -880,7 +880,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             for (int j = 0; j < 10; j++)
                 keys.add(i++);
 
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 Map<Integer, BinaryObject> objs = kpc.getAll(keys);
 
                 assertEquals(10, objs.size());
@@ -935,7 +935,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             for (int j = 0; j < 10; j++)
                 keys.add(i++);
 
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 Map<Integer, TestObject> objs = c.getAllAsync(keys).get();
 
                 assertEquals(10, objs.size());
@@ -955,7 +955,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             for (int j = 0; j < 10; j++)
                 keys.add(i++);
 
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 Map<Integer, BinaryObject> objs = cache.getAllAsync(keys).get();
 
                 assertEquals(10, objs.size());
@@ -984,7 +984,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
         c.put(new ComplexBinaryFieldsListHashedKey(), "zzz");
 
         // Now let's build an identical key for get
-        BinaryObjectBuilder bldr = grid(0).binary().builder(ComplexBinaryFieldsListHashedKey.class.getName());
+        BinaryObjectBuilder bldr = ignite(0).binary().builder(ComplexBinaryFieldsListHashedKey.class.getName());
 
         bldr.setField("firstField", 1);
         bldr.setField("secondField", "value");
@@ -1004,7 +1004,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
         IgniteCache c = binKeysCache();
 
         {
-            BinaryObjectBuilder bldr = grid(0).binary().builder("ArrayHashedKey");
+            BinaryObjectBuilder bldr = ignite(0).binary().builder("ArrayHashedKey");
 
             BinaryObject binKey = bldr.setField("fld1", 5).setField("fld2", 1).setField("fld3", "abc").build();
 
@@ -1013,7 +1013,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
 
         // Now let's build an identical key for get.
         {
-            BinaryObjectBuilder bldr = grid(0).binary().builder("ArrayHashedKey");
+            BinaryObjectBuilder bldr = ignite(0).binary().builder("ArrayHashedKey");
 
             BinaryObject binKey = bldr.setField("fld1", 5).setField("fld2", 1).setField("fld3", "abc").build();
 
@@ -1022,7 +1022,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
 
         // Now let's build not identical key for get.
         {
-            BinaryObjectBuilder bldr = grid(0).binary().builder("ArrayHashedKey");
+            BinaryObjectBuilder bldr = ignite(0).binary().builder("ArrayHashedKey");
 
             BinaryObject binKey = bldr.setField("fld1", 5).setField("fld2", 100).setField("fld3", "abc").build();
 
@@ -1039,7 +1039,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
         IgniteCache c = binKeysCache();
 
         {
-            BinaryObjectBuilder bldr = grid(0).binary().builder("FieldsHashedKey");
+            BinaryObjectBuilder bldr = ignite(0).binary().builder("FieldsHashedKey");
 
             bldr.setField("fld1", 5);
             bldr.setField("fld2", 100);
@@ -1052,7 +1052,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
 
         // Now let's build an identical key for get
         {
-            BinaryObjectBuilder bldr = grid(0).binary().builder("FieldsHashedKey");
+            BinaryObjectBuilder bldr = ignite(0).binary().builder("FieldsHashedKey");
 
             bldr.setField("fld1", 5);
             bldr.setField("fld2", 100); // This one does not participate in hashing
@@ -1073,7 +1073,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
         IgniteCache c = binKeysCache();
 
         {
-            BinaryObjectBuilder bldr = grid(0).binary().builder("CustomHashedKey");
+            BinaryObjectBuilder bldr = ignite(0).binary().builder("CustomHashedKey");
 
             bldr.setField("fld1", 5);
             bldr.setField("fld2", "abc");
@@ -1085,7 +1085,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
 
         // Now let's build an identical key for get
         {
-            BinaryObjectBuilder bldr = grid(0).binary().builder("CustomHashedKey");
+            BinaryObjectBuilder bldr = ignite(0).binary().builder("CustomHashedKey");
 
             bldr.setField("fld1", 5);
             bldr.setField("fld2", "abc");

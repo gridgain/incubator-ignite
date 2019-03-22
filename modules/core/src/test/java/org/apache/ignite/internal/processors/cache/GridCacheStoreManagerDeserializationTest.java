@@ -144,7 +144,7 @@ public class GridCacheStoreManagerDeserializationTest extends GridCommonAbstract
      */
     @Test
     public void testStream() throws Exception {
-        final Ignite grid = startGrid();
+        final Ignite grid = clusterManager__startGrid();
 
         final IgniteCache<TestObj, TestObj> cache = grid.createCache(CACHE_NAME);
 

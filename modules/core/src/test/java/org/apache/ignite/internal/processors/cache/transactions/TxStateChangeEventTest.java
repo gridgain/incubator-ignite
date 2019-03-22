@@ -90,7 +90,7 @@ public class TxStateChangeEventTest extends GridCommonAbstractTest {
     private void check(boolean loc) throws Exception {
         Ignite ignite = startGrids(5);
 
-        final IgniteEvents evts = loc ? ignite.events() : grid(3).events();
+        final IgniteEvents evts = loc ? ignite.events() : ignite(3).events();
 
         if (loc)
             evts.localListen((IgnitePredicate<Event>)e -> {

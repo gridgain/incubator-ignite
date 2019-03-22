@@ -94,7 +94,7 @@ public class IgniteSqlParameterizedQueryTest extends AbstractIndexingCommonTest 
      * @see Bookmark
      */
     private Object columnValue(String field, Object val) {
-        IgniteCache<String, Bookmark> cache = grid(NODE_CLIENT).cache(CACHE_BOOKMARK);
+        IgniteCache<String, Bookmark> cache = ignite(NODE_CLIENT).cache(CACHE_BOOKMARK);
         SqlFieldsQuery qry = new SqlFieldsQuery("SELECT " + field + " from  Bookmark where " + field + " = ?");
         qry.setArgs(val);
 
@@ -111,7 +111,7 @@ public class IgniteSqlParameterizedQueryTest extends AbstractIndexingCommonTest 
      */
     @Test
     public void testSupportedTypes() throws Exception {
-        IgniteCache<String, Bookmark> cache = grid(NODE_CLIENT).cache(CACHE_BOOKMARK);
+        IgniteCache<String, Bookmark> cache = ignite(NODE_CLIENT).cache(CACHE_BOOKMARK);
         Bookmark bookmark = new Bookmark();
         bookmark.setId(UUID.randomUUID().toString());
         bookmark.setStockCount(Integer.MAX_VALUE);

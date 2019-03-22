@@ -167,7 +167,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQuerySelectAffinityKeyEqualsConstant() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         List<List<?>> result = runQueryEnsureUnicast(cache,
             new SqlFieldsQuery("select id, name, duration from Call where personId=100 order by id"), 1);
@@ -181,7 +181,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQuerySelectAffinityKeyEqualsParameter() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         List<List<?>> result = runQueryEnsureUnicast(cache,
             new SqlFieldsQuery("select id, name, duration from Call where personId=? order by id")
@@ -196,7 +196,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQuerySelectKeyEqualsParameterReused() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        IgniteCache<Integer, Person> cache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         for (int key : new int[] {0, 250, 500, 750, 1000} ) {
             List<List<?>> result = runQueryEnsureUnicast(cache,
@@ -213,7 +213,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQuerySelectKeyEqualsParameter() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         CallKey callKey = new CallKey(5, 1);
 
@@ -231,7 +231,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** Check group, having, ordering allowed to be unicast requests. */
     @Test
     public void testUnicastQueryGroups() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         String qry = "select name, count(1) " +
                 "from Call " +
@@ -253,7 +253,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQuerySelectKeyEqualAndFieldParameter() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         CallKey callKey = new CallKey(5, 1);
 
@@ -271,7 +271,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQuerySelect2KeyEqualsAndFieldParameter() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         CallKey callKey1 = new CallKey(5, 1);
         CallKey callKey2 = new CallKey(1000, 1);
@@ -294,7 +294,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQueryKeyTypeConversionParameter() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        IgniteCache<Integer, Person> cache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         // Pass string argument to expression with integer
         List<List<?>> result = runQueryEnsureUnicast(cache,
@@ -312,7 +312,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQueryKeyTypeConversionConstant() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        IgniteCache<Integer, Person> cache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         // Use string within expression against integer key
         List<List<?>> result = runQueryEnsureUnicast(cache,
@@ -329,7 +329,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQueryAffinityKeyTypeConversionParameter() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         // Pass string argument to expression with integer
         List<List<?>> result = runQueryEnsureUnicast(cache,
@@ -345,7 +345,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testUnicastQueryAffinityKeyTypeConversionConstant() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         // Use string within expression against integer key
         List<List<?>> result = runQueryEnsureUnicast(cache,
@@ -360,7 +360,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
     /** */
     @Test
     public void testBroadcastQuerySelectKeyEqualsOrFieldParameter() throws Exception {
-        IgniteCache<CallKey, Call> cache = grid(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<CallKey, Call> cache = ignite(NODE_CLIENT).cache(CACHE_CALL);
 
         CallKey callKey = new CallKey(5, 1);
 
@@ -382,7 +382,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
 
         ccfg.setIndexedTypes(UUID.class, UUID.class);
 
-        IgniteCache<UUID, UUID> cache = grid(NODE_CLIENT).createCache(ccfg);
+        IgniteCache<UUID, UUID> cache = ignite(NODE_CLIENT).createCache(ccfg);
 
         try {
             int count = 10;
@@ -423,7 +423,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
 
         ccfg.setIndexedTypes(Date.class, Date.class);
 
-        IgniteCache<Date, Date> cache = grid(NODE_CLIENT).createCache(ccfg);
+        IgniteCache<Date, Date> cache = ignite(NODE_CLIENT).createCache(ccfg);
 
         try {
             int count = 30;
@@ -475,8 +475,8 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
 
     /** */
     private void fillCaches() {
-        IgniteCache<CallKey, Call> callCache = grid(NODE_CLIENT).cache(CACHE_CALL);
-        IgniteCache<Integer, Person> personCache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        IgniteCache<CallKey, Call> callCache = ignite(NODE_CLIENT).cache(CACHE_CALL);
+        IgniteCache<Integer, Person> personCache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         int count = affinity(personCache).partitions();
 
@@ -542,14 +542,14 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
         };
 
         for (int i = 0; i < NODE_COUNT; i++)
-            grid(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
+            ignite(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
 
         List<List<?>> result = cache.query(qry).getAll();
 
         assertTrue(execLatch.await(5000, MILLISECONDS));
 
         for (int i = 0; i < NODE_COUNT; i++)
-            grid(i).events().stopLocalListen(pred);
+            ignite(i).events().stopLocalListen(pred);
 
         return result;
     }
@@ -603,7 +603,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
             this.execLatch = new CountDownLatch(NODE_COUNT);
 
             for (int i = 0; i < NODE_COUNT; i++)
-                grid(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
+                ignite(i).events().localListen(pred, EVT_CACHE_QUERY_EXECUTED);
         }
 
         /** */
@@ -616,7 +616,7 @@ public class IgniteSqlRoutingTest extends AbstractIndexingCommonTest {
         /** {@inheritDoc} */
         @Override public void close() throws Exception {
             for (int i = 0; i < NODE_COUNT; i++)
-                grid(i).events().stopLocalListen(pred);
+                ignite(i).events().stopLocalListen(pred);
         }
     }
 

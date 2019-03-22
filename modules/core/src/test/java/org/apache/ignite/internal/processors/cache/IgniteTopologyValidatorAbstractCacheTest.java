@@ -226,7 +226,7 @@ public abstract class IgniteTopologyValidatorAbstractCacheTest extends IgniteCac
         for (Ignite node : nodes)
             assertNotNull(node.cache(cacheName).get(KEY_VAL));
 
-        grid(0).cache(cacheName).remove(KEY_VAL);
+        ignite(0).cache(cacheName).remove(KEY_VAL);
     }
 
     /**
@@ -235,7 +235,7 @@ public abstract class IgniteTopologyValidatorAbstractCacheTest extends IgniteCac
      * @param cacheName cache name.
      */
     void assertEmpty(String cacheName) {
-        assertNull(grid(0).cache(cacheName).get(KEY_VAL));
+        assertNull(ignite(0).cache(cacheName).get(KEY_VAL));
     }
 
     /**

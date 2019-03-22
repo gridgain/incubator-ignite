@@ -283,8 +283,8 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             f1.get();
 
-            int s2 = grid(2).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
-            int s3 = grid(3).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
+            int s2 = ignite(2).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
+            int s3 = ignite(3).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
             int total = threads * cnt;
 
             assertEquals(total, s2 + s3);
@@ -320,8 +320,8 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             f2.get();
 
-            s2 = grid(2).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
-            s3 = grid(3).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
+            s2 = ignite(2).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
+            s3 = ignite(3).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
 
             assert s2 == 0 && s3 == 0 : "Incorrect entries count [s2=" + s2 + ", s3=" + s3 + ']';
         }
@@ -361,7 +361,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             afterGridStarted();
 
-            IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 100; i++)
                 cache.put(i, -1);
@@ -388,9 +388,9 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
             }
 
             for (int g = 0; g < 3; g++) {
-                ClusterNode locNode = grid(g).localNode();
+                ClusterNode locNode = ignite(g).localNode();
 
-                GridCacheAdapter<Integer, Integer> cache0 = ((IgniteKernal)grid(g)).internalCache(DEFAULT_CACHE_NAME);
+                GridCacheAdapter<Integer, Integer> cache0 = ((IgniteKernal)ignite(g)).internalCache(DEFAULT_CACHE_NAME);
 
                 if (cache0.isNear())
                     cache0 = ((GridNearCacheAdapter<Integer, Integer>)cache0).dht();
@@ -505,7 +505,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             startGridsMultiThreaded(nodesCntCache, nodesCntNoCache);
 
-            Ignite g1 = grid(nodesCntCache + nodesCntNoCache - 1);
+            Ignite g1 = ignite(nodesCntCache + nodesCntNoCache - 1);
 
             afterGridStarted();
 
@@ -771,7 +771,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
         useCache = true;
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             afterGridStarted();
 
@@ -826,7 +826,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
         useCache = true;
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             afterGridStarted();
 
@@ -866,7 +866,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
         useCache = true;
 
         try {
-            Ignite g = startGrid();
+            Ignite g = clusterManager__startGrid();
 
             afterGridStarted();
 

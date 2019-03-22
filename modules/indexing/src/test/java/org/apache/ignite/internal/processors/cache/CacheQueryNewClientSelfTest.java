@@ -57,7 +57,7 @@ public class CacheQueryNewClientSelfTest extends GridCommonAbstractTest {
 
             Ignition.setClientMode(true);
 
-            Ignite client = (iter == 0) ? startGrid("client") : grid("client");
+            Ignite client = (iter == 0) ? startGrid("client") : ignite("client");
 
             IgniteCache<Integer, Integer> cache = client.cache("cache1");
 

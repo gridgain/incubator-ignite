@@ -28,7 +28,7 @@ public class IgniteOnlineNodeOutOfBaselineFullApiSelfTest extends IgniteBaseline
 
         startGrids(gridCount());
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         startGrid("onlineOutOfBaselineNode");
 

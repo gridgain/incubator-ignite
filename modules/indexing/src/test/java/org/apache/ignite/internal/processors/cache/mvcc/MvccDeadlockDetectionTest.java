@@ -95,8 +95,8 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
     public void detectSimpleDeadlock() throws Exception {
         setUpGrids(2, false);
 
-        Integer key0 = primaryKey(grid(0).cache(DEFAULT_CACHE_NAME));
-        Integer key1 = primaryKey(grid(1).cache(DEFAULT_CACHE_NAME));
+        Integer key0 = primaryKey(ignite(0).cache(DEFAULT_CACHE_NAME));
+        Integer key1 = primaryKey(ignite(1).cache(DEFAULT_CACHE_NAME));
 
         IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -140,8 +140,8 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
-        Integer key0 = primaryKey(grid(0).cache(DEFAULT_CACHE_NAME));
-        Integer key1 = primaryKey(grid(1).cache(DEFAULT_CACHE_NAME));
+        Integer key0 = primaryKey(ignite(0).cache(DEFAULT_CACHE_NAME));
+        Integer key1 = primaryKey(ignite(1).cache(DEFAULT_CACHE_NAME));
 
         cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key0, -1));
         cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key1, -1));
@@ -184,9 +184,9 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
     public void detect3Deadlock() throws Exception {
         setUpGrids(3, false);
 
-        Integer key0 = primaryKey(grid(0).cache(DEFAULT_CACHE_NAME));
-        Integer key1 = primaryKey(grid(1).cache(DEFAULT_CACHE_NAME));
-        Integer key2 = primaryKey(grid(2).cache(DEFAULT_CACHE_NAME));
+        Integer key0 = primaryKey(ignite(0).cache(DEFAULT_CACHE_NAME));
+        Integer key1 = primaryKey(ignite(1).cache(DEFAULT_CACHE_NAME));
+        Integer key2 = primaryKey(ignite(2).cache(DEFAULT_CACHE_NAME));
 
         IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -244,9 +244,9 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
-        Integer key0 = primaryKey(grid(0).cache(DEFAULT_CACHE_NAME));
-        Integer key1 = primaryKey(grid(1).cache(DEFAULT_CACHE_NAME));
-        Integer key2 = primaryKey(grid(2).cache(DEFAULT_CACHE_NAME));
+        Integer key0 = primaryKey(ignite(0).cache(DEFAULT_CACHE_NAME));
+        Integer key1 = primaryKey(ignite(1).cache(DEFAULT_CACHE_NAME));
+        Integer key2 = primaryKey(ignite(2).cache(DEFAULT_CACHE_NAME));
 
         cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key0, -1));
         cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key1, -1));
@@ -305,7 +305,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
     public void detectDeadlockLocalEntriesEnlistFuture() throws Exception {
         setUpGrids(1, false);
 
-        List<Integer> keys = primaryKeys(grid(0).cache(DEFAULT_CACHE_NAME), 2);
+        List<Integer> keys = primaryKeys(ignite(0).cache(DEFAULT_CACHE_NAME), 2);
 
         IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -349,8 +349,8 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         setUpGrids(2, false);
 
-        IgniteCache<Object, Object> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
-        IgniteCache<Object, Object> cache1 = grid(1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache1 = ignite(1).cache(DEFAULT_CACHE_NAME);
 
         int key0 = primaryKey(cache0);
         int key1 = primaryKey(cache1);
@@ -358,7 +358,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
         CyclicBarrier b = new CyclicBarrier(2);
 
         IgniteInternalFuture<Object> fut0 = GridTestUtils.runAsync(() -> {
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 cache0.put(key1, 11);
                 b.await();
                 cache0.put(key0, 11);
@@ -370,7 +370,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
         });
 
         IgniteInternalFuture<Object> fut1 = GridTestUtils.runAsync(() -> {
-            try (Transaction tx = grid(1).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(1).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 cache1.put(key0, 22);
                 b.await();
                 cache1.put(key1, 22);
@@ -391,7 +391,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
     public void detectDeadlockLocalQueryEnlistFuture() throws Exception {
         setUpGrids(1, true);
 
-        List<Integer> keys = primaryKeys(grid(0).cache(DEFAULT_CACHE_NAME), 2);
+        List<Integer> keys = primaryKeys(ignite(0).cache(DEFAULT_CACHE_NAME), 2);
 
         Collections.sort(keys);
 
@@ -441,8 +441,8 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
     public void nonDeadlockedTxDetectsDeadlock1() throws Exception {
         setUpGrids(2, false);
 
-        Integer key0 = primaryKey(grid(0).cache(DEFAULT_CACHE_NAME));
-        Integer key1 = primaryKey(grid(1).cache(DEFAULT_CACHE_NAME));
+        Integer key0 = primaryKey(ignite(0).cache(DEFAULT_CACHE_NAME));
+        Integer key1 = primaryKey(ignite(1).cache(DEFAULT_CACHE_NAME));
 
         IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -452,7 +452,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         IgniteInternalFuture<Object> fut0 = GridTestUtils.runAsync(() -> {
             try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                blockProbe(grid(1), tx);
+                blockProbe(ignite(1), tx);
 
                 cache.put(key0, 0);
                 b.await();
@@ -466,7 +466,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         IgniteInternalFuture<Object> fut1 = GridTestUtils.runAsync(() -> {
             try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                blockProbe(grid(0), tx);
+                blockProbe(ignite(0), tx);
 
                 cache.put(key1, 1);
                 b.await();
@@ -491,10 +491,10 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
     public void nonDeadlockedTxDetectsDeadlock2() throws Exception {
         setUpGrids(2, false);
 
-        List<Integer> keys0 = primaryKeys(grid(0).cache(DEFAULT_CACHE_NAME), 2);
+        List<Integer> keys0 = primaryKeys(ignite(0).cache(DEFAULT_CACHE_NAME), 2);
         Integer key00 = keys0.get(0);
         Integer key01 = keys0.get(1);
-        Integer key1 = primaryKey(grid(1).cache(DEFAULT_CACHE_NAME));
+        Integer key1 = primaryKey(ignite(1).cache(DEFAULT_CACHE_NAME));
 
         IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
@@ -504,7 +504,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         IgniteInternalFuture<Object> fut0 = GridTestUtils.runAsync(() -> {
             try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                blockProbe(grid(1), tx);
+                blockProbe(ignite(1), tx);
 
                 cache.put(key00, 0);
                 b.await();
@@ -518,7 +518,7 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         IgniteInternalFuture<Object> fut1 = GridTestUtils.runAsync(() -> {
             try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                blockProbe(grid(0), tx);
+                blockProbe(ignite(0), tx);
 
                 cache.put(key1, 1);
                 cache.put(key01, 0);
@@ -549,13 +549,13 @@ public class MvccDeadlockDetectionTest extends GridCommonAbstractTest {
 
         List<Integer> keys = new ArrayList<>();
         for (int i = 0; i < gridCnt; i++)
-            keys.addAll(primaryKeys(grid(i).cache(DEFAULT_CACHE_NAME), 3));
+            keys.addAll(primaryKeys(ignite(i).cache(DEFAULT_CACHE_NAME), 3));
 
         AtomicInteger aborted = new AtomicInteger();
 
         List<IgniteInternalFuture<?>> futs = new ArrayList<>();
         for (int i = 0; i < gridCnt * 2; i++) {
-            IgniteEx ign = grid(i % gridCnt);
+            IgniteEx ign = ignite(i % gridCnt);
             IgniteCache<Object, Object> cache = ign.cache(DEFAULT_CACHE_NAME);
 
             IgniteInternalFuture fut = GridTestUtils.runAsync(() -> {

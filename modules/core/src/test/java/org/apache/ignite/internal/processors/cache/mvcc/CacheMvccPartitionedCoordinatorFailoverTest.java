@@ -173,7 +173,7 @@ public class CacheMvccPartitionedCoordinatorFailoverTest extends CacheMvccAbstra
         // Do not use startMultithreaded here.
         startGrids(DATA_NODES);
 
-        Ignite near = grid(DATA_NODES - 1);
+        Ignite near = ignite(DATA_NODES - 1);
 
         CacheConfiguration ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, DATA_NODES - 1, DFLT_PARTITION_COUNT);
 

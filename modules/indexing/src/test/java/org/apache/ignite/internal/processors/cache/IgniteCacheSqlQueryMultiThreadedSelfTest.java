@@ -77,7 +77,7 @@ public class IgniteCacheSqlQueryMultiThreadedSelfTest extends GridCommonAbstract
      */
     @Test
     public void testQuery() throws Exception {
-        final IgniteCache<Integer, Person> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, Person> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         cache.clear();
 
@@ -109,7 +109,7 @@ public class IgniteCacheSqlQueryMultiThreadedSelfTest extends GridCommonAbstract
      */
     @Test
     public void testQueryPut() throws Exception {
-        final IgniteCache<Integer, Person> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, Person> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         cache.clear();
 

@@ -167,7 +167,7 @@ public class BinaryMetadataUpdatesFlowTest extends GridCommonAbstractTest {
      * @param workersCntr The current number of computation threads.
      */
     private void startComputation(int idx, AtomicInteger restartIdx, AtomicInteger workersCntr) {
-        Ignite ignite = grid(idx);
+        Ignite ignite = ignite(idx);
 
         ClusterGroup cg = ignite.cluster().forLocal();
 

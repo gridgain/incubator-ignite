@@ -354,7 +354,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
      */
     protected void doTestAllowEmptyEntries() throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1");
             MockEntry e2 = new MockEntry("2");
@@ -410,7 +410,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
      */
     protected void doTestMemory(int max) throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             EvictionPolicyProxy p = proxy(policy());
 
@@ -433,7 +433,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
      */
     protected void doTestRandom() throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             EvictionPolicyProxy p = proxy(policy());
 
@@ -481,7 +481,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
         syncCommit = true;
 
         try {
-            Ignite ignite = startGrid();
+            Ignite ignite = clusterManager__startGrid();
 
             IgniteCache<Object, Object> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
@@ -598,7 +598,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
     /** @return Policy. */
     @SuppressWarnings({"unchecked"})
     protected T policy() {
-        return (T)grid().cache(DEFAULT_CACHE_NAME).getConfiguration(CacheConfiguration.class).getEvictionPolicy();
+        return (T)ignite().cache(DEFAULT_CACHE_NAME).getConfiguration(CacheConfiguration.class).getEvictionPolicy();
     }
 
     /**
@@ -607,7 +607,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
      */
     @SuppressWarnings({"unchecked"})
     protected T policy(int i) {
-        return (T)grid(i).cache(DEFAULT_CACHE_NAME).getConfiguration(CacheConfiguration.class).getEvictionPolicy();
+        return (T)ignite(i).cache(DEFAULT_CACHE_NAME).getConfiguration(CacheConfiguration.class).getEvictionPolicy();
     }
 
     /**
@@ -616,7 +616,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
      */
     @SuppressWarnings({"unchecked"})
     protected T nearPolicy(int i) {
-        CacheConfiguration cfg = grid(i).cache(DEFAULT_CACHE_NAME).getConfiguration(CacheConfiguration.class);
+        CacheConfiguration cfg = ignite(i).cache(DEFAULT_CACHE_NAME).getConfiguration(CacheConfiguration.class);
 
         NearCacheConfiguration nearCfg = cfg.getNearConfiguration();
 
@@ -752,7 +752,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
             int cnt = 500;
 
             for (int i = 0; i < cnt; i++) {
-                IgniteCache<Integer, String> cache = grid(rand.nextInt(2)).cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Integer, String> cache = ignite(rand.nextInt(2)).cache(DEFAULT_CACHE_NAME);
 
                 int key = rand.nextInt(100);
                 String val = Integer.toString(key);
@@ -819,7 +819,7 @@ public abstract class EvictionAbstractTest<T extends EvictionPolicy<?, ?>>
                     int cnt = 100;
 
                     for (int i = 0; i < cnt && !Thread.currentThread().isInterrupted(); i++) {
-                        IgniteEx grid = grid(rand.nextInt(2));
+                        IgniteEx grid = ignite(rand.nextInt(2));
 
                         IgniteCache<Integer, String> cache = grid.cache(DEFAULT_CACHE_NAME);
 

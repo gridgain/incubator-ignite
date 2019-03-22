@@ -39,7 +39,7 @@ public class IgfsFragmentizerSelfTest extends IgfsFragmentizerAbstractSelfTest {
      */
     @Test
     public void testReadFragmentizing() throws Exception {
-        IgniteFileSystem igfs = grid(0).fileSystem("igfs");
+        IgniteFileSystem igfs = ignite(0).fileSystem("igfs");
 
         IgfsPath path = new IgfsPath("/someFile");
 
@@ -115,7 +115,7 @@ public class IgfsFragmentizerSelfTest extends IgfsFragmentizerAbstractSelfTest {
         int fileSize = 30 * IGFS_GROUP_SIZE * IGFS_BLOCK_SIZE;
 
         while (written < fileSize) {
-            IgniteFileSystem igfs = grid(igfsIdx).fileSystem("igfs");
+            IgniteFileSystem igfs = ignite(igfsIdx).fileSystem("igfs");
 
             try (IgfsOutputStream out = igfs.append(path, true)) {
                 byte[] data = new byte[chunkSize];
@@ -138,7 +138,7 @@ public class IgfsFragmentizerSelfTest extends IgfsFragmentizerAbstractSelfTest {
             }
         }
 
-        IgniteFileSystem igfs = grid(0).fileSystem("igfs");
+        IgniteFileSystem igfs = ignite(0).fileSystem("igfs");
 
         try (IgfsInputStream in = igfs.open(path)) {
             i = 0;
@@ -189,7 +189,7 @@ public class IgfsFragmentizerSelfTest extends IgfsFragmentizerAbstractSelfTest {
 
         int fileSize = 50 * IGFS_GROUP_SIZE * IGFS_BLOCK_SIZE;
 
-        IgniteFileSystem igfs = grid(0).fileSystem("igfs");
+        IgniteFileSystem igfs = ignite(0).fileSystem("igfs");
 
         byte[] chunk = new byte[chunkSize];
 
@@ -233,7 +233,7 @@ public class IgfsFragmentizerSelfTest extends IgfsFragmentizerAbstractSelfTest {
      */
     @Test
     public void testDeleteFragmentizing() throws Exception {
-        IgfsImpl igfs = (IgfsImpl)grid(0).fileSystem("igfs");
+        IgfsImpl igfs = (IgfsImpl)ignite(0).fileSystem("igfs");
 
         for (int i = 0; i < 30; i++) {
             IgfsPath path = new IgfsPath("/someFile" + i);
@@ -251,7 +251,7 @@ public class IgfsFragmentizerSelfTest extends IgfsFragmentizerAbstractSelfTest {
         GridTestUtils.retryAssert(log, 50, 100, new CA() {
             @Override public void apply() {
                 for (int i = 0; i < NODE_CNT; i++) {
-                    IgniteEx g = grid(i);
+                    IgniteEx g = ignite(i);
 
                     GridCacheAdapter<Object, Object> cache = ((IgniteKernal)g).internalCache(
                         g.igfsx("igfs").configuration().getDataCacheConfiguration().getName());

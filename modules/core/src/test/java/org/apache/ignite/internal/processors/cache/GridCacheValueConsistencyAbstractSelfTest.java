@@ -123,7 +123,7 @@ public abstract class GridCacheValueConsistencyAbstractSelfTest extends GridCach
 
         for (int g = 0; g < gridCount(); g++) {
             IgniteCache<String, Integer> cache0 = jcache(g);
-            ClusterNode locNode = grid(g).localNode();
+            ClusterNode locNode = ignite(g).localNode();
 
             for (int i = 0; i < keyCnt; i++) {
                 String key = "key" + i;
@@ -185,12 +185,12 @@ public abstract class GridCacheValueConsistencyAbstractSelfTest extends GridCach
 
         for (int g = 0; g < gridCount(); g++) {
             IgniteCache<String, Integer> cache0 = jcache(g);
-            ClusterNode locNode = grid(g).localNode();
+            ClusterNode locNode = ignite(g).localNode();
 
             for (int i = 0; i < keyCnt; i++) {
                 String key = "key" + i;
 
-                if (ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key).contains(grid(g).localNode())) {
+                if (ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key).contains(ignite(g).localNode())) {
                     info("Node is reported as affinity node for key [key=" + key + ", nodeId=" + locNode.id() + ']');
 
                     assertEquals((Integer)i, cache0.localPeek(key));
@@ -254,7 +254,7 @@ public abstract class GridCacheValueConsistencyAbstractSelfTest extends GridCach
 
                     int g = threadId.getAndIncrement();
 
-                    Ignite ignite = grid(g);
+                    Ignite ignite = ignite(g);
 
                     IgniteCache<Object, Object> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
@@ -319,7 +319,7 @@ public abstract class GridCacheValueConsistencyAbstractSelfTest extends GridCach
 
                     int g = rnd.nextInt(gridCount());
 
-                    Ignite ignite = grid(g);
+                    Ignite ignite = ignite(g);
 
                     IgniteCache<Object, Object> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
@@ -358,7 +358,7 @@ public abstract class GridCacheValueConsistencyAbstractSelfTest extends GridCach
             Long firstVal = null;
 
             for (int g = 0; g < gridCount(); g++) {
-                Ignite ignite = grid(g);
+                Ignite ignite = ignite(g);
 
                 Long val = (Long)ignite.cache(DEFAULT_CACHE_NAME).localPeek(i);
 
@@ -408,7 +408,7 @@ public abstract class GridCacheValueConsistencyAbstractSelfTest extends GridCach
      */
     private void printValues(Affinity<Integer> aff, int key) {
         for (int g = 0; g < gridCount(); g++) {
-            Ignite ignite = grid(g);
+            Ignite ignite = ignite(g);
 
             boolean primary = aff.isPrimary(ignite.cluster().localNode(), key);
             boolean backup = aff.isBackup(ignite.cluster().localNode(), key);

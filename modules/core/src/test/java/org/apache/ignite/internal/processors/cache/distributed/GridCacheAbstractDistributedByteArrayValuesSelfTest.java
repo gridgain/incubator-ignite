@@ -113,8 +113,8 @@ public abstract class GridCacheAbstractDistributedByteArrayValuesSelfTest extend
         startGridsMultiThreaded(gridCnt);
 
         for (int i = 0; i < gridCnt; i++) {
-            caches[i] = grid(i).cache(CACHE);
-            mvccCaches[i] = grid(i).cache(MVCC_CACHE);
+            caches[i] = ignite(i).cache(CACHE);
+            mvccCaches[i] = ignite(i).cache(MVCC_CACHE);
         }
     }
 

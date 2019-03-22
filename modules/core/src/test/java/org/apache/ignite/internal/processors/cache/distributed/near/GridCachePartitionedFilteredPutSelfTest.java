@@ -60,7 +60,7 @@ public class GridCachePartitionedFilteredPutSelfTest extends GridCommonAbstractT
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -88,7 +88,7 @@ public class GridCachePartitionedFilteredPutSelfTest extends GridCommonAbstractT
         doPutAndRollback();
 
         GridCacheAdapter<Integer, Integer> c =
-            ((GridNearCacheAdapter<Integer, Integer>)((IgniteKernal)grid()).internalCache(DEFAULT_CACHE_NAME).<Integer, Integer>cache()).dht();
+            ((GridNearCacheAdapter<Integer, Integer>)((IgniteKernal)ignite()).internalCache(DEFAULT_CACHE_NAME).<Integer, Integer>cache()).dht();
 
         assert c.entrySet().isEmpty() : "Actual size: " + c.entrySet().size();
     }
@@ -99,7 +99,7 @@ public class GridCachePartitionedFilteredPutSelfTest extends GridCommonAbstractT
     private void doPutAndRollback() throws Exception {
         IgniteCache<Object, Object> c = jcache();
 
-        try (Transaction tx = grid().transactions().txStart()) {
+        try (Transaction tx = ignite().transactions().txStart()) {
             c.put(1, 1);
 
             tx.rollback();

@@ -98,7 +98,7 @@ public class GridCachePartitionedHitsAndMissesSelfTest extends GridCommonAbstrac
         awaitPartitionMapExchange();
 
         try {
-            final Ignite g = grid(0);
+            final Ignite g = ignite(0);
 
             realTimePopulate(g);
 
@@ -107,7 +107,7 @@ public class GridCachePartitionedHitsAndMissesSelfTest extends GridCommonAbstrac
             long misses = 0;
 
             for (int i = 0; i < GRID_CNT; i++) {
-                CacheMetrics m = grid(i).cache(DEFAULT_CACHE_NAME).localMetrics();
+                CacheMetrics m = ignite(i).cache(DEFAULT_CACHE_NAME).localMetrics();
 
                 hits += m.getCacheHits();
                 misses += m.getCacheMisses();

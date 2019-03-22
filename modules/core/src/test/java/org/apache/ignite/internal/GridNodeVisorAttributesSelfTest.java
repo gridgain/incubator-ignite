@@ -64,7 +64,7 @@ public class GridNodeVisorAttributesSelfTest extends GridCommonAbstractTest {
      * @throws Exception If grid start failed.
      */
     private void startGridAndCheck() throws Exception {
-        Ignite g = startGrid();
+        Ignite g = clusterManager__startGrid();
 
         Map<String, Object> attrs = g.cluster().localNode().attributes();
 

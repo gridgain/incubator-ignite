@@ -95,7 +95,7 @@ public class HadoopClientProtocolMultipleServersSelfTest extends HadoopAbstractS
      * @throws Exception If failed.
      */
     private void beforeJob() throws Exception {
-        IgniteFileSystem igfs = grid(0).fileSystem(HadoopAbstractSelfTest.igfsName);
+        IgniteFileSystem igfs = ignite(0).fileSystem(HadoopAbstractSelfTest.igfsName);
 
         igfs.clear();
 

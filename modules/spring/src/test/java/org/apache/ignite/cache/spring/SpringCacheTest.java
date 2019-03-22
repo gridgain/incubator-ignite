@@ -43,7 +43,7 @@ public class SpringCacheTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        ignite = startGrid();
+        ignite = clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

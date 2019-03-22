@@ -67,7 +67,7 @@ public class GridCacheFinishPartitionsSelfTest extends GridCacheAbstractSelfTest
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        grid = (IgniteKernal)grid(0);
+        grid = (IgniteKernal)ignite(0);
     }
 
     /** {@inheritDoc} */
@@ -142,9 +142,9 @@ public class GridCacheFinishPartitionsSelfTest extends GridCacheAbstractSelfTest
                 if (barrier.await() == 0)
                     start.set(System.currentTimeMillis());
 
-                IgniteCache<String, String> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+                IgniteCache<String, String> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-                Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+                Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
                 cache.get(key);
 
@@ -206,9 +206,9 @@ public class GridCacheFinishPartitionsSelfTest extends GridCacheAbstractSelfTest
      */
     @Test
     public void testMvccFinishKeys() throws Exception {
-        IgniteCache<String, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<String, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             final String key = "key";
 
             cache.get(key);

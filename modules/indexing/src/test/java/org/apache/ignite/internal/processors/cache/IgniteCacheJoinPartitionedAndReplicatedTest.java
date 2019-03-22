@@ -150,7 +150,7 @@ public class IgniteCacheJoinPartitionedAndReplicatedTest extends GridCommonAbstr
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         IgniteCache<Object, Object> personCache = client.cache(PERSON_CACHE);
         IgniteCache<Object, Object> orgCache = client.cache(ORG_CACHE);
@@ -167,7 +167,7 @@ public class IgniteCacheJoinPartitionedAndReplicatedTest extends GridCommonAbstr
     @Ignore("https://issues.apache.org/jira/browse/IGNITE-5016")
     @Test
     public void testJoin() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         IgniteCache<Object, Object> personCache = client.cache(PERSON_CACHE);
         IgniteCache<Object, Object> orgCache = client.cache(ORG_CACHE);
@@ -220,7 +220,7 @@ public class IgniteCacheJoinPartitionedAndReplicatedTest extends GridCommonAbstr
     @Ignore("https://issues.apache.org/jira/browse/IGNITE-5016")
     @Test
     public void testReplicatedToPartitionedLeftJoin() {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         IgniteCache<Object, Object> personCache = client.cache(PERSON_CACHE);
         IgniteCache<Object, Object> orgCache = client.cache(ORG_CACHE);

@@ -63,7 +63,7 @@ public class PersistenceDirectoryWarningLoggingTest extends GridCommonAbstractTe
      */
     @Test
     public void testPdsDirWarningSuppressed() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         assertFalse(log0.toString().contains(WARN_MSG_PREFIX));
     }

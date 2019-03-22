@@ -37,7 +37,7 @@ public class GridCacheAtomicPartitionedTckMetricsSelfTestImpl extends GridCacheA
      */
     @Test
     public void testEntryProcessorRemove() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         cache.put(1, 20);
 
@@ -72,7 +72,7 @@ public class GridCacheAtomicPartitionedTckMetricsSelfTestImpl extends GridCacheA
      */
     @Test
     public void testCacheStatistics() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         cache.put(1, 10);
 
@@ -113,7 +113,7 @@ public class GridCacheAtomicPartitionedTckMetricsSelfTestImpl extends GridCacheA
      */
     @Test
     public void testConditionReplace() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         long hitCount = 0;
         long missCount = 0;
@@ -164,7 +164,7 @@ public class GridCacheAtomicPartitionedTckMetricsSelfTestImpl extends GridCacheA
      */
     @Test
     public void testPutIfAbsent() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         long hitCount = 0;
         long missCount = 0;

@@ -130,7 +130,7 @@ public class CacheResultIsNotNullOnPartitionLossTest extends GridCommonAbstractT
      */
     @Test
     public void testCacheResultIsNotNullOnLastServer() throws Exception {
-        testCacheResultIsNotNull0(grid(SERVERS - 1));
+        testCacheResultIsNotNull0(ignite(SERVERS - 1));
     }
 
     /**
@@ -138,7 +138,7 @@ public class CacheResultIsNotNullOnPartitionLossTest extends GridCommonAbstractT
      */
     @Test
     public void testCacheResultIsNotNullOnServer() throws Exception {
-        testCacheResultIsNotNull0(grid(SERVERS - 2));
+        testCacheResultIsNotNull0(ignite(SERVERS - 2));
     }
     /**
      * @throws Exception If failed.
@@ -187,7 +187,7 @@ public class CacheResultIsNotNullOnPartitionLossTest extends GridCommonAbstractT
             readerThreadStarted.await(1, TimeUnit.SECONDS);
 
             for (int i = 0; i < SERVERS - 1; i++) {
-                grid(i).close();
+                ignite(i).close();
 
                 Thread.sleep(400L);
             }

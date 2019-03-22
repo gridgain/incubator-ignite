@@ -61,7 +61,7 @@ public class BinaryTxCacheLocalEntriesSelfTest extends GridCacheAbstractSelfTest
      */
     @Test
     public void testLocalEntries() throws Exception {
-        IgniteCache<Integer, BinaryObject> cache = grid(0).cache(DEFAULT_CACHE_NAME).withKeepBinary();
+        IgniteCache<Integer, BinaryObject> cache = ignite(0).cache(DEFAULT_CACHE_NAME).withKeepBinary();
 
         final int ENTRY_CNT = 10;
 
@@ -81,6 +81,6 @@ public class BinaryTxCacheLocalEntriesSelfTest extends GridCacheAbstractSelfTest
      * @return Binary object.
      */
     private BinaryObject userObject(String userName) {
-        return grid(0).binary().builder("orders").setField(FIELD, userName).build();
+        return ignite(0).binary().builder("orders").setField(FIELD, userName).build();
     }
 }

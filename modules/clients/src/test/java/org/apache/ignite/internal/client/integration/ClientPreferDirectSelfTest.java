@@ -111,7 +111,7 @@ public class ClientPreferDirectSelfTest extends GridCommonAbstractTest {
             assertEquals(NODES_CNT / 2, executions.size());
 
             for (int i = 0; i < NODES_CNT / 2; i++)
-                executions.contains(grid(i).localNode().id().toString());
+                executions.contains(ignite(i).localNode().id().toString());
         }
     }
 

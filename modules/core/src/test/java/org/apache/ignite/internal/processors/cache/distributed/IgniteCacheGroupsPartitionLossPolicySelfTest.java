@@ -325,7 +325,7 @@ public class IgniteCacheGroupsPartitionLossPolicySelfTest extends GridCommonAbst
 
             final int part0 = part;
 
-            grid(i).events().localListen(new P1<Event>() {
+            ignite(i).events().localListen(new P1<Event>() {
                 @Override public boolean apply(Event evt) {
                     assert evt.type() == EventType.EVT_CACHE_REBALANCE_PART_DATA_LOST;
 

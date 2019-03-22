@@ -88,7 +88,7 @@ public class AuthenticationOnNotActiveClusterTest extends GridCommonAbstractTest
         startGrids(NODES_COUNT);
 
         for (int i = 0; i < NODES_COUNT; ++i) {
-            AuthorizationContext actx = grid(i).context().authentication().authenticate("ignite", "ignite");
+            AuthorizationContext actx = ignite(i).context().authentication().authenticate("ignite", "ignite");
 
             assertNotNull(actx);
             assertEquals("ignite", actx.userName());
@@ -102,14 +102,14 @@ public class AuthenticationOnNotActiveClusterTest extends GridCommonAbstractTest
     public void testNotDefaultUser() throws Exception {
         startGrids(NODES_COUNT + 1);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
-        AuthorizationContext actxDflt = grid(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
+        AuthorizationContext actxDflt = ignite(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
 
         AuthorizationContext.context(actxDflt);
 
         for (int i = 0; i < 10; ++i)
-            grid(0).context().authentication().addUser("test" + i, "passwd");
+            ignite(0).context().authentication().addUser("test" + i, "passwd");
 
         stopAllGrids();
 
@@ -119,7 +119,7 @@ public class AuthenticationOnNotActiveClusterTest extends GridCommonAbstractTest
 
         for (int i = 0; i < NODES_COUNT; ++i) {
             for (int usrCnt = 0; usrCnt < 10; ++usrCnt) {
-                AuthorizationContext actx = grid(i).context().authentication().authenticate("test" + usrCnt, "passwd");
+                AuthorizationContext actx = ignite(i).context().authentication().authenticate("test" + usrCnt, "passwd");
 
                 assertNotNull(actx);
                 assertEquals("test" + usrCnt, actx.userName());

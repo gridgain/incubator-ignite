@@ -90,7 +90,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        grid(0).fileSystem(igfsName).clear();
+        ignite(0).fileSystem(igfsName).clear();
     }
 
     /** {@inheritDoc} */
@@ -137,7 +137,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
 
         job.setJarByClass(getClass());
 
-        IgniteInternalFuture<?> fut = grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
+        IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
                 createJobInfo(job.getConfiguration(), null));
 
         fut.get();
@@ -184,7 +184,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
 
         HadoopJobId jobId = new HadoopJobId(UUID.randomUUID(), 2);
 
-        IgniteInternalFuture<?> fut = grid(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
+        IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
 
         fut.get();
 
@@ -193,7 +193,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
         assertEquals(34, taskWorkDirs.size());
 
         for (int g = 0; g < gridCount(); g++)
-            grid(g).hadoop().finishFuture(jobId).get();
+            ignite(g).hadoop().finishFuture(jobId).get();
     }
 
     /**
@@ -222,7 +222,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
 
         job.setJarByClass(getClass());
 
-        final IgniteInternalFuture<?> fut = grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 3),
+        final IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 3),
                 createJobInfo(job.getConfiguration(), null));
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
@@ -240,7 +240,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
      * @throws Exception If failed.
      */
     private void prepareFile(String fileName, int lineCnt) throws Exception {
-        IgniteFileSystem igfs = grid(0).fileSystem(igfsName);
+        IgniteFileSystem igfs = ignite(0).fileSystem(igfsName);
 
         try (OutputStream os = igfs.create(new IgfsPath(fileName), true)) {
             PrintWriter w = new PrintWriter(new OutputStreamWriter(os));
@@ -311,7 +311,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
 
         HadoopJobId jobId = new HadoopJobId(UUID.randomUUID(), 1);
 
-        final IgniteInternalFuture<?> fut = grid(0).hadoop().submit(jobId, createJobInfo(cfg, null));
+        final IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(jobId, createJobInfo(cfg, null));
 
         if (!GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -354,7 +354,7 @@ public class HadoopTaskExecutionSelfTest extends HadoopAbstractSelfTest {
     public void testJobKill() throws Exception {
         Configuration cfg = prepareJobForCancelling();
 
-        Hadoop hadoop = grid(0).hadoop();
+        Hadoop hadoop = ignite(0).hadoop();
 
         HadoopJobId jobId = new HadoopJobId(UUID.randomUUID(), 1);
 

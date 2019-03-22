@@ -1268,7 +1268,7 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
             Collection<IgniteKernal> grids = new ArrayList<>();
 
             for (int i = 0; i < 5 ; i++) {
-                IgniteKernal grid = (IgniteKernal)grid(i);
+                IgniteKernal grid = (IgniteKernal)ignite(i);
 
                 assertTrue(grid.context().discovery().gridStartTime() > 0);
 
@@ -1408,7 +1408,7 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
         fut1.get();
         fut2.get();
 
-        IgniteCache<Object, Object> cache = grid(2).cache(CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(2).cache(CACHE_NAME);
 
         assertNotNull(cache);
 
@@ -1673,7 +1673,7 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
 
         fut.get();
 
-        IgniteCache<Object, Object> cache = grid(1).cache(CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(1).cache(CACHE_NAME);
 
         assertNotNull(cache);
 
@@ -1952,7 +1952,7 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
 
             UUID coordId = coord.localNode().id();
 
-            IgniteEx ignite1 = grid(1);
+            IgniteEx ignite1 = ignite(1);
 
             AtomicBoolean coordSegmented = new AtomicBoolean();
 
@@ -1982,7 +1982,7 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
 
             ignite1.events().localListen(failLsnr, EVT_NODE_FAILED);
 
-            grid(2).events().localListen(failLsnr, EVT_NODE_FAILED);
+            ignite(2).events().localListen(failLsnr, EVT_NODE_FAILED);
 
             ignite1.configuration().getDiscoverySpi().failNode(coordId, null);
 

@@ -214,7 +214,7 @@ public class CacheGroupMetricsMBeanTest extends GridCommonAbstractTest implement
 
             if (arr[part] != null)
                 for (int node = 0; node < arr[part].length; node++)
-                    nodeSet.add(grid(arr[part][node]).localNode().id().toString());
+                    nodeSet.add(ignite(arr[part][node]).localNode().id().toString());
 
             res.put(part, nodeSet);
         }
@@ -236,7 +236,7 @@ public class CacheGroupMetricsMBeanTest extends GridCommonAbstractTest implement
 
             if (arr[part] != null)
                 for (int node = 0; node < arr[part].length; node++)
-                    nodeList.add(grid(arr[part][node]).localNode().id().toString());
+                    nodeList.add(ignite(arr[part][node]).localNode().id().toString());
 
             res.put(part, nodeList);
         }
@@ -288,14 +288,14 @@ public class CacheGroupMetricsMBeanTest extends GridCommonAbstractTest implement
         assertEquals(arrayToAllocationMap(assignmentMapArr), mxBean0Grp1.getOwningPartitionsAllocationMap());
         assertEquals(arrayToAllocationMap(new int[10][]), mxBean0Grp1.getMovingPartitionsAllocationMap());
 
-        try (IgniteDataStreamer<Integer, Integer> st = grid(0).dataStreamer("cache1")) {
+        try (IgniteDataStreamer<Integer, Integer> st = ignite(0).dataStreamer("cache1")) {
             for (int i = 0; i < 50_000; i++)
                 st.addData(i, i);
         }
 
         // Pause rebalance to check instant partitions states.
-        grid(0).rebalanceEnabled(false);
-        grid(1).rebalanceEnabled(false);
+        ignite(0).rebalanceEnabled(false);
+        ignite(1).rebalanceEnabled(false);
 
         stopGrid(2);
 
@@ -310,7 +310,7 @@ public class CacheGroupMetricsMBeanTest extends GridCommonAbstractTest implement
         final CountDownLatch evictLatch = new CountDownLatch(1);
 
         // Block all evicting threads to count total renting partitions.
-        grid(0).events().localListen(new IgnitePredicate<Event>() {
+        ignite(0).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 try {
                     evictLatch.await();
@@ -323,8 +323,8 @@ public class CacheGroupMetricsMBeanTest extends GridCommonAbstractTest implement
             }
         }, EventType.EVT_CACHE_REBALANCE_OBJECT_UNLOADED);
 
-        grid(0).rebalanceEnabled(true);
-        grid(1).rebalanceEnabled(true);
+        ignite(0).rebalanceEnabled(true);
+        ignite(1).rebalanceEnabled(true);
 
         startGrid(2);
 

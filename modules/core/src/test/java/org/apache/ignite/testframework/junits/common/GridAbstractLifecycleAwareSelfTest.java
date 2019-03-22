@@ -110,7 +110,7 @@ public abstract class GridAbstractLifecycleAwareSelfTest extends GridCommonAbstr
      */
     @Test
     public void testLifecycleAware() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         afterGridStart(ignite);
 

@@ -120,7 +120,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
         }
 
         for (int key = 0; key <= lastKey; key++)
-            grid(0).cache(DEFAULT_CACHE_NAME).remove(key);
+            ignite(0).cache(DEFAULT_CACHE_NAME).remove(key);
 
         assertEquals(0, jcache(0).size(CachePeekMode.ALL));
     }
@@ -137,9 +137,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testPutNear() throws Exception {
-        checkPut(true, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+        checkPut(true, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
 
-        checkPut(false, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+        checkPut(false, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
     }
 
     /**
@@ -147,9 +147,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testPutPrimary() throws Exception {
-        checkPut(true, keyForNode(grid(0).localNode(), PRIMARY));
+        checkPut(true, keyForNode(ignite(0).localNode(), PRIMARY));
 
-        checkPut(false, keyForNode(grid(0).localNode(), PRIMARY));
+        checkPut(false, keyForNode(ignite(0).localNode(), PRIMARY));
     }
 
     /**
@@ -157,9 +157,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testPutBackup() throws Exception {
-        checkPut(true, keyForNode(grid(0).localNode(), BACKUP));
+        checkPut(true, keyForNode(ignite(0).localNode(), BACKUP));
 
-        checkPut(false, keyForNode(grid(0).localNode(), BACKUP));
+        checkPut(false, keyForNode(ignite(0).localNode(), BACKUP));
     }
 
     /**
@@ -167,22 +167,22 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testPutAll() throws Exception {
-        checkPutAll(true, keyForNode(grid(0).localNode(), PRIMARY),
-            keyForNode(grid(0).localNode(), PRIMARY),
-            keyForNode(grid(0).localNode(), PRIMARY));
+        checkPutAll(true, keyForNode(ignite(0).localNode(), PRIMARY),
+            keyForNode(ignite(0).localNode(), PRIMARY),
+            keyForNode(ignite(0).localNode(), PRIMARY));
 
-        checkPutAll(false, keyForNode(grid(0).localNode(), PRIMARY),
-            keyForNode(grid(0).localNode(), PRIMARY),
-            keyForNode(grid(0).localNode(), PRIMARY));
+        checkPutAll(false, keyForNode(ignite(0).localNode(), PRIMARY),
+            keyForNode(ignite(0).localNode(), PRIMARY),
+            keyForNode(ignite(0).localNode(), PRIMARY));
 
         if (gridCount() > 1) {
-            checkPutAll(true, keyForNode(grid(1).localNode(), PRIMARY),
-                keyForNode(grid(1).localNode(), PRIMARY),
-                keyForNode(grid(1).localNode(), PRIMARY));
+            checkPutAll(true, keyForNode(ignite(1).localNode(), PRIMARY),
+                keyForNode(ignite(1).localNode(), PRIMARY),
+                keyForNode(ignite(1).localNode(), PRIMARY));
 
-            checkPutAll(false, keyForNode(grid(1).localNode(), PRIMARY),
-                keyForNode(grid(1).localNode(), PRIMARY),
-                keyForNode(grid(1).localNode(), PRIMARY));
+            checkPutAll(false, keyForNode(ignite(1).localNode(), PRIMARY),
+                keyForNode(ignite(1).localNode(), PRIMARY),
+                keyForNode(ignite(1).localNode(), PRIMARY));
         }
     }
 
@@ -191,9 +191,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testRemoveNear() throws Exception {
-        checkRemove(false, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+        checkRemove(false, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
 
-        checkRemove(true, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+        checkRemove(true, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
     }
 
     /**
@@ -201,9 +201,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testRemovePrimary() throws Exception {
-        checkRemove(false, keyForNode(grid(0).localNode(), PRIMARY));
+        checkRemove(false, keyForNode(ignite(0).localNode(), PRIMARY));
 
-        checkRemove(true, keyForNode(grid(0).localNode(), PRIMARY));
+        checkRemove(true, keyForNode(ignite(0).localNode(), PRIMARY));
     }
 
     /**
@@ -211,9 +211,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testRemoveBackup() throws Exception {
-        checkRemove(false, keyForNode(grid(0).localNode(), BACKUP));
+        checkRemove(false, keyForNode(ignite(0).localNode(), BACKUP));
 
-        checkRemove(true, keyForNode(grid(0).localNode(), BACKUP));
+        checkRemove(true, keyForNode(ignite(0).localNode(), BACKUP));
     }
 
     /**
@@ -221,9 +221,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testTransformNear() throws Exception {
-        checkTransform(false, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+        checkTransform(false, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
 
-        checkTransform(true, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+        checkTransform(true, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
     }
 
     /**
@@ -231,9 +231,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testTransformPrimary() throws Exception {
-        checkTransform(false, keyForNode(grid(0).localNode(), PRIMARY));
+        checkTransform(false, keyForNode(ignite(0).localNode(), PRIMARY));
 
-        checkTransform(true, keyForNode(grid(0).localNode(), PRIMARY));
+        checkTransform(true, keyForNode(ignite(0).localNode(), PRIMARY));
     }
 
     /**
@@ -241,9 +241,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      */
     @Test
     public void testTransformBackup() throws Exception {
-        checkTransform(false, keyForNode(grid(0).localNode(), BACKUP));
+        checkTransform(false, keyForNode(ignite(0).localNode(), BACKUP));
 
-        checkTransform(true, keyForNode(grid(0).localNode(), BACKUP));
+        checkTransform(true, keyForNode(ignite(0).localNode(), BACKUP));
     }
 
     /**
@@ -253,9 +253,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
     public void testPutNearTx() throws Exception {
         for (TransactionConcurrency concurrency : TransactionConcurrency.values()) {
             for (TransactionIsolation isolation : TransactionIsolation.values()) {
-                checkPutTx(true, concurrency, isolation, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+                checkPutTx(true, concurrency, isolation, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
 
-                checkPutTx(false, concurrency, isolation, keyForNode(grid(0).localNode(), NOT_PRIMARY_AND_BACKUP));
+                checkPutTx(false, concurrency, isolation, keyForNode(ignite(0).localNode(), NOT_PRIMARY_AND_BACKUP));
             }
         }
     }
@@ -267,9 +267,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
     public void testPutPrimaryTx() throws Exception {
         for (TransactionConcurrency concurrency : TransactionConcurrency.values()) {
             for (TransactionIsolation isolation : TransactionIsolation.values()) {
-                checkPutTx(true, concurrency, isolation, keyForNode(grid(0).localNode(), PRIMARY));
+                checkPutTx(true, concurrency, isolation, keyForNode(ignite(0).localNode(), PRIMARY));
 
-                checkPutTx(false, concurrency, isolation, keyForNode(grid(0).localNode(), PRIMARY));
+                checkPutTx(false, concurrency, isolation, keyForNode(ignite(0).localNode(), PRIMARY));
             }
         }
     }
@@ -281,9 +281,9 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
     public void testPutBackupTx() throws Exception {
         for (TransactionConcurrency concurrency : TransactionConcurrency.values()) {
             for (TransactionIsolation isolation : TransactionIsolation.values()) {
-                checkPutTx(true, concurrency, isolation, keyForNode(grid(0).localNode(), BACKUP));
+                checkPutTx(true, concurrency, isolation, keyForNode(ignite(0).localNode(), BACKUP));
 
-                checkPutTx(false, concurrency, isolation, keyForNode(grid(0).localNode(), BACKUP));
+                checkPutTx(false, concurrency, isolation, keyForNode(ignite(0).localNode(), BACKUP));
             }
         }
     }
@@ -296,25 +296,25 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
         for (TransactionConcurrency concurrency : TransactionConcurrency.values()) {
             for (TransactionIsolation isolation : TransactionIsolation.values()) {
                 checkPutTx(true, concurrency, isolation,
-                    keyForNode(grid(0).localNode(), PRIMARY),
-                    keyForNode(grid(0).localNode(), PRIMARY),
-                    keyForNode(grid(0).localNode(), PRIMARY));
+                    keyForNode(ignite(0).localNode(), PRIMARY),
+                    keyForNode(ignite(0).localNode(), PRIMARY),
+                    keyForNode(ignite(0).localNode(), PRIMARY));
 
                 checkPutTx(false, concurrency, isolation,
-                    keyForNode(grid(0).localNode(), PRIMARY),
-                    keyForNode(grid(0).localNode(), PRIMARY),
-                    keyForNode(grid(0).localNode(), PRIMARY));
+                    keyForNode(ignite(0).localNode(), PRIMARY),
+                    keyForNode(ignite(0).localNode(), PRIMARY),
+                    keyForNode(ignite(0).localNode(), PRIMARY));
 
                 if (gridCount() > 1) {
                     checkPutTx(true, concurrency, isolation,
-                        keyForNode(grid(1).localNode(), PRIMARY),
-                        keyForNode(grid(1).localNode(), PRIMARY),
-                        keyForNode(grid(1).localNode(), PRIMARY));
+                        keyForNode(ignite(1).localNode(), PRIMARY),
+                        keyForNode(ignite(1).localNode(), PRIMARY),
+                        keyForNode(ignite(1).localNode(), PRIMARY));
 
                     checkPutTx(false, concurrency, isolation,
-                        keyForNode(grid(1).localNode(), PRIMARY),
-                        keyForNode(grid(1).localNode(), PRIMARY),
-                        keyForNode(grid(1).localNode(), PRIMARY));
+                        keyForNode(ignite(1).localNode(), PRIMARY),
+                        keyForNode(ignite(1).localNode(), PRIMARY),
+                        keyForNode(ignite(1).localNode(), PRIMARY));
                 }
             }
         }
@@ -337,14 +337,14 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
         info("Test transaction [concurrency=" + concurrency + ", isolation=" + isolation + ']');
 
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         if (putBefore) {
             TestIndexingSpi.forceFail(false);
 
             info("Start transaction.");
 
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 for (Integer key : keys) {
                     info("Put " + key);
 
@@ -360,7 +360,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
         // Execute get from all nodes to create readers for near cache.
         for (int i = 0; i < gridCount(); i++) {
             for (Integer key : keys)
-                grid(i).cache(DEFAULT_CACHE_NAME).get(key);
+                ignite(i).cache(DEFAULT_CACHE_NAME).get(key);
         }
 
         TestIndexingSpi.forceFail(true);
@@ -368,7 +368,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
         try {
             info("Start transaction.");
 
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
                 for (Integer key : keys) {
                     info("Put " + key);
 
@@ -411,7 +411,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
             GridTestUtils.waitForCondition(new PA() {
                 @Override public boolean apply() {
-                    IgniteKernal grid = (IgniteKernal)grid(idx);
+                    IgniteKernal grid = (IgniteKernal)ignite(idx);
 
                     GridCacheAdapter cache = grid.internalCache(DEFAULT_CACHE_NAME);
 
@@ -472,12 +472,12 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
             info("Put key: " + key);
 
-            grid(0).cache(DEFAULT_CACHE_NAME).put(key, 1);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(key, 1);
         }
 
         // Execute get from all nodes to create readers for near cache.
         for (int i = 0; i < gridCount(); i++)
-            grid(i).cache(DEFAULT_CACHE_NAME).get(key);
+            ignite(i).cache(DEFAULT_CACHE_NAME).get(key);
 
         TestIndexingSpi.forceFail(true);
 
@@ -485,7 +485,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
         Throwable err = GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).cache(DEFAULT_CACHE_NAME).put(key, 2);
+                ignite(0).cache(DEFAULT_CACHE_NAME).put(key, 2);
 
                 return null;
             }
@@ -505,12 +505,12 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
             info("Put key: " + key);
 
-            grid(0).cache(DEFAULT_CACHE_NAME).put(key, 1);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(key, 1);
         }
 
         // Execute get from all nodes to create readers for near cache.
         for (int i = 0; i < gridCount(); i++)
-            grid(i).cache(DEFAULT_CACHE_NAME).get(key);
+            ignite(i).cache(DEFAULT_CACHE_NAME).get(key);
 
         TestIndexingSpi.forceFail(true);
 
@@ -518,7 +518,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
         Throwable e = GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).<Integer, Integer>cache(DEFAULT_CACHE_NAME).invoke(key, new EntryProcessor<Integer, Integer, Void>() {
+                ignite(0).<Integer, Integer>cache(DEFAULT_CACHE_NAME).invoke(key, new EntryProcessor<Integer, Integer, Void>() {
                     @Override public Void process(MutableEntry<Integer, Integer> e, Object... args) {
                         e.setValue(2);
 
@@ -553,13 +553,13 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
             info("Put data: " + m);
 
-            grid(0).cache(DEFAULT_CACHE_NAME).putAll(m);
+            ignite(0).cache(DEFAULT_CACHE_NAME).putAll(m);
         }
 
         // Execute get from all nodes to create readers for near cache.
         for (int i = 0; i < gridCount(); i++) {
             for (Integer key : keys)
-                grid(i).cache(DEFAULT_CACHE_NAME).get(key);
+                ignite(i).cache(DEFAULT_CACHE_NAME).get(key);
         }
 
         TestIndexingSpi.forceFail(true);
@@ -573,7 +573,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
         Throwable err = GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).cache(DEFAULT_CACHE_NAME).putAll(m);
+                ignite(0).cache(DEFAULT_CACHE_NAME).putAll(m);
 
                 return null;
             }
@@ -594,12 +594,12 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
             info("Put key: " + key);
 
-            grid(0).cache(DEFAULT_CACHE_NAME).put(key, 1);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(key, 1);
         }
 
         // Execute get from all nodes to create readers for near cache.
         for (int i = 0; i < gridCount(); i++)
-            grid(i).cache(DEFAULT_CACHE_NAME).get(key);
+            ignite(i).cache(DEFAULT_CACHE_NAME).get(key);
 
         TestIndexingSpi.forceFail(true);
 
@@ -607,7 +607,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
 
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).cache(DEFAULT_CACHE_NAME).remove(key);
+                ignite(0).cache(DEFAULT_CACHE_NAME).remove(key);
 
                 return null;
             }
@@ -624,7 +624,7 @@ public abstract class IgniteTxExceptionAbstractSelfTest extends GridCacheAbstrac
      * @return Key.
      */
     private Integer keyForNode(ClusterNode node, int type) {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         if (cache.getConfiguration(CacheConfiguration.class).getCacheMode() == LOCAL)
             return ++lastKey;

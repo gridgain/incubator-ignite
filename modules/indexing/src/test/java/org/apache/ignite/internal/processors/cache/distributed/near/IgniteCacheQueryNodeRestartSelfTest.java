@@ -99,7 +99,7 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
         int qryThreadNum = 10;
         final int logFreq = 50;
 
-        final IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         assert cache != null;
 
@@ -147,7 +147,7 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
         CollectingEventListener lsnr = new CollectingEventListener();
 
         for (int i = 0; i < GRID_CNT; i++)
-            grid(i).events().localListen(lsnr, EventType.EVT_CACHE_REBALANCE_STOPPED);
+            ignite(i).events().localListen(lsnr, EventType.EVT_CACHE_REBALANCE_STOPPED);
 
         IgniteInternalFuture<?> fut2 = createRestartAction(done, restartCnt);
 
@@ -170,7 +170,7 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
         boolean success = lsnr.awaitEvents(GRID_CNT * 2 * restartCnt.get(), 15000);
 
         for (int i = 0; i < GRID_CNT; i++)
-            grid(i).events().stopLocalListen(lsnr, EventType.EVT_CACHE_REBALANCE_STOPPED);
+            ignite(i).events().stopLocalListen(lsnr, EventType.EVT_CACHE_REBALANCE_STOPPED);
 
         assert success;
     }

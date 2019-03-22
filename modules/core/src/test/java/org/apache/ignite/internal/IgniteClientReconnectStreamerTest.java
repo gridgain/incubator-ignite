@@ -69,7 +69,7 @@ public class IgniteClientReconnectStreamerTest extends IgniteClientReconnectAbst
      */
     @Test
     public void testStreamerReconnect() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -134,7 +134,7 @@ public class IgniteClientReconnectStreamerTest extends IgniteClientReconnectAbst
      */
     @Test
     public void testStreamerReconnectInProgress() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 

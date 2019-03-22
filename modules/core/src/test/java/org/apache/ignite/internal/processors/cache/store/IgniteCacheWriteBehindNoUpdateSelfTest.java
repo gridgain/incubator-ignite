@@ -100,7 +100,7 @@ public class IgniteCacheWriteBehindNoUpdateSelfTest extends GridCommonAbstractTe
             keys.add(String.valueOf(i));
         }
 
-        TestCacheStore testStore = (TestCacheStore)grid(0).context().cache().cache(THROTTLES_CACHE_NAME).context()
+        TestCacheStore testStore = (TestCacheStore)ignite(0).context().cache().cache(THROTTLES_CACHE_NAME).context()
             .store().configuredStore();
 
         assertEquals(0, testStore.writeCnt.get());

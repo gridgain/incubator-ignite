@@ -68,7 +68,7 @@ public class GridTaskExecutionContextSelfTest extends GridCommonAbstractTest {
             }
         };
 
-        Ignite g = grid(0);
+        Ignite g = ignite(0);
 
         assert "name1".equals(g.compute().withName("name1").call(f));
         assert "name2".equals(g.compute().withName("name2").call(f));
@@ -92,7 +92,7 @@ public class GridTaskExecutionContextSelfTest extends GridCommonAbstractTest {
             }
         };
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         GridTestUtils.assertThrows(
             log,
@@ -115,7 +115,7 @@ public class GridTaskExecutionContextSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWithNoFailoverTask() throws Exception {
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         GridTestUtils.assertThrows(
             log,

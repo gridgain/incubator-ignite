@@ -118,7 +118,7 @@ public class GridActivateExtensionTest extends GridCacheAbstractFullApiSelfTest 
             stopGrid(name);
         }
 
-        Ignite ig = grid(0);
+        Ignite ig = ignite(0);
 
         ig.active(true);
 
@@ -166,13 +166,13 @@ public class GridActivateExtensionTest extends GridCacheAbstractFullApiSelfTest 
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteEx grid(String name) {
+    @Override protected IgniteEx ignite(String name) {
         String n = name;
 
         if (backUpCluster.containsKey(name))
             n = backUpCluster.get(name);
 
-        return super.grid(n);
+        return super.ignite(n);
     }
 
     /**
@@ -180,7 +180,7 @@ public class GridActivateExtensionTest extends GridCacheAbstractFullApiSelfTest 
      */
     public boolean onlyClient(){
         for (int i = 0; i < gridCount(); i++)
-            if (!grid(i).configuration().isClientMode())
+            if (!ignite(i).configuration().isClientMode())
                 return false;
 
         return true;

@@ -49,7 +49,7 @@ public class DataStreamGeneratorFillCacheTest extends GridCommonAbstractTest {
     /** */
     @Before
     public void before() throws Exception {
-        ignite = startGrid();
+        ignite = clusterManager__startGrid();
     }
 
     /** */

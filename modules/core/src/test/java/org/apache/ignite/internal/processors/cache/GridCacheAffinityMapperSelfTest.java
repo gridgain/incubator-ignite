@@ -32,7 +32,7 @@ import org.junit.Test;
 public class GridCacheAffinityMapperSelfTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /**
@@ -43,7 +43,7 @@ public class GridCacheAffinityMapperSelfTest extends GridCommonAbstractTest {
         AffinityKeyMapper mapper =
             new GridCacheDefaultAffinityKeyMapper();
 
-        GridTestUtils.setFieldValue(mapper, "ignite", grid());
+        GridTestUtils.setFieldValue(mapper, "ignite", ignite());
 
         List<AffinityKey<Integer>> keys = new ArrayList<>();
 
@@ -70,7 +70,7 @@ public class GridCacheAffinityMapperSelfTest extends GridCommonAbstractTest {
         AffinityKeyMapper mapper =
             new GridCacheDefaultAffinityKeyMapper();
 
-        GridTestUtils.setFieldValue(mapper, "ignite", grid());
+        GridTestUtils.setFieldValue(mapper, "ignite", ignite());
 
         List<FieldAffinityKey<Integer>> keys = new ArrayList<>();
 
@@ -97,7 +97,7 @@ public class GridCacheAffinityMapperSelfTest extends GridCommonAbstractTest {
         AffinityKeyMapper mapper =
             new GridCacheDefaultAffinityKeyMapper();
 
-        GridTestUtils.setFieldValue(mapper, "ignite", grid());
+        GridTestUtils.setFieldValue(mapper, "ignite", ignite());
 
         FieldNoAffinityKey key = new FieldNoAffinityKey();
         Object mapped = mapper.affinityKey(key);

@@ -33,7 +33,7 @@ public class LruEvictionPolicySelfTest extends
      */
     @Test
     public void testMiddleAccess() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             LruEvictionPolicy<String, String> p = policy();
@@ -80,7 +80,7 @@ public class LruEvictionPolicySelfTest extends
 
     /** {@inheritDoc} */
     @Override protected void doTestPolicy() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             MockEntry e1 = new MockEntry("1", "1");
@@ -193,7 +193,7 @@ public class LruEvictionPolicySelfTest extends
 
     /** {@inheritDoc} */
     @Override protected void doTestPolicyWithBatch() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             MockEntry e1 = new MockEntry("1", "1");

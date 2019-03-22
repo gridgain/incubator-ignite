@@ -67,7 +67,7 @@ public abstract class GridCacheSequenceMultiNodeAbstractSelfTest extends IgniteA
         String seqName = UUID.randomUUID().toString();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            Set<Long> retVal = compute(grid(i).cluster().forLocal()).
+            Set<Long> retVal = compute(ignite(i).cluster().forLocal()).
                 call(new IncrementAndGetJob(seqName, RETRIES));
 
             for (Long l : retVal)
@@ -103,7 +103,7 @@ public abstract class GridCacheSequenceMultiNodeAbstractSelfTest extends IgniteA
         String seqName = UUID.randomUUID().toString();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            Set<Long> retVal = compute(grid(i).cluster().forLocal()).
+            Set<Long> retVal = compute(ignite(i).cluster().forLocal()).
                 call(new GetAndIncrementJob(seqName, RETRIES));
 
             for (Long l : retVal)
@@ -136,9 +136,9 @@ public abstract class GridCacheSequenceMultiNodeAbstractSelfTest extends IgniteA
     public void testMarshalling() throws Exception {
         String seqName = UUID.randomUUID().toString();
 
-        final IgniteAtomicSequence seq = grid(0).atomicSequence(seqName, 0, true);
+        final IgniteAtomicSequence seq = ignite(0).atomicSequence(seqName, 0, true);
 
-        grid(1).compute().run(new CAX() {
+        ignite(1).compute().run(new CAX() {
             @Override public void applyx() {
                 assertNotNull(seq);
 

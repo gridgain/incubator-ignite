@@ -118,7 +118,7 @@ public class HadoopSortingTest extends HadoopAbstractSelfTest {
 
         X.printerrln("Data generation started.");
 
-        grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
+        ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
             createJobInfo(job.getConfiguration(), null)).get(180000);
 
         X.printerrln("Data generation complete.");
@@ -149,7 +149,7 @@ public class HadoopSortingTest extends HadoopAbstractSelfTest {
 
         X.printerrln("Job started.");
 
-        grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 2),
+        ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 2),
             createJobInfo(job.getConfiguration(), null)).get(180000);
 
         X.printerrln("Job complete.");

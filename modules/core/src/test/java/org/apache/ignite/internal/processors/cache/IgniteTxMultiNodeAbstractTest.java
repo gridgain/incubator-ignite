@@ -477,9 +477,9 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
         startGrids(GRID_CNT);
 
         try {
-            grid(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
 
-            grid(0).compute().call(new PutOneEntryInTxJob());
+            ignite(0).compute().call(new PutOneEntryInTxJob());
         }
         finally {
             stopAllGrids();
@@ -498,13 +498,13 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
         startGrids(GRID_CNT);
 
         try {
-            grid(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
 
-            grid(0).compute().call(new PutTwoEntriesInTxJob());
+            ignite(0).compute().call(new PutTwoEntriesInTxJob());
 
             printCounter();
 
-            assertEquals(GRID_CNT * RETRIES, grid(0).cache(DEFAULT_CACHE_NAME).get(CNTR_KEY));
+            assertEquals(GRID_CNT * RETRIES, ignite(0).cache(DEFAULT_CACHE_NAME).get(CNTR_KEY));
         }
         finally {
             stopAllGrids();
@@ -526,14 +526,14 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
 
         try {
             // Initialize.
-            grid(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
 
             for (int i = 0; i < GRID_CNT; i++) {
                 final int gridId = i;
 
                 threads.add(new Thread("thread-#" + i) {
                     @Override public void run() {
-                        retries(grid(gridId), false);
+                        retries(ignite(gridId), false);
                     }
                 });
             }
@@ -565,14 +565,14 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
         Collection<Thread> threads = new LinkedList<>();
 
         try {
-            grid(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(CNTR_KEY, 0);
 
             for (int i = 0; i < GRID_CNT; i++) {
                 final int gridId = i;
 
                 threads.add(new Thread() {
                     @Override public void run() {
-                        retries(grid(gridId), true);
+                        retries(ignite(gridId), true);
                     }
                 });
             }
@@ -585,7 +585,7 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
 
             printCounter();
 
-            assertEquals(GRID_CNT * RETRIES, grid(0).cache(DEFAULT_CACHE_NAME).get(CNTR_KEY));
+            assertEquals(GRID_CNT * RETRIES, ignite(0).cache(DEFAULT_CACHE_NAME).get(CNTR_KEY));
         }
         finally {
             stopAllGrids();
@@ -604,7 +604,7 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
         startGrids(GRID_CNT);
 
         try {
-            IgniteCache<String, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             cache.put(RMVD_CNTR_KEY, 0);
 
@@ -613,7 +613,7 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
 
             for (int i = 0; i < RETRIES; i++)
                 for (int j = 0; j < GRID_CNT; j++)
-                    assertEquals(i, grid(j).cache(DEFAULT_CACHE_NAME).get(String.valueOf(i)));
+                    assertEquals(i, ignite(j).cache(DEFAULT_CACHE_NAME).get(String.valueOf(i)));
 
             Collection<Cache.Entry<String, Integer>> entries =
                 cache.query(new SqlQuery<String, Integer>(Integer.class, " _val >= 0")).getAll();
@@ -622,13 +622,13 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
 
             cntrRmvd.set(0);
 
-            grid(0).compute().call(new RemoveInTxJobQueried());
+            ignite(0).compute().call(new RemoveInTxJobQueried());
 
             for (int i = 0; i < GRID_CNT * RETRIES; i++)
                 for (int ii = 0; ii < GRID_CNT; ii++)
-                    assertEquals(null, grid(ii).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
+                    assertEquals(null, ignite(ii).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
 
-            assertEquals(-GRID_CNT * RETRIES, grid(0).cache(DEFAULT_CACHE_NAME).localPeek(RMVD_CNTR_KEY, CachePeekMode.ONHEAP));
+            assertEquals(-GRID_CNT * RETRIES, ignite(0).cache(DEFAULT_CACHE_NAME).localPeek(RMVD_CNTR_KEY, CachePeekMode.ONHEAP));
         }
         finally {
             stopAllGrids();
@@ -645,7 +645,7 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
         startGrids(GRID_CNT);
 
         try {
-            IgniteCache<String, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             cache.put(RMVD_CNTR_KEY, 0);
 
@@ -654,7 +654,7 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
 
             for (int i = 0; i < RETRIES; i++)
                 for (int j = 0; j < GRID_CNT; j++)
-                    assertEquals(i, grid(j).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
+                    assertEquals(i, ignite(j).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
 
             Collection<Cache.Entry<String, Integer>> entries =
                 cache.query(new SqlQuery<String, Integer>(Integer.class, " _val >= 0")).getAll();
@@ -663,19 +663,19 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
 
             cntrRmvd.set(0);
 
-            grid(0).compute().call(new RemoveInTxJobSimple());
+            ignite(0).compute().call(new RemoveInTxJobSimple());
 
             // Check using cache.
             for (int i = 0; i < GRID_CNT * RETRIES; i++)
                 for (int ii = 0; ii < GRID_CNT; ii++)
-                    assertEquals(null, grid(ii).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
+                    assertEquals(null, ignite(ii).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
 
             // Check using query.
             entries = cache.query(new SqlQuery<String, Integer>(Integer.class, " _val >= 0")).getAll();
 
             assertTrue(entries.isEmpty());
 
-            assertEquals(-GRID_CNT * RETRIES, grid(0).cache(DEFAULT_CACHE_NAME).localPeek(RMVD_CNTR_KEY, CachePeekMode.ONHEAP));
+            assertEquals(-GRID_CNT * RETRIES, ignite(0).cache(DEFAULT_CACHE_NAME).localPeek(RMVD_CNTR_KEY, CachePeekMode.ONHEAP));
         }
         finally {
             stopAllGrids();
@@ -696,7 +696,7 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
         try {
             startGrids(GRID_CNT);
 
-            IgniteCache<String, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             // Store counter.
             cache.getAndPut(RMVD_CNTR_KEY, 0);
@@ -706,11 +706,11 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
                 cache.getAndPut(String.valueOf(i), i);
 
             for (int j = 0; j < GRID_CNT; j++)
-                assertEquals(0, grid(j).cache(DEFAULT_CACHE_NAME).get(RMVD_CNTR_KEY));
+                assertEquals(0, ignite(j).cache(DEFAULT_CACHE_NAME).get(RMVD_CNTR_KEY));
 
             for (int i = 1; i <= RETRIES; i++)
                 for (int j = 0; j < GRID_CNT; j++)
-                    assertEquals(i, grid(j).cache(DEFAULT_CACHE_NAME).get(String.valueOf(i)));
+                    assertEquals(i, ignite(j).cache(DEFAULT_CACHE_NAME).get(String.valueOf(i)));
 
             SqlQuery<String, Integer> qry = new SqlQuery<>(Integer.class, "_val >= 0");
 
@@ -744,7 +744,7 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
                 threads.add(new Thread() {
                     @Override public void run() {
                         try {
-                            removeRetriesQueried(grid(gridId), true);
+                            removeRetriesQueried(ignite(gridId), true);
                         }
                         catch (IgniteCheckedException e) {
                             throw new IgniteException(e);
@@ -762,9 +762,9 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
             for (int i = 0; i < GRID_CNT * RETRIES; i++)
                 for (int ii = 0; ii < GRID_CNT; ii++)
                     assertEquals("Got invalid value from cache [gridIdx=" + ii + ", key=" + i + ']',
-                        null, grid(ii).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
+                        null, ignite(ii).cache(DEFAULT_CACHE_NAME).get(Integer.toString(i)));
 
-            assertEquals(-GRID_CNT * RETRIES, grid(0).cache(DEFAULT_CACHE_NAME).localPeek(RMVD_CNTR_KEY, CachePeekMode.ONHEAP));
+            assertEquals(-GRID_CNT * RETRIES, ignite(0).cache(DEFAULT_CACHE_NAME).localPeek(RMVD_CNTR_KEY, CachePeekMode.ONHEAP));
         }
         finally {
             stopAllGrids();
@@ -776,8 +776,8 @@ public abstract class IgniteTxMultiNodeAbstractTest extends GridCommonAbstractTe
      */
     private void printCounter() {
         info("***");
-        info("*** Peeked counter: " + grid(0).cache(DEFAULT_CACHE_NAME).localPeek(CNTR_KEY, CachePeekMode.ONHEAP));
-        info("*** Got counter: " + grid(0).cache(DEFAULT_CACHE_NAME).get(CNTR_KEY));
+        info("*** Peeked counter: " + ignite(0).cache(DEFAULT_CACHE_NAME).localPeek(CNTR_KEY, CachePeekMode.ONHEAP));
+        info("*** Got counter: " + ignite(0).cache(DEFAULT_CACHE_NAME).get(CNTR_KEY));
         info("***");
     }
 

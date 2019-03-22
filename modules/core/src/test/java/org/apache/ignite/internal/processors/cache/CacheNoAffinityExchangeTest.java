@@ -110,10 +110,10 @@ public class CacheNoAffinityExchangeTest extends GridCommonAbstractTest {
                 .setName("tx").setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL));
 
         assertTrue(GridTestUtils.waitForCondition(() ->
-                new AffinityTopologyVersion(4, 3).equals(grid(3).context().discovery().topologyVersionEx()),
+                new AffinityTopologyVersion(4, 3).equals(ignite(3).context().discovery().topologyVersionEx()),
             5_000));
 
-        TestDiscoverySpi discoSpi = (TestDiscoverySpi) grid(2).context().discovery().getInjectedDiscoverySpi();
+        TestDiscoverySpi discoSpi = (TestDiscoverySpi) ignite(2).context().discovery().getInjectedDiscoverySpi();
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -124,10 +124,10 @@ public class CacheNoAffinityExchangeTest extends GridCommonAbstractTest {
         startGrid(4);
 
         assertTrue(GridTestUtils.waitForCondition(() ->
-                new AffinityTopologyVersion(5, 0).equals(grid(0).context().discovery().topologyVersionEx()) &&
-                    new AffinityTopologyVersion(5, 0).equals(grid(1).context().discovery().topologyVersionEx()) &&
-                    new AffinityTopologyVersion(4, 3).equals(grid(2).context().discovery().topologyVersionEx()) &&
-                    new AffinityTopologyVersion(4, 3).equals(grid(3).context().discovery().topologyVersionEx()),
+                new AffinityTopologyVersion(5, 0).equals(ignite(0).context().discovery().topologyVersionEx()) &&
+                    new AffinityTopologyVersion(5, 0).equals(ignite(1).context().discovery().topologyVersionEx()) &&
+                    new AffinityTopologyVersion(4, 3).equals(ignite(2).context().discovery().topologyVersionEx()) &&
+                    new AffinityTopologyVersion(4, 3).equals(ignite(3).context().discovery().topologyVersionEx()),
             10_000));
 
         for (int k = 0; k < 100; k++) {
@@ -144,10 +144,10 @@ public class CacheNoAffinityExchangeTest extends GridCommonAbstractTest {
             assertEquals(Integer.valueOf(k), txCache.get(k));
         }
 
-        assertEquals(new AffinityTopologyVersion(5, 0), grid(0).context().discovery().topologyVersionEx());
-        assertEquals(new AffinityTopologyVersion(5, 0), grid(1).context().discovery().topologyVersionEx());
-        assertEquals(new AffinityTopologyVersion(4, 3), grid(2).context().discovery().topologyVersionEx());
-        assertEquals(new AffinityTopologyVersion(4, 3), grid(3).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(5, 0), ignite(0).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(5, 0), ignite(1).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(4, 3), ignite(2).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(4, 3), ignite(3).context().discovery().topologyVersionEx());
 
         latch.countDown();
     }
@@ -168,14 +168,14 @@ public class CacheNoAffinityExchangeTest extends GridCommonAbstractTest {
             .setName("tx").setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL));
 
         assertTrue(GridTestUtils.waitForCondition(() ->
-            new AffinityTopologyVersion(4, 3).equals(grid(3).context().discovery().topologyVersionEx()),
+            new AffinityTopologyVersion(4, 3).equals(ignite(3).context().discovery().topologyVersionEx()),
             5_000));
 
         startClient = true;
 
         startGrid(4);
 
-        TestDiscoverySpi discoSpi = (TestDiscoverySpi)grid(2).context().discovery().getInjectedDiscoverySpi();
+        TestDiscoverySpi discoSpi = (TestDiscoverySpi)ignite(2).context().discovery().getInjectedDiscoverySpi();
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -184,10 +184,10 @@ public class CacheNoAffinityExchangeTest extends GridCommonAbstractTest {
         stopGrid(4);
 
         assertTrue(GridTestUtils.waitForCondition(() ->
-                new AffinityTopologyVersion(6, 0).equals(grid(0).context().discovery().topologyVersionEx()) &&
-                    new AffinityTopologyVersion(6, 0).equals(grid(1).context().discovery().topologyVersionEx()) &&
-                    new AffinityTopologyVersion(5, 0).equals(grid(2).context().discovery().topologyVersionEx()) &&
-                    new AffinityTopologyVersion(5, 0).equals(grid(3).context().discovery().topologyVersionEx()),
+                new AffinityTopologyVersion(6, 0).equals(ignite(0).context().discovery().topologyVersionEx()) &&
+                    new AffinityTopologyVersion(6, 0).equals(ignite(1).context().discovery().topologyVersionEx()) &&
+                    new AffinityTopologyVersion(5, 0).equals(ignite(2).context().discovery().topologyVersionEx()) &&
+                    new AffinityTopologyVersion(5, 0).equals(ignite(3).context().discovery().topologyVersionEx()),
             10_000));
 
         for (int k = 0; k < 100; k++) {
@@ -204,10 +204,10 @@ public class CacheNoAffinityExchangeTest extends GridCommonAbstractTest {
             assertEquals(Integer.valueOf(k), txCache.get(k));
         }
 
-        assertEquals(new AffinityTopologyVersion(6, 0), grid(0).context().discovery().topologyVersionEx());
-        assertEquals(new AffinityTopologyVersion(6, 0), grid(1).context().discovery().topologyVersionEx());
-        assertEquals(new AffinityTopologyVersion(5, 0), grid(2).context().discovery().topologyVersionEx());
-        assertEquals(new AffinityTopologyVersion(5, 0), grid(3).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(6, 0), ignite(0).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(6, 0), ignite(1).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(5, 0), ignite(2).context().discovery().topologyVersionEx());
+        assertEquals(new AffinityTopologyVersion(5, 0), ignite(3).context().discovery().topologyVersionEx());
 
         latch.countDown();
     }

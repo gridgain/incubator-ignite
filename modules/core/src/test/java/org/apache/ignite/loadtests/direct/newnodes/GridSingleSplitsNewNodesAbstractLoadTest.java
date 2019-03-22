@@ -116,11 +116,11 @@ public abstract class GridSingleSplitsNewNodesAbstractLoadTest extends GridCommo
 
                                 startGrid(idx);
 
-                                Thread.sleep(grid(idx).configuration().getMetricsUpdateFrequency() * 3);
+                                Thread.sleep(ignite(idx).configuration().getMetricsUpdateFrequency() * 3);
 
                                 stopGrid(idx);
 
-                                Thread.sleep(grid(idx).configuration().getMetricsUpdateFrequency() * 3);
+                                Thread.sleep(ignite(idx).configuration().getMetricsUpdateFrequency() * 3);
                             }
                         }
                         catch (Throwable e) {

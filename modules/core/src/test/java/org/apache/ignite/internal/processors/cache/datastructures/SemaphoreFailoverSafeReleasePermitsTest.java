@@ -79,12 +79,12 @@ public class SemaphoreFailoverSafeReleasePermitsTest extends GridCommonAbstractT
         try {
             startGrids(GRID_CNT);
 
-            Ignite ignite = grid(0);
+            Ignite ignite = ignite(0);
 
             IgniteSemaphore sem = ignite.semaphore("sem", 1, true, true);
 
             // Initialize second semaphore before the first one is broken.
-            IgniteSemaphore sem2 = grid(1).semaphore("sem", 1, true, true);
+            IgniteSemaphore sem2 = ignite(1).semaphore("sem", 1, true, true);
 
             assertEquals(1, sem.availablePermits());
 

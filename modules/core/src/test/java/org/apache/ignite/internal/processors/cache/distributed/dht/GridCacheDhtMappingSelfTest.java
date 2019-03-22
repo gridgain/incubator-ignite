@@ -68,7 +68,7 @@ public class GridCacheDhtMappingSelfTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(nodeCnt);
 
-        IgniteCache<Integer, Integer> cache = grid(nodeCnt - 1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(nodeCnt - 1).cache(DEFAULT_CACHE_NAME);
 
         int kv = 1;
 
@@ -77,7 +77,7 @@ public class GridCacheDhtMappingSelfTest extends GridCommonAbstractTest {
         int cnt = 0;
 
         for (int i = 0; i < nodeCnt; i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
             GridDhtCacheAdapter<Integer, Integer> dht = ((GridNearCacheAdapter<Integer, Integer>)
                 ((IgniteKernal)g).<Integer, Integer>internalCache(DEFAULT_CACHE_NAME)).dht();

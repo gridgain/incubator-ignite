@@ -67,9 +67,9 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
         super.afterTest();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            grid(i).cache(DEFAULT_CACHE_NAME).removeAll();
+            ignite(i).cache(DEFAULT_CACHE_NAME).removeAll();
 
-            assert grid(i).cache(DEFAULT_CACHE_NAME).localSize() == 0;
+            assert ignite(i).cache(DEFAULT_CACHE_NAME).localSize() == 0;
         }
     }
 
@@ -88,14 +88,14 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTwoTx() throws Exception {
-        final IgniteCache<String, Integer> c = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<String, Integer> c = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-        GridKernalContext ctx = ((IgniteKernal)grid(0)).context();
+        GridKernalContext ctx = ((IgniteKernal)ignite(0)).context();
 
         c.put(CNTR_KEY, 0);
 
         for (int i = 0; i < 10; i++) {
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 c.get(CNTR_KEY);
 
                 ctx.closure().callLocalSafe((new Callable<Boolean>() {
@@ -120,7 +120,7 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
      */
     @Test
     public void testLockAndTx() throws Exception {
-        final IgniteCache<String, Integer> c = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<String, Integer> c = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         Collection<Thread> threads = new LinkedList<>();
 
@@ -131,7 +131,7 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
 
             threads.add(new Thread(new Runnable() {
                 @Override public void run() {
-                    Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+                    Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
                     try {
                         int cntr = c.get(CNTR_KEY);
@@ -197,9 +197,9 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
      */
     @Test
     public void testLockAndTx1() throws Exception {
-        final IgniteCache<String, Integer> c = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<String, Integer> c = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-        final IgniteCache<Integer, Integer> c1 = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, Integer> c1 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         Collection<Thread> threads = new LinkedList<>();
 
@@ -220,7 +220,7 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
 
                         info("*** Cntr in lock thread: " + cntr);
 
-                        Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, READ_COMMITTED);
+                        Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, READ_COMMITTED);
 
                         try {
 

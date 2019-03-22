@@ -73,7 +73,7 @@ public class ClusterMetricsSelfTest extends GridCommonAbstractTest {
     @Test
     public void testEmptyProjection() throws Exception {
         try {
-            grid(0).cluster().forPredicate(F.<ClusterNode>alwaysFalse()).metrics();
+            ignite(0).cluster().forPredicate(F.<ClusterNode>alwaysFalse()).metrics();
 
             assert false;
         }
@@ -105,7 +105,7 @@ public class ClusterMetricsSelfTest extends GridCommonAbstractTest {
      * @throws Exception In case of error.
      */
     private void performTaskExecutionTest() throws Exception {
-        Ignite g = grid(0);
+        Ignite g = ignite(0);
 
         JobFinishLock jobFinishLock = new JobFinishLock();
 

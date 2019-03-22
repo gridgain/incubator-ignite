@@ -66,7 +66,7 @@ public class TransactionIntegrityWithSystemWorkerDeathTest extends AbstractTrans
                 // Wait until node with death worker will left cluster.
                 GridTestUtils.waitForCondition(() -> {
                     try {
-                        grid(failedNodeIdx);
+                        ignite(failedNodeIdx);
                     }
                     catch (IgniteIllegalStateException e) {
                         return true;
@@ -76,7 +76,7 @@ public class TransactionIntegrityWithSystemWorkerDeathTest extends AbstractTrans
                 }, getTestTimeout());
 
                 // Failed node should be stopped.
-                GridTestUtils.assertThrows(log, () -> grid(failedNodeIdx), IgniteIllegalStateException.class, "");
+                GridTestUtils.assertThrows(log, () -> ignite(failedNodeIdx), IgniteIllegalStateException.class, "");
 
                 // Re-start failed node.
                 startGrid(failedNodeIdx);

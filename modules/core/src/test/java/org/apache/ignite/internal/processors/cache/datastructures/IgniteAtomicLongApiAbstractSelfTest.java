@@ -66,7 +66,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testCreateRemove() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         String atomicName1 = "FIRST";
 
@@ -108,7 +108,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testIncrementAndGet() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -125,7 +125,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testGetAndIncrement() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -142,7 +142,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testDecrementAndGet() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -159,7 +159,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testGetAndDecrement() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -176,7 +176,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testGetAndAdd() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -195,7 +195,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testAddAndGet() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -214,7 +214,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testGetAndSet() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -233,7 +233,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testCompareAndSet() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -259,7 +259,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
     public void testGetAndSetInTx() throws Exception {
         info("Running test [name=" + getName() + ", cacheMode=" + atomicsCacheMode() + ']');
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
@@ -285,7 +285,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
      */
     @Test
     public void testIsolation() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteCache<Object, Object> cache = ignite.cache(TRANSACTIONAL_CACHE_NAME);
 
@@ -312,7 +312,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
      */
     @Test
     public void testMultipleStructuresInDifferentGroups() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         AtomicConfiguration cfg = new AtomicConfiguration().setGroupName("grp1");
 

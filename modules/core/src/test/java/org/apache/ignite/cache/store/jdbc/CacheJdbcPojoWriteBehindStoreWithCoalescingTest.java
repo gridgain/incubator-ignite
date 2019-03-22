@@ -446,7 +446,7 @@ public class CacheJdbcPojoWriteBehindStoreWithCoalescingTest extends GridCommonA
 
         ignite.cluster().active(true);
 
-        IgniteCache<Integer, TestPojo> cache = grid(0).cache("TEST_CACHE");
+        IgniteCache<Integer, TestPojo> cache = ignite(0).cache("TEST_CACHE");
 
         AtomicInteger t1Count = new AtomicInteger(5);
 
@@ -521,7 +521,7 @@ public class CacheJdbcPojoWriteBehindStoreWithCoalescingTest extends GridCommonA
 
         ignite.cluster().active(true);
 
-        IgniteCache<Integer, TestPojo> cache = grid(0).cache("TEST_CACHE");
+        IgniteCache<Integer, TestPojo> cache = ignite(0).cache("TEST_CACHE");
 
         AtomicInteger t1Count = new AtomicInteger(5);
 
@@ -596,7 +596,7 @@ public class CacheJdbcPojoWriteBehindStoreWithCoalescingTest extends GridCommonA
 
         ignite.cluster().active(true);
 
-        IgniteCache<Integer, TestPojo> cache = grid(0).cache("TEST_CACHE");
+        IgniteCache<Integer, TestPojo> cache = ignite(0).cache("TEST_CACHE");
 
         AtomicInteger t1Count = new AtomicInteger(10);
 

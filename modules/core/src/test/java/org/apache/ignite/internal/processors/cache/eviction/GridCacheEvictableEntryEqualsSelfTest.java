@@ -37,7 +37,7 @@ public class GridCacheEvictableEntryEqualsSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testEquals() throws Exception {
-        try (Ignite ignite = startGrid()) {
+        try (Ignite ignite = clusterManager__startGrid()) {
             CacheConfiguration<TestKey, String> cfg = new CacheConfiguration<>("test");
 
             cfg.setEvictionPolicy(new TestEvictionPolicy());

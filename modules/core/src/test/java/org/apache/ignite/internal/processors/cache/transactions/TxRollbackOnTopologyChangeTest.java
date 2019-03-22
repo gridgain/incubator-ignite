@@ -32,6 +32,7 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
@@ -123,7 +124,7 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
         final int keysCnt = SRV_CNT - 1;
 
         for (int k = 0; k < keysCnt; k++)
-            grid(0).cache(CACHE_NAME).put(k, (long)0);
+            ignite(0).cache(CACHE_NAME).put(k, (long)0);
 
         final CyclicBarrier b = new CyclicBarrier(keysCnt);
 
@@ -146,11 +147,11 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
                     int nodeId;
 
                     while(!reservedIdx.compareAndSet((nodeId = r.nextInt(TOTAL_CNT)), 0, 1))
-                        doSleep(10);
+                        GridTestUtils.doSleep(10);
 
                     U.awaitQuiet(b);
 
-                    final IgniteEx grid = grid(nodeId);
+                    final IgniteEx grid = ignite(nodeId);
 
                     try (final Transaction tx = grid.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0)) {
                         reservedIdx.set(nodeId, 0);
@@ -186,7 +187,7 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
 
                     stopGrid(nodeId);
 
-                    doSleep(500 + r.nextInt(1000));
+                    GridTestUtils.doSleep(500 + r.nextInt(1000));
 
                     startGrid(nodeId);
 

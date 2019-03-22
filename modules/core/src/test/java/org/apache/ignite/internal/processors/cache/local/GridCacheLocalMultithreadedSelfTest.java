@@ -63,7 +63,7 @@ public class GridCacheLocalMultithreadedSelfTest extends GridCommonAbstractTest 
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         cache = ignite.cache(DEFAULT_CACHE_NAME);
     }

@@ -1702,7 +1702,7 @@ public abstract class IgniteHadoopFileSystemAbstractSelfTest extends IgfsCommonA
                 out.write(new byte[1024 * 1024]);
             }
 
-            IgniteFileSystem igfs = grid(0).fileSystem("igfs");
+            IgniteFileSystem igfs = ignite(0).fileSystem("igfs");
 
             IgfsPath filePath = new IgfsPath("/someFile");
 
@@ -1741,38 +1741,36 @@ public abstract class IgniteHadoopFileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicBoolean err = new AtomicBoolean();
 
-        multithreaded(new Runnable() {
-            @Override
-            public void run() {
-                int idx = cnt.getAndIncrement();
+        GridTestUtils.runMultiThreaded(() -> {
+            int idx = cnt.getAndIncrement();
 
-                byte[] data = new byte[256];
+            byte[] data = new byte[256];
 
-                Arrays.fill(data, (byte)idx);
+            Arrays.fill(data, (byte)idx);
 
-                FSDataOutputStream os = null;
+            FSDataOutputStream os = null;
 
-                try {
-                    os = fs.create(file, true);
-                }
-                catch (IOException ignore) {
-                    errs.add(idx);
-                }
-
-                U.awaitQuiet(barrier);
-
-                try {
-                    if (os != null)
-                        os.write(data);
-                }
-                catch (IOException ignore) {
-                    err.set(true);
-                }
-                finally {
-                    U.closeQuiet(os);
-                }
+            try {
+                os = fs.create(file, true);
             }
-        }, THREAD_CNT);
+            catch (IOException ignore) {
+                errs.add(idx);
+            }
+
+            U.awaitQuiet(barrier);
+
+            try {
+                if (os != null)
+                    os.write(data);
+            }
+            catch (IOException ignore) {
+                err.set(true);
+            }
+            finally {
+                U.closeQuiet(os);
+            }
+
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         assert !err.get();
 
@@ -1826,39 +1824,38 @@ public abstract class IgniteHadoopFileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicBoolean err = new AtomicBoolean();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                int idx = cnt.getAndIncrement();
+        GridTestUtils.runMultiThreaded(() -> {
+            int idx = cnt.getAndIncrement();
 
-                byte[] data = new byte[256];
+            byte[] data = new byte[256];
 
-                Arrays.fill(data, (byte)idx);
+            Arrays.fill(data, (byte)idx);
 
-                U.awaitQuiet(barrier);
+            U.awaitQuiet(barrier);
 
-                FSDataOutputStream os = null;
+            FSDataOutputStream os = null;
 
-                try {
-                    os = fs.append(file);
-                }
-                catch (IOException ignore) {
-                    errs.add(idx);
-                }
-
-                U.awaitQuiet(barrier);
-
-                try {
-                    if (os != null)
-                        os.write(data);
-                }
-                catch (IOException ignore) {
-                    err.set(true);
-                }
-                finally {
-                    U.closeQuiet(os);
-                }
+            try {
+                os = fs.append(file);
             }
-        }, THREAD_CNT);
+            catch (IOException ignore) {
+                errs.add(idx);
+            }
+
+            U.awaitQuiet(barrier);
+
+            try {
+                if (os != null)
+                    os.write(data);
+            }
+            catch (IOException ignore) {
+                err.set(true);
+            }
+            finally {
+                U.closeQuiet(os);
+            }
+
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         assert !err.get();
 
@@ -1918,46 +1915,44 @@ public abstract class IgniteHadoopFileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicBoolean err = new AtomicBoolean();
 
-        multithreaded(new Runnable() {
-            @Override
-            public void run() {
-                FSDataInputStream is = null;
+        GridTestUtils.runMultiThreaded(() -> {
+            FSDataInputStream is = null;
+
+            try {
+                int pos = ThreadLocalRandom.current().nextInt(2048);
 
                 try {
-                    int pos = ThreadLocalRandom.current().nextInt(2048);
-
-                    try {
-                        is = fs.open(file);
-                    }
-                    finally {
-                        U.awaitQuiet(barrier);
-                    }
-
-                    is.seek(256 * pos);
-
-                    byte[] buf = new byte[256];
-
-                    for (int i = pos; i < 2048; i++) {
-                        // First perform normal read.
-                        int read = is.read(buf);
-
-                        assert read == 256;
-
-                        Arrays.equals(dataChunk, buf);
-                    }
-
-                    int res = is.read(buf);
-
-                    assert res == -1;
-                }
-                catch (IOException ignore) {
-                    err.set(true);
+                    is = fs.open(file);
                 }
                 finally {
-                    U.closeQuiet(is);
+                    U.awaitQuiet(barrier);
                 }
+
+                is.seek(256 * pos);
+
+                byte[] buf = new byte[256];
+
+                for (int i = pos; i < 2048; i++) {
+                    // First perform normal read.
+                    int read = is.read(buf);
+
+                    assert read == 256;
+
+                    Arrays.equals(dataChunk, buf);
+                }
+
+                int res = is.read(buf);
+
+                assert res == -1;
             }
-        }, THREAD_CNT);
+            catch (IOException ignore) {
+                err.set(true);
+            }
+            finally {
+                U.closeQuiet(is);
+            }
+
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         assert !err.get();
     }
@@ -1978,39 +1973,38 @@ public abstract class IgniteHadoopFileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicReference<IOException> err = new AtomicReference();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                Deque<IgniteBiTuple<Integer, Path>> queue = new ArrayDeque<>();
+        GridTestUtils.runMultiThreaded(() -> {
+            Deque<IgniteBiTuple<Integer, Path>> queue = new ArrayDeque<>();
 
-                queue.add(F.t(0, dir));
+            queue.add(F.t(0, dir));
 
-                U.awaitQuiet(barrier);
+            U.awaitQuiet(barrier);
 
-                while (!queue.isEmpty()) {
-                    IgniteBiTuple<Integer, Path> t = queue.pollFirst();
+            while (!queue.isEmpty()) {
+                IgniteBiTuple<Integer, Path> t = queue.pollFirst();
 
-                    int curDepth = t.getKey();
-                    Path curPath = t.getValue();
+                int curDepth = t.getKey();
+                Path curPath = t.getValue();
 
-                    if (curDepth <= depth) {
-                        int newDepth = curDepth + 1;
+                if (curDepth <= depth) {
+                    int newDepth = curDepth + 1;
 
-                        // Create directories.
-                        for (int i = 0; i < entryCnt; i++) {
-                            Path subDir = new Path(curPath, "dir-" + newDepth + "-" + i);
+                    // Create directories.
+                    for (int i = 0; i < entryCnt; i++) {
+                        Path subDir = new Path(curPath, "dir-" + newDepth + "-" + i);
 
-                            try {
-                                if (fs.mkdirs(subDir))
-                                    queue.addLast(F.t(newDepth, subDir));
-                            }
-                            catch (IOException e) {
-                                err.compareAndSet(null, e);
-                            }
+                        try {
+                            if (fs.mkdirs(subDir))
+                                queue.addLast(F.t(newDepth, subDir));
+                        }
+                        catch (IOException e) {
+                            err.compareAndSet(null, e);
                         }
                     }
                 }
             }
-        }, THREAD_CNT);
+
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         // Ensure there were no errors.
         assert err.get() == null : err.get();
@@ -2090,18 +2084,16 @@ public abstract class IgniteHadoopFileSystemAbstractSelfTest extends IgfsCommonA
 
         final AtomicBoolean err = new AtomicBoolean();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                try {
-                    U.awaitQuiet(barrier);
+        GridTestUtils.runMultiThreaded(() -> {
+            try {
+                U.awaitQuiet(barrier);
 
-                    fs.delete(dir, true);
-                }
-                catch (IOException ignore) {
-                    err.set(true);
-                }
+                fs.delete(dir, true);
             }
-        }, THREAD_CNT);
+            catch (IOException ignore) {
+                err.set(true);
+            }
+        }, THREAD_CNT, getTestIgniteInstanceName());
 
         // Ensure there were no errors.
         assert !err.get();

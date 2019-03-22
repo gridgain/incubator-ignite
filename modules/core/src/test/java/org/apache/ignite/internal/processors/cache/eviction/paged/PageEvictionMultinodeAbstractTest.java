@@ -54,7 +54,7 @@ public abstract class PageEvictionMultinodeAbstractTest extends PageEvictionAbst
      * @return Client grid.
      */
     Ignite clientGrid() {
-        return grid("client");
+        return ignite("client");
     }
 
     /** {@inheritDoc} */

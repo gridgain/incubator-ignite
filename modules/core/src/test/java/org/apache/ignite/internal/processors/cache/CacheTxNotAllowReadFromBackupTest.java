@@ -262,7 +262,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
      */
     private void checkBackupConsistency(CacheConfiguration<Integer, Integer> ccfg, TransactionConcurrency txConcurrency,
         TransactionIsolation txIsolation) throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).getOrCreateCache(ccfg);
+        IgniteCache<Integer, Integer> cache = ignite(0).getOrCreateCache(ccfg);
 
         int nodeIdx = ThreadLocalRandom.current().nextInt(NODES);
 
@@ -271,7 +271,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
                 log.info("Iteration: " + i);
 
                 // Put data in one transaction.
-                try (Transaction tx = grid(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
+                try (Transaction tx = ignite(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
                     for (int key = 0; key < KEYS; key++)
                         cache.put(key, key);
 
@@ -281,7 +281,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
                 int missCnt = 0;
 
                 // Try to load data from another transaction.
-                try (Transaction tx = grid(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
+                try (Transaction tx = ignite(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
                     for (int key = 0; key < KEYS; key++)
                         if (cache.get(key) == null)
                             ++missCnt;
@@ -293,7 +293,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
             }
         }
         finally {
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
         }
     }
 
@@ -303,7 +303,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
      */
     private void checkBackupConsistencyGetAll(CacheConfiguration<Integer, Integer> ccfg,
         TransactionConcurrency txConcurrency, TransactionIsolation txIsolation) throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).getOrCreateCache(ccfg);
+        IgniteCache<Integer, Integer> cache = ignite(0).getOrCreateCache(ccfg);
 
         int nodeIdx = ThreadLocalRandom.current().nextInt(NODES);
 
@@ -314,7 +314,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
                 List<Set<Integer>> batches = createBatches();
 
                 // Put data in one transaction.
-                try (Transaction tx = grid(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
+                try (Transaction tx = ignite(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
                     for (int key = 0; key < KEYS; key++)
                         cache.put(key, key);
 
@@ -322,7 +322,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
                 }
 
                 // Try to load data from another transaction.
-                try (Transaction tx = grid(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
+                try (Transaction tx = ignite(nodeIdx).transactions().txStart(txConcurrency, txIsolation)) {
                     for (Set<Integer> batch : batches)
                         assertEquals("Failed. Found missing entries.", batch.size(), cache.getAll(batch).size());
 
@@ -331,7 +331,7 @@ public class CacheTxNotAllowReadFromBackupTest extends GridCommonAbstractTest {
             }
         }
         finally {
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
         }
     }
 

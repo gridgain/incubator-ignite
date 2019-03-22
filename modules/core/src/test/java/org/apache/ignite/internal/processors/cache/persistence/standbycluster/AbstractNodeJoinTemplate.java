@@ -610,7 +610,7 @@ public abstract class AbstractNodeJoinTemplate extends GridCommonAbstractTest {
 
                 System.out.println(">>> Check cluster state on all nodes");
 
-                IgniteEx crd = grid(nodes.get(0));
+                IgniteEx crd = ignite(nodes.get(0));
 
                 for (IgniteEx ig : grids())
                     assertEquals((boolean)state, ig.active());
@@ -730,7 +730,7 @@ public abstract class AbstractNodeJoinTemplate extends GridCommonAbstractTest {
             List<IgniteEx> res = new ArrayList<>();
 
             for (String name : nodes)
-                res.add(grid(name));
+                res.add(ignite(name));
 
             return res;
         }

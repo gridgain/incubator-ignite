@@ -68,7 +68,7 @@ public class IgniteRoundRobinErrorAfterClientReconnectTest extends GridCommonAbs
      */
     @Test
     public void testClientReconnect() throws Exception {
-        final Ignite cli = grid(CLI_IDX);
+        final Ignite cli = ignite(CLI_IDX);
 
         final GridFutureAdapter<Boolean> fut = new GridFutureAdapter<>();
 

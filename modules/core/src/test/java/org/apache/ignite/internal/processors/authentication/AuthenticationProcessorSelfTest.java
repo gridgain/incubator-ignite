@@ -102,9 +102,9 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         startGrids(NODES_COUNT);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
-        actxDflt = grid(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
+        actxDflt = ignite(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
 
         assertNotNull(actxDflt);
     }
@@ -122,7 +122,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
     @Test
     public void testDefaultUser() throws Exception {
         for (int i = 0; i < NODES_COUNT; ++i) {
-            AuthorizationContext actx = grid(i).context().authentication().authenticate("ignite", "ignite");
+            AuthorizationContext actx = ignite(i).context().authentication().authenticate("ignite", "ignite");
 
             assertNotNull(actx);
             assertEquals("ignite", actx.userName());
@@ -139,11 +139,11 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         try {
             // Change from all nodes
             for (int nodeIdx = 0; nodeIdx < NODES_COUNT; ++nodeIdx) {
-                grid(nodeIdx).context().authentication().updateUser("ignite", "ignite" + nodeIdx);
+                ignite(nodeIdx).context().authentication().updateUser("ignite", "ignite" + nodeIdx);
 
                 // Check each change from all nodes
                 for (int i = 0; i < NODES_COUNT; ++i) {
-                    AuthorizationContext actx = grid(i).context().authentication().authenticate("ignite", "ignite" + nodeIdx);
+                    AuthorizationContext actx = ignite(i).context().authentication().authenticate("ignite", "ignite" + nodeIdx);
 
                     assertNotNull(actx);
                     assertEquals("ignite", actx.userName());
@@ -168,13 +168,13 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().removeUser("ignite");
+                        ignite(nodeIdx).context().authentication().removeUser("ignite");
 
                         return null;
                     }
                 }, IgniteAccessControlException.class, "Default user cannot be removed");
 
-                assertNotNull(grid(nodeIdx).context().authentication().authenticate("ignite", "ignite"));
+                assertNotNull(ignite(nodeIdx).context().authentication().authenticate("ignite", "ignite"));
             }
         }
         finally {
@@ -190,9 +190,9 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         AuthorizationContext.context(actxDflt);
 
         try {
-            grid(0).context().authentication().addUser("test", "test");
+            ignite(0).context().authentication().addUser("test", "test");
 
-            final AuthorizationContext actx = grid(0).context().authentication().authenticate("test", "test");
+            final AuthorizationContext actx = ignite(0).context().authentication().authenticate("test", "test");
 
             for (int i = 0; i < NODES_COUNT; ++i) {
                 final int nodeIdx = i;
@@ -201,7 +201,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().addUser("test1", "test1");
+                        ignite(nodeIdx).context().authentication().addUser("test1", "test1");
 
                         return null;
                     }
@@ -209,22 +209,22 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().removeUser("test");
+                        ignite(nodeIdx).context().authentication().removeUser("test");
 
                         return null;
                     }
                 }, IgniteAccessControlException.class, "User management operations are not allowed for user");
 
-                grid(nodeIdx).context().authentication().updateUser("test", "new_password");
+                ignite(nodeIdx).context().authentication().updateUser("test", "new_password");
 
-                grid(nodeIdx).context().authentication().updateUser("test", "test");
+                ignite(nodeIdx).context().authentication().updateUser("test", "test");
 
                 // Check error on empty auth context:
                 AuthorizationContext.context(null);
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().removeUser("test");
+                        ignite(nodeIdx).context().authentication().removeUser("test");
 
                         return null;
                     }
@@ -244,15 +244,15 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         AuthorizationContext.context(actxDflt);
 
         try {
-            grid(0).context().authentication().addUser("test0", "test");
-            grid(0).context().authentication().addUser("test1", "test");
+            ignite(0).context().authentication().addUser("test0", "test");
+            ignite(0).context().authentication().addUser("test1", "test");
 
             int nodeIdx = NODES_COUNT;
 
             startGrid(nodeIdx);
 
-            AuthorizationContext actx0 = grid(nodeIdx).context().authentication().authenticate("test0", "test");
-            AuthorizationContext actx1 = grid(nodeIdx).context().authentication().authenticate("test1", "test");
+            AuthorizationContext actx0 = ignite(nodeIdx).context().authentication().authenticate("test0", "test");
+            AuthorizationContext actx1 = ignite(nodeIdx).context().authentication().authenticate("test1", "test");
 
             assertNotNull(actx0);
             assertEquals("test0", actx0.userName());
@@ -277,7 +277,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().authenticate("invalid_name", "test");
+                        ignite(nodeIdx).context().authentication().authenticate("invalid_name", "test");
 
                         return null;
                     }
@@ -285,7 +285,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().authenticate("test", "invalid_password");
+                        ignite(nodeIdx).context().authentication().authenticate("test", "invalid_password");
 
                         return null;
                     }
@@ -307,7 +307,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         try {
             for (int i = 0; i < NODES_COUNT; ++i) {
                 for (int j = 0; j < NODES_COUNT; ++j)
-                    checkAddUpdateRemoveUser(grid(i), grid(j));
+                    checkAddUpdateRemoveUser(ignite(i), ignite(j));
             }
         }
         finally {
@@ -323,13 +323,13 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         AuthorizationContext.context(actxDflt);
 
         try {
-            grid(0).context().authentication().addUser("test", "test");
+            ignite(0).context().authentication().addUser("test", "test");
 
-            AuthorizationContext actx = grid(0).context().authentication().authenticate("test", "test");
+            AuthorizationContext actx = ignite(0).context().authentication().authenticate("test", "test");
 
             for (int i = 0; i < NODES_COUNT; ++i) {
                 for (int j = 0; j < NODES_COUNT; ++j)
-                    checkUpdateUser(actx, grid(i), grid(j));
+                    checkUpdateUser(actx, ignite(i), ignite(j));
             }
         }
         finally {
@@ -350,7 +350,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().updateUser("invalid_name", "test");
+                        ignite(nodeIdx).context().authentication().updateUser("invalid_name", "test");
 
                         return null;
                     }
@@ -358,7 +358,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().removeUser("invalid_name");
+                        ignite(nodeIdx).context().authentication().removeUser("invalid_name");
 
                         return null;
                     }
@@ -378,14 +378,14 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         AuthorizationContext.context(actxDflt);
 
         try {
-            grid(0).context().authentication().addUser("test", "test");
+            ignite(0).context().authentication().addUser("test", "test");
 
             for (int i = 0; i < NODES_COUNT; ++i) {
                 final int nodeIdx = i;
 
                 GridTestUtils.assertThrows(log, new Callable<Object>() {
                     @Override public Object call() throws Exception {
-                        grid(nodeIdx).context().authentication().addUser("test", "new_passwd");
+                        ignite(nodeIdx).context().authentication().addUser("test", "new_passwd");
 
                         return null;
                     }
@@ -404,7 +404,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
     public void testAuthorizeOnClientDisconnect() throws Exception {
         AuthorizationContext.context(actxDflt);
 
-        grid(CLI_NODE).context().authentication().addUser("test", "test");
+        ignite(CLI_NODE).context().authentication().addUser("test", "test");
 
         AuthorizationContext.context(null);
 
@@ -427,7 +427,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         GridTestUtils.assertThrows(log, new Callable<Object>() {
                 @Override public Object call() throws Exception {
                     while (!stopServersFut.isDone()) {
-                        AuthorizationContext actx = grid(CLI_NODE).context().authentication()
+                        AuthorizationContext actx = ignite(CLI_NODE).context().authentication()
                             .authenticate("test", "test");
 
                         assertNotNull(actx);
@@ -456,9 +456,9 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
                 try {
                     for (int i = 0; i < ITERATIONS; ++i) {
-                        grid(CLI_NODE).context().authentication().addUser(user, "passwd_" + user);
+                        ignite(CLI_NODE).context().authentication().addUser(user, "passwd_" + user);
 
-                        grid(CLI_NODE).context().authentication().removeUser(user);
+                        ignite(CLI_NODE).context().authentication().removeUser(user);
                     }
                 }
                 catch (Exception e) {
@@ -478,9 +478,9 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         try {
             for (int i = 0; i < NODES_COUNT; ++i)
-                grid(i).context().authentication().addUser("test" + i , "passwd" + i);
+                ignite(i).context().authentication().addUser("test" + i , "passwd" + i);
 
-            grid(CLI_NODE).context().authentication().updateUser("ignite", "new_passwd");
+            ignite(CLI_NODE).context().authentication().updateUser("ignite", "new_passwd");
 
             stopAllGrids();
 
@@ -488,14 +488,14 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
             for (int i = 0; i < NODES_COUNT; ++i) {
                 for (int usrIdx = 0; usrIdx < NODES_COUNT; ++usrIdx) {
-                    AuthorizationContext actx0 = grid(i).context().authentication()
+                    AuthorizationContext actx0 = ignite(i).context().authentication()
                         .authenticate("test" + usrIdx, "passwd" + usrIdx);
 
                     assertNotNull(actx0);
                     assertEquals("test" + usrIdx, actx0.userName());
                 }
 
-                AuthorizationContext actx = grid(i).context().authentication()
+                AuthorizationContext actx = ignite(i).context().authentication()
                     .authenticate("ignite", "new_passwd");
 
                 assertNotNull(actx);
@@ -515,7 +515,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
         AuthorizationContext.context(actxDflt);
 
         try {
-            grid(CLI_NODE).context().authentication().addUser("test", "passwd");
+            ignite(CLI_NODE).context().authentication().addUser("test", "passwd");
 
             stopAllGrids();
 
@@ -524,13 +524,13 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
             startGrids(NODES_COUNT);
 
             for (int i = 0; i < NODES_COUNT; ++i) {
-                AuthorizationContext  actx = grid(i).context().authentication()
+                AuthorizationContext  actx = ignite(i).context().authentication()
                     .authenticate("ignite", "ignite");
 
                 assertNotNull(actx);
                 assertEquals("ignite", actx.userName());
 
-                actx = grid(i).context().authentication()
+                actx = ignite(i).context().authentication()
                     .authenticate("test", "passwd");
 
                 assertNotNull(actx);
@@ -552,7 +552,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(CLI_NODE).context().authentication().addUser(null, "test");
+                ignite(CLI_NODE).context().authentication().addUser(null, "test");
 
                 return null;
             }
@@ -560,7 +560,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(CLI_NODE).context().authentication().addUser("", "test");
+                ignite(CLI_NODE).context().authentication().addUser("", "test");
 
                 return null;
             }
@@ -568,7 +568,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(CLI_NODE).context().authentication().addUser("test", null);
+                ignite(CLI_NODE).context().authentication().addUser("test", null);
 
                 return null;
             }
@@ -576,7 +576,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(CLI_NODE).context().authentication().addUser("test", "");
+                ignite(CLI_NODE).context().authentication().addUser("test", "");
 
                 return null;
             }
@@ -584,7 +584,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(CLI_NODE).context().authentication().addUser(
+                ignite(CLI_NODE).context().authentication().addUser(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     "a");
 
@@ -608,7 +608,7 @@ public class AuthenticationProcessorSelfTest extends GridCommonAbstractTest {
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(CLI_NODE).context().authentication().addUser("test", passwd);
+                ignite(CLI_NODE).context().authentication().addUser("test", passwd);
 
                 return null;
             }

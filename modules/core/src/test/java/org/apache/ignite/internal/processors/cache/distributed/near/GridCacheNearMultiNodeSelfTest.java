@@ -158,10 +158,10 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
     @Override protected void beforeTest() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
             assert jcache(i).localSize() == 0 : "Near cache size is not zero for grid: " + i;
-            assert dht(grid(i)).size() == 0 : "DHT cache size is not zero for grid: " + i;
+            assert dht(ignite(i)).size() == 0 : "DHT cache size is not zero for grid: " + i;
 
             assert jcache(i).localSize() == 0 : "Near cache is not empty for grid: " + i;
-            assert dht(grid(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
+            assert dht(ignite(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
         }
     }
 
@@ -171,16 +171,16 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
             jcache(i).removeAll();
 
             assertEquals("Near cache size is not zero for grid: " + i, 0, jcache(i).localSize());
-            assertEquals("DHT cache size is not zero for grid: " + i, 0, dht(grid(i)).size());
+            assertEquals("DHT cache size is not zero for grid: " + i, 0, dht(ignite(i)).size());
 
             assert jcache(i).localSize() == 0 : "Near cache is not empty for grid: " + i;
-            assert dht(grid(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
+            assert dht(ignite(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
         }
 
         store.reset();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            Transaction tx = grid(i).transactions().tx();
+            Transaction tx = ignite(i).transactions().tx();
 
             if (tx != null) {
                 error("Ending zombie transaction: " + tx);
@@ -204,7 +204,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
      * @return Affinity.
      */
     private Affinity<Object> affinity(int idx) {
-        return grid(idx).affinity(DEFAULT_CACHE_NAME);
+        return ignite(idx).affinity(DEFAULT_CACHE_NAME);
     }
 
     /** @param cnt Count. */
@@ -215,7 +215,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
         Map<UUID, T2<Set<Integer>, Set<Integer>>> map = new HashMap<>();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteEx grid = grid(i);
+            IgniteEx grid = ignite(i);
 
             map.put(grid.cluster().localNode().id(), new T2<Set<Integer>, Set<Integer>>(new HashSet<Integer>(),
                 new HashSet<Integer>()));
@@ -257,7 +257,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
 
         Map<UUID, T2<Set<Integer>, Set<Integer>>> map = mapKeys(cnt);
 
-        for (ClusterNode n : grid(0).cluster().nodes()) {
+        for (ClusterNode n : ignite(0).cluster().nodes()) {
             Set<Integer> primary = map.get(n.id()).get1();
             Set<Integer> backups = map.get(n.id()).get2();
 
@@ -317,13 +317,13 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
         Ignite primary;
         Ignite backup;
 
-        if (grid(0) == primaryGrid(key)) {
-            primary = grid(0);
-            backup = grid(1);
+        if (ignite(0) == primaryGrid(key)) {
+            primary = ignite(0);
+            backup = ignite(1);
         }
         else {
-            primary = grid(1);
-            backup = grid(0);
+            primary = ignite(1);
+            backup = ignite(0);
         }
 
         assertEquals(String.valueOf(key), backup.cache(DEFAULT_CACHE_NAME).get(key));
@@ -336,7 +336,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
     /** @throws Exception If failed. */
     @Test
     public void testReadThrough() throws Exception {
-        ClusterNode loc = grid(0).localNode();
+        ClusterNode loc = ignite(0).localNode();
 
         info("Local node: " + U.toShortString(loc));
 
@@ -385,7 +385,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
         IgniteCache<Integer, String> near = jcache(0);
 
         if (transactional()) {
-            try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ, 0, 0)) {
+            try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ, 0, 0)) {
                 near.put(2, "2");
 
                 String s = near.getAndPut(3, "3");
@@ -522,7 +522,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
         IgniteCache<Integer, String> near = jcache(0);
 
         if (transactional()) {
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0)) {
                 near.put(2, "2");
 
                 String s = near.getAndPut(3, "3");
@@ -662,7 +662,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
 
         String val = Integer.toString(key);
 
-        Collection<ClusterNode> affNodes = grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        Collection<ClusterNode> affNodes = ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key);
 
         info("Affinity for key [nodeId=" + U.nodeIds(affNodes) + ", key=" + key + ']');
 
@@ -679,7 +679,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
         lock.lock();
 
         try {
-            AffinityTopologyVersion topVer = grid(0).context().discovery().topologyVersionEx();
+            AffinityTopologyVersion topVer = ignite(0).context().discovery().topologyVersionEx();
 
             GridNearCacheEntry nearEntry1 = nearEntry(0, key);
 
@@ -838,7 +838,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
 
         if (transactional()) {
 
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 // Simple transaction get.
                 assertEquals(val, cache.get(key));
 
@@ -885,7 +885,7 @@ public class GridCacheNearMultiNodeSelfTest extends GridCommonAbstractTest {
         assertNull(near(1).peekEx(key));
 
         if (transactional()) {
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 // Read.
                 assertEquals(val, cache.get(key));
 

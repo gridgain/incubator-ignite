@@ -138,7 +138,7 @@ public abstract class CacheJdbcStoreAbstractMultithreadedSelfTest<T extends Cach
 
         U.closeQuiet(conn);
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -285,7 +285,7 @@ public abstract class CacheJdbcStoreAbstractMultithreadedSelfTest<T extends Cach
                 for (int i = 0; i < TX_CNT; i++) {
                     IgniteCache<PersonKey, Person> cache = jcache();
 
-                    try (Transaction tx = grid().transactions().txStart()) {
+                    try (Transaction tx = ignite().transactions().txStart()) {
                         cache.put(new PersonKey(1), new Person(1, rnd.nextInt(),
                             new Date(System.currentTimeMillis()), "Name" + 1, 1, Gender.random()));
                         cache.put(new PersonKey(2), new Person(2, rnd.nextInt(),

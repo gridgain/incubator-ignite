@@ -149,7 +149,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWalTxSimple() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -187,7 +187,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
 
             stopGrid();
 
-            ignite = startGrid();
+            ignite = clusterManager__startGrid();
 
             ignite.cluster().active(true);
 
@@ -225,7 +225,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWalRecoveryRemoves() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -276,7 +276,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
 
             stopGrid();
 
-            ignite = startGrid();
+            ignite = clusterManager__startGrid();
 
             ignite.cluster().active(true);
 
@@ -319,7 +319,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
         extraCcfg = new CacheConfiguration(CACHE_NAME + "2");
         extraCcfg.setAffinity(new RendezvousAffinityFunction(false, PARTS));
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         try {
             ignite.cluster().active(true);
@@ -405,7 +405,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
             stopAllGrids();
 
             // Check that iterator is valid after restart.
-            ignite = startGrid();
+            ignite = clusterManager__startGrid();
 
             ignite.cluster().active(true);
 
@@ -479,7 +479,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWalAfterPreloading() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -503,7 +503,7 @@ public class WalRecoveryTxLogicalRecordsTest extends GridCommonAbstractTest {
 
             stopGrid();
 
-            ignite = startGrid();
+            ignite = clusterManager__startGrid();
 
             ignite.cluster().active(true);
 

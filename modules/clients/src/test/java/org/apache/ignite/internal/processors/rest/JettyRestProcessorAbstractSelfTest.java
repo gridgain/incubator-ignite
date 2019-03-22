@@ -170,7 +170,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).removeAll();
+        ignite(0).cache(DEFAULT_CACHE_NAME).removeAll();
 
         if (memoryMetricsEnabled) {
             memoryMetricsEnabled = false;
@@ -346,7 +346,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_GET,
             "keyType", "int",
             "key", "300",
-            "destId", grid(1).localNode().id().toString()
+            "destId", ignite(1).localNode().id().toString()
         );
 
         info("Get command result: " + ret);
@@ -359,7 +359,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
                 "insert into employee(id, name, salary) values (1, 'Alex', 300);"
         );
 
-        grid(0).context().query().querySqlFields(qry, true, false);
+        ignite(0).context().query().querySqlFields(qry, true, false);
 
         ret = content("SQL_PUBLIC_EMPLOYEE", GridRestCommand.CACHE_GET,
             "keyType", "int",
@@ -612,7 +612,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         validateJsonResponse(ret);
 
-        IgniteCache<String, String> cache = grid(0).cache(cacheName);
+        IgniteCache<String, String> cache = ignite(0).cache(cacheName);
 
         cache.put("1", "1");
 
@@ -631,7 +631,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         ret = content(cacheName, GridRestCommand.DESTROY_CACHE);
 
         assertTrue(validateJsonResponse(ret).isNull());
-        assertNull(grid(0).cache(cacheName));
+        assertNull(ignite(0).cache(cacheName));
     }
 
     /**
@@ -723,7 +723,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testContainsKey() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_CONTAINS_KEY, "key", "key0");
 
@@ -735,8 +735,8 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testContainsKeys() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key1", "val1");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key1", "val1");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_CONTAINS_KEYS,
             "k1", "key0",
@@ -751,7 +751,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testGetAndPut() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_GET_AND_PUT,
             "key", "key0",
@@ -760,7 +760,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, "val0");
 
-        assertEquals("val1", grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertEquals("val1", ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
     }
 
     /**
@@ -768,7 +768,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testGetAndPutIfAbsent() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_GET_AND_PUT_IF_ABSENT,
             "key", "key0",
@@ -777,7 +777,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, "val0");
 
-        assertEquals("val0", grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertEquals("val0", ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
     }
 
     /**
@@ -792,7 +792,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, true);
 
-        assertEquals("val1", grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertEquals("val1", ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
     }
 
     /**
@@ -800,7 +800,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testRemoveValue() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_REMOVE_VALUE,
             "key", "key0",
@@ -809,7 +809,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, false);
 
-        assertEquals("val0", grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertEquals("val0", ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
 
         ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_REMOVE_VALUE,
             "key", "key0",
@@ -818,7 +818,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, true);
 
-        assertNull(grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertNull(ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
     }
 
     /**
@@ -826,13 +826,13 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testGetAndRemove() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_GET_AND_REMOVE, "key", "key0");
 
         assertCacheOperation(ret, "val0");
 
-        assertNull(grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertNull(ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
     }
 
     /**
@@ -840,7 +840,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testReplaceValue() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_REPLACE_VALUE,
             "key", "key0",
@@ -850,7 +850,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, false);
 
-        assertEquals("val0", grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertEquals("val0", ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
 
         ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_REPLACE_VALUE,
             "key", "key0",
@@ -860,7 +860,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, true);
 
-        assertEquals("val1", grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertEquals("val1", ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
     }
 
     /**
@@ -868,7 +868,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testGetAndReplace() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("key0", "val0");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.CACHE_GET_AND_REPLACE,
             "key", "key0",
@@ -877,7 +877,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertCacheOperation(ret, "val0");
 
-        assertEquals("val1", grid(0).cache(DEFAULT_CACHE_NAME).get("key0"));
+        assertEquals("val1", ignite(0).cache(DEFAULT_CACHE_NAME).get("key0"));
     }
 
     /**
@@ -1170,7 +1170,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         JsonNode res = validateJsonResponse(ret);
 
         assertEquals(5, res.asInt());
-        assertEquals(5, grid(0).atomicLong("incrKey", 0, true).get());
+        assertEquals(5, ignite(0).atomicLong("incrKey", 0, true).get());
 
         ret = content(DEFAULT_CACHE_NAME, GridRestCommand.ATOMIC_INCREMENT,
             "key", "incrKey",
@@ -1180,7 +1180,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         res = validateJsonResponse(ret);
 
         assertEquals(15, res.asInt());
-        assertEquals(15, grid(0).atomicLong("incrKey", 0, true).get());
+        assertEquals(15, ignite(0).atomicLong("incrKey", 0, true).get());
     }
 
     /**
@@ -1197,7 +1197,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         JsonNode res = validateJsonResponse(ret);
 
         assertEquals(5, res.asInt());
-        assertEquals(5, grid(0).atomicLong("decrKey", 0, true).get());
+        assertEquals(5, ignite(0).atomicLong("decrKey", 0, true).get());
 
         ret = content(DEFAULT_CACHE_NAME, GridRestCommand.ATOMIC_DECREMENT,
             "key", "decrKey",
@@ -1207,7 +1207,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         res = validateJsonResponse(ret);
 
         assertEquals(2, res.asInt());
-        assertEquals(2, grid(0).atomicLong("decrKey", 0, true).get());
+        assertEquals(2, ignite(0).atomicLong("decrKey", 0, true).get());
     }
 
     /**
@@ -1363,7 +1363,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testMetadataLocal() throws Exception {
-        IgniteCacheProxy<?, ?> cache = F.first(grid(0).context().cache().publicCaches());
+        IgniteCacheProxy<?, ?> cache = F.first(ignite(0).context().cache().publicCaches());
 
         assertNotNull("Should have configured public cache!", cache);
 
@@ -1408,9 +1408,9 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         CacheConfiguration<Integer, String> partialCacheCfg = new CacheConfiguration<>("partial");
 
         partialCacheCfg.setIndexedTypes(Integer.class, String.class);
-        partialCacheCfg.setNodeFilter(new NodeIdFilter(grid(1).localNode().id()));
+        partialCacheCfg.setNodeFilter(new NodeIdFilter(ignite(1).localNode().id()));
 
-        IgniteCacheProxy<Integer, String> c = (IgniteCacheProxy<Integer, String>)grid(1).createCache(partialCacheCfg);
+        IgniteCacheProxy<Integer, String> c = (IgniteCacheProxy<Integer, String>)ignite(1).createCache(partialCacheCfg);
 
         Collection<GridCacheSqlMetadata> metas = c.context().queries().sqlMetadata();
 
@@ -1464,7 +1464,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
             assertFalse(caches.isNull());
 
-            Collection<IgniteCacheProxy<?, ?>> publicCaches = grid(0).context().cache().publicCaches();
+            Collection<IgniteCacheProxy<?, ?>> publicCaches = ignite(0).context().cache().publicCaches();
 
             assertEquals(publicCaches.size(), caches.size());
 
@@ -1515,7 +1515,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         String ret = content(null, GridRestCommand.NODE,
             "attr", "true",
             "mtr", "true",
-            "id", grid(0).localNode().id().toString()
+            "id", ignite(0).localNode().id().toString()
         );
 
         info("Topology command result: " + ret);
@@ -1529,7 +1529,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertTrue(caches.isArray());
         assertFalse(caches.isNull());
-        assertEquals(grid(0).context().cache().publicCaches().size(), caches.size());
+        assertEquals(ignite(0).context().cache().publicCaches().size(), caches.size());
 
         ret = content(null, GridRestCommand.NODE,
             "attr", "false",
@@ -1559,7 +1559,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         // Check that caches not included.
         ret = content(null, GridRestCommand.NODE,
-            "id", grid(0).localNode().id().toString(),
+            "id", ignite(0).localNode().id().toString(),
             "attr", "false",
             "mtr", "false",
             "caches", "false"
@@ -1596,8 +1596,8 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         assertResponseContainsError(ret, "Unknown task name or failed to auto-deploy task (was task (re|un)deployed?)");
 
-        grid(0).compute().localDeployTask(TestTask1.class, TestTask1.class.getClassLoader());
-        grid(0).compute().localDeployTask(TestTask2.class, TestTask2.class.getClassLoader());
+        ignite(0).compute().localDeployTask(TestTask1.class, TestTask1.class.getClassLoader());
+        ignite(0).compute().localDeployTask(TestTask2.class, TestTask2.class.getClassLoader());
 
         ret = content(DEFAULT_CACHE_NAME, GridRestCommand.EXE, "name", TestTask1.class.getName());
 
@@ -1629,9 +1629,9 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testVisorGateway() throws Exception {
-        ClusterNode locNode = grid(1).localNode();
+        ClusterNode locNode = ignite(1).localNode();
 
-        final IgniteUuid cid = grid(1).context().cache().internalCache("person").context().dynamicDeploymentId();
+        final IgniteUuid cid = ignite(1).context().cache().internalCache("person").context().dynamicDeploymentId();
 
         String ret = content(new VisorGatewayArgument(VisorCacheConfigurationCollectorTask.class)
             .forNode(locNode)
@@ -1865,7 +1865,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         info("VisorCacheMetricsCollectorTask result: " + ret);
 
         ret = content(new VisorGatewayArgument(VisorCacheMetricsCollectorTask.class)
-            .forNodes(grid(1).cluster().nodes())
+            .forNodes(ignite(1).cluster().nodes())
             .argument(VisorCacheMetricsCollectorTaskArg.class, false)
             .collection(String.class, "person"));
 
@@ -2040,7 +2040,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         startGrids(gridCount());
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         initCache();
     }
@@ -2133,9 +2133,9 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      */
     @Test
     public void testQuery() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put("1", "1");
-        grid(0).cache(DEFAULT_CACHE_NAME).put("2", "2");
-        grid(0).cache(DEFAULT_CACHE_NAME).put("3", "3");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("1", "1");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("2", "2");
+        ignite(0).cache(DEFAULT_CACHE_NAME).put("3", "3");
 
         String ret = content(DEFAULT_CACHE_NAME, GridRestCommand.EXECUTE_SQL_QUERY,
             "type", "String",
@@ -2331,7 +2331,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
      * @return Cache.
      */
     protected <K, V> IgniteCache<K, V> typedCache() {
-        return grid(0).cache("test_typed_access");
+        return ignite(0).cache("test_typed_access");
     }
 
     /**
@@ -2688,7 +2688,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         for (int i = 0; i < gridCount(); ++i) {
             Map<GridRestCommand, GridRestCommandHandler> handlers =
-                GridTestUtils.getFieldValue(grid(i).context().rest(), "handlers");
+                GridTestUtils.getFieldValue(ignite(i).context().rest(), "handlers");
 
             GridRestCommandHandler qryHnd = handlers.get(GridRestCommand.CLOSE_SQL_QUERY);
 
@@ -2725,7 +2725,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
 
         personCacheCfg.setIndexedTypes(Integer.class, Person.class);
 
-        IgniteCache<Integer, Person> personCache = grid(0).getOrCreateCache(personCacheCfg);
+        IgniteCache<Integer, Person> personCache = ignite(0).getOrCreateCache(personCacheCfg);
 
         personCache.clear();
 
@@ -3174,7 +3174,7 @@ public abstract class JettyRestProcessorAbstractSelfTest extends JettyRestProces
         JsonNode res = validateJsonResponse(ret);
 
         assertEquals(exp, res.asBoolean());
-        assertEquals(exp, grid(0).cluster().active());
+        assertEquals(exp, ignite(0).cluster().active());
     }
 
     /**

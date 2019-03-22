@@ -310,7 +310,7 @@ public abstract class JdbcDynamicIndexAbstractSelfTest extends JdbcAbstractDmlSt
      * @return Cache.
      */
     private IgniteCache<String, Person> cache() {
-        return grid(0).cache(DEFAULT_CACHE_NAME);
+        return ignite(0).cache(DEFAULT_CACHE_NAME);
     }
 
     /**

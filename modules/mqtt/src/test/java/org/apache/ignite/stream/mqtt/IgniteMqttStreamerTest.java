@@ -107,7 +107,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
      */
     @SuppressWarnings("unchecked")
     @Override public void beforeTest() throws Exception {
-        grid().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
+        ignite().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
 
         // find an available local port
         try (ServerSocket ss = new ServerSocket(0)) {
@@ -144,7 +144,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
         client.connect();
 
         // create mqtt streamer
-        dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME);
+        dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME);
 
         streamer = createMqttStreamer(dataStreamer);
     }
@@ -162,7 +162,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
 
         dataStreamer.close();
 
-        grid().cache(DEFAULT_CACHE_NAME).clear();
+        ignite().cache(DEFAULT_CACHE_NAME).clear();
 
         broker.stop();
         broker.deleteAllMessages();
@@ -447,7 +447,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
 
         Thread.sleep(3000);
 
-        assertNull(grid().cache(DEFAULT_CACHE_NAME).get(50));
+        assertNull(ignite().cache(DEFAULT_CACHE_NAME).get(50));
     }
 
     /**
@@ -504,7 +504,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
      */
     private MqttStreamer<Integer, String> createMqttStreamer(IgniteDataStreamer<Integer, String> dataStreamer) {
         MqttStreamer<Integer, String> streamer = new MqttStreamer<>();
-        streamer.setIgnite(grid());
+        streamer.setIgnite(ignite());
         streamer.setStreamer(dataStreamer);
         streamer.setBrokerUrl(brokerUrl);
         streamer.setClientId(UUID.randomUUID().toString());
@@ -565,7 +565,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
      * @return Latch to be counted down in listener.
      */
     private CountDownLatch subscribeToPutEvents(int expect) {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         // Listen to cache PUT events and expect as many as messages as test data items
         final CountDownLatch latch = new CountDownLatch(expect);
@@ -589,7 +589,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
      */
     private void assertCacheEntriesLoaded(int cnt) {
         // get the cache and check that the entries are present
-        IgniteCache<Integer, String> cache = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, String> cache = ignite().cache(DEFAULT_CACHE_NAME);
 
         // for each key from 0 to count from the TEST_DATA (ordered by key), check that the entry is present in cache
         for (Integer key : new ArrayList<>(new TreeSet<>(TEST_DATA.keySet())).subList(0, cnt))
@@ -599,7 +599,7 @@ public class IgniteMqttStreamerTest extends GridCommonAbstractTest {
         assertEquals(cnt, cache.size(CachePeekMode.ALL));
 
         // remove the event listener
-        grid().events(grid().cluster().forCacheNodes(DEFAULT_CACHE_NAME)).stopRemoteListen(remoteLsnr);
+        ignite().events(ignite().cluster().forCacheNodes(DEFAULT_CACHE_NAME)).stopRemoteListen(remoteLsnr);
     }
 
     /**

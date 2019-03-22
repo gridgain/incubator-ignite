@@ -54,14 +54,14 @@ public class GridCacheRebalancingAsyncSelfTest extends GridCacheRebalancingSyncS
 
         startGrid(1);
 
-        GridDhtPartitionDemander.RebalanceFuture fut = (GridDhtPartitionDemander.RebalanceFuture)grid(1).context().
+        GridDhtPartitionDemander.RebalanceFuture fut = (GridDhtPartitionDemander.RebalanceFuture)ignite(1).context().
             cache().internalCache(CACHE_NAME_DHT_REPLICATED).preloader().rebalanceFuture();
 
         fut.get();
 
         U.sleep(10);
 
-        ((TestTcpDiscoverySpi)grid(1).configuration().getDiscoverySpi()).simulateNodeFailure();
+        ((TestTcpDiscoverySpi)ignite(1).configuration().getDiscoverySpi()).simulateNodeFailure();
 
         awaitPartitionMapExchange(false, false, Collections.singletonList(ignite.localNode()));
 

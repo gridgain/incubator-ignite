@@ -62,16 +62,16 @@ public class IgniteCacheP2pUnmarshallingRebalanceErrorTest extends IgniteCacheP2
 
         startGrid(10); // Custom rebalanceDelay set at cfg.
 
-        Affinity<Object> aff = affinity(grid(10).cache(DEFAULT_CACHE_NAME));
+        Affinity<Object> aff = affinity(ignite(10).cache(DEFAULT_CACHE_NAME));
 
-        GridCacheContext cctx = grid(10).context().cache().cache(DEFAULT_CACHE_NAME).context();
+        GridCacheContext cctx = ignite(10).context().cache().cache(DEFAULT_CACHE_NAME).context();
 
         List<List<ClusterNode>> affAssign =
             cctx.affinity().assignment(cctx.affinity().affinityTopologyVersion()).idealAssignment();
 
         Integer part = null;
 
-        ClusterNode node = grid(10).localNode();
+        ClusterNode node = ignite(10).localNode();
 
         for (int p = 0; p < aff.partitions(); p++) {
             if (affAssign.get(p).get(0).equals(node)) {

@@ -79,8 +79,8 @@ public class GridNodeMetricsLogSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNodeMetricsLog() throws Exception {
-        IgniteCache<Integer, String> cache1 = grid(0).createCache("TestCache1");
-        IgniteCache<Integer, String> cache2 = grid(1).createCache("TestCache2");
+        IgniteCache<Integer, String> cache1 = ignite(0).createCache("TestCache1");
+        IgniteCache<Integer, String> cache2 = ignite(1).createCache("TestCache2");
 
         cache1.put(1, "one");
         cache2.put(2, "two");
@@ -161,7 +161,7 @@ public class GridNodeMetricsLogSelfTest extends GridCommonAbstractTest {
 
         assertTrue("Off-heap metrics have unexpected format.", summaryFmtMatches);
 
-        Set<String> expRegions = grid(0).context().cache().context().database().dataRegions().stream()
+        Set<String> expRegions = ignite(0).context().cache().context().database().dataRegions().stream()
             .map(v -> v.config().getName().trim())
             .collect(Collectors.toSet());
 

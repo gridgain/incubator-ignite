@@ -198,7 +198,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
     public void testFillWalAndReadRecords() throws Exception {
         setWalAndArchiveToSameVal = false;
 
-        Ignite ignite0 = startGrid();
+        Ignite ignite0 = clusterManager__startGrid();
 
         ignite0.cluster().active(true);
 
@@ -314,7 +314,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
     private boolean checkWhetherWALRelatedEventFired(int evtType) throws Exception {
         AtomicBoolean evtRecorded = new AtomicBoolean();
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -356,7 +356,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
 
         archiveIncompleteSegmentAfterInactivityMs = 1000;
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -401,7 +401,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
 
         CountDownLatch reqSegments = new CountDownLatch(15);
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -482,7 +482,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTxFillWalAndExtractDataRecords() throws Exception {
-        Ignite ignite0 = startGrid();
+        Ignite ignite0 = clusterManager__startGrid();
 
         ignite0.cluster().active(true);
 
@@ -584,7 +584,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
      */
     @Test
     public void testFillWalWithDifferentTypes() throws Exception {
-        Ignite ig = startGrid();
+        Ignite ig = clusterManager__startGrid();
 
         ig.cluster().active(true);
 
@@ -781,7 +781,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
     public void testReadEmptyWal() throws Exception {
         customWalMode = WALMode.FSYNC;
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -923,7 +923,7 @@ public class IgniteWalReaderTest extends GridCommonAbstractTest {
      * @throws Exception if failed.
      */
     private void runRemoveOperationTest(CacheAtomicityMode mode) throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 

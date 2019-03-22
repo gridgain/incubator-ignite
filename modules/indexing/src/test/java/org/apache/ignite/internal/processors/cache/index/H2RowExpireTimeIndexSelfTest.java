@@ -62,7 +62,7 @@ public class H2RowExpireTimeIndexSelfTest extends GridCommonAbstractTest {
      */
     @Before
     public void dropTestCache() {
-        grid(0).destroyCache("notEager");
+        ignite(0).destroyCache("notEager");
     }
 
     /**
@@ -82,7 +82,7 @@ public class H2RowExpireTimeIndexSelfTest extends GridCommonAbstractTest {
                     .setIndexes(Collections.singleton(new QueryIndex("val")))
                     .setTableName("Integer")));
 
-        IgniteCache<Integer, Integer> cache = grid(0).createCache(ccfg);
+        IgniteCache<Integer, Integer> cache = ignite(0).createCache(ccfg);
 
         return cache;
     }

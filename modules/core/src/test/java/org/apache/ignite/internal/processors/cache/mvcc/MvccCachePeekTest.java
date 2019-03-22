@@ -69,7 +69,7 @@ public class MvccCachePeekTest extends CacheMvccAbstractTest {
 
     /** */
     private void doWithCache(ThrowingRunnable action) throws Exception {
-        cache = grid(0).getOrCreateCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
+        cache = ignite(0).getOrCreateCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
             .setAtomicityMode(TRANSACTIONAL_SNAPSHOT)
             .setBackups(1)
             .setCacheMode(cacheMode()));
@@ -103,7 +103,7 @@ public class MvccCachePeekTest extends CacheMvccAbstractTest {
 
         cache.put(pk, 1);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             cache.put(pk, 2);
 
             tx.rollback();
@@ -122,7 +122,7 @@ public class MvccCachePeekTest extends CacheMvccAbstractTest {
         CountDownLatch checkCompleted = new CountDownLatch(1);
 
         IgniteInternalFuture<Object> fut = GridTestUtils.runAsync(() -> {
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 cache.put(pk, 2);
 
                 writeCompleted.countDown();

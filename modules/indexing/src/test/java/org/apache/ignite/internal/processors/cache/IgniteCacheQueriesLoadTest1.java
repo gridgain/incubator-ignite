@@ -180,7 +180,7 @@ public class IgniteCacheQueriesLoadTest1 extends AbstractIndexingCommonTest {
      * @throws Exception If failed.
      */
     private void runQueries(int threads, final boolean checkBalance, final long time) throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         GridTestUtils.runMultiThreaded(new Callable<Object>() {
             @Override public Object call() {

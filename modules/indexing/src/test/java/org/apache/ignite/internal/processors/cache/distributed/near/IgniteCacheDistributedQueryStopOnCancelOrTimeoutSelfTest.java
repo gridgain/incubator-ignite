@@ -248,7 +248,7 @@ public class IgniteCacheDistributedQueryStopOnCancelOrTimeoutSelfTest extends Gr
      */
     private void checkCleanState() throws IgniteCheckedException {
         for (int i = 0; i < GRIDS_CNT; i++) {
-            IgniteEx grid = grid(i);
+            IgniteEx grid = ignite(i);
 
             // Validate everything was cleaned up.
             ConcurrentMap<UUID, ?> map = U.field(((IgniteH2Indexing)U.field((GridProcessor)U.field(

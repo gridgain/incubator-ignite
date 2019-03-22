@@ -55,11 +55,11 @@ public class IgniteClientReconnectBinaryContexTest extends IgniteClientReconnect
      */
     @Test
     public void testReconnectCleaningUsersMetadata() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
-        Ignite srv = grid(0);
+        Ignite srv = ignite(0);
 
         CacheConfiguration<Integer, UserClass> cacheCfg = new CacheConfiguration<Integer, UserClass>()
             .setName(DEFAULT_CACHE_NAME)

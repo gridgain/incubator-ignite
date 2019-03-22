@@ -84,7 +84,7 @@ public class IgniteWALTailIsReachedDuringIterationOverArchiveTest extends GridCo
 
         cleanPersistenceDir();
 
-        Ignite ig = startGrid();
+        Ignite ig = clusterManager__startGrid();
 
         ig.cluster().active(true);
 
@@ -113,7 +113,7 @@ public class IgniteWALTailIsReachedDuringIterationOverArchiveTest extends GridCo
      */
     @Test
     public void testStandAloneIterator() throws Exception {
-        IgniteEx ig = grid();
+        IgniteEx ig = ignite();
 
         IgniteWriteAheadLogManager wal = ig.context().cache().context().wal();
 
@@ -129,7 +129,7 @@ public class IgniteWALTailIsReachedDuringIterationOverArchiveTest extends GridCo
      */
     @Test
     public void testWALManagerIterator() throws Exception {
-        IgniteEx ig = grid();
+        IgniteEx ig = ignite();
 
         IgniteWriteAheadLogManager wal = ig.context().cache().context().wal();
 

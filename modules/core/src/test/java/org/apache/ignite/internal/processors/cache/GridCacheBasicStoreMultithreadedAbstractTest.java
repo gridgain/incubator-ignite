@@ -111,7 +111,7 @@ public abstract class GridCacheBasicStoreMultithreadedAbstractTest extends GridC
             }
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         final IgniteCache<Integer, Integer> cache = jcache();
 

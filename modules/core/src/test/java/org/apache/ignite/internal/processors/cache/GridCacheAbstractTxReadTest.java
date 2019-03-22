@@ -110,7 +110,7 @@ public abstract class GridCacheAbstractTxReadTest extends GridCacheAbstractSelfT
 
         cache.clear();
 
-        Transaction tx = grid(0).transactions().txStart(concurrency, isolation);
+        Transaction tx = ignite(0).transactions().txStart(concurrency, isolation);
 
         try {
             cache.put("key", 1);
@@ -126,7 +126,7 @@ public abstract class GridCacheAbstractTxReadTest extends GridCacheAbstractSelfT
         assertEquals("Invalid cache size after put", 1, cache.size());
 
         try {
-            tx = grid(0).transactions().txStart(concurrency, isolation);
+            tx = ignite(0).transactions().txStart(concurrency, isolation);
 
             assertEquals("Invalid value inside transactional read", Integer.valueOf(1), cache.get("key"));
 

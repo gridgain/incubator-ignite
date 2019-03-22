@@ -57,7 +57,7 @@ public class ComputeUtilsTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTest() {
         /* Grid instance. */
-        ignite = grid(NODE_COUNT);
+        ignite = ignite(NODE_COUNT);
         ignite.configuration().setPeerClassLoadingEnabled(true);
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
     }
@@ -67,8 +67,8 @@ public class ComputeUtilsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAffinityCallWithRetriesNegative() {
-        ClusterNode node1 = grid(1).cluster().localNode();
-        ClusterNode node2 = grid(2).cluster().localNode();
+        ClusterNode node1 = ignite(1).cluster().localNode();
+        ClusterNode node2 = ignite(2).cluster().localNode();
 
         String firstCacheName = "CACHE_1_" + UUID.randomUUID();
         String secondCacheName = "CACHE_2_" + UUID.randomUUID();
@@ -109,7 +109,7 @@ public class ComputeUtilsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAffinityCallWithRetriesPositive() {
-        ClusterNode node = grid(1).cluster().localNode();
+        ClusterNode node = ignite(1).cluster().localNode();
 
         String firstCacheName = "CACHE_1_" + UUID.randomUUID();
         String secondCacheName = "CACHE_2_" + UUID.randomUUID();
@@ -149,7 +149,7 @@ public class ComputeUtilsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testGetData() {
-        ClusterNode node = grid(1).cluster().localNode();
+        ClusterNode node = ignite(1).cluster().localNode();
 
         String upstreamCacheName = "CACHE_1_" + UUID.randomUUID();
         String datasetCacheName = "CACHE_2_" + UUID.randomUUID();
@@ -210,7 +210,7 @@ public class ComputeUtilsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testInitContext() {
-        ClusterNode node = grid(1).cluster().localNode();
+        ClusterNode node = ignite(1).cluster().localNode();
 
         String upstreamCacheName = "CACHE_1_" + UUID.randomUUID();
         String datasetCacheName = "CACHE_2_" + UUID.randomUUID();

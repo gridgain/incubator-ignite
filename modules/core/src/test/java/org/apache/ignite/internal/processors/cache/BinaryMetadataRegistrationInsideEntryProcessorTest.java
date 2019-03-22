@@ -109,7 +109,7 @@ public class BinaryMetadataRegistrationInsideEntryProcessorTest extends GridComm
     public void testContinuousQueryAndBinaryObjectBuilder() throws Exception {
         startGrids(3).cluster().active(true);
 
-        grid(0).createCache(new CacheConfiguration<>()
+        ignite(0).createCache(new CacheConfiguration<>()
             .setName(CACHE_NAME)
             .setAtomicityMode(ATOMIC)
             .setBackups(2)
@@ -183,7 +183,7 @@ public class BinaryMetadataRegistrationInsideEntryProcessorTest extends GridComm
             }
         });
 
-        doSleep(10_000);
+        GridTestUtils.doSleep(10_000);
 
         stop.set(true);
 

@@ -394,7 +394,7 @@ public abstract class AbstractQueryTableLockAndConnectionPoolSelfTest extends Ab
      * @throws Exception If failed.
      */
     public void checkSingleNode(int parallelism) throws Exception {
-        Ignite srv = startGrid();
+        Ignite srv = clusterManager__startGrid();
 
         populateBaseQueryData(srv, parallelism);
 

@@ -152,7 +152,7 @@ public class AffinityKeyNameAndValueFieldNameConflictTest extends GridCommonAbst
     private void checkQuery() throws Exception {
         startGrid(2);
 
-        Ignite g = grid(2);
+        Ignite g = ignite(2);
 
         IgniteCache<Object, Object> personCache = g.cache(PERSON_CACHE);
 

@@ -185,7 +185,7 @@ public abstract class GridRollingRestartAbstractTest extends GridCommonAbstractT
 
         /** {@inheritDoc} */
         @Override public void run() {
-            Ignite ignite = grid(0);
+            Ignite ignite = ignite(0);
 
             ignite.log().info(getName() + ": started.");
 
@@ -264,7 +264,7 @@ public abstract class GridRollingRestartAbstractTest extends GridCommonAbstractT
          *
          * @return Index of the next grid to start.
          * @see #currRestartGridId
-         * @see GridRollingRestartAbstractTest#grid(int)
+         * @see GridRollingRestartAbstractTest#ignite(int)
          */
         protected int nextGridToRestart() {
             if (currRestartGridId == serverCount())
@@ -279,7 +279,7 @@ public abstract class GridRollingRestartAbstractTest extends GridCommonAbstractT
          * Start the Grid at the given index.
          *
          * @param idx Index of Grid to start.
-         * @see GridRollingRestartAbstractTest#grid(int)
+         * @see GridRollingRestartAbstractTest#ignite(int)
          */
         protected void startGrid(int idx) {
             try {
@@ -294,10 +294,10 @@ public abstract class GridRollingRestartAbstractTest extends GridCommonAbstractT
          * Stop the process for the Grid at the given index.
          *
          * @param idx Index of Grid to stop.
-         * @see GridRollingRestartAbstractTest#grid(int)
+         * @see GridRollingRestartAbstractTest#ignite(int)
          */
         protected void stopGrid(int idx) {
-            Ignite remote = grid(idx);
+            Ignite remote = ignite(idx);
 
             assert remote instanceof IgniteProcessProxy : remote;
 
@@ -306,11 +306,11 @@ public abstract class GridRollingRestartAbstractTest extends GridCommonAbstractT
             int pid = proc.getProcess().getPid();
 
             try {
-                grid(0).log().info(String.format("Killing grid id %d with PID %d", idx, pid));
+                ignite(0).log().info(String.format("Killing grid id %d with PID %d", idx, pid));
 
                 IgniteProcessProxy.kill(proc.name());
 
-                grid(0).log().info(String.format("Grid id %d with PID %d stopped", idx, pid));
+                ignite(0).log().info(String.format("Grid id %d with PID %d stopped", idx, pid));
             }
             catch (Exception e) {
                 throw new RuntimeException(e);

@@ -208,7 +208,7 @@ public class TcpCommunicationSpiFaultyClientTest extends GridCommonAbstractTest 
             // Need to wait for PME to avoid opening new connections during closing idle connections.
             awaitPartitionMapExchange();
 
-            CommunicationSpi commSpi = grid(0).configuration().getCommunicationSpi();
+            CommunicationSpi commSpi = ignite(0).configuration().getCommunicationSpi();
 
             ConcurrentMap<UUID, GridCommunicationClient[]> clients = U.field(commSpi, "clients");
 
@@ -227,7 +227,7 @@ public class TcpCommunicationSpiFaultyClientTest extends GridCommonAbstractTest 
 
             final CountDownLatch latch = new CountDownLatch(1);
 
-            grid(0).events().localListen(new IgnitePredicate<Event>() {
+            ignite(0).events().localListen(new IgnitePredicate<Event>() {
                 @Override public boolean apply(Event evt) {
                     latch.countDown();
 
@@ -240,7 +240,7 @@ public class TcpCommunicationSpiFaultyClientTest extends GridCommonAbstractTest 
             long t1 = U.currentTimeMillis();
 
             try {
-                grid(0).compute(grid(0).cluster().forClients()).withNoFailover().broadcast(new IgniteRunnable() {
+                ignite(0).compute(ignite(0).cluster().forClients()).withNoFailover().broadcast(new IgniteRunnable() {
                     @Override public void run() {
                         // No-op.
                     }
@@ -258,16 +258,16 @@ public class TcpCommunicationSpiFaultyClientTest extends GridCommonAbstractTest 
 
             assertTrue(GridTestUtils.waitForCondition(new GridAbsPredicate() {
                 @Override public boolean apply() {
-                    return grid(0).cluster().forClients().nodes().size() == 1;
+                    return ignite(0).cluster().forClients().nodes().size() == 1;
                 }
             }, 5000));
 
             for (int i = 0; i < 5; i++) {
                 U.sleep(1000);
 
-                log.info("Check topology (" + (i + 1) + "): " + grid(0).cluster().nodes());
+                log.info("Check topology (" + (i + 1) + "): " + ignite(0).cluster().nodes());
 
-                assertEquals(1, grid(0).cluster().forClients().nodes().size());
+                assertEquals(1, ignite(0).cluster().forClients().nodes().size());
             }
         }
         finally {

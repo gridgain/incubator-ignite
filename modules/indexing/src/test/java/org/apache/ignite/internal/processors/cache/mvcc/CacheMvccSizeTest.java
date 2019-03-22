@@ -71,7 +71,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
     /** */
     private void checkSizeModificationByOperation(Consumer<IgniteCache<?, ?>> beforeTx,
         Consumer<IgniteCache<?, ?>> inTx, boolean commit, int expSizeDelta) throws Exception {
-        IgniteCache<Object, Object> tbl0 = grid(0).cache("person");
+        IgniteCache<Object, Object> tbl0 = ignite(0).cache("person");
 
         tbl0.query(q("delete from person"));
 
@@ -92,10 +92,10 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
             tbl0.query(q("rollback"));
 
         assertEquals(expSizeDelta, tbl0.size() - initSize);
-        assertEquals(tbl0.size(), table(grid(1)).size());
+        assertEquals(tbl0.size(), table(ignite(1)).size());
 
         assertEquals(tbl0.size(), tbl0.size(BACKUP));
-        assertEquals(tbl0.size(), table(grid(1)).size(BACKUP));
+        assertEquals(tbl0.size(), table(ignite(1)).size(BACKUP));
     }
 
     /**
@@ -105,7 +105,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
     public void testSql() throws Exception {
         startGridsMultiThreaded(2);
 
-        createTable(grid(0));
+        createTable(ignite(0));
 
         checkSizeModificationByOperation("insert into person values(1, 'a')", true, 1);
 
@@ -162,9 +162,9 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
         checkSizeModificationByOperation(personTbl -> {
             personTbl.query(q("insert into person values(1, 'a')"));
 
-            personTbl.query(q("insert into person values(%d, 'b')", keyInSamePartition(grid(0), "person", 1)));
+            personTbl.query(q("insert into person values(%d, 'b')", keyInSamePartition(ignite(0), "person", 1)));
 
-            personTbl.query(q("insert into person values(%d, 'c')", keyInDifferentPartition(grid(0), "person", 1)));
+            personTbl.query(q("insert into person values(%d, 'c')", keyInDifferentPartition(ignite(0), "person", 1)));
         }, true, 3);
 
         checkSizeModificationByOperation(personTbl -> {
@@ -219,7 +219,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
     public void testInsertDeleteConcurrent() throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteCache<?, ?> tbl0 = createTable(grid(0));
+        IgniteCache<?, ?> tbl0 = createTable(ignite(0));
 
         SqlFieldsQuery insert = new SqlFieldsQuery("insert into person(id, name) values(?, 'a')");
 
@@ -246,10 +246,10 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
         int expSize = insertFut.join() - deleteFut.join();
 
         assertEquals(expSize, tbl0.size());
-        assertEquals(expSize, table(grid(1)).size());
+        assertEquals(expSize, table(ignite(1)).size());
 
         assertEquals(expSize, tbl0.size(BACKUP));
-        assertEquals(expSize, table(grid(1)).size(BACKUP));
+        assertEquals(expSize, table(ignite(1)).size(BACKUP));
     }
 
     /** */
@@ -268,7 +268,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
     public void testWriteConflictDoesNotChangeSize() throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteCache<?, ?> tbl0 = createTable(grid(0));
+        IgniteCache<?, ?> tbl0 = createTable(ignite(0));
 
         tbl0.query(q("insert into person values(1, 'a')"));
 
@@ -309,10 +309,10 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
         }
 
         assertEquals(0, tbl0.size());
-        assertEquals(0, table(grid(1)).size());
+        assertEquals(0, table(ignite(1)).size());
 
         assertEquals(0, tbl0.size(BACKUP));
-        assertEquals(0, table(grid(1)).size(BACKUP));
+        assertEquals(0, table(ignite(1)).size(BACKUP));
     }
 
     /**
@@ -322,7 +322,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
     public void testDeleteChangesSizeAfterUnlock() throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteCache<?, ?> tbl0 = createTable(grid(0));
+        IgniteCache<?, ?> tbl0 = createTable(ignite(0));
 
         tbl0.query(q("insert into person values(1, 'a')"));
 
@@ -356,10 +356,10 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
         fut.join();
 
         assertEquals(0, tbl0.size());
-        assertEquals(0, table(grid(1)).size());
+        assertEquals(0, table(ignite(1)).size());
 
         assertEquals(0, tbl0.size(BACKUP));
-        assertEquals(0, table(grid(1)).size(BACKUP));
+        assertEquals(0, table(ignite(1)).size(BACKUP));
     }
 
     /**
@@ -369,7 +369,7 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
     public void testDataStreamerModifiesReplicatedCacheSize() throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         ignite.createCache(
             new CacheConfiguration<>("test")
@@ -385,11 +385,11 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
 
         assertEquals(2, ignite.cache("test").size());
 
-        assertEquals(1, grid(0).cache("test").localSize());
-        assertEquals(1, grid(0).cache("test").localSize(BACKUP));
+        assertEquals(1, ignite(0).cache("test").localSize());
+        assertEquals(1, ignite(0).cache("test").localSize(BACKUP));
 
-        assertEquals(1, grid(1).cache("test").localSize());
-        assertEquals(1, grid(1).cache("test").localSize(BACKUP));
+        assertEquals(1, ignite(1).cache("test").localSize());
+        assertEquals(1, ignite(1).cache("test").localSize(BACKUP));
     }
 
     /**
@@ -408,8 +408,8 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
 
         awaitPartitionMapExchange();
 
-        IgniteCache<?, ?> tbl0 = grid(0).cache("person");
-        IgniteCache<?, ?> tbl1 = grid(1).cache("person");
+        IgniteCache<?, ?> tbl0 = ignite(0).cache("person");
+        IgniteCache<?, ?> tbl1 = ignite(1).cache("person");
 
         assert tbl0.localSize() != 0 && tbl1.localSize() != 0;
 
@@ -439,8 +439,8 @@ public class CacheMvccSizeTest extends CacheMvccAbstractTest {
 
         awaitPartitionMapExchange();
 
-        IgniteCache<?, ?> tbl0 = grid(0).cache("person");
-        IgniteCache<?, ?> tbl1 = grid(1).cache("person");
+        IgniteCache<?, ?> tbl0 = ignite(0).cache("person");
+        IgniteCache<?, ?> tbl1 = ignite(1).cache("person");
 
         assert tbl0.localSize() != 0 && tbl1.localSize() != 0;
 

@@ -100,9 +100,9 @@ public class GridCachePartitionedLoadCacheSelfTest extends GridCommonAbstractTes
             else
                 cache.localLoadCache(null, PUT_CNT);
 
-            Affinity<Integer> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+            Affinity<Integer> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
-            int[] parts = aff.allPartitions(grid(0).localNode());
+            int[] parts = aff.allPartitions(ignite(0).localNode());
 
             int cnt1 = 0;
 
@@ -115,7 +115,7 @@ public class GridCachePartitionedLoadCacheSelfTest extends GridCommonAbstractTes
 
             int cnt2 = 0;
 
-            ClusterNode locNode = grid(0).localNode();
+            ClusterNode locNode = ignite(0).localNode();
 
             for (Cache.Entry<Integer, String> e : this.<Integer, String>jcache(0).localEntries()) {
                 assert aff.isPrimary(locNode, e.getKey()) ||

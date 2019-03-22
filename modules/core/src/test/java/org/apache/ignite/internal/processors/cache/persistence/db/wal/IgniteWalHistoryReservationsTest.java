@@ -197,7 +197,7 @@ public class IgniteWalHistoryReservationsTest extends GridCommonAbstractTest {
             boolean reserved = GridTestUtils.waitForCondition(new GridAbsPredicate() {
                 @Override public boolean apply() {
                     for (int g = 0; g < initGridCnt; g++) {
-                        IgniteEx ig = grid(g);
+                        IgniteEx ig = ignite(g);
 
                         if (isReserveListEmpty(ig))
                             return false;
@@ -216,7 +216,7 @@ public class IgniteWalHistoryReservationsTest extends GridCommonAbstractTest {
         boolean released = GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 for (int g = 0; g < initGridCnt; g++) {
-                    IgniteEx ig = grid(g);
+                    IgniteEx ig = ignite(g);
 
                     if (isReserveListEmpty(ig))
                         return false;
@@ -453,7 +453,7 @@ public class IgniteWalHistoryReservationsTest extends GridCommonAbstractTest {
             boolean reserved = GridTestUtils.waitForCondition(new GridAbsPredicate() {
                 @Override public boolean apply() {
                     for (int g = 0; g < initGridCnt; g++) {
-                        IgniteEx ig = grid(g);
+                        IgniteEx ig = ignite(g);
 
                         if (isReserveListEmpty(ig))
                             return false;
@@ -474,7 +474,7 @@ public class IgniteWalHistoryReservationsTest extends GridCommonAbstractTest {
         boolean released = GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 for (int g = 0; g < initGridCnt - 1; g++) {
-                    IgniteEx ig = grid(g);
+                    IgniteEx ig = ignite(g);
 
                     if (isReserveListEmpty(ig))
                         return false;

@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.junit.Test;
@@ -101,12 +102,9 @@ public class GridCachePartitionedAtomicSequenceTxSelfTest extends GridCommonAbst
         ignite(0).atomicSequence(SEQ_NAME, 0, true);
 
         for (int i = 0; i < THREAD_NUM; i++) {
-            multithreaded(new Runnable() {
-                @Override public void run() {
-                    ignite(0).compute().run(new IncrementClosure());
-
-                }
-            }, THREAD_NUM);
+            GridTestUtils.runMultiThreaded(() -> {
+                ignite(0).compute().run(new IncrementClosure());
+            }, THREAD_NUM, getTestIgniteInstanceName());
         }
     }
 

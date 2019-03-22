@@ -51,7 +51,7 @@ public class GridCacheLoadOnlyStoreAdapterSelfTest extends GridCommonAbstractTes
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).destroyCache(DEFAULT_CACHE_NAME);
+        ignite(0).destroyCache(DEFAULT_CACHE_NAME);
 
         super.afterTest();
     }
@@ -84,7 +84,7 @@ public class GridCacheLoadOnlyStoreAdapterSelfTest extends GridCommonAbstractTes
 
         store = new TestStore(inputSize);
 
-        IgniteCache<?, ?> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<?, ?> cache = ignite(0).createCache(cacheConfiguration());
 
         cache.localLoadCache(null, 1, 2, 3);
 
@@ -104,7 +104,7 @@ public class GridCacheLoadOnlyStoreAdapterSelfTest extends GridCommonAbstractTes
         store.setBatchQueueSize(1);
         store.setThreadsCount(2);
 
-        IgniteCache<?, ?> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<?, ?> cache = ignite(0).createCache(cacheConfiguration());
 
         cache.localLoadCache(null, 1, 2, 3);
 

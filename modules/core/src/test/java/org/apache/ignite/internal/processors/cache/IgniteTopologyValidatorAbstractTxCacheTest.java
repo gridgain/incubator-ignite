@@ -45,17 +45,17 @@ public abstract class IgniteTopologyValidatorAbstractTxCacheTest extends IgniteT
     /** {@inheritDoc} */
     @Test
     @Override public void testTopologyValidator() throws Exception {
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putInvalid(CACHE_NAME_1);
         }
 
         if (!MvccFeatureChecker.forcedMvcc()) {
-            try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
                 putValid(CACHE_NAME_1);
                 commitFailed(tx);
             }
 
-            try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
                 putValid(CACHE_NAME_1);
                 putValid(DEFAULT_CACHE_NAME);
                 putValid(CACHE_NAME_2);
@@ -67,7 +67,7 @@ public abstract class IgniteTopologyValidatorAbstractTxCacheTest extends IgniteT
         assertEmpty(CACHE_NAME_1); // rolled back
         assertEmpty(CACHE_NAME_2); // rolled back
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putValid(DEFAULT_CACHE_NAME);
             putInvalid(CACHE_NAME_1);
         }
@@ -77,14 +77,14 @@ public abstract class IgniteTopologyValidatorAbstractTxCacheTest extends IgniteT
 
         startGrid(1);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putValid(CACHE_NAME_1);
             tx.commit();
         }
 
         remove(CACHE_NAME_1);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putValid(CACHE_NAME_1);
             tx.commit();
         }
@@ -93,7 +93,7 @@ public abstract class IgniteTopologyValidatorAbstractTxCacheTest extends IgniteT
 
         startGrid(2);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putValid(DEFAULT_CACHE_NAME);
             putInvalid(CACHE_NAME_1);
         }
@@ -102,18 +102,18 @@ public abstract class IgniteTopologyValidatorAbstractTxCacheTest extends IgniteT
         assertEmpty(CACHE_NAME_1); // rolled back
 
         if (!MvccFeatureChecker.forcedMvcc()) {
-            try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
                 putValid(CACHE_NAME_1);
                 commitFailed(tx);
             }
         }
 
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putInvalid(CACHE_NAME_1);
         }
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putValid(DEFAULT_CACHE_NAME);
             putValid(CACHE_NAME_2);
             tx.commit();
@@ -122,7 +122,7 @@ public abstract class IgniteTopologyValidatorAbstractTxCacheTest extends IgniteT
         remove(DEFAULT_CACHE_NAME);
         remove(CACHE_NAME_2);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             putValid(DEFAULT_CACHE_NAME);
             putValid(CACHE_NAME_2);
             tx.commit();

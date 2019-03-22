@@ -156,11 +156,11 @@ public class IgniteClientAffinityAssignmentSelfTest extends GridCommonAbstractTe
     private void checkAffinity(long topVer) throws Exception {
         awaitTopology(topVer);
 
-        Affinity<Object> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+        Affinity<Object> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
         for (Ignite grid : Ignition.allGrids()) {
             try {
-                if (grid.cluster().localNode().id().equals(grid(0).localNode().id()))
+                if (grid.cluster().localNode().id().equals(ignite(0).localNode().id()))
                     continue;
 
                 Affinity<Object> checkAff = grid.affinity(DEFAULT_CACHE_NAME);

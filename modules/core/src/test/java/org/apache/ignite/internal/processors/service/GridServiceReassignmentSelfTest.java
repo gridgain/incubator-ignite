@@ -95,7 +95,7 @@ public class GridServiceReassignmentSelfTest extends GridServiceProcessorAbstrac
 
         DummyService.exeLatch(SERVICE_NAME, latch);
 
-        grid(0).services().deployMultiple(SERVICE_NAME, new CounterServiceImpl(), total, maxPerNode);
+        ignite(0).services().deployMultiple(SERVICE_NAME, new CounterServiceImpl(), total, maxPerNode);
 
         for (int i = 0; i < 10; i++)
             proxy(randomGrid()).increment();
@@ -142,7 +142,7 @@ public class GridServiceReassignmentSelfTest extends GridServiceProcessorAbstrac
             }
         }
         finally {
-            grid(F.first(startedGrids)).services().cancel(SERVICE_NAME);
+            ignite(F.first(startedGrids)).services().cancel(SERVICE_NAME);
 
             stopAllGrids();
 
@@ -161,7 +161,7 @@ public class GridServiceReassignmentSelfTest extends GridServiceProcessorAbstrac
      * @return {@code True} if check passed.
      */
     private boolean checkServices(int total, int maxPerNode, int gridIdx, boolean lastTry) throws Exception {
-        IgniteEx grid = grid(gridIdx);
+        IgniteEx grid = ignite(gridIdx);
 
         waitForServicesReadyTopology(grid, grid.context().discovery().topologyVersionEx());
 

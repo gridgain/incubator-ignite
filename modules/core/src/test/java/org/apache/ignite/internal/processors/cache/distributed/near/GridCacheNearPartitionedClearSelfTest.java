@@ -98,7 +98,7 @@ public class GridCacheNearPartitionedClearSelfTest extends GridCommonAbstractTes
     public void testClear() throws Exception {
         IgniteCache cache = cacheForIndex(0);
 
-        int key = primaryKey0(grid(0), cache);
+        int key = primaryKey0(ignite(0), cache);
 
         cache.put(key, 1);
         cache.clear();
@@ -142,6 +142,6 @@ public class GridCacheNearPartitionedClearSelfTest extends GridCommonAbstractTes
      * @return Cache.
      */
     private IgniteCache cacheForIndex(int idx) {
-        return grid(idx).cache(CACHE_NAME);
+        return ignite(idx).cache(CACHE_NAME);
     }
 }

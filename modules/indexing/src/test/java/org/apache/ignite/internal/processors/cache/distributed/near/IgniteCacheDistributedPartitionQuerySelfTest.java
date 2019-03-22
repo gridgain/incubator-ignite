@@ -33,49 +33,49 @@ public class IgniteCacheDistributedPartitionQuerySelfTest extends IgniteCacheDis
     /** Tests query within region. */
     @Test
     public void testRegionQuery() {
-        doTestRegionQuery(grid(0));
+        doTestRegionQuery(ignite(0));
     }
 
     /** Tests query within region (client). */
     @Test
     public void testRegionQueryClient() throws Exception {
-        doTestRegionQuery(grid("client"));
+        doTestRegionQuery(ignite("client"));
     }
 
     /** Test query within partitions. */
     @Test
     public void testPartitionsQuery() {
-        doTestPartitionsQuery(grid(0));
+        doTestPartitionsQuery(ignite(0));
     }
 
     /** Test query within partitions (client). */
     @Test
     public void testPartitionsQueryClient() throws Exception {
-        doTestPartitionsQuery(grid("client"));
+        doTestPartitionsQuery(ignite("client"));
     }
 
     /** Tests join query within region. */
     @Test
     public void testJoinQuery() {
-        doTestJoinQuery(grid(0));
+        doTestJoinQuery(ignite(0));
     }
 
     /** Tests join query within region. */
     @Test
     public void testJoinQueryClient() throws Exception {
-        doTestJoinQuery(grid("client"));
+        doTestJoinQuery(ignite("client"));
     }
 
     /** Tests local query over partitions. */
     @Test
     public void testLocalQuery() {
-        Affinity<Object> affinity = grid(0).affinity("cl");
+        Affinity<Object> affinity = ignite(0).affinity("cl");
 
-        int[] parts = affinity.primaryPartitions(grid(0).localNode());
+        int[] parts = affinity.primaryPartitions(ignite(0).localNode());
 
         Arrays.sort(parts);
 
-        IgniteCache<ClientKey, Client> cl = grid(0).cache("cl");
+        IgniteCache<ClientKey, Client> cl = ignite(0).cache("cl");
 
         SqlQuery<ClientKey, Client> qry1 = new SqlQuery<>(Client.class, "1=1");
         qry1.setLocal(true);

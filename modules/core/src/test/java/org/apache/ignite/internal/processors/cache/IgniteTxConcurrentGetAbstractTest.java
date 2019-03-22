@@ -74,7 +74,7 @@ public abstract class IgniteTxConcurrentGetAbstractTest extends GridCommonAbstra
         // Random key.
         final String key = UUID.randomUUID().toString();
 
-        final Ignite ignite = grid();
+        final Ignite ignite = ignite();
 
         ignite.cache(DEFAULT_CACHE_NAME).put(key, "val");
 

@@ -88,7 +88,7 @@ public class CacheEntryProcessorCopySelfTest extends GridCommonAbstractTest {
     private void doTestMutableEntry(boolean p2pEnabled) throws Exception {
         this.p2pEnabled = p2pEnabled;
 
-        Ignite grid = startGrid();
+        Ignite grid = clusterManager__startGrid();
 
         assertEquals(p2pEnabled, grid.configuration().isPeerClassLoadingEnabled());
 
@@ -121,7 +121,7 @@ public class CacheEntryProcessorCopySelfTest extends GridCommonAbstractTest {
     @SuppressWarnings("unchecked")
     private void doTest(boolean cpOnRead, final boolean mutate, int expVal, int expCnt) throws Exception {
 
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         CacheConfiguration ccfg = defaultCacheConfiguration();
         ccfg.setAtomicityMode(CacheAtomicityMode.ATOMIC);

@@ -76,14 +76,14 @@ public abstract class IgniteCacheStoreNodeRestartAbstractTest extends IgniteCach
      */
     @Test
     public void testMarshaller() throws Exception {
-        grid(0).cache(CACHE_NAME1).put("key1", new UserObject("key1"));
+        ignite(0).cache(CACHE_NAME1).put("key1", new UserObject("key1"));
 
         stopGrid(0);
 
         startGrid(1);
 
         //Checking that marshaller works correct after all nodes was stopped.
-        UserObject obj = grid(1).<Object, UserObject>cache(CACHE_NAME1).get("key1");
+        UserObject obj = ignite(1).<Object, UserObject>cache(CACHE_NAME1).get("key1");
 
         assert obj.field.equals("key1");
     }

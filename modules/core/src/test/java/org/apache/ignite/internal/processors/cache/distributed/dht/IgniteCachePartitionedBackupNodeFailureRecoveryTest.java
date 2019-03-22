@@ -83,9 +83,9 @@ public class IgniteCachePartitionedBackupNodeFailureRecoveryTest extends IgniteC
      */
     @Test
     public void testBackUpFail() throws Exception {
-        final IgniteEx node1 = grid(0);
-        final IgniteEx node2 = grid(1);
-        final IgniteEx node3 = grid(2);
+        final IgniteEx node1 = ignite(0);
+        final IgniteEx node2 = ignite(1);
+        final IgniteEx node3 = ignite(2);
 
         awaitPartitionMapExchange();
 

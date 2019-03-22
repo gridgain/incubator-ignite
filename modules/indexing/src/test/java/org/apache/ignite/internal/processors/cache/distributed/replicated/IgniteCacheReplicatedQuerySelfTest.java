@@ -105,9 +105,9 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
-        ignite1 = grid(0);
-        ignite2 = grid(1);
-        ignite3 = grid(2);
+        ignite1 = ignite(0);
+        ignite2 = ignite(1);
+        ignite3 = ignite(2);
 
         cache1 = jcache(ignite1, CacheKey.class, CacheValue.class);
         cache2 = jcache(ignite2, CacheKey.class, CacheValue.class);
@@ -385,7 +385,7 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
 
             final CountDownLatch latch = new CountDownLatch(1);
 
-            grid(0).events().localListen(new IgnitePredicate<Event>() {
+            ignite(0).events().localListen(new IgnitePredicate<Event>() {
                 @Override public boolean apply(Event evt) {
                     if (((DiscoveryEvent)evt).eventNode().id().equals(nodeId))
                         latch.countDown();
@@ -412,7 +412,7 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
      * @return Query results map.
      */
     private ConcurrentMap<?, ?> queryResultMap(int node) {
-        return U.field(((IgniteH2Indexing)U.field(grid(node).context().query(), "idx")).mapQueryExecutor(), "qryRess");
+        return U.field(((IgniteH2Indexing)U.field(ignite(node).context().query(), "idx")).mapQueryExecutor(), "qryRess");
     }
 
     /**

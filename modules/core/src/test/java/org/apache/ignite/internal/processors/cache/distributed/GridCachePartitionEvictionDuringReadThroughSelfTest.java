@@ -103,7 +103,7 @@ public class GridCachePartitionEvictionDuringReadThroughSelfTest extends GridCom
 
                 while (!done.get()) {
                     try {
-                        grid(DATA_READ_GRID_IDX).<Integer, Integer>cache("config").getAll(keysSet);
+                        ignite(DATA_READ_GRID_IDX).<Integer, Integer>cache("config").getAll(keysSet);
                     }
                     catch (Throwable ignore) {
                         // No-op.

@@ -146,7 +146,7 @@ public class ZookeeperDiscoveryCustomEventsTest extends ZookeeperDiscoverySpiTes
 
                 discoveryMgr.sendCustomEvent(msg);
 
-                doSleep(200); // Wait some time to check extra messages are not received.
+                GridTestUtils.doSleep(200); // Wait some time to check extra messages are not received.
 
                 checkEvents(crd, rcvdMsgs, expCrdMsgs);
 
@@ -172,7 +172,7 @@ public class ZookeeperDiscoveryCustomEventsTest extends ZookeeperDiscoverySpiTes
                 expCrdMsgs.add(new T3<>(topVer, crdId, ackMsg));
                 expNodesMsgs.add(new T3<>(topVer, crdId, ackMsg));
 
-                doSleep(200); // Wait some time to check extra messages are not received.
+                GridTestUtils.doSleep(200); // Wait some time to check extra messages are not received.
 
                 checkEvents(crd, rcvdMsgs, expCrdMsgs);
 

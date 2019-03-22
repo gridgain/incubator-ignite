@@ -147,7 +147,7 @@ public abstract class GridCacheOnCopyFlagAbstractSelfTest extends GridCommonAbst
     private void interceptor() throws Exception {
         noInterceptor = false;
 
-        IgniteCache<TestKey, TestValue> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<TestKey, TestValue> cache = ignite(0).createCache(cacheConfiguration());
 
         try {
             for (int i = 0; i < ITER_CNT; i++) {
@@ -236,7 +236,7 @@ public abstract class GridCacheOnCopyFlagAbstractSelfTest extends GridCommonAbst
     private void invokeAndInterceptor() throws Exception {
         noInterceptor = false;
 
-        IgniteCache<TestKey, TestValue> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<TestKey, TestValue> cache = ignite(0).createCache(cacheConfiguration());
 
         try {
             for (int i = 0; i < ITER_CNT; i++)
@@ -298,7 +298,7 @@ public abstract class GridCacheOnCopyFlagAbstractSelfTest extends GridCommonAbst
     private void putGet() throws Exception {
         noInterceptor = true;
 
-        IgniteCache<TestKey, TestValue> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<TestKey, TestValue> cache = ignite(0).createCache(cacheConfiguration());
 
         try {
             Map<TestKey, TestValue> map = new HashMap<>();
@@ -355,7 +355,7 @@ public abstract class GridCacheOnCopyFlagAbstractSelfTest extends GridCommonAbst
     private void putGetByteArray() throws Exception {
         noInterceptor = true;
 
-        IgniteCache<TestKey, byte[]> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<TestKey, byte[]> cache = ignite(0).createCache(cacheConfiguration());
 
         try {
             Map<TestKey, byte[]> map = new HashMap<>();
@@ -412,7 +412,7 @@ public abstract class GridCacheOnCopyFlagAbstractSelfTest extends GridCommonAbst
     private void putGetKnownImmutable() throws Exception {
         noInterceptor = true;
 
-        IgniteCache<String, Long> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<String, Long> cache = ignite(0).createCache(cacheConfiguration());
 
         try {
             Map<String, Long> map = new HashMap<>();

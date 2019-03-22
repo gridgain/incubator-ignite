@@ -139,7 +139,7 @@ public class CacheContinuousWithTransformerReplicatedSelfTest extends GridCommon
      * @throws Exception If failed.
      */
     protected Ignite gridToRunQuery() throws Exception {
-        return grid(0);
+        return ignite(0);
     }
 
     /**

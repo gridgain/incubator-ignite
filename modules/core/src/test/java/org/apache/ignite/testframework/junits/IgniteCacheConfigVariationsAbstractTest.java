@@ -95,11 +95,11 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
                         cfg.setCacheConfiguration(cc);
                     }
 
-                    startGrid(igniteInstanceName, cfg, null);
+                    clusterManager__startGrid(igniteInstanceName, cfg, null);
                 }
 
                 if (testsCfg.withClients() && testsCfg.gridCount() > CLIENT_NEAR_ONLY_IDX)
-                    grid(CLIENT_NEAR_ONLY_IDX).createNearCache(cacheName(), new NearCacheConfiguration());
+                    ignite(CLIENT_NEAR_ONLY_IDX).createNearCache(cacheName(), new NearCacheConfiguration());
             }
             else if (cacheStartMode == null || cacheStartMode == CacheStartMode.DYNAMIC) {
                 super.beforeTestsStarted();
@@ -116,14 +116,14 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
         awaitPartitionMapExchange();
 
         for (int i = 0; i < gridCount(); i++)
-            info("Grid " + i + ": " + grid(i).localNode().id());
+            info("Grid " + i + ": " + ignite(i).localNode().id());
 
         if (testsCfg.withClients()) {
             if (testedNodeIdx != SERVER_NODE_IDX)
                 assertEquals(testedNodeIdx == CLIENT_NEAR_ONLY_IDX, nearEnabled());
 
             info(">>> Starting set of tests [testedNodeIdx=" + testedNodeIdx
-                + ", id=" + grid(testedNodeIdx).localNode().id()
+                + ", id=" + ignite(testedNodeIdx).localNode().id()
                 + ", isClient=" + isClientMode()
                 + ", nearEnabled=" + nearEnabled() + "]");
         }
@@ -144,7 +144,7 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
         for (int i = 0; i < gridCount(); i++) {
             info("Starting cache dinamically on grid: " + i);
 
-            IgniteEx grid = grid(i);
+            IgniteEx grid = ignite(i);
 
             if (i != CLIENT_NODE_IDX && i != CLIENT_NEAR_ONLY_IDX) {
                 CacheConfiguration cc = cacheConfiguration();
@@ -154,8 +154,8 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
                 grid.getOrCreateCache(cc);
             }
 
-            if (testsCfg.withClients() && i == CLIENT_NEAR_ONLY_IDX && grid(i).configuration().isClientMode())
-                grid(CLIENT_NEAR_ONLY_IDX).createNearCache(cacheName(), new NearCacheConfiguration());
+            if (testsCfg.withClients() && i == CLIENT_NEAR_ONLY_IDX && ignite(i).configuration().isClientMode())
+                ignite(CLIENT_NEAR_ONLY_IDX).createNearCache(cacheName(), new NearCacheConfiguration());
         }
 
         awaitPartitionMapExchange();
@@ -401,7 +401,7 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
      * @return {@code true} if near cache should be enabled.
      */
     protected boolean nearEnabled() {
-        return grid(testedNodeIdx).cachex(cacheName()).context().isNear();
+        return ignite(testedNodeIdx).cachex(cacheName()).context().isNear();
     }
 
     /**
@@ -458,7 +458,7 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
      * @return Transactions instance.
      */
     protected IgniteTransactions transactions() {
-        return grid(0).transactions();
+        return ignite(0).transactions();
     }
 
     /**
@@ -474,11 +474,11 @@ public abstract class IgniteCacheConfigVariationsAbstractTest extends IgniteConf
      * @return Cache context.
      */
     protected GridCacheContext<String, Integer> context(final int idx) {
-        if (isRemoteJvm(idx) && !isRemoteJvm())
+        if (isRemoteJvm(idx) && !GridTestUtils.isCurrentJvmRemote())
             throw new UnsupportedOperationException("Operation can't be done automatically via proxy. " +
                 "Send task with this logic on remote jvm instead.");
 
-        return ((IgniteKernal)grid(idx)).<String, Integer>internalCache(cacheName()).context();
+        return ((IgniteKernal)ignite(idx)).<String, Integer>internalCache(cacheName()).context();
     }
 
     /**

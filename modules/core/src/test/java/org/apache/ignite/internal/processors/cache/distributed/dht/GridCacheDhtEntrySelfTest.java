@@ -79,28 +79,28 @@ public class GridCacheDhtEntrySelfTest extends GridCommonAbstractTest {
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.NEAR_CACHE);
 
         for (int i = 0; i < GRID_CNT; i++) {
-            assert near(grid(i)).size() == 0 : "Near cache size is not zero for grid: " + i;
-            assert dht(grid(i)).size() == 0 : "DHT cache size is not zero for grid: " + i;
+            assert near(ignite(i)).size() == 0 : "Near cache size is not zero for grid: " + i;
+            assert dht(ignite(i)).size() == 0 : "DHT cache size is not zero for grid: " + i;
 
-            assert near(grid(i)).localSize() == 0 : "Near cache is not empty for grid: " + i;
-            assert dht(grid(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
+            assert near(ignite(i)).localSize() == 0 : "Near cache is not empty for grid: " + i;
+            assert dht(ignite(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
         }
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
-            near(grid(i)).removeAll();
+            near(ignite(i)).removeAll();
 
-            assertEquals("Near cache size is not zero for grid: " + i, 0, near(grid(i)).size());
-            assertEquals("DHT cache size is not zero for grid: " + i, 0, dht(grid(i)).size());
+            assertEquals("Near cache size is not zero for grid: " + i, 0, near(ignite(i)).size());
+            assertEquals("DHT cache size is not zero for grid: " + i, 0, dht(ignite(i)).size());
 
-            assert near(grid(i)).localSize() == 0 : "Near cache is not empty for grid: " + i;
-            assert dht(grid(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
+            assert near(ignite(i)).localSize() == 0 : "Near cache is not empty for grid: " + i;
+            assert dht(ignite(i)).isEmpty() : "DHT cache is not empty for grid: " + i;
         }
 
         for (int i = 0; i < GRID_CNT; i++) {
-            Transaction tx = grid(i).transactions().tx();
+            Transaction tx = ignite(i).transactions().tx();
 
             if (tx != null)
                 tx.close();
@@ -292,7 +292,7 @@ public class GridCacheDhtEntrySelfTest extends GridCommonAbstractTest {
      * @return For the given key pair {primary node, some other node}.
      */
     private IgniteBiTuple<ClusterNode, ClusterNode> getNodes(Integer key) {
-        Affinity<Integer> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+        Affinity<Integer> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
         int part = aff.partition(key);
 
@@ -300,7 +300,7 @@ public class GridCacheDhtEntrySelfTest extends GridCommonAbstractTest {
 
         assert primary != null;
 
-        Collection<ClusterNode> nodes = new ArrayList<>(grid(0).cluster().nodes());
+        Collection<ClusterNode> nodes = new ArrayList<>(ignite(0).cluster().nodes());
 
         nodes.remove(primary);
 

@@ -93,8 +93,8 @@ public class ChangeStateCommandHandlerTest extends GridCommonAbstractTest {
 
         state.active(false);
 
-        IgniteEx ig1 = grid(0);
-        IgniteEx ig2 = grid(1);
+        IgniteEx ig1 = ignite(0);
+        IgniteEx ig2 = ignite(1);
 
         assertFalse(ig1.active());
         assertFalse(ig2.active());

@@ -679,7 +679,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
 
         DiscoverySpi srvSpi = spi0(srv);
 
-        TestCommunicationSpi coordCommSpi = (TestCommunicationSpi)grid(0).configuration().getCommunicationSpi();
+        TestCommunicationSpi coordCommSpi = (TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi();
 
         coordCommSpi.blockMessages(GridDhtPartitionsFullMessage.class, client.localNode().id());
 
@@ -736,7 +736,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
     public void testReconnectInitialExchangeInProgress() throws Exception {
         final UUID clientId = UUID.randomUUID();
 
-        Ignite srv = grid(0);
+        Ignite srv = ignite(0);
 
         final CountDownLatch joinLatch = new CountDownLatch(1);
 
@@ -1145,7 +1145,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
         }
 
         for (int i = 0; i < SRV_CNT + CLIENTS; i++) {
-            Ignite ignite = grid(i);
+            Ignite ignite = ignite(i);
 
             ClusterGroup grp = ignite.cluster().forCacheNodes(DEFAULT_CACHE_NAME);
 
@@ -1178,7 +1178,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
      * @throws Exception If failed.
      */
     private void reconnectMultinode(boolean longHist) throws Exception {
-        grid(0).createCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME));
+        ignite(0).createCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME));
 
         clientMode = true;
 
@@ -1219,7 +1219,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
         for (int iter = 0; iter < 5; iter++) {
             log.info("Iteration: " + iter);
 
-            reconnectClientNodes(log, clients, grid(0), null);
+            reconnectClientNodes(log, clients, ignite(0), null);
 
             final int expNodes = CLIENTS + srvNodes;
 
@@ -1250,7 +1250,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
             }
 
             for (int i = 0; i < nodes; i++) {
-                final Ignite ignite = grid(i);
+                final Ignite ignite = ignite(i);
 
                 GridTestUtils.waitForCondition(new GridAbsPredicate() {
                     @Override public boolean apply() {
@@ -1296,7 +1296,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
         CacheConfiguration<Integer, Integer> ccfg2 = new CacheConfiguration<>(DEFAULT_CACHE_NAME);
         ccfg2.setName("cache2");
 
-        final Ignite srv = grid(0);
+        final Ignite srv = ignite(0);
 
         srv.createCache(ccfg1);
         srv.createCache(ccfg2).put(1, 1);
@@ -1395,7 +1395,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
         final IgniteCache<Object, Object> cache = client.getOrCreateCache(ccfg);
 
         for (int i = 0; i < SRV_CNT; i++) {
-            TestCommunicationSpi srvCommSpi = (TestCommunicationSpi)grid(i).configuration().getCommunicationSpi();
+            TestCommunicationSpi srvCommSpi = (TestCommunicationSpi)ignite(i).configuration().getCommunicationSpi();
 
             srvCommSpi.blockMessages(msgToBlock, client.localNode().id());
         }
@@ -1451,7 +1451,7 @@ public class IgniteClientReconnectCacheTest extends IgniteClientReconnectAbstrac
         }
         finally {
             for (int i = 0; i < SRV_CNT; i++)
-                ((TestCommunicationSpi)grid(i).configuration().getCommunicationSpi()).stopBlock(false);
+                ((TestCommunicationSpi)ignite(i).configuration().getCommunicationSpi()).stopBlock(false);
         }
 
         assertNotEquals(id, client.localNode().id());

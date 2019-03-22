@@ -229,7 +229,7 @@ public class IgniteMetaStorageBasicTest extends GridCommonAbstractTest {
 
             cfg.getDataStorageConfiguration().setCheckpointFrequency(3600 * 1000L);
 
-            ig = (IgniteEx)startGrid(getTestIgniteInstanceName(0), optimize(cfg), null);
+            ig = (IgniteEx)clusterManager__startGrid(getTestIgniteInstanceName(0), optimize(cfg), null);
 
             ig.cluster().active(true);
 
@@ -472,16 +472,16 @@ public class IgniteMetaStorageBasicTest extends GridCommonAbstractTest {
         startGrid(1);
 
         // Disable checkpoints in order to check whether recovery works.
-        forceCheckpoint(grid(1));
-        disableCheckpoints(grid(1));
+        forceCheckpoint(ignite(1));
+        disableCheckpoints(ignite(1));
 
-        loadKeys(grid(1), KEYS_CNT, KEY_PREFIX, NEW_VAL_PREFIX, UPDATED_VAL_PREFIX);
+        loadKeys(ignite(1), KEYS_CNT, KEY_PREFIX, NEW_VAL_PREFIX, UPDATED_VAL_PREFIX);
 
         stopGrid(1, true);
 
         startGrid(1);
 
-        verifyKeys(grid(1), KEYS_CNT, KEY_PREFIX, UPDATED_VAL_PREFIX);
+        verifyKeys(ignite(1), KEYS_CNT, KEY_PREFIX, UPDATED_VAL_PREFIX);
     }
 
     /**

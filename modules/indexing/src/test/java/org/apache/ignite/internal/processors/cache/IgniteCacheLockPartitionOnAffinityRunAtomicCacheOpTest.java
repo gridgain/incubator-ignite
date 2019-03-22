@@ -96,14 +96,14 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
      * @throws Exception If failed.
      */
     protected void createCache(String cacheName, CacheAtomicityMode mode) throws Exception {
-        CacheConfiguration ccfg = cacheConfiguration(grid(0).name());
+        CacheConfiguration ccfg = cacheConfiguration(ignite(0).name());
         ccfg.setName(cacheName);
 
         ccfg.setAtomicityMode(mode);
 
         ccfg.setAffinity(new RendezvousAffinityFunction(false, PARTS_CNT));
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
     }
 
     /** {@inheritDoc} */
@@ -124,8 +124,8 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
 
     /** */
     protected void destroyCaches() throws Exception {
-        grid(0).destroyCache(ATOMIC_CACHE);
-        grid(0).destroyCache(TRANSACT_CACHE);
+        ignite(0).destroyCache(ATOMIC_CACHE);
+        ignite(0).destroyCache(TRANSACT_CACHE);
     }
 
     /** {@inheritDoc} */
@@ -157,7 +157,7 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
      */
     private void notReservedCacheOp(final String cacheName) throws Exception {
         // Workaround for initial update job metadata.
-        grid(0).compute().affinityRun(
+        ignite(0).compute().affinityRun(
             Arrays.asList(Person.class.getSimpleName(), Organization.class.getSimpleName()),
             new Integer(orgIds.get(0)),
             new NotReservedCacheOpAffinityRun(0, 0, cacheName));
@@ -165,7 +165,7 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
         // Run restart threads: start re-balancing
         beginNodesRestart();
 
-        grid(0).cache(cacheName).clear();
+        ignite(0).cache(cacheName).clear();
 
         IgniteInternalFuture<Long> affFut = null;
         try {
@@ -173,7 +173,7 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
                 @Override public void run() {
                     for (int i = 0; i < PARTS_CNT; ++i) {
                         try {
-                            grid(0).compute().affinityRun(
+                            ignite(0).compute().affinityRun(
                                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                                 new Integer(i),
                                 new NotReservedCacheOpAffinityRun(i, key.getAndIncrement() * KEYS_CNT, cacheName));
@@ -197,7 +197,7 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
             log.info("Final await. Timed out if failed");
             awaitPartitionMapExchange();
 
-            IgniteCache cache = grid(0).cache(cacheName);
+            IgniteCache cache = ignite(0).cache(cacheName);
             cache.clear();
         }
     }
@@ -208,8 +208,8 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
     @Test
     public void testReservedPartitionCacheOp() throws Exception {
         // Workaround for initial update job metadata.
-        grid(0).cache(Person.class.getSimpleName()).clear();
-        grid(0).compute().affinityRun(
+        ignite(0).cache(Person.class.getSimpleName()).clear();
+        ignite(0).compute().affinityRun(
             Arrays.asList(Person.class.getSimpleName(), Organization.class.getSimpleName()),
             0,
             new ReservedPartitionCacheOpAffinityRun(0, 0));
@@ -226,7 +226,7 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
                             break;
 
                         try {
-                            grid(0).compute().affinityRun(
+                            ignite(0).compute().affinityRun(
                                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                                 new Integer(i),
                                 new ReservedPartitionCacheOpAffinityRun(i, key.getAndIncrement() * KEYS_CNT));
@@ -250,7 +250,7 @@ public class IgniteCacheLockPartitionOnAffinityRunAtomicCacheOpTest extends Igni
             log.info("Final await. Timed out if failed");
             awaitPartitionMapExchange();
 
-            IgniteCache cache = grid(0).cache(Person.class.getSimpleName());
+            IgniteCache cache = ignite(0).cache(Person.class.getSimpleName());
             cache.clear();
         }
     }

@@ -61,7 +61,7 @@ public class RouterFactorySelfTest extends GridCommonAbstractTest {
             System.setProperty(IGNITE_JETTY_PORT, String.valueOf(GRID_HTTP_PORT));
 
             try {
-                startGrid();
+                clusterManager__startGrid();
             }
             finally {
                 System.clearProperty(IGNITE_JETTY_PORT);

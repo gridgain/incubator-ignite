@@ -127,7 +127,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
 
         assert nearIdx != null : "Didn't find a near-only node.";
 
-        dfltIgnite = grid(nearIdx);
+        dfltIgnite = ignite(nearIdx);
 
         info("Near-only node: " + dfltIgnite.cluster().localNode().id());
 
@@ -136,11 +136,11 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
 
     /** {@inheritDoc} */
     @Override public Collection<ClusterNode> affinityNodes() {
-        info("Near node ID: " + grid(nearIdx).localNode().id());
+        info("Near node ID: " + ignite(nearIdx).localNode().id());
 
         return F.view(super.affinityNodes(), new P1<ClusterNode>() {
             @Override public boolean apply(ClusterNode n) {
-                return !F.eq(grid(n).name(), grid(nearIdx).name());
+                return !F.eq(ignite(n).name(), ignite(nearIdx).name());
             }
         });
     }
@@ -161,7 +161,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
 
     /** {@inheritDoc} */
     @Override protected IgniteTransactions transactions() {
-        return grid(nearIdx).transactions();
+        return ignite(nearIdx).transactions();
     }
 
     /** {@inheritDoc} */
@@ -273,7 +273,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
         int fullIdx = nearIdx == 0 ? 1 : 0;
 
         // Now commit transaction and check that ttl and expire time have been saved.
-        Transaction tx = inTx ? grid(fullIdx).transactions().txStart() : null;
+        Transaction tx = inTx ? ignite(fullIdx).transactions().txStart() : null;
 
         try {
             jcache(fullIdx).withExpiryPolicy(expiry).put(key, 1);
@@ -291,11 +291,11 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
         long[] expireTimes = new long[gridCount()];
 
         for (int i = 0; i < gridCount(); i++) {
-            info("Checking grid: " + grid(i).localNode().id());
+            info("Checking grid: " + ignite(i).localNode().id());
 
             IgnitePair<Long> entryTtl = null;
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key))
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key))
                 entryTtl = entryTtl(jcache(i), key);
             else if (i == nearIdx)
                 entryTtl = nearEntryTtl(jcache(i), key);
@@ -312,7 +312,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
         // One more update from the same cache entry to ensure that expire time is shifted forward.
         U.sleep(100);
 
-        tx = inTx ? grid(fullIdx).transactions().txStart() : null;
+        tx = inTx ? ignite(fullIdx).transactions().txStart() : null;
 
         try {
             jcache(fullIdx).withExpiryPolicy(expiry).put(key, 2);
@@ -328,7 +328,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
         for (int i = 0; i < gridCount(); i++) {
             IgnitePair<Long> entryTtl = null;
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key))
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key))
                 entryTtl = entryTtl(jcache(i), key);
             else if (i == nearIdx)
                 entryTtl = nearEntryTtl(jcache(i), key);
@@ -344,7 +344,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
         // And one more update to ensure that ttl is not changed and expire time is not shifted forward.
         U.sleep(100);
 
-        tx = inTx ? grid(fullIdx).transactions().txStart() : null;
+        tx = inTx ? ignite(fullIdx).transactions().txStart() : null;
 
         try {
             jcache(fullIdx).put(key, 4);
@@ -357,7 +357,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
         for (int i = 0; i < gridCount(); i++) {
             IgnitePair<Long> entryTtl = null;
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key))
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), key))
                 entryTtl = entryTtl(jcache(i), key);
             else if (i == nearIdx)
                 entryTtl = nearEntryTtl(jcache(i), key);
@@ -562,7 +562,7 @@ public class GridCacheNearOnlyMultiNodeFullApiSelfTest extends GridCachePartitio
             final CountDownLatch lockCnt = new CountDownLatch(1);
             final CountDownLatch unlockCnt = new CountDownLatch(1);
 
-            grid(0).events().localListen(new IgnitePredicate<Event>() {
+            ignite(0).events().localListen(new IgnitePredicate<Event>() {
                 @Override public boolean apply(Event evt) {
                     switch (evt.type()) {
                         case EVT_CACHE_OBJECT_LOCKED:

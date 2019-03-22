@@ -88,7 +88,7 @@ public class HibernateL2CacheStrategySelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        for (IgniteCacheProxy<?, ?> cache : ((IgniteKernal)grid(0)).caches())
+        for (IgniteCacheProxy<?, ?> cache : ((IgniteKernal)ignite(0)).caches())
             cache.clear();
     }
 
@@ -202,8 +202,8 @@ public class HibernateL2CacheStrategySelfTest extends GridCommonAbstractTest {
 
             loadEntities(sesFactory1);
 
-            assertEquals(1, grid(0).cache("cache1").size());
-            assertEquals(1, grid(0).cache("cache2").size());
+            assertEquals(1, ignite(0).cache("cache1").size());
+            assertEquals(1, ignite(0).cache("cache2").size());
             assertThat(getEntityNameFromRegion(sesFactory1, "cache1", 1), Is.is("entity-1#name-1"));
             assertThat(getEntityNameFromRegion(sesFactory1, "cache2", 1), Is.is("entity-2#name-1"));
 
@@ -229,8 +229,8 @@ public class HibernateL2CacheStrategySelfTest extends GridCommonAbstractTest {
 
             loadEntities(sesFactory1);
 
-            assertEquals(1, grid(0).cache("cache1").size());
-            assertEquals(2, grid(0).cache("cache2").size());
+            assertEquals(1, ignite(0).cache("cache1").size());
+            assertEquals(2, ignite(0).cache("cache2").size());
             assertThat(getEntityNameFromRegion(sesFactory1, "cache1", 1), Is.is("entity-1#name-1#UPDATED-1"));
             assertThat(getEntityNameFromRegion(sesFactory1, "cache2", 1), Is.is("entity-2#name-1"));
             assertThat(getEntityNameFromRegion(sesFactory1, "cache2", 2), Is.is("entity-2#name-2#ADDED"));
@@ -264,8 +264,8 @@ public class HibernateL2CacheStrategySelfTest extends GridCommonAbstractTest {
 
             loadEntities(sesFactory1);
 
-            assertEquals(2, grid(0).cache("cache1").size());
-            assertEquals(2, grid(0).cache("cache2").size());
+            assertEquals(2, ignite(0).cache("cache1").size());
+            assertEquals(2, ignite(0).cache("cache2").size());
             assertThat(getEntityNameFromRegion(sesFactory1, "cache2", 1), Is.is("entity-2#name-1#UPDATED-1"));
             assertThat(getEntityNameFromRegion(sesFactory1, "cache1", 2), Is.is("entity-1#name-2#ADDED"));
             assertThat(getEntityNameFromRegion(sesFactory1, "cache1", 1), Is.is("entity-1#name-1#UPDATED-2"));
@@ -313,7 +313,7 @@ public class HibernateL2CacheStrategySelfTest extends GridCommonAbstractTest {
         Session ses = sesFactory.openSession();
 
         try {
-            for (Cache.Entry<Object, Object> entry : grid(0).cache(regionName)) {
+            for (Cache.Entry<Object, Object> entry : ignite(0).cache(regionName)) {
                 if (((HibernateKeyWrapper)entry.getKey()).id().equals(id))
                     return (String) ((HashMap) entry.getValue()).get("name");
             }
@@ -588,7 +588,7 @@ public class HibernateL2CacheStrategySelfTest extends GridCommonAbstractTest {
 
         sesFactory1 = null;
 
-        for (IgniteCacheProxy<?, ?> cache : ((IgniteKernal)grid(0)).caches())
+        for (IgniteCacheProxy<?, ?> cache : ((IgniteKernal)ignite(0)).caches())
             cache.clear();
     }
 }

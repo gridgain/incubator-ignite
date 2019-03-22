@@ -118,7 +118,7 @@ public abstract class GridCacheBinaryObjectsAbstractDataStreamerSelfTest extends
 
         final LongAdder cnt = new LongAdder();
 
-        try (IgniteDataStreamer<Object, Object> ldr = grid(0).dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<Object, Object> ldr = ignite(0).dataStreamer(DEFAULT_CACHE_NAME)) {
             IgniteInternalFuture<?> f = multithreadedAsync(
                 new Callable<Object>() {
                     @Override public Object call() throws Exception {

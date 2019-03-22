@@ -270,7 +270,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
 
         // Ensure that cache was marked as IGFS data cache.
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteEx g = grid(i);
+            IgniteEx g = ignite(i);
 
             IgniteInternalCache cache = g.cachex(g.igfsx(IGFS_NAME).configuration().getDataCacheConfiguration()
                 .getName()).cache();
@@ -298,7 +298,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
         }
 
         for (int i = 0; i < GRID_CNT; i++) {
-            UUID id = grid(i).localNode().id();
+            UUID id = ignite(i).localNode().id();
 
             GridCacheAdapter<IgfsBlockKey, byte[]> cache = cache(id);
 
@@ -336,7 +336,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
         if (cacheMode == PARTITIONED) {
             // No changes since the previous check for co-located cache.
             for (int i = 0; i < GRID_CNT; i++) {
-                UUID id = grid(i).localNode().id();
+                UUID id = ignite(i).localNode().id();
 
                 GridCacheAdapter<IgfsBlockKey, byte[]> cache = cache(id);
 
@@ -353,7 +353,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
                 totalSize += file.length();
 
             for (int i = 0; i < GRID_CNT; i++) {
-                UUID id = grid(i).localNode().id();
+                UUID id = ignite(i).localNode().id();
 
                 GridCacheAdapter<IgfsBlockKey, byte[]> cache = cache(id);
 
@@ -368,14 +368,14 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
             // Await for actual delete to occur.
             for (IgfsBlock block : file.blocks()) {
                 for (int i = 0; i < GRID_CNT; i++) {
-                    while (localPeek(cache(grid(i).localNode().id()), block.key()) != null)
+                    while (localPeek(cache(ignite(i).localNode().id()), block.key()) != null)
                         U.sleep(100);
                 }
             }
         }
 
         for (int i = 0; i < GRID_CNT; i++) {
-            GridCacheAdapter<IgfsBlockKey, byte[]> cache = cache(grid(i).localNode().id());
+            GridCacheAdapter<IgfsBlockKey, byte[]> cache = cache(ignite(i).localNode().id());
 
             assert 0 == cache.igfsDataSpaceUsed() : "Size counter is not 0: " + cache.igfsDataSpaceUsed();
         }
@@ -480,7 +480,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
         info("Size map before node start: " + expSizes);
 
         for (int i = 0; i < GRID_CNT; i++) {
-            UUID id = grid(i).localNode().id();
+            UUID id = ignite(i).localNode().id();
 
             GridCacheAdapter<IgfsBlockKey, byte[]> cache = cache(id);
 
@@ -517,7 +517,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
         info("Size map after node start: " + expSizes);
 
         for (int i = 0; i < GRID_CNT - 1; i++) {
-            UUID id = grid(i).localNode().id();
+            UUID id = ignite(i).localNode().id();
 
             GridCacheAdapter<IgfsBlockKey, byte[]> cache = cache(id);
 
@@ -549,7 +549,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
      * @return Collection of node IDs.
      */
     private Collection<UUID> primaryOrBackups(IgfsBlockKey key) {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         Collection<UUID> ids = new HashSet<>();
 
@@ -570,7 +570,7 @@ public class IgfsSizeSelfTest extends IgfsCommonAbstractTest {
      * @throws Exception If failed.
      */
     private IgfsImpl igfs(int idx) throws Exception {
-        return (IgfsImpl)grid(idx).fileSystem(IGFS_NAME);
+        return (IgfsImpl)ignite(idx).fileSystem(IGFS_NAME);
     }
 
     /**

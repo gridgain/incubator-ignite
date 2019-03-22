@@ -131,14 +131,14 @@ public class CacheMvccSqlLockTimeoutTest extends CacheMvccAbstractTest {
     private void checkLockTimeouts(CacheConfiguration<?, ?> ccfg) throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         ignite.createCache(ccfg);
 
         AtomicInteger keyCntr = new AtomicInteger();
 
         int nearKey = keyForNode(ignite.affinity("test"), keyCntr, ignite.localNode());
-        int otherKey = keyForNode(ignite.affinity("test"), keyCntr, grid(1).localNode());
+        int otherKey = keyForNode(ignite.affinity("test"), keyCntr, ignite(1).localNode());
 
         TimeoutChecker timeoutChecker = new TimeoutChecker(ignite, "test");
 
@@ -163,14 +163,14 @@ public class CacheMvccSqlLockTimeoutTest extends CacheMvccAbstractTest {
 
         startGridsMultiThreaded(2);
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         ignite.createCache(ccfg);
 
         AtomicInteger keyCntr = new AtomicInteger();
 
         int nearKey = keyForNode(ignite.affinity("test"), keyCntr, ignite.localNode());
-        int otherKey = keyForNode(ignite.affinity("test"), keyCntr, grid(1).localNode());
+        int otherKey = keyForNode(ignite.affinity("test"), keyCntr, ignite(1).localNode());
 
         TimeoutChecker timeoutChecker = new TimeoutChecker(ignite, "test");
 
@@ -309,7 +309,7 @@ public class CacheMvccSqlLockTimeoutTest extends CacheMvccAbstractTest {
     private void checkTimeoutsConcurrent(CacheConfiguration<?, ?> ccfg) throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         IgniteCache<?, ?> cache = ignite.createCache(ccfg);
 
@@ -318,10 +318,10 @@ public class CacheMvccSqlLockTimeoutTest extends CacheMvccAbstractTest {
         List<Integer> keys = new ArrayList<>();
 
         for (int i = 0; i < 5; i++)
-            keys.add(keyForNode(grid(0).affinity("test"), keyCntr, ignite.localNode()));
+            keys.add(keyForNode(ignite(0).affinity("test"), keyCntr, ignite.localNode()));
 
         for (int i = 0; i < 5; i++)
-            keys.add(keyForNode(grid(1).affinity("test"), keyCntr, ignite.localNode()));
+            keys.add(keyForNode(ignite(1).affinity("test"), keyCntr, ignite.localNode()));
 
         CompletableFuture.allOf(
             CompletableFuture.runAsync(() -> mergeInRandomOrder(ignite, cache, keys)),

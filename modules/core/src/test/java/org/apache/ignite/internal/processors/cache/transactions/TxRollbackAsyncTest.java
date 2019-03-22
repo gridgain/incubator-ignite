@@ -78,6 +78,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.GridTestUtils.SF;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
@@ -318,24 +319,24 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
         Ignite client = startClient();
 
         for (int i = 0; i < GRID_CNT; i++)
-            testSynchronousRollback0(grid(0), grid(i), false);
+            testSynchronousRollback0(ignite(0), ignite(i), false);
 
-        testSynchronousRollback0(grid(0), client, false);
-
-        for (int i = 0; i < GRID_CNT; i++)
-            testSynchronousRollback0(grid(0), grid(i), true);
-
-        testSynchronousRollback0(grid(0), client, true);
+        testSynchronousRollback0(ignite(0), client, false);
 
         for (int i = 0; i < GRID_CNT; i++)
-            testSynchronousRollback0(grid(1), grid(i), false);
+            testSynchronousRollback0(ignite(0), ignite(i), true);
 
-        testSynchronousRollback0(grid(1), client, false);
+        testSynchronousRollback0(ignite(0), client, true);
 
         for (int i = 0; i < GRID_CNT; i++)
-            testSynchronousRollback0(grid(1), grid(i), true);
+            testSynchronousRollback0(ignite(1), ignite(i), false);
 
-        testSynchronousRollback0(grid(1), client, true);
+        testSynchronousRollback0(ignite(1), client, false);
+
+        for (int i = 0; i < GRID_CNT; i++)
+            testSynchronousRollback0(ignite(1), ignite(i), true);
+
+        testSynchronousRollback0(ignite(1), client, true);
     }
 
     /**
@@ -415,7 +416,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
                         if (tx == null)
                             break;
 
-                        doSleep(r.nextInt(15)); // Wait a bit to reduce chance of rolling back empty transactions.
+                        GridTestUtils.doSleep(r.nextInt(15)); // Wait a bit to reduce chance of rolling back empty transactions.
 
                         if (rolledBackVers.contains(tx.xid()))
                             fail("Rollback version is expected");
@@ -572,7 +573,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
 
         spi.stopBlock(true);
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         checkFutures();
     }
@@ -609,7 +610,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
 
                 final IgniteFuture<?> fut = txRef.get().rollbackAsync();
 
-                doSleep(500);
+                GridTestUtils.doSleep(500);
 
                 spi.stopBlock(true);
 
@@ -632,7 +633,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
 
         rollbackFut.get();
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         checkFutures();
     }
@@ -651,7 +652,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
         final int txSize = 200;
 
         for (int k = 0; k < txSize; k++)
-            grid(0).cache(CACHE_NAME).put(k, 0L);
+            ignite(0).cache(CACHE_NAME).put(k, 0L);
 
         final long seed = System.currentTimeMillis();
 
@@ -679,7 +680,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
                 int nodeId = r.nextInt(GRID_CNT + 1);
 
                 // Choose random node to start tx on.
-                Ignite node = nodeId == GRID_CNT || nearCacheEnabled() ? client : grid(nodeId);
+                Ignite node = nodeId == GRID_CNT || nearCacheEnabled() ? client : ignite(nodeId);
 
                 TransactionConcurrency conc = mvcc ? PESSIMISTIC : TC_VALS[r.nextInt(TC_VALS.length)];
                 TransactionIsolation isolation = mvcc ? REPEATABLE_READ :TI_VALS[r.nextInt(TI_VALS.length)];
@@ -764,7 +765,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
                     continue;
                 }
 
-                Ignite node = nodeId == GRID_CNT || nearCacheEnabled() ? client : grid(nodeId);
+                Ignite node = nodeId == GRID_CNT || nearCacheEnabled() ? client : ignite(nodeId);
 
                 BlockingQueue<Transaction> nodeQ = perNodeTxs.get(node);
 
@@ -774,7 +775,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
                 while ((tx = nodeQ.poll()) != null) {
                     rolledBack.increment();
 
-                    doSleep(r.nextInt(50)); // Add random sleep to increase completed txs count.
+                    GridTestUtils.doSleep(r.nextInt(50)); // Add random sleep to increase completed txs count.
 
                     if (rolledBack.sum() % 1000 == 0)
                         info("Rolled back so far: " + rolledBack.sum());
@@ -786,7 +787,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
             }
         }, 3, "rollback-thread"); // Rollback by multiple threads.
 
-        doSleep(DURATION);
+        GridTestUtils.doSleep(DURATION);
 
         stop.set(true);
 
@@ -916,9 +917,9 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
     public void testRollbackOnTopologyLockPessimistic() throws Exception {
         final Ignite client = startClient();
 
-        Ignite crd = grid(0);
+        Ignite crd = ignite(0);
 
-        List<Integer> keys = primaryKeys(grid(1).cache(CACHE_NAME), 1);
+        List<Integer> keys = primaryKeys(ignite(1).cache(CACHE_NAME), 1);
 
         assertTrue(crd.cluster().localNode().order() == 1);
 
@@ -931,7 +932,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
         // Start tx holding topology.
         IgniteInternalFuture txFut = runAsync(new Runnable() {
             @Override public void run() {
-                List<Integer> keys = primaryKeys(grid(0).cache(CACHE_NAME), 1);
+                List<Integer> keys = primaryKeys(ignite(0).cache(CACHE_NAME), 1);
 
                 try (Transaction tx = client.transactions().txStart()) {
                     client.cache(CACHE_NAME).put(keys.get(0), 0);
@@ -1081,7 +1082,7 @@ public class TxRollbackAsyncTest extends GridCommonAbstractTest {
     private IgniteInternalFuture<?> rollbackAsync(final Transaction tx, long delay) throws Exception {
         return multithreadedAsync(new Runnable() {
             @Override public void run() {
-                doSleep(delay);
+                GridTestUtils.doSleep(delay);
 
                 tx.rollback();
             }

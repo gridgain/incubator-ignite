@@ -102,7 +102,7 @@ public abstract class IgniteTxPreloadAbstractTest extends GridCacheAbstractSelfT
             "grid-starter-" + getName()
         );
 
-        waitForRemoteNodes(grid(0), 2);
+        waitForRemoteNodes(ignite(0), 2);
 
         Set<String> keys = new HashSet<>();
 

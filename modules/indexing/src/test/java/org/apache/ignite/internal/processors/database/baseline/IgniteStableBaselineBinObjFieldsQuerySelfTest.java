@@ -54,7 +54,7 @@ public class IgniteStableBaselineBinObjFieldsQuerySelfTest extends IgniteBinaryO
 
         startGrids(GRID_CNT + 1);
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         stopGrid(GRID_CNT);
 

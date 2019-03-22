@@ -98,13 +98,13 @@ public class GridCacheEntryVersionSelfTest extends GridCommonAbstractTest {
 
             for (Integer key : map.keySet()) {
                 info("Affinity nodes [key=" + key + ", nodes=" +
-                    F.viewReadOnly(grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key), F.node2id()) + ']');
+                    F.viewReadOnly(ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key), F.node2id()) + ']');
             }
 
-            grid(0).cache(DEFAULT_CACHE_NAME).putAll(map);
+            ignite(0).cache(DEFAULT_CACHE_NAME).putAll(map);
 
             for (int g = 0; g < 3; g++) {
-                IgniteKernal grid = (IgniteKernal)grid(g);
+                IgniteKernal grid = (IgniteKernal)ignite(g);
 
                 for (Integer key : map.keySet()) {
                     GridCacheAdapter<Object, Object> cache = grid.internalCache(DEFAULT_CACHE_NAME);
@@ -128,10 +128,10 @@ public class GridCacheEntryVersionSelfTest extends GridCommonAbstractTest {
 
             startGrid(3);
 
-            grid(0).cache(DEFAULT_CACHE_NAME).putAll(map);
+            ignite(0).cache(DEFAULT_CACHE_NAME).putAll(map);
 
             for (int g = 0; g < 4; g++) {
-                IgniteKernal grid = (IgniteKernal)grid(g);
+                IgniteKernal grid = (IgniteKernal)ignite(g);
 
                 for (Integer key : map.keySet()) {
                     GridCacheAdapter<Object, Object> cache = grid.internalCache(DEFAULT_CACHE_NAME);

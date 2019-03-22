@@ -375,7 +375,7 @@ public class ZookeeperDiscoveryConcurrentStartAndStartStopTest extends Zookeeper
 
         awaitPartitionMapExchange();
 
-        helper.waitForEventsAcks(grid(CU.oldest(ignite(1).cluster().nodes())));
+        helper.waitForEventsAcks(ignite(CU.oldest(ignite(1).cluster().nodes())));
     }
 
     /**

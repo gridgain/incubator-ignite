@@ -124,7 +124,7 @@ public class GridCacheDhtPreloadBigDataSelfTest extends GridCommonAbstractTest {
 
             int cnt = 10000;
 
-            populate(grid(0).<Integer, byte[]>cache(DEFAULT_CACHE_NAME), cnt, KBSIZE);
+            populate(ignite(0).<Integer, byte[]>cache(DEFAULT_CACHE_NAME), cnt, KBSIZE);
 
             int gridCnt = 3;
 
@@ -134,7 +134,7 @@ public class GridCacheDhtPreloadBigDataSelfTest extends GridCommonAbstractTest {
             Thread.sleep(10000);
 
             for (int i = 0; i < gridCnt; i++) {
-                IgniteCache<Integer, String> c = grid(i).cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Integer, String> c = ignite(i).cache(DEFAULT_CACHE_NAME);
 
                 if (backups + 1 <= gridCnt)
                     assert c.localSize() < cnt : "Cache size: " + c.localSize();
@@ -181,12 +181,12 @@ public class GridCacheDhtPreloadBigDataSelfTest extends GridCommonAbstractTest {
                 startGrid(i);
 
             for (int i = 0; i < gridCnt; i++)
-                info("Grid size [i=" + i + ", size=" + grid(i).cache(DEFAULT_CACHE_NAME).size() + ']');
+                info("Grid size [i=" + i + ", size=" + ignite(i).cache(DEFAULT_CACHE_NAME).size() + ']');
 
             Thread.sleep(10000);
 
             for (int i = 0; i < gridCnt; i++) {
-                IgniteCache<Integer, String> c = grid(i).cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Integer, String> c = ignite(i).cache(DEFAULT_CACHE_NAME);
 
                 if (backups + 1 <= gridCnt)
                     assert c.localSize() < cnt;

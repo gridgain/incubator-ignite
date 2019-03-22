@@ -168,13 +168,13 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
     public void testMultiThreadStatisticsEnable() throws Exception {
         startGrids(5);
 
-        IgniteCache<?, ?> cache1 = grid(0).cache(CACHE1);
+        IgniteCache<?, ?> cache1 = ignite(0).cache(CACHE1);
 
         CacheConfiguration cacheCfg2 = new CacheConfiguration(cache1.getConfiguration(CacheConfiguration.class));
 
         cacheCfg2.setName(CACHE2);
 
-        grid(0).getOrCreateCache(cacheCfg2);
+        ignite(0).getOrCreateCache(cacheCfg2);
 
         awaitPartitionMapExchange();
 
@@ -185,7 +185,7 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
         IgniteInternalFuture<?> fut = multithreadedAsync(new Runnable() {
             @Override public void run() {
                 try {
-                    Ignite ignite = grid(gridIdx.incrementAndGet() % 5);
+                    Ignite ignite = ignite(gridIdx.incrementAndGet() % 5);
 
                     barrier.await();
 
@@ -225,7 +225,7 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
     public void testCacheApiClearStatistics() throws Exception {
         startGrids(3);
 
-        IgniteCache<Integer, String> cache = grid(0).cache(CACHE1);
+        IgniteCache<Integer, String> cache = ignite(0).cache(CACHE1);
 
         cache.enableStatistics(true);
 
@@ -243,7 +243,7 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
     public void testClearStatisticsAfterDisableStatistics() throws Exception {
         startGrids(3);
 
-        IgniteCache<Integer, String> cache = grid(0).cache(CACHE1);
+        IgniteCache<Integer, String> cache = ignite(0).cache(CACHE1);
 
         cache.enableStatistics(true);
 
@@ -265,20 +265,20 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
     public void testClusterApiClearStatistics() throws Exception {
         startGrids(3);
 
-        IgniteCache<?, ?> cache = grid(0).cache(CACHE1);
+        IgniteCache<?, ?> cache = ignite(0).cache(CACHE1);
 
         cache.enableStatistics(true);
 
-        grid(0).getOrCreateCache(
+        ignite(0).getOrCreateCache(
             new CacheConfiguration(cache.getConfiguration(CacheConfiguration.class)).setName(CACHE2)
         ).enableStatistics(true);
 
         Collection<String> cacheNames = Arrays.asList(CACHE1, CACHE2);
 
         for (String cacheName : cacheNames)
-            incrementCacheStatistics(grid(0).cache(cacheName));
+            incrementCacheStatistics(ignite(0).cache(cacheName));
 
-        grid(0).cluster().clearStatistics(cacheNames);
+        ignite(0).cluster().clearStatistics(cacheNames);
 
         assertCacheStatisticsIsClear(cacheNames);
     }
@@ -290,7 +290,7 @@ public class CacheMetricsManageTest extends GridCommonAbstractTest {
     public void testJmxApiClearStatistics() throws Exception {
         startGrids(3);
 
-        IgniteCache<Integer, String> cache = grid(0).cache(CACHE1);
+        IgniteCache<Integer, String> cache = ignite(0).cache(CACHE1);
 
         cache.enableStatistics(true);
 

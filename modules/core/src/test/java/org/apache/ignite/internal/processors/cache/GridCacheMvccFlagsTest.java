@@ -43,7 +43,7 @@ public class GridCacheMvccFlagsTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        grid = (IgniteKernal)grid();
+        grid = (IgniteKernal)ignite();
     }
 
     /** {@inheritDoc} */

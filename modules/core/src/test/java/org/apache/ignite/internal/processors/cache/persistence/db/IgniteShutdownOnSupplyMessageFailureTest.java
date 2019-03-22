@@ -142,7 +142,7 @@ public class IgniteShutdownOnSupplyMessageFailureTest extends GridCommonAbstract
 
         WAIT_ON_SUPPLY_MESSAGE_FAILURE.await();
 
-        assertEquals(1, grid(1).context().discovery().aliveServerNodes().size());
+        assertEquals(1, ignite(1).context().discovery().aliveServerNodes().size());
         assertFalse(awayNode.context().discovery().alive(ig.context().localNodeId())); // Only second node is alive
     }
 

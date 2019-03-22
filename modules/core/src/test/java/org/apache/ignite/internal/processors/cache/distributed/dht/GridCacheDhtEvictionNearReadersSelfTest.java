@@ -110,21 +110,21 @@ public class GridCacheDhtEvictionNearReadersSelfTest extends GridCommonAbstractT
     @SuppressWarnings({"SizeReplaceableByIsEmpty"})
     @Override protected void beforeTest() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
-            assert near(grid(i)).size() == 0;
-            assert dht(grid(i)).size() == 0;
+            assert near(ignite(i)).size() == 0;
+            assert dht(ignite(i)).size() == 0;
 
-            assert near(grid(i)).isEmpty();
-            assert dht(grid(i)).isEmpty();
+            assert near(ignite(i)).isEmpty();
+            assert dht(ignite(i)).isEmpty();
         }
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (int i = 0; i < GRID_CNT; i++) {
-            near(grid(i)).removeAll();
+            near(ignite(i)).removeAll();
 
-            assert near(grid(i)).isEmpty() : "Near cache is not empty [idx=" + i + "]";
-            assert dht(grid(i)).isEmpty() : "Dht cache is not empty [idx=" + i + "]";
+            assert near(ignite(i)).isEmpty() : "Near cache is not empty [idx=" + i + "]";
+            assert dht(ignite(i)).isEmpty() : "Dht cache is not empty [idx=" + i + "]";
         }
     }
 
@@ -151,7 +151,7 @@ public class GridCacheDhtEvictionNearReadersSelfTest extends GridCommonAbstractT
      * @return Primary node for the given key.
      */
     private Collection<ClusterNode> keyNodes(Object key) {
-        return grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        return ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key);
     }
 
     /**
@@ -192,7 +192,7 @@ public class GridCacheDhtEvictionNearReadersSelfTest extends GridCommonAbstractT
         assert backup != null;
 
         // Now calculate other node that doesn't own the key.
-        nodes = new ArrayList<>(grid(0).cluster().nodes());
+        nodes = new ArrayList<>(ignite(0).cluster().nodes());
 
         nodes.remove(primary);
         nodes.remove(backup);
@@ -207,14 +207,14 @@ public class GridCacheDhtEvictionNearReadersSelfTest extends GridCommonAbstractT
         info("Backup node: " + backup.id());
         info("Other node: " + other.id());
 
-        GridNearCacheAdapter<Integer, String> nearPrimary = near(grid(primary));
-        GridDhtCacheAdapter<Integer, String> dhtPrimary = dht(grid(primary));
+        GridNearCacheAdapter<Integer, String> nearPrimary = near(ignite(primary));
+        GridDhtCacheAdapter<Integer, String> dhtPrimary = dht(ignite(primary));
 
-        GridNearCacheAdapter<Integer, String> nearBackup = near(grid(backup));
-        GridDhtCacheAdapter<Integer, String> dhtBackup = dht(grid(backup));
+        GridNearCacheAdapter<Integer, String> nearBackup = near(ignite(backup));
+        GridDhtCacheAdapter<Integer, String> dhtBackup = dht(ignite(backup));
 
-        GridNearCacheAdapter<Integer, String> nearOther = near(grid(other));
-        GridDhtCacheAdapter<Integer, String> dhtOther = dht(grid(other));
+        GridNearCacheAdapter<Integer, String> nearOther = near(ignite(other));
+        GridDhtCacheAdapter<Integer, String> dhtOther = dht(ignite(other));
 
         String val = "v1";
 
@@ -230,13 +230,13 @@ public class GridCacheDhtEvictionNearReadersSelfTest extends GridCommonAbstractT
         assert dhtOther.peekEx(key) == null;
 
         IgniteFuture<Event> futOther =
-            waitForLocalEvent(grid(other).events(), nodeEvent(other.id()), EVT_CACHE_ENTRY_EVICTED);
+            waitForLocalEvent(ignite(other).events(), nodeEvent(other.id()), EVT_CACHE_ENTRY_EVICTED);
 
         IgniteFuture<Event> futBackup =
-            waitForLocalEvent(grid(backup).events(), nodeEvent(backup.id()), EVT_CACHE_ENTRY_EVICTED);
+            waitForLocalEvent(ignite(backup).events(), nodeEvent(backup.id()), EVT_CACHE_ENTRY_EVICTED);
 
         IgniteFuture<Event> futPrimary =
-            waitForLocalEvent(grid(primary).events(), nodeEvent(primary.id()), EVT_CACHE_ENTRY_EVICTED);
+            waitForLocalEvent(ignite(primary).events(), nodeEvent(primary.id()), EVT_CACHE_ENTRY_EVICTED);
 
         // Get value on other node, it should be loaded to near cache.
         assertEquals(val, nearOther.get(key, true, false));
@@ -253,7 +253,7 @@ public class GridCacheDhtEvictionNearReadersSelfTest extends GridCommonAbstractT
 
         // Evict on primary node.
         // It will trigger dht eviction and eviction on backup node.
-        grid(primary).cache(DEFAULT_CACHE_NAME).localEvict(Collections.<Object>singleton(key));
+        ignite(primary).cache(DEFAULT_CACHE_NAME).localEvict(Collections.<Object>singleton(key));
 
         futOther.get(3000);
         futBackup.get(3000);

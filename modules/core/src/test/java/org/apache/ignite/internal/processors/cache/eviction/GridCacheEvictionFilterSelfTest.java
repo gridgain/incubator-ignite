@@ -139,7 +139,7 @@ public class GridCacheEvictionFilterSelfTest extends GridCommonAbstractTest {
         startGridsMultiThreaded(2);
 
         try {
-            Ignite g = grid(0);
+            Ignite g = ignite(0);
 
             IgniteCache<Object, Object> c = g.cache(DEFAULT_CACHE_NAME);
 
@@ -195,7 +195,7 @@ public class GridCacheEvictionFilterSelfTest extends GridCommonAbstractTest {
 
         filter = new EvictionFilter();
 
-        Ignite g = startGrid();
+        Ignite g = clusterManager__startGrid();
 
         IgniteCache<Object, Object> cache = g.cache(DEFAULT_CACHE_NAME);
 

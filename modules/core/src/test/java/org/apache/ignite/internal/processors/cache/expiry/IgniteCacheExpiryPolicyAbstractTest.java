@@ -138,13 +138,13 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
             info("PUT DONE");
         }
 
-        long pSize = grid(0).context().cache().internalCache(DEFAULT_CACHE_NAME).context().ttl().pendingSize();
+        long pSize = ignite(0).context().cache().internalCache(DEFAULT_CACHE_NAME).context().ttl().pendingSize();
 
         assertTrue("Too many pending entries: " + pSize, pSize <= 1);
 
         cache.remove(key);
 
-        pSize = grid(0).context().cache().internalCache(DEFAULT_CACHE_NAME).context().ttl().pendingSize();
+        pSize = ignite(0).context().cache().internalCache(DEFAULT_CACHE_NAME).context().ttl().pendingSize();
 
         assertEquals(0, pSize);
     }
@@ -1005,7 +1005,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
         checkTtl(key, 60_000L);
 
         IgniteCache<Object, Object> cache =
-            grid(0).affinity(DEFAULT_CACHE_NAME).isPrimary(grid(1).localNode(), key) ? jcache(1) : jcache(2);
+            ignite(0).affinity(DEFAULT_CACHE_NAME).isPrimary(ignite(1).localNode(), key) ? jcache(1) : jcache(2);
 
         assertEquals(1, cache.get(key));
 
@@ -1161,7 +1161,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
         IgniteCache<Integer, Object> cache = jcache(0);
 
         for (int i = 0; i < gridCount(); i++) {
-            ClusterNode node = grid(i).cluster().localNode();
+            ClusterNode node = ignite(i).cluster().localNode();
 
             for (Integer key : keys) {
                 Object val = jcache(i).localPeek(key);
@@ -1203,7 +1203,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
         boolean found = false;
 
         for (int i = 0; i < gridCount(); i++) {
-            IgniteKernal grid = (IgniteKernal)grid(i);
+            IgniteKernal grid = (IgniteKernal)ignite(i);
 
             GridCacheAdapter<Object, Object> cache = grid.context().cache().internalCache(DEFAULT_CACHE_NAME);
 

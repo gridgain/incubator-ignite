@@ -58,7 +58,7 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
 
         Current.setAppServer(false);
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -74,7 +74,7 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
     @Test
     public void testJtaTxContextSwitch() throws Exception {
         for (TransactionIsolation isolation : TransactionIsolation.values()) {
-            TransactionConfiguration cfg = grid().context().config().getTransactionConfiguration();
+            TransactionConfiguration cfg = ignite().context().config().getTransactionConfiguration();
 
             cfg.setDefaultTxConcurrency(TransactionConcurrency.OPTIMISTIC);
             cfg.setDefaultTxIsolation(isolation);
@@ -83,7 +83,7 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
 
             IgniteCache<Integer, String> cache = jcache();
 
-            assertNull(grid().transactions().tx());
+            assertNull(ignite().transactions().tx());
 
             jtaTm.begin();
 
@@ -91,15 +91,15 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
 
             cache.put(1, Integer.toString(1));
 
-            assertNotNull(grid().transactions().tx());
+            assertNotNull(ignite().transactions().tx());
 
-            assertEquals(ACTIVE, grid().transactions().tx().state());
+            assertEquals(ACTIVE, ignite().transactions().tx().state());
 
             assertEquals(Integer.toString(1), cache.get(1));
 
             jtaTm.suspend();
 
-            assertNull(grid().transactions().tx());
+            assertNull(ignite().transactions().tx());
 
             assertNull(cache.get(1));
 
@@ -111,23 +111,23 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
 
             cache.put(2, Integer.toString(2));
 
-            assertNotNull(grid().transactions().tx());
+            assertNotNull(ignite().transactions().tx());
 
-            assertEquals(ACTIVE, grid().transactions().tx().state());
+            assertEquals(ACTIVE, ignite().transactions().tx().state());
 
             assertEquals(Integer.toString(2), cache.get(2));
 
             jtaTm.commit();
 
-            assertNull(grid().transactions().tx());
+            assertNull(ignite().transactions().tx());
 
             assertEquals(Integer.toString(2), cache.get(2));
 
             jtaTm.resume(tx1);
 
-            assertNotNull(grid().transactions().tx());
+            assertNotNull(ignite().transactions().tx());
 
-            assertEquals(ACTIVE, grid().transactions().tx().state());
+            assertEquals(ACTIVE, ignite().transactions().tx().state());
 
             cache.put(3, Integer.toString(3));
 
@@ -137,7 +137,7 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
             assertEquals("2", cache.get(2));
             assertEquals("3", cache.get(3));
 
-            assertNull(grid().transactions().tx());
+            assertNull(ignite().transactions().tx());
 
             cache.removeAll();
         }
@@ -149,7 +149,7 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
     @Test
     public void testJtaTxContextSwitchWithExistingTx() throws Exception {
         for (TransactionIsolation isolation : TransactionIsolation.values()) {
-            TransactionConfiguration cfg = grid().context().config().getTransactionConfiguration();
+            TransactionConfiguration cfg = ignite().context().config().getTransactionConfiguration();
 
             cfg.setDefaultTxConcurrency(TransactionConcurrency.OPTIMISTIC);
             cfg.setDefaultTxIsolation(isolation);
@@ -164,9 +164,9 @@ public class GridJtaTransactionManagerSelfTest extends GridCommonAbstractTest {
 
             cache.put(1, Integer.toString(1));
 
-            assertNotNull(grid().transactions().tx());
+            assertNotNull(ignite().transactions().tx());
 
-            assertEquals(ACTIVE, grid().transactions().tx().state());
+            assertEquals(ACTIVE, ignite().transactions().tx().state());
 
             assertEquals(Integer.toString(1), cache.get(1));
 

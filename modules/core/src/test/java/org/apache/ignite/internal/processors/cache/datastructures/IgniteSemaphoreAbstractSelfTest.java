@@ -109,7 +109,7 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
      */
     @Test
     public void testIsolation() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         CacheConfiguration cfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
@@ -173,7 +173,7 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
                 sem.availablePermits());
         }
 
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         final IgniteSemaphore sem0 = g0.semaphore(
             "sem",
@@ -225,11 +225,11 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
         checkFailoverSafe();
 
         // Test main functionality.
-        final IgniteSemaphore semaphore1 = grid(0).semaphore("semaphore", -2, true, true);
+        final IgniteSemaphore semaphore1 = ignite(0).semaphore("semaphore", -2, true, true);
 
         assertEquals(-2, semaphore1.availablePermits());
 
-        IgniteFuture<Object> fut = grid(0).compute().callAsync(new IgniteCallable<Object>() {
+        IgniteFuture<Object> fut = ignite(0).compute().callAsync(new IgniteCallable<Object>() {
             @IgniteInstanceResource
             private Ignite ignite;
 
@@ -307,11 +307,11 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
      * @throws Exception If failed.
      */
     private void checkSemaphoreSerialization() throws Exception {
-        final IgniteSemaphore sem = grid(0).semaphore("semaphore", -gridCount() + 1, true, true);
+        final IgniteSemaphore sem = ignite(0).semaphore("semaphore", -gridCount() + 1, true, true);
 
         assertEquals(-gridCount() + 1, sem.availablePermits());
 
-        grid(0).compute().broadcast(new IgniteCallable<Object>() {
+        ignite(0).compute().broadcast(new IgniteCallable<Object>() {
             @Nullable @Override public Object call() throws Exception {
                 sem.release();
 
@@ -428,7 +428,7 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
      */
     private IgniteSemaphore createSemaphore(String semaphoreName, int numPermissions, boolean failoverSafe)
         throws Exception {
-        IgniteSemaphore semaphore = grid(RND.nextInt(NODES_CNT)).semaphore(semaphoreName, numPermissions, failoverSafe, true);
+        IgniteSemaphore semaphore = ignite(RND.nextInt(NODES_CNT)).semaphore(semaphoreName, numPermissions, failoverSafe, true);
 
         // Test initialization.
         assert semaphoreName.equals(semaphore.name());
@@ -444,7 +444,7 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
      * @throws Exception If failed.
      */
     private void removeSemaphore(final String semaphoreName) throws Exception {
-        IgniteSemaphore semaphore = grid(RND.nextInt(NODES_CNT)).semaphore(semaphoreName, 10, false, true);
+        IgniteSemaphore semaphore = ignite(RND.nextInt(NODES_CNT)).semaphore(semaphoreName, 10, false, true);
 
         assert semaphore != null;
 
@@ -452,7 +452,7 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
             semaphore.release(-semaphore.availablePermits());
 
         // Remove semaphore on random node.
-        IgniteSemaphore semaphore0 = grid(RND.nextInt(NODES_CNT)).semaphore(semaphoreName, 0, false, true);
+        IgniteSemaphore semaphore0 = ignite(RND.nextInt(NODES_CNT)).semaphore(semaphoreName, 0, false, true);
 
         assertNotNull(semaphore0);
 
@@ -482,12 +482,12 @@ public abstract class IgniteSemaphoreAbstractSelfTest extends IgniteAtomicsAbstr
         if (gridCount() == 1)
             return;
 
-        IgniteSemaphore semaphore = grid(0).semaphore("s1", 0, true, true);
+        IgniteSemaphore semaphore = ignite(0).semaphore("s1", 0, true, true);
 
         List<IgniteInternalFuture<?>> futs = new ArrayList<>();
 
         for (int i = 0; i < gridCount(); i++) {
-            final Ignite ignite = grid(i);
+            final Ignite ignite = ignite(i);
 
             futs.add(GridTestUtils.runAsync(new Callable<Void>() {
                 @Override public Void call() throws Exception {

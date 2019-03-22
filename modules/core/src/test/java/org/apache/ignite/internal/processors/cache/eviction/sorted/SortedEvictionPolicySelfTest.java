@@ -28,7 +28,7 @@ public class SortedEvictionPolicySelfTest extends
     /** {@inheritDoc} */
     @Override protected void doTestPolicy() throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1", "1");
             MockEntry e2 = new MockEntry("2", "2");
@@ -139,7 +139,7 @@ public class SortedEvictionPolicySelfTest extends
     /** {@inheritDoc} */
     @Override protected void doTestPolicyWithBatch() throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1", "1");
             MockEntry e2 = new MockEntry("2", "2");

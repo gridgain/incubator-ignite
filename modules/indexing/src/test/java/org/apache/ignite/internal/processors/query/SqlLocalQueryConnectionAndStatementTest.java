@@ -104,7 +104,7 @@ public class SqlLocalQueryConnectionAndStatementTest extends AbstractIndexingCom
      * @return Results.
      */
     private FieldsQueryCursor<List<?>> sql(SqlFieldsQuery qry) {
-        GridQueryProcessor qryProc = grid(0).context().query();
+        GridQueryProcessor qryProc = ignite(0).context().query();
 
         return qryProc.querySqlFields(qry, true);
     }

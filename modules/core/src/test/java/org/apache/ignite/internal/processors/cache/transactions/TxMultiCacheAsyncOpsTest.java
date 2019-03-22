@@ -84,11 +84,11 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
 
         try {
             for (int i = 0; i < caches.length; i++)
-                grid(0).cache(caches[i].getName()).put(1, i + 1);
+                ignite(0).cache(caches[i].getName()).put(1, i + 1);
 
-            try (Transaction tx = grid(0).transactions().txStart()) {
+            try (Transaction tx = ignite(0).transactions().txStart()) {
                 for (int i = 0; i < caches.length; i++)
-                    grid(0).cache(caches[i].getName()).putAsync(1, (i + 1) * 10);
+                    ignite(0).cache(caches[i].getName()).putAsync(1, (i + 1) * 10);
 
                 tx.commit();
             }
@@ -97,11 +97,11 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
             }
 
             for (int i = 0; i < caches.length; i++)
-                assertEquals((i + 1) * 10, grid(0).cache(caches[i].getName()).get(1));
+                assertEquals((i + 1) * 10, ignite(0).cache(caches[i].getName()).get(1));
         }
         finally {
             for (int i = 0; i < caches.length; i++)
-                grid(0).cache(caches[i].getName()).removeAll();
+                ignite(0).cache(caches[i].getName()).removeAll();
         }
     }
 
@@ -114,13 +114,13 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
 
         try {
             for (int i = 0; i < caches.length; i++)
-                grid(0).cache(caches[i].getName()).put(1, i + 1);
+                ignite(0).cache(caches[i].getName()).put(1, i + 1);
 
             List<IgniteFuture> futs = new ArrayList<>();
 
-            try (Transaction tx = grid(0).transactions().txStart()) {
+            try (Transaction tx = ignite(0).transactions().txStart()) {
                 for (int i = 0; i < caches.length; i++)
-                    futs.add(grid(0).cache(caches[i].getName()).getAsync(1));
+                    futs.add(ignite(0).cache(caches[i].getName()).getAsync(1));
 
                 tx.commit();
             }
@@ -130,7 +130,7 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
         }
         finally {
             for (int i = 0; i < caches.length; i++)
-                grid(0).cache(caches[i].getName()).removeAll();
+                ignite(0).cache(caches[i].getName()).removeAll();
         }
     }
 }

@@ -107,7 +107,7 @@ public class IgniteTxCacheWriteSynchronizationModesMultithreadedTest extends Gri
         startGridsMultiThreaded(SRVS, CLIENTS);
 
         for (int i = 0; i < CLIENTS; i++)
-            assertTrue(grid(SRVS + i).configuration().isClientMode());
+            assertTrue(ignite(SRVS + i).configuration().isClientMode());
     }
 
     /**

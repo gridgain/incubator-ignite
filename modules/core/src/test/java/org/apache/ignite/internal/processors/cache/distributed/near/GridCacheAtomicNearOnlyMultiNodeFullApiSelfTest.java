@@ -70,7 +70,7 @@ public class GridCacheAtomicNearOnlyMultiNodeFullApiSelfTest extends GridCacheNe
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (int i = 0; i < gridCount(); i++)
-            grid(i).cache(DEFAULT_CACHE_NAME).removeAll();
+            ignite(i).cache(DEFAULT_CACHE_NAME).removeAll();
 
         super.afterTest();
     }

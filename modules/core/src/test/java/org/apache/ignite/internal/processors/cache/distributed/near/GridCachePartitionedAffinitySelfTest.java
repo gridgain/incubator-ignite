@@ -110,7 +110,7 @@ public class GridCachePartitionedAffinitySelfTest extends GridCommonAbstractTest
         Collection<? extends ClusterNode> nodes = null;
 
         for (int i = 0; i < GRIDS; i++) {
-            Collection<? extends ClusterNode> affNodes = nodes(affinity(grid(i)), key);
+            Collection<? extends ClusterNode> affNodes = nodes(affinity(ignite(i)), key);
 
             info("Affinity picture for grid [i=" + i + ", aff=" + U.toShortString(affNodes));
 
@@ -157,7 +157,7 @@ public class GridCachePartitionedAffinitySelfTest extends GridCommonAbstractTest
     public void testAffinityWithPut() throws Exception {
         waitTopologyUpdate();
 
-        Ignite mg = grid(0);
+        Ignite mg = ignite(0);
 
         IgniteCache<Integer, String> mc = mg.cache(DEFAULT_CACHE_NAME);
 

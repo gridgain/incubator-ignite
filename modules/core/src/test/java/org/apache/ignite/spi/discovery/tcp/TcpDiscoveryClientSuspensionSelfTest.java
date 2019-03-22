@@ -96,19 +96,19 @@ public class TcpDiscoveryClientSuspensionSelfTest extends GridCommonAbstractTest
         Ignite client = startGrid("client");
 
         for (int i = 0; i < serverCnt; i++)
-            assertEquals(1, grid(i).cluster().forClients().nodes().size());
+            assertEquals(1, ignite(i).cluster().forClients().nodes().size());
 
         Thread.sleep(2000);
 
         for (int i = 0; i < serverCnt; i++)
-            assertEquals(1, grid(i).cluster().forClients().nodes().size());
+            assertEquals(1, ignite(i).cluster().forClients().nodes().size());
 
         suspendClientMetricsUpdate(client);
 
         Thread.sleep(2000);
 
         for (int i = 0; i < serverCnt; i++)
-            assertEquals(0, grid(i).cluster().forClients().nodes().size());
+            assertEquals(0, ignite(i).cluster().forClients().nodes().size());
     }
 
     /**

@@ -65,7 +65,7 @@ public class IgniteDynamicCacheStartFailWithPersistenceTest extends IgniteAbstra
 
         startGrids(gridCount());
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         awaitPartitionMapExchange();
     }
@@ -86,13 +86,13 @@ public class IgniteDynamicCacheStartFailWithPersistenceTest extends IgniteAbstra
         super.checkCacheOperations(cache);
 
         // Disable write-ahead log.
-        grid(0).cluster().disableWal(cache.getName());
+        ignite(0).cluster().disableWal(cache.getName());
 
-        try (IgniteDataStreamer<Integer, Value> streamer = grid(0).dataStreamer(cache.getName())) {
+        try (IgniteDataStreamer<Integer, Value> streamer = ignite(0).dataStreamer(cache.getName())) {
             for (int i = 10_000; i < 15_000; ++i)
                 streamer.addData(i, new Value(i));
         }
 
-        grid(0).cluster().enableWal(cache.getName());
+        ignite(0).cluster().enableWal(cache.getName());
     }
 }

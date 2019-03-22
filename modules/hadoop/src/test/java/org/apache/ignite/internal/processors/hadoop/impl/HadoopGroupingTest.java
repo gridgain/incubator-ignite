@@ -129,7 +129,7 @@ public class HadoopGroupingTest extends HadoopAbstractSelfTest {
             job.setGroupingComparatorClass(YearComparator.class);
         }
 
-        grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 2),
+        ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 2),
             createJobInfo(job.getConfiguration(), null)).get(30000);
 
         assertTrue(HadoopGroupingTestState.values().isEmpty());

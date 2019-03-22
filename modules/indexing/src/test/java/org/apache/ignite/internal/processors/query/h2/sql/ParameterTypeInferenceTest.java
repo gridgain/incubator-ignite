@@ -135,7 +135,7 @@ public class ParameterTypeInferenceTest extends GridCommonAbstractTest {
                 for (int j = 0; j < 2; j++) {
                     SqlFieldsQuery qry0 = new SqlFieldsQuery(qry).setLocal(loc).setArgs(args);
 
-                    try (QueryCursorEx<List<?>> cur = (QueryCursorEx<List<?>>)grid(0).cache(CACHE_NAME).query(qry0)) {
+                    try (QueryCursorEx<List<?>> cur = (QueryCursorEx<List<?>>)ignite(0).cache(CACHE_NAME).query(qry0)) {
                         GridQueryFieldMetadata meta = cur.fieldsMeta().get(0);
 
                         cur.getAll();
@@ -156,7 +156,7 @@ public class ParameterTypeInferenceTest extends GridCommonAbstractTest {
      */
     private void clearParserCache() {
         for (int i = 0; i < NODE_CNT; i++)
-            ((IgniteH2Indexing)grid(i).context().query().getIndexing()).parser().clearCache();
+            ((IgniteH2Indexing)ignite(i).context().query().getIndexing()).parser().clearCache();
     }
 
 

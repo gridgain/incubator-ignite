@@ -33,7 +33,7 @@ public class BaselineConfigurationMXBeanTest extends GridCommonAbstractTest {
     /** */
     @Test
     public void testTimeoutAndEnabledFlag() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         try {
             IgniteCluster cluster = ignite.cluster();

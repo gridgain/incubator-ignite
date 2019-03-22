@@ -84,7 +84,7 @@ public abstract class IgniteClientReconnectFailoverAbstractTest extends IgniteCl
      * @throws Exception If failed.
      */
     protected final void reconnectFailover(final Callable<Void> c) throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 

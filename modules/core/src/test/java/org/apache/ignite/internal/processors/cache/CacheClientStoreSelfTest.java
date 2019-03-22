@@ -255,8 +255,8 @@ public class CacheClientStoreSelfTest extends GridCommonAbstractTest {
 
         assertEquals(10, cache.localSize(CachePeekMode.ALL));
 
-        assertEquals(0, grid(0).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
-        assertEquals(0, grid(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
+        assertEquals(0, ignite(0).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
+        assertEquals(0, ignite(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
 
         assert loadedFromClient;
     }
@@ -275,12 +275,12 @@ public class CacheClientStoreSelfTest extends GridCommonAbstractTest {
 
         Ignite client = startGrid("client-1");
 
-        IgniteCache cache = grid(0).cache(CACHE_NAME);
+        IgniteCache cache = ignite(0).cache(CACHE_NAME);
 
         cache.loadCache(null);
 
         assertEquals(10, cache.localSize(CachePeekMode.ALL));
-        assertEquals(0, grid(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
+        assertEquals(0, ignite(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
         assertEquals(0, client.cache(CACHE_NAME).localSize(CachePeekMode.ALL));
 
         assert !loadedFromClient : "Loaded data from client!";
@@ -304,8 +304,8 @@ public class CacheClientStoreSelfTest extends GridCommonAbstractTest {
 
         assertEquals(0, cache.localSize(CachePeekMode.ALL));
 
-        assertEquals(10, grid(0).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
-        assertEquals(10, grid(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
+        assertEquals(10, ignite(0).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
+        assertEquals(10, ignite(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
 
         assert !loadedFromClient : "Loaded data from client!";
     }
@@ -328,8 +328,8 @@ public class CacheClientStoreSelfTest extends GridCommonAbstractTest {
 
         assertEquals(0, cache.localSize(CachePeekMode.ALL));
 
-        assertEquals(10, grid(0).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
-        assertEquals(10, grid(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
+        assertEquals(10, ignite(0).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
+        assertEquals(10, ignite(1).cache(CACHE_NAME).localSize(CachePeekMode.ALL));
 
         assert !loadedFromClient : "Loaded data from client!";
     }

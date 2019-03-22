@@ -187,7 +187,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
         String[] exclude = new String[COORD_NODES];
 
         for (int i = 0; i < COORD_NODES; i++)
-            exclude[i] = testNodeName(i);
+            exclude[i] = getTestIgniteInstanceName(i);
 
         for (CacheConfiguration ccfg : cacheConfigurations()) {
             ccfg.setName("cache-" + cacheNames.size());
@@ -225,7 +225,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
                 TestRecordingCommunicationSpi.spi(ignite(i)).closure(new IgniteBiInClosure<ClusterNode, Message>() {
                     @Override public void apply(ClusterNode node, Message msg) {
                         if (msg instanceof GridNearGetRequest)
-                            doSleep(ThreadLocalRandom.current().nextLong(50) + 1);
+                            GridTestUtils.doSleep(ThreadLocalRandom.current().nextLong(50) + 1);
                     }
                 });
             }
@@ -507,7 +507,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
         String[] excludeNodes = new String[COORDS];
 
         for (int i = 0; i < COORDS; i++)
-            excludeNodes[i] = testNodeName(i);
+            excludeNodes[i] = getTestIgniteInstanceName(i);
 
         CacheConfiguration ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 0, DFLT_PARTITION_COUNT).
             setNodeFilter(new TestCacheNodeExcludingFilter(excludeNodes));
@@ -636,7 +636,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
         Ignite client = startGrid(SRVS + COORDS);
 
         CacheConfiguration ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 0, DFLT_PARTITION_COUNT).
-            setNodeFilter(new TestCacheNodeExcludingFilter(testNodeName(0)));
+            setNodeFilter(new TestCacheNodeExcludingFilter(getTestIgniteInstanceName(0)));
 
         if (cfgC != null)
             cfgC.apply(ccfg);
@@ -740,9 +740,9 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
 
         for (int i = 0; i < NODES; i++) {
             if (i < num)
-                victims.add(grid(i));
+                victims.add(ignite(i));
             else
-                survivors.add(grid(i));
+                survivors.add(ignite(i));
         }
 
         if (log.isInfoEnabled()) {
@@ -805,7 +805,7 @@ public abstract class CacheMvccAbstractBasicCoordinatorFailoverTest extends Cach
                 stopThreads.get(i).start();
 
             while (lastFinished == exch.lastTopologyFuture())
-                doSleep(1);
+                GridTestUtils.doSleep(1);
 
             stopThreads.get(0).start();
         }

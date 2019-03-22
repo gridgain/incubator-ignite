@@ -108,7 +108,7 @@ public class ClientReconnectContinuousQueryTest extends GridCommonAbstractTest {
         try {
             startGrids(2);
 
-            final IgniteEx client = grid(CLIENT_IDX);
+            final IgniteEx client = ignite(CLIENT_IDX);
 
             client.events().localListen(new DisconnectListener(), EventType.EVT_CLIENT_NODE_DISCONNECTED);
 
@@ -202,7 +202,7 @@ public class ClientReconnectContinuousQueryTest extends GridCommonAbstractTest {
      * @param cnt Number of keys.
      */
     private void putSomeKeys(int cnt) {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         IgniteCache<Object, Object> srvCache = ignite.cache(DEFAULT_CACHE_NAME);
 

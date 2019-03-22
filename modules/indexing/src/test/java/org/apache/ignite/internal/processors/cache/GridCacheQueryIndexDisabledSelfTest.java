@@ -59,7 +59,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testSqlQuery() throws Exception {
-        IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
+        IgniteCache<Integer, SqlValue> cache = ignite().getOrCreateCache(SqlValue.class.getSimpleName());
 
         try {
             cache.query(new SqlQuery<Integer, SqlValue>(SqlValue.class, "val >= 0")).getAll();
@@ -79,7 +79,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testSqlFieldsQuery() throws Exception {
-        IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
+        IgniteCache<Integer, SqlValue> cache = ignite().getOrCreateCache(SqlValue.class.getSimpleName());
 
         try {
             cache.query(new SqlFieldsQuery("select * from Person")).getAll();
@@ -111,7 +111,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testFullTextQuery() throws Exception {
-        IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
+        IgniteCache<Integer, String> cache = ignite().getOrCreateCache(String.class.getSimpleName());
 
         try {
             cache.query(new TextQuery<Integer, String>(String.class, "text")).getAll();
@@ -131,7 +131,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testScanLocalQuery() throws Exception {
-        IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
+        IgniteCache<Integer, String> cache = ignite().getOrCreateCache(String.class.getSimpleName());
 
         try {
             cache.query(new ScanQuery<>(new IgniteBiPredicate<Integer, String>() {
@@ -149,7 +149,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testSqlLocalQuery() throws Exception {
-        IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
+        IgniteCache<Integer, SqlValue> cache = ignite().getOrCreateCache(SqlValue.class.getSimpleName());
 
         try {
             cache.query(new SqlQuery<Integer, SqlValue>(SqlValue.class, "val >= 0").setLocal(true)).getAll();
@@ -169,7 +169,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testSqlLocalFieldsQuery() throws Exception {
-        IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
+        IgniteCache<Integer, SqlValue> cache = ignite().getOrCreateCache(SqlValue.class.getSimpleName());
 
         try {
             cache.query(new SqlFieldsQuery("select * from Person")).getAll();
@@ -189,7 +189,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testFullTextLocalQuery() throws Exception {
-        IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
+        IgniteCache<Integer, String> cache = ignite().getOrCreateCache(String.class.getSimpleName());
 
         try {
             cache.query(new TextQuery<Integer, String>(String.class, "text").setLocal(true)).getAll();
@@ -209,7 +209,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testScanQuery() throws Exception {
-        IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
+        IgniteCache<Integer, String> cache = ignite().getOrCreateCache(String.class.getSimpleName());
 
         try {
             cache.query(new ScanQuery<>(new IgniteBiPredicate<Integer, String>() {

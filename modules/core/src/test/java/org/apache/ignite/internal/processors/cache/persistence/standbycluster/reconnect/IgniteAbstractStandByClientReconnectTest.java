@@ -161,7 +161,7 @@ public abstract class IgniteAbstractStandByClientReconnectTest extends GridCommo
         final CountDownLatch disconnectedLatch,
         final CountDownLatch reconnectedLatch
     ) {
-        grid(nodeClient).events().localListen(new IgnitePredicate<Event>() {
+        ignite(nodeClient).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event event) {
                 switch (event.type()) {
                     case EventType.EVT_CLIENT_NODE_DISCONNECTED:
@@ -232,9 +232,9 @@ public abstract class IgniteAbstractStandByClientReconnectTest extends GridCommo
      *
      */
     protected void checkStaticCaches() {
-        IgniteEx ig1 = grid(node1);
-        IgniteEx ig2 = grid(node2);
-        IgniteEx client = grid(nodeClient);
+        IgniteEx ig1 = ignite(node1);
+        IgniteEx ig2 = ignite(node2);
+        IgniteEx client = ignite(nodeClient);
 
         Assert.assertNotNull(ig1.cache(ccfg1staticName));
         Assert.assertNotNull(ig1.cache(ccfg2staticName));
@@ -262,9 +262,9 @@ public abstract class IgniteAbstractStandByClientReconnectTest extends GridCommo
      *
      */
     protected void checkAllCaches() {
-        IgniteEx ig1 = grid(node1);
-        IgniteEx ig2 = grid(node2);
-        IgniteEx client = grid(nodeClient);
+        IgniteEx ig1 = ignite(node1);
+        IgniteEx ig2 = ignite(node2);
+        IgniteEx client = ignite(nodeClient);
 
         checkStaticCaches();
 
@@ -281,9 +281,9 @@ public abstract class IgniteAbstractStandByClientReconnectTest extends GridCommo
      * @param checkClientCaches Check presence of client caches, false to skip.
      */
     protected void checkOnlySystemCaches(boolean checkClientCaches) {
-        IgniteEx ig1 = grid(node1);
-        IgniteEx ig2 = grid(node2);
-        IgniteEx client = grid(nodeClient);
+        IgniteEx ig1 = ignite(node1);
+        IgniteEx ig2 = ignite(node2);
+        IgniteEx client = ignite(nodeClient);
 
         Assert.assertNull(ig1.cache(ccfg1staticName));
         Assert.assertNull(ig1.cache(ccfg2staticName));

@@ -69,7 +69,7 @@ public class GridSpiExceptionSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSpiFail() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         try {
             try {

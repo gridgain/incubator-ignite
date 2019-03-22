@@ -736,7 +736,7 @@ public class IgniteCachePartitionLossPolicySelfTest extends GridCommonAbstractTe
             part = i;
 
             for (Integer id : nodes) {
-                if (aff.isPrimaryOrBackup(grid(id).cluster().localNode(), i)) {
+                if (aff.isPrimaryOrBackup(ignite(id).cluster().localNode(), i)) {
                     part = null;
 
                     break;
@@ -924,7 +924,7 @@ public class IgniteCachePartitionLossPolicySelfTest extends GridCommonAbstractTe
             startGrids(4);
 
             if (isPersistenceEnabled)
-                grid(0).cluster().active(true);
+                ignite(0).cluster().active(true);
 
             Affinity<Object> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
@@ -957,7 +957,7 @@ public class IgniteCachePartitionLossPolicySelfTest extends GridCommonAbstractTe
 
                 lostMap.add(semaphoreMap);
 
-                grid(i).events().localListen(new P1<Event>() {
+                ignite(i).events().localListen(new P1<Event>() {
                     @Override public boolean apply(Event evt) {
                         assert evt.type() == EventType.EVT_CACHE_REBALANCE_PART_DATA_LOST;
 
@@ -981,7 +981,7 @@ public class IgniteCachePartitionLossPolicySelfTest extends GridCommonAbstractTe
             for (Integer node : killNodes) {
                 executor.submit(new Runnable() {
                     @Override public void run() {
-                        grid(node).close();
+                        ignite(node).close();
                     }
                 });
 

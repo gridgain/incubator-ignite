@@ -56,11 +56,11 @@ public class NoneRebalanceModeSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testRemoveAll() throws Exception {
-        GridNearTransactionalCache cache = (GridNearTransactionalCache)((IgniteKernal)grid(0)).internalCache(DEFAULT_CACHE_NAME);
+        GridNearTransactionalCache cache = (GridNearTransactionalCache)((IgniteKernal)ignite(0)).internalCache(DEFAULT_CACHE_NAME);
 
         for (GridDhtLocalPartition part : cache.dht().topology().localPartitions())
             assertEquals(OWNING, part.state());
 
-        grid(0).cache(DEFAULT_CACHE_NAME).removeAll();
+        ignite(0).cache(DEFAULT_CACHE_NAME).removeAll();
     }
 }

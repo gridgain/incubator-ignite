@@ -97,7 +97,7 @@ public abstract class IgniteAbstractWalIteratorInvalidCrcTest extends GridCommon
     @Override protected void beforeTest() throws Exception {
         cleanPersistenceDir();
 
-        ignite = (IgniteEx)startGrid();
+        ignite = (IgniteEx)clusterManager__startGrid();
 
         ignite.cluster().active(true);
 

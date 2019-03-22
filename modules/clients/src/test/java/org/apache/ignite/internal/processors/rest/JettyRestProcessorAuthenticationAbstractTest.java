@@ -55,7 +55,7 @@ public abstract class JettyRestProcessorAuthenticationAbstractTest extends Jetty
     /** {@inheritDoc} */
     @Override protected void initCache() {
         // We need to activate cluster.
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         super.initCache();
     }
@@ -112,7 +112,7 @@ public abstract class JettyRestProcessorAuthenticationAbstractTest extends Jetty
 
         assertTrue(res.asBoolean());
 
-        IgniteAuthenticationProcessor auth = grid(0).context().authentication();
+        IgniteAuthenticationProcessor auth = ignite(0).context().authentication();
 
         assertNotNull(auth.authenticate("user1", "password1"));
 
@@ -137,7 +137,7 @@ public abstract class JettyRestProcessorAuthenticationAbstractTest extends Jetty
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(0).context().authentication().authenticate("user1", "password1");
+                ignite(0).context().authentication().authenticate("user1", "password1");
 
                 return null;
             }

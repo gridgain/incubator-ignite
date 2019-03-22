@@ -31,6 +31,7 @@ import org.apache.ignite.internal.util.offheap.unsafe.GridUnsafeMap;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.Test;
@@ -653,25 +654,23 @@ public abstract class GridOffHeapMapAbstractSelfTest extends GridCommonAbstractT
 
         map = newMap();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                for (int i = 0; i < 10000; i++) {
-                    String key = string();
+        GridTestUtils.runMultiThreaded(() -> {
+            for (int i = 0; i < 10000; i++) {
+                String key = string();
 
-                    byte[] keyBytes = key.getBytes();
-                    byte[] valBytes = bytes(100);
+                byte[] keyBytes = key.getBytes();
+                byte[] valBytes = bytes(100);
 
-                    assert !map.contains(hash(key), keyBytes);
+                assert !map.contains(hash(key), keyBytes);
 
-                    map.insert(hash(key), keyBytes, valBytes);
+                map.insert(hash(key), keyBytes, valBytes);
 
-                    int n;
+                int n;
 
-                    if ((n = cnt.incrementAndGet()) % 10000 == 0)
-                        info("Inserted entries: " + n);
-                }
+                if ((n = cnt.incrementAndGet()) % 10000 == 0)
+                    info("Inserted entries: " + n);
             }
-        }, 10);
+        }, 10, getTestIgniteInstanceName());
 
         info("Map stats [evicted=" + evictCnt + ", size=" + map.totalSize() + ", allocated=" + map.allocatedSize() +
             ", freeSize=" + map.freeSize() + ']');

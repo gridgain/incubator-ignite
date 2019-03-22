@@ -236,7 +236,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
         qry.setRemoteFilter(new CacheEventFilter());
 
         try (QueryCursor<?> cur = qryClnCache.query(qry)) {
-            List<Integer> keys = testKeys(grid(0).cache(DEFAULT_CACHE_NAME), 1);
+            List<Integer> keys = testKeys(ignite(0).cache(DEFAULT_CACHE_NAME), 1);
 
             for (Integer key : keys)
                 qryClnCache.put(key, -1);
@@ -462,7 +462,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
         int killedNode = rnd.nextInt(SRV_NODES);
 
         for (int i = 0; i < 10; i++) {
-            List<Integer> keys = testKeys(grid(0).cache(DEFAULT_CACHE_NAME), 10);
+            List<Integer> keys = testKeys(ignite(0).cache(DEFAULT_CACHE_NAME), 10);
 
             for (Integer key : keys) {
                 IgniteCache<Object, Object> cache = null;
@@ -474,7 +474,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
                         int nodeIdx = rnd.nextInt(SRV_NODES);
 
                         if (killedNode != nodeIdx) {
-                            cache = grid(nodeIdx).cache(DEFAULT_CACHE_NAME);
+                            cache = ignite(nodeIdx).cache(DEFAULT_CACHE_NAME);
 
                             break;
                         }
@@ -524,13 +524,13 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
             if (i == killedNodeIdx)
                 continue;
 
-            Affinity<Object> aff = grid(i).affinity(DEFAULT_CACHE_NAME);
+            Affinity<Object> aff = ignite(i).affinity(DEFAULT_CACHE_NAME);
 
-            CachePartitionPartialCountersMap act = grid(i).cachex(DEFAULT_CACHE_NAME).context().topology()
+            CachePartitionPartialCountersMap act = ignite(i).cachex(DEFAULT_CACHE_NAME).context().topology()
                 .localUpdateCounters(false);
 
             for (Map.Entry<Integer, Long> e : updCntrs.entrySet()) {
-                if (aff.mapPartitionToPrimaryAndBackups(e.getKey()).contains(grid(i).localNode())) {
+                if (aff.mapPartitionToPrimaryAndBackups(e.getKey()).contains(ignite(i).localNode())) {
                     int partIdx = act.partitionIndex(e.getKey());
 
                     assertEquals(e.getValue(), (Long)act.updateCounterAt(partIdx));
@@ -565,7 +565,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
                 @Override public IgniteCache<Integer, Integer> apply() {
                     ++cnt;
 
-                    return grid(cnt % SRV_NODES + 1).cache(DEFAULT_CACHE_NAME);
+                    return ignite(cnt % SRV_NODES + 1).cache(DEFAULT_CACHE_NAME);
                 }
             };
 

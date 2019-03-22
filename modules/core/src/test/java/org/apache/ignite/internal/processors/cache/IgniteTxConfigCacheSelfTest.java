@@ -107,7 +107,7 @@ public class IgniteTxConfigCacheSelfTest extends GridCommonAbstractTest {
     public void testUserTxTimeout() throws Exception {
         Assume.assumeFalse("https://issues.apache.org/jira/browse/IGNITE-7952", MvccFeatureChecker.forcedMvcc());
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final IgniteCache<Object, Object> cache = ignite.getOrCreateCache(CACHE_NAME);
 
@@ -122,7 +122,7 @@ public class IgniteTxConfigCacheSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSystemCacheTx() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final IgniteInternalCache<Object, Object> utilCache = getSystemCache(ignite, CU.UTILITY_CACHE_NAME);
 

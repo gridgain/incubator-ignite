@@ -274,8 +274,8 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
         startGridsMultiThreaded(3);
 
         try {
-            final Ignite g0 = grid(0);
-            Ignite g1 = grid(1);
+            final Ignite g0 = ignite(0);
+            Ignite g1 = ignite(1);
 
             final Collection<Integer> keys = new ConcurrentLinkedQueue<>();
 
@@ -337,7 +337,7 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
             Thread.sleep(1000);
             // Check that all transactions are committed.
             for (int i = 0; i < 3; i++) {
-                GridCacheAdapter<Object, Object> cache = ((IgniteKernal)grid(i)).internalCache(DEFAULT_CACHE_NAME);
+                GridCacheAdapter<Object, Object> cache = ((IgniteKernal)ignite(i)).internalCache(DEFAULT_CACHE_NAME);
 
                 for (Integer key : keys) {
                     GridCacheEntryEx entry = cache.peekEx(key);
@@ -386,8 +386,8 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
         startGridsMultiThreaded(3);
 
         try {
-            final Ignite g0 = grid(0);
-            Ignite g1 = grid(1);
+            final Ignite g0 = ignite(0);
+            Ignite g1 = ignite(1);
 
             final Integer key = forPrimary(loc ? g0 : g1);
 
@@ -448,7 +448,7 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(3);
 
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         try {
             for (int i = 0; i < 100; i++)
@@ -475,10 +475,10 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
      */
     private void checkSinglePut(boolean explicitTx, TransactionConcurrency concurrency, TransactionIsolation isolation)
         throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         try {
-            Transaction tx = explicitTx ? grid().transactions().txStart(concurrency, isolation) : null;
+            Transaction tx = explicitTx ? ignite().transactions().txStart(concurrency, isolation) : null;
 
             try {
                 IgniteCache<Object, Object> cache = jcache();
@@ -510,10 +510,10 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void checkReentry(TransactionConcurrency concurrency, TransactionIsolation isolation) throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         try {
-            Transaction tx = grid().transactions().txStart(concurrency, isolation);
+            Transaction tx = ignite().transactions().txStart(concurrency, isolation);
 
             try {
                 IgniteCache<Object, Object> cache = jcache();
@@ -559,9 +559,9 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(3);
 
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
-        Ignite g2 = grid(2);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
+        Ignite g2 = ignite(2);
 
         try {
             Integer k0 = forPrimary(g0);
@@ -648,9 +648,9 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(3);
 
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
-        Ignite g2 = grid(2);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
+        Ignite g2 = ignite(2);
 
         try {
             Integer k1 = forPrimary(g1);
@@ -728,9 +728,9 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(3);
 
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
-        Ignite g2 = grid(2);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
+        Ignite g2 = ignite(2);
 
         try {
             // Check local commit.
@@ -760,9 +760,9 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void checkStoreWithValues(Map<Integer, String> map) throws Exception {
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
-        Ignite g2 = grid(2);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
+        Ignite g2 = ignite(2);
 
         g0.cache(DEFAULT_CACHE_NAME).putAll(map);
 
@@ -793,7 +793,7 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
     private void checkStore(Ignite ignite, Map<Integer, String> map) throws Exception {
         String cacheName = ignite.configuration().getCacheConfiguration()[0].getName();
 
-        GridCacheContext ctx = ((IgniteKernal)grid()).context().cache().internalCache(cacheName).context();
+        GridCacheContext ctx = ((IgniteKernal)ignite()).context().cache().internalCache(cacheName).context();
 
         CacheStore store = ctx.store().configuredStore();
 
@@ -807,9 +807,9 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
      */
     private void clearStores(int cnt) {
         for (int i = 0; i < cnt; i++) {
-            String cacheName = grid(i).configuration().getCacheConfiguration()[0].getName();
+            String cacheName = ignite(i).configuration().getCacheConfiguration()[0].getName();
 
-            GridCacheContext ctx = ((IgniteKernal)grid()).context().cache().internalCache(cacheName).context();
+            GridCacheContext ctx = ((IgniteKernal)ignite()).context().cache().internalCache(cacheName).context();
 
             CacheStore store = ctx.store().configuredStore();
 
@@ -829,9 +829,9 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(3);
 
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
-        Ignite g2 = grid(2);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
+        Ignite g2 = ignite(2);
 
         try {
             Integer k0 = forPrimary(g0);
@@ -912,7 +912,7 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
     public void testExplicitLocks() throws Exception {
         storeEnabled = false;
 
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             IgniteCache<Object, Object> cache = jcache();
@@ -941,9 +941,9 @@ public class GridCacheColocatedDebugTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(3);
 
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
-        Ignite g2 = grid(2);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
+        Ignite g2 = ignite(2);
 
         try {
             Integer k0 = forPrimary(g0);

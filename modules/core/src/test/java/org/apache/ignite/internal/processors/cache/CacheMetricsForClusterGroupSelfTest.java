@@ -93,7 +93,7 @@ public class CacheMetricsForClusterGroupSelfTest extends GridCommonAbstractTest 
 
             awaitMetricsUpdate(1);
 
-            Collection<ClusterNode> nodes = grid(0).cluster().forRemotes().nodes();
+            Collection<ClusterNode> nodes = ignite(0).cluster().forRemotes().nodes();
 
             for (ClusterNode node : nodes) {
                 Map<Integer, CacheMetrics> metrics = ((IgniteClusterNode)node).cacheMetrics();
@@ -129,7 +129,7 @@ public class CacheMetricsForClusterGroupSelfTest extends GridCommonAbstractTest 
 
             awaitMetricsUpdate(1);
 
-            Collection<ClusterNode> nodes = grid(0).cluster().forRemotes().nodes();
+            Collection<ClusterNode> nodes = ignite(0).cluster().forRemotes().nodes();
 
             for (ClusterNode node : nodes) {
                 Map<Integer, CacheMetrics> metrics = ((IgniteClusterNode)node).cacheMetrics();
@@ -166,7 +166,7 @@ public class CacheMetricsForClusterGroupSelfTest extends GridCommonAbstractTest 
 
                 awaitMetricsUpdate(1);
 
-                Collection<ClusterNode> nodes = grid(0).cluster().forRemotes().nodes();
+                Collection<ClusterNode> nodes = ignite(0).cluster().forRemotes().nodes();
 
                 for (ClusterNode node : nodes) {
                     Map<Integer, CacheMetrics> metrics = ((IgniteClusterNode)node).cacheMetrics();
@@ -209,8 +209,8 @@ public class CacheMetricsForClusterGroupSelfTest extends GridCommonAbstractTest 
         ccfg2.setName(CACHE2);
         ccfg2.setStatisticsEnabled(statisticsEnabled);
 
-        cache1 = grid(0).getOrCreateCache(ccfg1);
-        cache2 = grid(0).getOrCreateCache(ccfg2);
+        cache1 = ignite(0).getOrCreateCache(ccfg1);
+        cache2 = ignite(0).getOrCreateCache(ccfg2);
     }
 
     /**
@@ -236,7 +236,7 @@ public class CacheMetricsForClusterGroupSelfTest extends GridCommonAbstractTest 
      */
     private void readCacheData(IgniteCache<Integer, Integer> cache, int cnt) {
         for (int i = 0; i < cnt; i++)
-            grid(i % GRID_CNT).cache(cache.getName()).get(i);
+            ignite(i % GRID_CNT).cache(cache.getName()).get(i);
     }
 
     /**
@@ -246,10 +246,10 @@ public class CacheMetricsForClusterGroupSelfTest extends GridCommonAbstractTest 
         CacheMetrics[] ms = new CacheMetrics[GRID_CNT];
 
         for (int i = 0; i < GRID_CNT; i++) {
-            CacheMetrics metrics = cache.metrics(grid(i).cluster().forCacheNodes(cache.getName()));
+            CacheMetrics metrics = cache.metrics(ignite(i).cluster().forCacheNodes(cache.getName()));
 
             for (int j = 0; j < GRID_CNT; j++)
-                ms[j] = grid(j).cache(cache.getName()).localMetrics();
+                ms[j] = ignite(j).cache(cache.getName()).localMetrics();
 
             // Static metrics
             for (int j = 0; j < GRID_CNT; j++)
@@ -305,9 +305,9 @@ public class CacheMetricsForClusterGroupSelfTest extends GridCommonAbstractTest 
      */
     private void assertOnlyLocalMetricsUpdating(String cacheName) {
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteCache cache = grid(i).cache(cacheName);
+            IgniteCache cache = ignite(i).cache(cacheName);
 
-            CacheMetrics clusterMetrics = cache.metrics(grid(i).cluster().forCacheNodes(cacheName));
+            CacheMetrics clusterMetrics = cache.metrics(ignite(i).cluster().forCacheNodes(cacheName));
             CacheMetrics locMetrics = cache.localMetrics();
 
             assertEquals(clusterMetrics.name(), locMetrics.name());

@@ -40,12 +40,12 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        ((IgniteKernal)grid()).context().io().
+        ((IgniteKernal)ignite()).context().io().
             removeMessageListener(GridTopic.TOPIC_COMM_USER.name());
     }
 
@@ -57,7 +57,7 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
     public void testBasicFlow() throws Exception {
         final AtomicInteger cnt = new AtomicInteger(0);
 
-        grid().message().localListen(null, new MessagingListenActor<String>() {
+        ignite().message().localListen(null, new MessagingListenActor<String>() {
             @Override public void receive(UUID uuid, String rcvMsg) {
                 if ("TEST".equals(rcvMsg)) {
                     cnt.incrementAndGet();
@@ -73,11 +73,11 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
             }
         });
 
-        grid().message().send(null, "TEST"); // This message we should receive.
+        ignite().message().send(null, "TEST"); // This message we should receive.
 
         // Flood it.
         for (int i = 0; i < 100; i++)
-           grid().message().send(null, "TEST"); // This message should be lost...
+           ignite().message().send(null, "TEST"); // This message should be lost...
 
         Thread.sleep(2000);
 
@@ -110,9 +110,9 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
         startGrid(1);
 
         try {
-            final ClusterNode rmt = grid(1).localNode();
+            final ClusterNode rmt = ignite(1).localNode();
 
-            grid().message().localListen(null, new MessagingListenActor<String>() {
+            ignite().message().localListen(null, new MessagingListenActor<String>() {
                 @Override protected void receive(UUID nodeId, String rcvMsg) throws IgniteException {
                     System.out.println("Local node received message: '" + rcvMsg + "'");
 
@@ -123,7 +123,7 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
             final AtomicInteger cnt = new AtomicInteger();
 
             // Response listener
-            grid(1).message().localListen(null, new MessagingListenActor<String>() {
+            ignite(1).message().localListen(null, new MessagingListenActor<String>() {
                 @Override public void receive(UUID nodeId, String rcvMsg) {
                     if ("RESPONSE".equals(rcvMsg)) {
                         System.out.println("Remote node received message: '" + rcvMsg + "'");
@@ -133,7 +133,7 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
                 }
             });
 
-            grid().message().send(null, "REQUEST");
+            ignite().message().send(null, "REQUEST");
 
             assert GridTestUtils.waitForCondition(new PA() {
                 @Override public boolean apply() {
@@ -156,7 +156,7 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
 
         final CountDownLatch latch = new CountDownLatch(PING_PONG_STEPS);
 
-        grid().message().localListen(null, new MessagingListenActor<String>() {
+        ignite().message().localListen(null, new MessagingListenActor<String>() {
             @Override protected void receive(UUID nodeId, String rcvMsg) {
                 System.out.println("Received message: '" + rcvMsg + "'");
 
@@ -177,7 +177,7 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
             }
         });
 
-        grid().message().send(null, "PING");
+        ignite().message().send(null, "PING");
 
         latch.await();
 
@@ -196,7 +196,7 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
 
         final AtomicInteger cnt = new AtomicInteger(0);
 
-        grid().message().localListen(null, new MessagingListenActor<String>() {
+        ignite().message().localListen(null, new MessagingListenActor<String>() {
             @Override protected void receive(UUID nodeId, String rcvMsg) {
                 System.out.println(Thread.currentThread().getName() + "# Received message: '" + rcvMsg + "'");
 
@@ -216,7 +216,7 @@ public class GridListenActorSelfTest extends GridCommonAbstractTest {
         for (int i = 1; i <= snd; i++) {
             String msg = "MESSAGE " + i;
 
-            grid().message().send(null, msg);
+            ignite().message().send(null, msg);
 
             System.out.println(Thread.currentThread().getName() + "# Sent message: '" + msg + "'");
         }

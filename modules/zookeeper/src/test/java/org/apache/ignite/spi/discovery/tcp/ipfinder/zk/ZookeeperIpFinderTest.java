@@ -146,7 +146,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
     public void testOneIgniteNodeIsAlone() throws Exception {
         startGrid(0);
 
-        assertEquals(1, grid(0).cluster().metrics().getTotalNodes());
+        assertEquals(1, ignite(0).cluster().metrics().getTotalNodes());
 
         stopAllGrids();
     }
@@ -160,14 +160,14 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrid(0);
 
         // set up an event listener to expect one NODE_JOINED event
-        CountDownLatch latch = expectJoinEvents(grid(0), 1);
+        CountDownLatch latch = expectJoinEvents(ignite(0), 1);
 
         // start the other node
         startGrid(1);
 
         // assert the nodes see each other
-        assertEquals(2, grid(0).cluster().metrics().getTotalNodes());
-        assertEquals(2, grid(1).cluster().metrics().getTotalNodes());
+        assertEquals(2, ignite(0).cluster().metrics().getTotalNodes());
+        assertEquals(2, ignite(1).cluster().metrics().getTotalNodes());
 
         // assert the event listener got as many events as expected
         latch.await(1, TimeUnit.SECONDS);
@@ -184,7 +184,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrid(0);
 
         // set up an event listener to expect one NODE_JOINED event
-        CountDownLatch latch = expectJoinEvents(grid(0), 2);
+        CountDownLatch latch = expectJoinEvents(ignite(0), 2);
 
         // start the 2nd node
         startGrid(1);
@@ -194,12 +194,12 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrid(2);
 
         // wait until all grids are started
-        waitForRemoteNodes(grid(0), 2);
+        waitForRemoteNodes(ignite(0), 2);
 
         // assert the nodes see each other
-        assertEquals(3, grid(0).cluster().metrics().getTotalNodes());
-        assertEquals(3, grid(1).cluster().metrics().getTotalNodes());
-        assertEquals(3, grid(2).cluster().metrics().getTotalNodes());
+        assertEquals(3, ignite(0).cluster().metrics().getTotalNodes());
+        assertEquals(3, ignite(1).cluster().metrics().getTotalNodes());
+        assertEquals(3, ignite(2).cluster().metrics().getTotalNodes());
 
         // assert the event listener got as many events as expected
         latch.await(1, TimeUnit.SECONDS);
@@ -216,7 +216,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrid(0);
 
         // set up an event listener to expect one NODE_JOINED event
-        CountDownLatch latch = expectJoinEvents(grid(0), 3);
+        CountDownLatch latch = expectJoinEvents(ignite(0), 3);
 
         // start the 2nd node
         startGrid(1);
@@ -227,13 +227,13 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrid(3);
 
         // wait until all grids are started
-        waitForRemoteNodes(grid(0), 3);
+        waitForRemoteNodes(ignite(0), 3);
 
         // assert the nodes see each other
-        assertEquals(4, grid(0).cluster().metrics().getTotalNodes());
-        assertEquals(4, grid(1).cluster().metrics().getTotalNodes());
-        assertEquals(4, grid(2).cluster().metrics().getTotalNodes());
-        assertEquals(4, grid(3).cluster().metrics().getTotalNodes());
+        assertEquals(4, ignite(0).cluster().metrics().getTotalNodes());
+        assertEquals(4, ignite(1).cluster().metrics().getTotalNodes());
+        assertEquals(4, ignite(2).cluster().metrics().getTotalNodes());
+        assertEquals(4, ignite(3).cluster().metrics().getTotalNodes());
 
         // assert the event listener got as many events as expected
         latch.await(1, TimeUnit.SECONDS);
@@ -242,9 +242,9 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         stopGrid(0);
 
         // make sure that nodes were synchronized; they should only see 3 now
-        assertEquals(3, grid(1).cluster().metrics().getTotalNodes());
-        assertEquals(3, grid(2).cluster().metrics().getTotalNodes());
-        assertEquals(3, grid(3).cluster().metrics().getTotalNodes());
+        assertEquals(3, ignite(1).cluster().metrics().getTotalNodes());
+        assertEquals(3, ignite(2).cluster().metrics().getTotalNodes());
+        assertEquals(3, ignite(3).cluster().metrics().getTotalNodes());
 
         // stop all remaining grids
         stopGrid(1);
@@ -267,7 +267,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrids(4);
 
         // wait until all grids are started
-        waitForRemoteNodes(grid(0), 3);
+        waitForRemoteNodes(ignite(0), 3);
 
         // each node will register itself + the node that it connected to to join the cluster
         assertEquals(7, zkCurator.getChildren().forPath(SERVICES_IGNITE_ZK_PATH).size());
@@ -291,7 +291,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrids(4);
 
         // wait until all grids are started
-        waitForRemoteNodes(grid(0), 3);
+        waitForRemoteNodes(ignite(0), 3);
 
         // each node will only register itself
         assertEquals(4, zkCurator.getChildren().forPath(SERVICES_IGNITE_ZK_PATH).size());
@@ -315,7 +315,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrids(4);
 
         // wait until all grids are started
-        waitForRemoteNodes(grid(0), 3);
+        waitForRemoteNodes(ignite(0), 3);
 
         // each node will only register itself
         assertEquals(4, zkCurator.getChildren().forPath(SERVICES_IGNITE_ZK_PATH).size());
@@ -352,7 +352,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
         startGrids(4);
 
         // wait until all grids are started
-        waitForRemoteNodes(grid(0), 3);
+        waitForRemoteNodes(ignite(0), 3);
 
         // each node will only register itself
         assertEquals(4, zkCurator.getChildren().forPath(SERVICES_IGNITE_ZK_PATH).size());
@@ -374,7 +374,7 @@ public class ZookeeperIpFinderTest extends GridCommonAbstractTest {
 
         // Block the clients until connected.
         for (int i = 0; i < 4; i++) {
-            TcpDiscoverySpi spi = (TcpDiscoverySpi)grid(i).configuration().getDiscoverySpi();
+            TcpDiscoverySpi spi = (TcpDiscoverySpi)ignite(i).configuration().getDiscoverySpi();
 
             TcpDiscoveryZookeeperIpFinder zkIpFinder = (TcpDiscoveryZookeeperIpFinder)spi.getIpFinder();
 

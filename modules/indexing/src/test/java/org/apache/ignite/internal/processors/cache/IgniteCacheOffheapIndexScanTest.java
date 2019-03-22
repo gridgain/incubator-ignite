@@ -58,7 +58,7 @@ public class IgniteCacheOffheapIndexScanTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         startGridsMultiThreaded(1, false);
 
-        cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        cache = ignite(0).cache(DEFAULT_CACHE_NAME);
     }
 
     /** {@inheritDoc} */

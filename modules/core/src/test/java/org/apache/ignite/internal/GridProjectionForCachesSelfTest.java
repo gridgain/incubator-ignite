@@ -93,15 +93,15 @@ public class GridProjectionForCachesSelfTest extends GridCommonAbstractTest {
         for (int i = 0; i < 5; i++)
             startGrid(i);
 
-        grid(1).createNearCache(CACHE_NAME, new NearCacheConfiguration());
+        ignite(1).createNearCache(CACHE_NAME, new NearCacheConfiguration());
 
-        grid(2).cache(DEFAULT_CACHE_NAME);
-        grid(3).cache(DEFAULT_CACHE_NAME);
+        ignite(2).cache(DEFAULT_CACHE_NAME);
+        ignite(3).cache(DEFAULT_CACHE_NAME);
     }
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        ignite = grid(0);
+        ignite = ignite(0);
     }
 
     /**
@@ -121,11 +121,11 @@ public class GridProjectionForCachesSelfTest extends GridCommonAbstractTest {
 
         assertEquals(3, prj.nodes().size());
 
-        assertTrue(prj.nodes().contains(grid(0).localNode()));
-        assertFalse(prj.nodes().contains(grid(1).localNode()));
-        assertTrue(prj.nodes().contains(grid(2).localNode()));
-        assertTrue(prj.nodes().contains(grid(3).localNode()));
-        assertFalse(prj.nodes().contains(grid(4).localNode()));
+        assertTrue(prj.nodes().contains(ignite(0).localNode()));
+        assertFalse(prj.nodes().contains(ignite(1).localNode()));
+        assertTrue(prj.nodes().contains(ignite(2).localNode()));
+        assertTrue(prj.nodes().contains(ignite(3).localNode()));
+        assertFalse(prj.nodes().contains(ignite(4).localNode()));
     }
 
     /**
@@ -144,11 +144,11 @@ public class GridProjectionForCachesSelfTest extends GridCommonAbstractTest {
         }, 5000);
 
         assertEquals("Invalid projection: " + prj.nodes(), 3, prj.nodes().size());
-        assert !prj.nodes().contains(grid(0).localNode());
-        assert prj.nodes().contains(grid(1).localNode());
-        assert prj.nodes().contains(grid(2).localNode());
-        assert prj.nodes().contains(grid(3).localNode());
-        assert !prj.nodes().contains(grid(4).localNode());
+        assert !prj.nodes().contains(ignite(0).localNode());
+        assert prj.nodes().contains(ignite(1).localNode());
+        assert prj.nodes().contains(ignite(2).localNode());
+        assert prj.nodes().contains(ignite(3).localNode());
+        assert !prj.nodes().contains(ignite(4).localNode());
     }
 
     /**
@@ -160,7 +160,7 @@ public class GridProjectionForCachesSelfTest extends GridCommonAbstractTest {
 
         assert prj != null;
         assert prj.nodes().size() == 1;
-        assert prj.nodes().contains(grid(0).localNode());
+        assert prj.nodes().contains(ignite(0).localNode());
     }
 
     /**
@@ -172,7 +172,7 @@ public class GridProjectionForCachesSelfTest extends GridCommonAbstractTest {
 
         assert prj != null;
         assertEquals("Invalid projection: " + prj.nodes(), 1, prj.nodes().size());
-        assert prj.nodes().contains(grid(1).localNode());
+        assert prj.nodes().contains(ignite(1).localNode());
     }
 
     /**

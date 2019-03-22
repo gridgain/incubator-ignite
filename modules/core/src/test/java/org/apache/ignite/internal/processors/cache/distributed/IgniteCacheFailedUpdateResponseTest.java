@@ -108,9 +108,9 @@ public class IgniteCacheFailedUpdateResponseTest extends GridCommonAbstractTest 
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        atomicCache = grid("client").cache(ATOMIC_CACHE);
-        txCache = grid("client").cache(TX_CACHE);
-        mvccTxCache = grid("client").cache(MVCC_TX_CACHE);
+        atomicCache = ignite("client").cache(ATOMIC_CACHE);
+        txCache = ignite("client").cache(TX_CACHE);
+        mvccTxCache = ignite("client").cache(MVCC_TX_CACHE);
     }
 
     /**
@@ -130,7 +130,7 @@ public class IgniteCacheFailedUpdateResponseTest extends GridCommonAbstractTest 
         testInvoke(txCache);
         testInvokeAll(txCache);
 
-        IgniteEx client = grid("client");
+        IgniteEx client = ignite("client");
 
         Callable<Object> clos = new Callable<Object>() {
             @Override public Object call() throws Exception {
@@ -157,7 +157,7 @@ public class IgniteCacheFailedUpdateResponseTest extends GridCommonAbstractTest 
         testInvoke(mvccTxCache);
         testInvokeAll(mvccTxCache);
 
-        IgniteEx client = grid("client");
+        IgniteEx client = ignite("client");
 
         Callable<Object> clos = new Callable<Object>() {
             @Override public Object call() throws Exception {
@@ -175,7 +175,7 @@ public class IgniteCacheFailedUpdateResponseTest extends GridCommonAbstractTest 
      * @param cache Cache.
      */
     private void testInvoke(final IgniteCache<Object, Object> cache) throws Exception {
-        Class<? extends Exception> exp = grid("client").transactions().tx() == null || ((IgniteCacheProxy)cache).context().mvccEnabled()
+        Class<? extends Exception> exp = ignite("client").transactions().tx() == null || ((IgniteCacheProxy)cache).context().mvccEnabled()
             ? EntryProcessorException.class
             : NonSerializableException.class;
 
@@ -211,7 +211,7 @@ public class IgniteCacheFailedUpdateResponseTest extends GridCommonAbstractTest 
         assertNotNull(epRes);
 
         // In transactions EP will be invoked locally.
-        Class<? extends Exception> exp = grid("client").transactions().tx() == null || ((IgniteCacheProxy)cache).context().mvccEnabled()
+        Class<? extends Exception> exp = ignite("client").transactions().tx() == null || ((IgniteCacheProxy)cache).context().mvccEnabled()
             ? EntryProcessorException.class
             : NonSerializableException.class;
 

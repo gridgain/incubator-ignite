@@ -87,7 +87,7 @@ public class IgniteCacheDistributedJoinQueryConditionsTest extends GridCommonAbs
      * @throws Exception If failed.
      */
     private void joinQuery1(boolean idx) throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         try {
             CacheConfiguration ccfg1 =
@@ -167,7 +167,7 @@ public class IgniteCacheDistributedJoinQueryConditionsTest extends GridCommonAbs
      */
     @Test
     public void testJoinQuery2() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         try {
             CacheConfiguration ccfg1 = cacheConfiguration(PERSON_CACHE).setQueryEntities(F.asList(personEntity(false, true)));
@@ -220,7 +220,7 @@ public class IgniteCacheDistributedJoinQueryConditionsTest extends GridCommonAbs
      * @throws Exception If failed.
      */
     public void _testJoinQuery3() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         try {
             CacheConfiguration ccfg1 = cacheConfiguration(PERSON_CACHE).setQueryEntities(F.asList(personEntity(false, true)));
@@ -278,7 +278,7 @@ public class IgniteCacheDistributedJoinQueryConditionsTest extends GridCommonAbs
      */
     @Test
     public void testJoinQuery4() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         try {
             CacheConfiguration ccfg1 =
@@ -330,7 +330,7 @@ public class IgniteCacheDistributedJoinQueryConditionsTest extends GridCommonAbs
      */
     @Test
     public void testJoinQuery5() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         try {
             CacheConfiguration ccfg1 = cacheConfiguration(PERSON_CACHE).setQueryEntities(F.asList(personEntity(false, true)));
@@ -372,7 +372,7 @@ public class IgniteCacheDistributedJoinQueryConditionsTest extends GridCommonAbs
      */
     @Test
     public void testJoinQuery6() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         try {
             CacheConfiguration ccfg1 =
@@ -511,7 +511,7 @@ public class IgniteCacheDistributedJoinQueryConditionsTest extends GridCommonAbs
     private List<Integer> putData1() {
         total = 0;
 
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         Affinity<Object> aff = client.affinity(PERSON_CACHE);
 

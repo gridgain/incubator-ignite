@@ -116,7 +116,7 @@ public class IgnitePdsRemoveDuringRebalancingTest extends GridCommonAbstractTest
 
         fut.get();
 
-        IgniteEx another = grid(1);
+        IgniteEx another = ignite(1);
 
         IgniteCache<Object, Object> cache1 = another.cache(null);
 

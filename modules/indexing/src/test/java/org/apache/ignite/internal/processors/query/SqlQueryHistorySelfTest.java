@@ -65,8 +65,8 @@ public class SqlQueryHistorySelfTest extends GridCommonAbstractTest {
 
         startTestGrid();
 
-        IgniteCache<Integer, String> cacheA = grid(0).cache("A");
-        IgniteCache<Integer, String> cacheB = grid(0).cache("B");
+        IgniteCache<Integer, String> cacheA = ignite(0).cache("A");
+        IgniteCache<Integer, String> cacheB = ignite(0).cache("B");
 
         for (int i = 0; i < 100; i++) {
             cacheA.put(i, String.valueOf(i));
@@ -589,7 +589,7 @@ public class SqlQueryHistorySelfTest extends GridCommonAbstractTest {
      * @return Ignite instance for quering.
      */
     protected IgniteEx queryNode() {
-        IgniteEx node = grid(0);
+        IgniteEx node = ignite(0);
 
         assertFalse(node.context().clientNode());
 

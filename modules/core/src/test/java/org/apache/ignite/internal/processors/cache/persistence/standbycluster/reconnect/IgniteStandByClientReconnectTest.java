@@ -36,9 +36,9 @@ public class IgniteStandByClientReconnectTest extends IgniteAbstractStandByClien
 
         info(">>>> star grid");
 
-        IgniteEx ig1 = grid(node1);
-        IgniteEx ig2 = grid(node2);
-        IgniteEx client = grid(nodeClient);
+        IgniteEx ig1 = ignite(node1);
+        IgniteEx ig2 = ignite(node2);
+        IgniteEx client = ignite(nodeClient);
 
         assertTrue(!ig1.cluster().active());
         assertTrue(!ig2.cluster().active());
@@ -118,9 +118,9 @@ public class IgniteStandByClientReconnectTest extends IgniteAbstractStandByClien
 
         info(">>>> star grid");
 
-        IgniteEx ig1 = grid(node1);
-        IgniteEx ig2 = grid(node2);
-        IgniteEx client = grid(nodeClient);
+        IgniteEx ig1 = ignite(node1);
+        IgniteEx ig2 = ignite(node2);
+        IgniteEx client = ignite(nodeClient);
 
         assertTrue(!ig1.cluster().active());
         assertTrue(!ig2.cluster().active());
@@ -197,9 +197,9 @@ public class IgniteStandByClientReconnectTest extends IgniteAbstractStandByClien
 
         startNodes(activateLatch);
 
-        IgniteEx ig1 = grid(node1);
-        IgniteEx ig2 = grid(node2);
-        IgniteEx client = grid(nodeClient);
+        IgniteEx ig1 = ignite(node1);
+        IgniteEx ig2 = ignite(node2);
+        IgniteEx client = ignite(nodeClient);
 
         assertTrue(!ig1.cluster().active());
         assertTrue(!ig2.cluster().active());
@@ -253,9 +253,9 @@ public class IgniteStandByClientReconnectTest extends IgniteAbstractStandByClien
     public void testInActiveClientReconnectToInActiveCluster() throws Exception {
         startNodes(null);
 
-        IgniteEx ig1 = grid(node1);
-        IgniteEx ig2 = grid(node2);
-        IgniteEx client = grid(nodeClient);
+        IgniteEx ig1 = ignite(node1);
+        IgniteEx ig2 = ignite(node2);
+        IgniteEx client = ignite(nodeClient);
 
         assertTrue(!ig1.cluster().active());
         assertTrue(!ig2.cluster().active());

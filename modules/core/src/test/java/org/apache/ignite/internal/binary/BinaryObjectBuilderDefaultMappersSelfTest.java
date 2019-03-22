@@ -746,7 +746,7 @@ public class BinaryObjectBuilderDefaultMappersSelfTest extends GridCommonAbstrac
 
         BinaryObject po = builder.build();
 
-        byte[] arr = ((CacheObjectBinaryProcessorImpl)(grid(0)).context().cacheObjects()).marshal(po);
+        byte[] arr = ((CacheObjectBinaryProcessorImpl)(ignite(0)).context().cacheObjects()).marshal(po);
 
         long ptr = GridUnsafe.allocateMemory(arr.length + 5);
 
@@ -765,7 +765,7 @@ public class BinaryObjectBuilderDefaultMappersSelfTest extends GridCommonAbstrac
             GridUnsafe.copyHeapOffheap(arr, GridUnsafe.BYTE_ARR_OFF, ptr0 + 4, arr.length);
 
             BinaryObject offheapObj = (BinaryObject)
-                ((CacheObjectBinaryProcessorImpl)(grid(0)).context().cacheObjects()).unmarshal(ptr, false);
+                ((CacheObjectBinaryProcessorImpl)(ignite(0)).context().cacheObjects()).unmarshal(ptr, false);
 
             assertEquals(BinaryObjectOffheapImpl.class, offheapObj.getClass());
 
@@ -938,7 +938,7 @@ public class BinaryObjectBuilderDefaultMappersSelfTest extends GridCommonAbstrac
     @Test
     public void testSetBinaryObject() {
         // Prepare marshaller context.
-        CacheObjectBinaryProcessorImpl proc = ((CacheObjectBinaryProcessorImpl)(grid(0)).context().cacheObjects());
+        CacheObjectBinaryProcessorImpl proc = ((CacheObjectBinaryProcessorImpl)(ignite(0)).context().cacheObjects());
 
         proc.marshal(new GridBinaryTestClasses.TestObjectContainer());
         proc.marshal(new GridBinaryTestClasses.TestObjectAllTypes());
@@ -1042,7 +1042,7 @@ public class BinaryObjectBuilderDefaultMappersSelfTest extends GridCommonAbstrac
      * @return Binaries.
      */
     private IgniteBinary binaries() {
-        return grid(0).binary();
+        return ignite(0).binary();
     }
 
     /**

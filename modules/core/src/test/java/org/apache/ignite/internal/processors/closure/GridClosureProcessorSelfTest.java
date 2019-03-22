@@ -187,7 +187,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         execCntr.set(0);
 
-        IgniteCompute comp = p != null ? compute(grid(idx).cluster().forPredicate(p)) : grid(idx).compute();
+        IgniteCompute comp = p != null ? compute(ignite(idx).cluster().forPredicate(p)) : ignite(idx).compute();
 
         return comp.runAsync(job);
     }
@@ -204,7 +204,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         execCntr.set(0);
 
-        ClusterGroup prj = grid(idx).cluster();
+        ClusterGroup prj = ignite(idx).cluster();
 
         if (p != null)
             prj = prj.forPredicate(p);
@@ -227,7 +227,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         execCntr.set(0);
 
-        IgniteCompute comp = p != null ? compute(grid(idx).cluster().forPredicate(p)) : grid(idx).compute();
+        IgniteCompute comp = p != null ? compute(ignite(idx).cluster().forPredicate(p)) : ignite(idx).compute();
 
         return comp.runAsync(jobs);
     }
@@ -246,7 +246,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         execCntr.set(0);
 
-        IgniteCompute comp = p != null ? compute(grid(idx).cluster().forPredicate(p)) : grid(idx).compute();
+        IgniteCompute comp = p != null ? compute(ignite(idx).cluster().forPredicate(p)) : ignite(idx).compute();
 
         return comp.callAsync(job);
     }
@@ -264,7 +264,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         execCntr.set(0);
 
-        IgniteCompute comp = p != null ? compute(grid(idx).cluster().forPredicate(p)) : grid(idx).compute();
+        IgniteCompute comp = p != null ? compute(ignite(idx).cluster().forPredicate(p)) : ignite(idx).compute();
 
         return comp.broadcastAsync(job);
     }
@@ -282,7 +282,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         execCntr.set(0);
 
-        IgniteCompute comp = p != null ? compute(grid(idx).cluster().forPredicate(p)) : grid(idx).compute();
+        IgniteCompute comp = p != null ? compute(ignite(idx).cluster().forPredicate(p)) : ignite(idx).compute();
 
         return comp.callAsync(jobs);
     }
@@ -295,7 +295,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
         assert idx >= 0 && idx < NODES_CNT;
 
         return new IgnitePredicate<ClusterNode>() {
-            @Override public boolean apply(ClusterNode e) { return grid(idx).localNode().id().equals(e.id()); }
+            @Override public boolean apply(ClusterNode e) { return ignite(idx).localNode().id().equals(e.id()); }
         };
     }
 
@@ -375,7 +375,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testCallAsyncErrorNoFailover() throws Exception {
-        IgniteCompute comp = compute(grid(0).cluster().forPredicate(F.notEqualTo(grid(0).localNode())));
+        IgniteCompute comp = compute(ignite(0).cluster().forPredicate(F.notEqualTo(ignite(0).localNode())));
 
         IgniteFuture<Integer> fut = comp.withNoFailover().callAsync(new ClosureTestCallableError());
 
@@ -394,7 +394,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWithName() throws Exception {
-        grid(0).compute().withName("TestTaskName").call(new ClosureTestCallable());
+        ignite(0).compute().withName("TestTaskName").call(new ClosureTestCallable());
     }
 
     /**
@@ -408,7 +408,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         try {
             // Ensure that we will get timeout exception.
-            grid(0).compute().withTimeout(JOB_TIMEOUT).call(jobs);
+            ignite(0).compute().withTimeout(JOB_TIMEOUT).call(jobs);
         }
         catch (ComputeTaskTimeoutException ignore) {
             timedOut = true;
@@ -420,7 +420,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
 
         try {
             // Previous task invocation cleared the timeout.
-            grid(0).compute().call(jobs);
+            ignite(0).compute().call(jobs);
         }
         catch (ComputeTaskTimeoutException ignore) {
             timedOut = true;
@@ -456,7 +456,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
     public void testReduceAsync() throws Exception {
         Collection<ClosureTestCallable> jobs = F.asList(new ClosureTestCallable(), new ClosureTestCallable());
 
-        IgniteFuture<Integer> fut = grid(0).compute().callAsync(jobs, F.sumIntReducer());
+        IgniteFuture<Integer> fut = ignite(0).compute().callAsync(jobs, F.sumIntReducer());
 
         // Sum of arithmetic progression.
         int exp = (1 + jobs.size()) * jobs.size() / 2;
@@ -475,7 +475,7 @@ public class GridClosureProcessorSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testReducerError() throws Exception {
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         final Collection<IgniteCallable<Integer>> jobs = new ArrayList<>();
 

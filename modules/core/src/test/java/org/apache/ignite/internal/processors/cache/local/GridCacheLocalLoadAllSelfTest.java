@@ -57,7 +57,7 @@ public class GridCacheLocalLoadAllSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testCacheGetAll() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         assert ignite != null;
 

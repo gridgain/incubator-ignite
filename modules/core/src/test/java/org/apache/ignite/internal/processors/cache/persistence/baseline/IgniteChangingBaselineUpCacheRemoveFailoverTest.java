@@ -93,7 +93,7 @@ public class IgniteChangingBaselineUpCacheRemoveFailoverTest extends GridCacheAb
 
         startGrids(GRIDS_COUNT);
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         awaitPartitionMapExchange();
     }
@@ -124,7 +124,7 @@ public class IgniteChangingBaselineUpCacheRemoveFailoverTest extends GridCacheAb
 
                 startGrid(GRIDS_COUNT);
 
-                IgniteEx ig0 = grid(0);
+                IgniteEx ig0 = ignite(0);
 
                 ig0.cluster().setBaselineTopology(baselineNodes(ig0.cluster().forServers().nodes()));
 

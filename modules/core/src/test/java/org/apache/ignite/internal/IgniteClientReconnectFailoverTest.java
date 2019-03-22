@@ -78,7 +78,7 @@ public class IgniteClientReconnectFailoverTest extends IgniteClientReconnectFail
      */
     @Test
     public void testReconnectAtomicCache() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         final IgniteCache<Integer, Integer> cache = client.cache(ATOMIC_CACHE);
 
@@ -118,7 +118,7 @@ public class IgniteClientReconnectFailoverTest extends IgniteClientReconnectFail
      */
     @Test
     public void testReconnectTxCache() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         final IgniteCache<Integer, Integer> cache = client.cache(TX_CACHE);
 
@@ -186,7 +186,7 @@ public class IgniteClientReconnectFailoverTest extends IgniteClientReconnectFail
      */
     @Test
     public void testReconnectComputeApi() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         final IgniteCompute comp = client.compute();
 
@@ -206,7 +206,7 @@ public class IgniteClientReconnectFailoverTest extends IgniteClientReconnectFail
      */
     @Test
     public void testReconnectStreamerApi() throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         reconnectFailover(new Callable<Void>() {
             @Override public Void call() throws Exception {

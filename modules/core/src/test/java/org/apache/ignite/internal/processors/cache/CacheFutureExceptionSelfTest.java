@@ -91,9 +91,9 @@ public class CacheFutureExceptionSelfTest extends GridCommonAbstractTest {
 
         fail = false;
 
-        Ignite srv = grid(0);
+        Ignite srv = ignite(0);
 
-        Ignite client = grid(1);
+        Ignite client = ignite(1);
 
         final String cacheName = nearCache ? ("NEAR-CACHE-" + cpyOnRead) : ("CACHE-" + cpyOnRead);
 

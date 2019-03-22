@@ -161,7 +161,7 @@ public class CachePartitionStateTest extends GridCommonAbstractTest {
         ignite(1).createCache(ccfg);
 
         AffinityAssignment assign0 =
-            grid(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
+            ignite(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
                 new AffinityTopologyVersion(3, 1));
 
         awaitPartitionMapExchange();
@@ -192,7 +192,7 @@ public class CachePartitionStateTest extends GridCommonAbstractTest {
             checkNodePartitions(assign0, ignite(i).cluster().localNode(), DEFAULT_CACHE_NAME, OWNING);
 
         AffinityAssignment assign1 =
-            grid(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
+            ignite(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
                 new AffinityTopologyVersion(5, 0));
 
         checkNodePartitions(assign1, ignite(5).cluster().localNode(), DEFAULT_CACHE_NAME, MOVING);
@@ -202,7 +202,7 @@ public class CachePartitionStateTest extends GridCommonAbstractTest {
         awaitPartitionMapExchange();
 
         AffinityAssignment assign2 =
-            grid(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
+            ignite(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
                 new AffinityTopologyVersion(5, 1));
 
         checkPartitionsState(assign2, DEFAULT_CACHE_NAME, OWNING);
@@ -221,7 +221,7 @@ public class CachePartitionStateTest extends GridCommonAbstractTest {
         awaitPartitionMapExchange();
 
         AffinityAssignment assign3 =
-            grid(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
+            ignite(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
                 new AffinityTopologyVersion(6, 1));
 
         checkPartitionsState(assign3, DEFAULT_CACHE_NAME, OWNING);
@@ -247,7 +247,7 @@ public class CachePartitionStateTest extends GridCommonAbstractTest {
         startGrid(4);
 
         AffinityAssignment assign0 =
-            grid(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
+            ignite(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
                 new AffinityTopologyVersion(4, 0));
 
         checkPartitionsState(assign0, DEFAULT_CACHE_NAME, OWNING);
@@ -266,7 +266,7 @@ public class CachePartitionStateTest extends GridCommonAbstractTest {
         startGrid(5);
 
         AffinityAssignment assign1 =
-            grid(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
+            ignite(1).context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity().assignment(
                 new AffinityTopologyVersion(5, 1));
 
         awaitPartitionMapExchange();
@@ -309,7 +309,7 @@ public class CachePartitionStateTest extends GridCommonAbstractTest {
             ", parts=" + nodeParts.size() +
             ", state=" + expState + ']');
 
-        if (grid(0).context().discovery().cacheAffinityNode(clusterNode, cacheName))
+        if (ignite(0).context().discovery().cacheAffinityNode(clusterNode, cacheName))
             assertFalse(nodeParts.isEmpty());
 
         boolean check = false;

@@ -39,7 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import org.junit.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
 import static org.apache.ignite.events.EventType.EVT_NODE_SEGMENTED;
 
 /**
@@ -80,7 +79,7 @@ public class TcpDiscoverySpiMBeanTest extends GridCommonAbstractTest {
 
         try {
             for (int i = 0; i < 3; i++) {
-                IgniteEx grid = grid(i);
+                IgniteEx grid = ignite(i);
 
                 ObjectName spiName = U.makeMBeanName(grid.context().igniteInstanceName(), "SPIs",
                         TcpDiscoverySpi.class.getSimpleName());

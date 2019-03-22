@@ -52,7 +52,7 @@ public class GridEventStorageDefaultExceptionTest  extends GridCommonAbstractTes
     @Test
     public void testLocalNodeEventStorage() throws Exception {
         try {
-            grid().events().localQuery(F.<Event>alwaysTrue());
+            ignite().events().localQuery(F.<Event>alwaysTrue());
 
             assert false : "Exception must be thrown.";
         }
@@ -69,7 +69,7 @@ public class GridEventStorageDefaultExceptionTest  extends GridCommonAbstractTes
     @Test
     public void testRemoteNodeEventStorage() throws Exception {
         try {
-            grid().events().remoteQuery(F.<Event>alwaysTrue(), 0);
+            ignite().events().remoteQuery(F.<Event>alwaysTrue(), 0);
 
             assert false : "Exception should be thrown";
         }

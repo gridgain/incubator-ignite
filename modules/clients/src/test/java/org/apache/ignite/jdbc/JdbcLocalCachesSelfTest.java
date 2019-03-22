@@ -66,14 +66,14 @@ public class JdbcLocalCachesSelfTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteCache<Object, Object> cache1 = grid(0).cache(CACHE_NAME);
+        IgniteCache<Object, Object> cache1 = ignite(0).cache(CACHE_NAME);
 
         assert cache1 != null;
 
         cache1.put("key1", 1);
         cache1.put("key2", 2);
 
-        IgniteCache<Object, Object> cache2 = grid(1).cache(CACHE_NAME);
+        IgniteCache<Object, Object> cache2 = ignite(1).cache(CACHE_NAME);
 
         assert cache2 != null;
 
@@ -88,7 +88,7 @@ public class JdbcLocalCachesSelfTest extends GridCommonAbstractTest {
     public void testCache1() throws Exception {
         Properties cfg = new Properties();
 
-        cfg.setProperty(PROP_NODE_ID, grid(0).localNode().id().toString());
+        cfg.setProperty(PROP_NODE_ID, ignite(0).localNode().id().toString());
 
         Connection conn = null;
 
@@ -117,7 +117,7 @@ public class JdbcLocalCachesSelfTest extends GridCommonAbstractTest {
     public void testCache2() throws Exception {
         Properties cfg = new Properties();
 
-        cfg.setProperty(PROP_NODE_ID, grid(1).localNode().id().toString());
+        cfg.setProperty(PROP_NODE_ID, ignite(1).localNode().id().toString());
 
         Connection conn = null;
 

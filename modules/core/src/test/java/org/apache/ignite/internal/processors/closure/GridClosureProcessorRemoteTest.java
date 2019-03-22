@@ -69,7 +69,7 @@ public class GridClosureProcessorRemoteTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAnonymousBroadcast() throws Exception {
-        Ignite g = grid(0);
+        Ignite g = ignite(0);
 
         assert g.cluster().nodes().size() == NODES_CNT;
 
@@ -94,7 +94,7 @@ public class GridClosureProcessorRemoteTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAnonymousUnicast() throws Exception {
-        Ignite g = grid(0);
+        Ignite g = ignite(0);
 
         assert g.cluster().nodes().size() == NODES_CNT;
 
@@ -122,7 +122,7 @@ public class GridClosureProcessorRemoteTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAnonymousUnicastRequest() throws Exception {
-        Ignite g = grid(0);
+        Ignite g = ignite(0);
 
         assert g.cluster().nodes().size() == NODES_CNT;
 
@@ -133,7 +133,7 @@ public class GridClosureProcessorRemoteTest extends GridCommonAbstractTest {
 
         compute(g.cluster().forNode(rmt)).run(new CARemote() {
             @Override public void apply() {
-                message(grid(1).cluster().forNode(loc)).localListen(null, new IgniteBiPredicate<UUID, String>() {
+                message(ignite(1).cluster().forNode(loc)).localListen(null, new IgniteBiPredicate<UUID, String>() {
                     @Override public boolean apply(UUID uuid, String s) {
                         log.info("Received test message [nodeId: " + uuid + ", s=" + s + ']');
 

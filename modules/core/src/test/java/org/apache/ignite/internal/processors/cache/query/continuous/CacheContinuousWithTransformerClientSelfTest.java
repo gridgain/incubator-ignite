@@ -35,6 +35,6 @@ public class CacheContinuousWithTransformerClientSelfTest extends CacheContinuou
 
     /** {@inheritDoc} */
     @Override protected Ignite gridToRunQuery() throws Exception {
-        return grid("client");
+        return ignite("client");
     }
 }

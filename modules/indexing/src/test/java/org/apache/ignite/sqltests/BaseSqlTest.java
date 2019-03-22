@@ -261,10 +261,10 @@ public class BaseSqlTest extends AbstractIndexingCommonTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid(SRV1_NAME, getConfiguration(SRV1_NAME), null);
-        startGrid(SRV2_NAME, getConfiguration(SRV2_NAME), null);
+        clusterManager__startGrid(SRV1_NAME, getConfiguration(SRV1_NAME), null);
+        clusterManager__startGrid(SRV2_NAME, getConfiguration(SRV2_NAME), null);
 
-        client = (IgniteEx)startGrid(CLIENT_NODE_NAME, clientConfiguration(), null);
+        client = (IgniteEx)clusterManager__startGrid(CLIENT_NODE_NAME, clientConfiguration(), null);
 
         boolean locExp = explain;
         explain = false;

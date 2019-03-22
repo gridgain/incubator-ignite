@@ -103,7 +103,7 @@ public class IgniteSqlQueryWithBaselineTest extends GridCommonAbstractTest {
     public void testQueryWithNodeNotInBLT() throws Exception {
         startGrids(2);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         startGrid(2); //Start extra node.
 
@@ -117,7 +117,7 @@ public class IgniteSqlQueryWithBaselineTest extends GridCommonAbstractTest {
     public void testQueryWithoutBLTNode() throws Exception {
         startGrids(2);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         startGrid(2); //Start extra node.
         stopGrid(1);
@@ -132,7 +132,7 @@ public class IgniteSqlQueryWithBaselineTest extends GridCommonAbstractTest {
     public void testQueryFromNotBLTNode() throws Exception {
         startGrid(1);
 
-        grid(1).cluster().active(true);
+        ignite(1).cluster().active(true);
 
         startGrid(0); //Start extra node.
 
@@ -149,9 +149,9 @@ public class IgniteSqlQueryWithBaselineTest extends GridCommonAbstractTest {
         CacheConfiguration<Integer, C2> c2Conf = new CacheConfiguration<>("C2");
         c2Conf.setIndexedTypes(Integer.class, C2.class).setBackups(2);
 
-        final IgniteCache<Integer, C1> cache = grid(0).getOrCreateCache(c1Conf);
+        final IgniteCache<Integer, C1> cache = ignite(0).getOrCreateCache(c1Conf);
 
-        final IgniteCache<Integer, C2> cache1 = grid(0).getOrCreateCache(c2Conf);
+        final IgniteCache<Integer, C2> cache1 = ignite(0).getOrCreateCache(c2Conf);
 
         for (int i = 0; i < 100; i++) {
             cache.put(i, new C1(i));

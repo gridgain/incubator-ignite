@@ -44,7 +44,7 @@ public class IgniteCacheDistributedPartitionQueryNodeRestartsSelfTest extends
 
         final AtomicIntegerArray states = new AtomicIntegerArray(GRIDS_COUNT);
 
-        final Ignite client = grid("client");
+        final Ignite client = ignite("client");
 
         final AtomicInteger cnt = new AtomicInteger();
 

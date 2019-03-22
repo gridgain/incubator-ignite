@@ -49,7 +49,7 @@ public class IgniteStableBaselineCacheQueryNodeRestartsSelfTest extends IgniteCa
 
         initStoreStrategy();
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         stopGrid(gridCount());
 

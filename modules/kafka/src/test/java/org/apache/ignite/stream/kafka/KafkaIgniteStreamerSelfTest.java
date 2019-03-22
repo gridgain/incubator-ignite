@@ -79,14 +79,14 @@ public class KafkaIgniteStreamerSelfTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Override protected void beforeTest() throws Exception {
-        grid().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
+        ignite().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
 
         embeddedBroker = new TestKafkaBroker();
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid().cache(DEFAULT_CACHE_NAME).clear();
+        ignite().cache(DEFAULT_CACHE_NAME).clear();
 
         embeddedBroker.shutdown();
     }
@@ -154,7 +154,7 @@ public class KafkaIgniteStreamerSelfTest extends GridCommonAbstractTest {
         throws TimeoutException, InterruptedException {
         KafkaStreamer<String, String> kafkaStmr = null;
 
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         try (IgniteDataStreamer<String, String> stmr = ignite.dataStreamer(DEFAULT_CACHE_NAME)) {
             stmr.allowOverwrite(true);

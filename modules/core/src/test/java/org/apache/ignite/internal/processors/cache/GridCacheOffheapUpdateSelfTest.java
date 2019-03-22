@@ -66,12 +66,12 @@ public class GridCacheOffheapUpdateSelfTest extends GridCommonAbstractTest {
 
             int key = 0;
 
-            while (!ignite.affinity(DEFAULT_CACHE_NAME).isPrimary(grid(1).localNode(), key))
+            while (!ignite.affinity(DEFAULT_CACHE_NAME).isPrimary(ignite(1).localNode(), key))
                 key++;
 
-            IgniteCache<Object, Object> locCache = grid(1).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> locCache = ignite(1).cache(DEFAULT_CACHE_NAME);
 
-            try (Transaction tx = grid(1).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(1).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 locCache.putIfAbsent(key, 0);
 
                 tx.commit();
@@ -116,7 +116,7 @@ public class GridCacheOffheapUpdateSelfTest extends GridCommonAbstractTest {
             awaitPartitionMapExchange();
 
             for (int i = 0; i < 30; i++)
-                grid(1).cache(DEFAULT_CACHE_NAME).put(i, 10);
+                ignite(1).cache(DEFAULT_CACHE_NAME).put(i, 10);
 
             // Find a key that does not belong to started node anymore.
             int key = 0;

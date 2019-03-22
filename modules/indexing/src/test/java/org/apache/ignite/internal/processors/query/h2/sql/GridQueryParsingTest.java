@@ -112,7 +112,7 @@ public class GridQueryParsingTest extends AbstractIndexingCommonTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        ignite = startGrid();
+        ignite = clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

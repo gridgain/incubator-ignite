@@ -145,7 +145,7 @@ public class IgniteOptimisticTxSuspendResumeTest extends GridCommonAbstractTest 
         assertTrue(client.cluster().localNode().isClient());
 
         for (CacheConfiguration<Integer, Integer> ccfg : cacheConfigurations()) {
-            grid(0).createCache(ccfg);
+            ignite(0).createCache(ccfg);
 
             client.createNearCache(ccfg.getName(), new NearCacheConfiguration<>());
         }
@@ -404,11 +404,9 @@ public class IgniteOptimisticTxSuspendResumeTest extends GridCommonAbstractTest 
 
                         tx.suspend();
 
-                        multithreaded(new RunnableX() {
-                            @Override public void runx() throws Exception {
+                        GridTestUtils.runMultiThreaded(() -> {
                                 GridTestUtils.assertThrowsWithCause(txOperation, tx, IgniteException.class);
-                            }
-                        }, 1);
+                        }, 1, getTestIgniteInstanceName());
 
                         tx.resume();
                         tx.close();

@@ -93,12 +93,12 @@ public abstract class IgniteTxReentryAbstractSelfTest extends GridCommonAbstract
         startGridsMultiThreaded(gridCount(), true);
 
         try {
-            IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             // Find test key.
             int key = testKey();
 
-            try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                 // One near lock request.
                 cache.get(key);
 
@@ -108,7 +108,7 @@ public abstract class IgniteTxReentryAbstractSelfTest extends GridCommonAbstract
                 tx.commit();
             }
 
-            CountingCommunicationSpi commSpi = (CountingCommunicationSpi)grid(0).configuration().getCommunicationSpi();
+            CountingCommunicationSpi commSpi = (CountingCommunicationSpi)ignite(0).configuration().getCommunicationSpi();
 
             assertEquals(expectedNearLockRequests(), commSpi.nearLocks());
             assertEquals(expectedDhtLockRequests(), commSpi.dhtLocks());

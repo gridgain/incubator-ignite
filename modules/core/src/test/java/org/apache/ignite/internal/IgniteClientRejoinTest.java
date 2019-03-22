@@ -223,7 +223,7 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
                             }
                         });
 
-                    return startGrid(nodeName, optimize(cfg), null);
+                    return clusterManager__startGrid(nodeName, optimize(cfg), null);
                 }
             });
 

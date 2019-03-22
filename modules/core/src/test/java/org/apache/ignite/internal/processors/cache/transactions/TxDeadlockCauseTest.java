@@ -152,7 +152,7 @@ public class TxDeadlockCauseTest extends GridCommonAbstractTest {
      */
     @Test
     public void testCauseObject(int nodes, final int keysCnt, final long timeout, final TransactionIsolation isolation, final boolean oneOp) throws Exception {
-        final Ignite ignite = grid(new Random().nextInt(nodes));
+        final Ignite ignite = ignite(new Random().nextInt(nodes));
 
         final IgniteCache<Integer, Account> cache = ignite.cache(DEFAULT_CACHE_NAME);
         final List<Integer> keys = new ArrayList<>(keysCnt);

@@ -72,9 +72,9 @@ public class GridCacheOffHeapSelfTest extends GridCommonAbstractTest {
         try {
             startGrids(1);
 
-            grid(0);
+            ignite(0);
 
-            IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 100; i++) {
                 info("Putting: " + i);

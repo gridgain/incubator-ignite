@@ -99,7 +99,7 @@ public class IgniteComputeCustomExecutorSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testInvalidCustomExecutor() throws Exception {
-        grid(0).compute().withExecutor("invalid").broadcast(new IgniteRunnable() {
+        ignite(0).compute().withExecutor("invalid").broadcast(new IgniteRunnable() {
             @Override public void run() {
                 assertTrue(Thread.currentThread().getName().contains("pub"));
             }
@@ -111,9 +111,9 @@ public class IgniteComputeCustomExecutorSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testAllComputeApiByCustomExecutor() throws Exception {
-        IgniteCompute comp = grid(0).compute().withExecutor(EXEC_NAME0);
+        IgniteCompute comp = ignite(0).compute().withExecutor(EXEC_NAME0);
 
-        comp.affinityRun(CACHE_NAME, primaryKey(grid(1).cache(CACHE_NAME)), new IgniteRunnable() {
+        comp.affinityRun(CACHE_NAME, primaryKey(ignite(1).cache(CACHE_NAME)), new IgniteRunnable() {
             @Override public void run() {
                 assertTrue(Thread.currentThread().getName().contains(EXEC_NAME0));
             }

@@ -123,7 +123,7 @@ public class GridCacheTcpClientDiscoveryMultiThreadedTest extends GridCacheAbstr
 
             // Explicitly create near cache for even client nodes
             for (int i = srvNodesCnt; i < gridCount(); i++)
-                grid(i).createNearCache(DEFAULT_CACHE_NAME, new NearCacheConfiguration<>());
+                ignite(i).createNearCache(DEFAULT_CACHE_NAME, new NearCacheConfiguration<>());
 
             final AtomicInteger threadsCnt = new AtomicInteger();
 
@@ -132,7 +132,7 @@ public class GridCacheTcpClientDiscoveryMultiThreadedTest extends GridCacheAbstr
                         @Override public Object call() throws Exception {
                             int clientIdx = srvNodesCnt + threadsCnt.getAndIncrement();
 
-                            Ignite node = grid(clientIdx);
+                            Ignite node = ignite(clientIdx);
 
                             assert node.configuration().isClientMode();
 

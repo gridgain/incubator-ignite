@@ -91,13 +91,13 @@ public class MvccRepeatableReadBulkOpsTest extends CacheMvccAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        grid(0).createCache(cacheConfiguration(cacheMode(), FULL_SYNC, 1, 32).
+        ignite(0).createCache(cacheConfiguration(cacheMode(), FULL_SYNC, 1, 32).
             setIndexedTypes(Integer.class, MvccTestAccount.class));
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).destroyCache(DEFAULT_CACHE_NAME);
+        ignite(0).destroyCache(DEFAULT_CACHE_NAME);
     }
 
     /**
@@ -212,7 +212,7 @@ public class MvccRepeatableReadBulkOpsTest extends CacheMvccAbstractTest {
      */
     @Test
     public void testInvokeConsistency() throws Exception {
-        Ignite node = grid(/*requestFromClient ? nodesCount() - 1 :*/ 0);
+        Ignite node = ignite(/*requestFromClient ? nodesCount() - 1 :*/ 0);
 
         TestCache<Integer, MvccTestAccount> cache = new TestCache<>(node.cache(DEFAULT_CACHE_NAME));
 
@@ -273,8 +273,8 @@ public class MvccRepeatableReadBulkOpsTest extends CacheMvccAbstractTest {
      */
     private void checkOperations(ReadMode readModeBefore, ReadMode readModeAfter,
         WriteMode writeMode, boolean readFromClient) throws Exception {
-        Ignite node1 = grid(readFromClient ? nodesCount() - 1 : 0);
-        Ignite node2 = grid(readFromClient ? 0 : nodesCount() - 1);
+        Ignite node1 = ignite(readFromClient ? nodesCount() - 1 : 0);
+        Ignite node2 = ignite(readFromClient ? 0 : nodesCount() - 1);
 
         TestCache<Integer, MvccTestAccount> cache1 = new TestCache<>(node1.cache(DEFAULT_CACHE_NAME));
         TestCache<Integer, MvccTestAccount> cache2 = new TestCache<>(node2.cache(DEFAULT_CACHE_NAME));
@@ -282,7 +282,7 @@ public class MvccRepeatableReadBulkOpsTest extends CacheMvccAbstractTest {
         final Set<Integer> keysForUpdate = new HashSet<>(3);
         final Set<Integer> keysForRemove = new HashSet<>(3);
 
-        final Set<Integer> allKeys = generateKeySet(grid(0).cache(DEFAULT_CACHE_NAME), keysForUpdate, keysForRemove);
+        final Set<Integer> allKeys = generateKeySet(ignite(0).cache(DEFAULT_CACHE_NAME), keysForUpdate, keysForRemove);
 
         final Map<Integer, MvccTestAccount> initialMap = allKeys.stream().collect(
             Collectors.toMap(k -> k, k -> new MvccTestAccount(k, 1)));
@@ -398,7 +398,7 @@ public class MvccRepeatableReadBulkOpsTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     private void checkOperationsConsistency(WriteMode writeMode, boolean requestFromClient) throws Exception {
-        Ignite node = grid(requestFromClient ? nodesCount() - 1 : 0);
+        Ignite node = ignite(requestFromClient ? nodesCount() - 1 : 0);
 
         TestCache<Integer, MvccTestAccount> cache = new TestCache<>(node.cache(DEFAULT_CACHE_NAME));
 
@@ -406,7 +406,7 @@ public class MvccRepeatableReadBulkOpsTest extends CacheMvccAbstractTest {
             final Set<Integer> keysForUpdate = new HashSet<>(3);
             final Set<Integer> keysForRemove = new HashSet<>(3);
 
-            final Set<Integer> allKeys = generateKeySet(grid(0).cache(DEFAULT_CACHE_NAME), keysForUpdate, keysForRemove);
+            final Set<Integer> allKeys = generateKeySet(ignite(0).cache(DEFAULT_CACHE_NAME), keysForUpdate, keysForRemove);
 
         try {
             int updCnt = 1;

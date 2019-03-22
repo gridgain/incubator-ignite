@@ -105,7 +105,7 @@ public class GridCacheCommandHandlerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testCacheGetFailsSyncNotify() throws Exception {
-        GridRestCommandHandler hnd = new TestableCacheCommandHandler(grid().context(), "getAsync");
+        GridRestCommandHandler hnd = new TestableCacheCommandHandler(ignite().context(), "getAsync");
 
         GridRestCacheRequest req = new GridRestCacheRequest();
 
@@ -183,7 +183,7 @@ public class GridCacheCommandHandlerSelfTest extends GridCommonAbstractTest {
      * @throws IgniteCheckedException In case of any grid exception.
      */
     private <T> T testAppend(T curVal, T newVal, boolean append) throws IgniteCheckedException, EntryProcessorException {
-        GridRestCommandHandler hnd = new GridCacheCommandHandler(((IgniteKernal)grid()).context());
+        GridRestCommandHandler hnd = new GridCacheCommandHandler(((IgniteKernal)ignite()).context());
 
         String key = UUID.randomUUID().toString();
 
@@ -221,7 +221,7 @@ public class GridCacheCommandHandlerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testCacheClear() throws Exception {
-        GridRestCommandHandler hnd = new GridCacheCommandHandler(((IgniteKernal)grid()).context());
+        GridRestCommandHandler hnd = new GridCacheCommandHandler(((IgniteKernal)ignite()).context());
 
         GridRestCacheRequest req = new GridRestCacheRequest();
 

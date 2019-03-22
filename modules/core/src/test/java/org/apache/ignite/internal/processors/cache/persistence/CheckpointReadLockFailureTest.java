@@ -112,7 +112,7 @@ public class CheckpointReadLockFailureTest extends GridCommonAbstractTest {
             db.checkpointLock.writeLock().lock();
 
             try {
-                doSleep(Long.MAX_VALUE);
+                GridTestUtils.doSleep(Long.MAX_VALUE);
             }
             finally {
                 db.checkpointLock.writeLock().unlock();

@@ -67,7 +67,7 @@ public class DataStreamerMultinodeCreateCacheTest extends GridCommonAbstractTest
 
                 long stopTime = System.currentTimeMillis() + 60_000;
 
-                Ignite ignite = grid(threadIdx);
+                Ignite ignite = ignite(threadIdx);
 
                 int iter = 0;
 

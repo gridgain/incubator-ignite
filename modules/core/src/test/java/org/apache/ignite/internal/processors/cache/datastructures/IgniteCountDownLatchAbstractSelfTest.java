@@ -91,7 +91,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
      */
     @Test
     public void testIsolation() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         CacheConfiguration cfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
@@ -135,11 +135,11 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
         checkCountDown();
 
         // Test main functionality.
-        IgniteCountDownLatch latch1 = grid(0).countDownLatch("latch", 2, false, true);
+        IgniteCountDownLatch latch1 = ignite(0).countDownLatch("latch", 2, false, true);
 
         assertEquals(2, latch1.count());
 
-        IgniteFuture<Object> fut = grid(0).compute().callAsync(new IgniteCallable<Object>() {
+        IgniteFuture<Object> fut = ignite(0).compute().callAsync(new IgniteCallable<Object>() {
             @IgniteInstanceResource
             private Ignite ignite;
 
@@ -287,7 +287,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
      */
     private IgniteCountDownLatch createLatch(String latchName, int cnt, boolean autoDel)
         throws Exception {
-        IgniteCountDownLatch latch = grid(RND.nextInt(NODES_CNT)).countDownLatch(latchName, cnt, autoDel, true);
+        IgniteCountDownLatch latch = ignite(RND.nextInt(NODES_CNT)).countDownLatch(latchName, cnt, autoDel, true);
 
         // Test initialization.
         assert latchName.equals(latch.name());
@@ -304,7 +304,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
      */
     private void removeLatch(String latchName)
         throws Exception {
-        IgniteCountDownLatch latch = grid(RND.nextInt(NODES_CNT)).countDownLatch(latchName, 10, false, true);
+        IgniteCountDownLatch latch = ignite(RND.nextInt(NODES_CNT)).countDownLatch(latchName, 10, false, true);
 
         assert latch != null;
 
@@ -312,7 +312,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
             latch.countDownAll();
 
         // Remove latch on random node.
-        IgniteCountDownLatch latch0 = grid(RND.nextInt(NODES_CNT)).countDownLatch(latchName, 0, false, false);
+        IgniteCountDownLatch latch0 = ignite(RND.nextInt(NODES_CNT)).countDownLatch(latchName, 0, false, false);
 
         assertNotNull(latch0);
 
@@ -333,7 +333,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
         if (gridCount() == 1)
             return;
 
-        IgniteCountDownLatch latch = grid(0).countDownLatch("l1", 10,
+        IgniteCountDownLatch latch = ignite(0).countDownLatch("l1", 10,
             true,
             true);
 
@@ -344,7 +344,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
         CountDownLatch allLatchesObtained = new CountDownLatch(gridCount());
 
         for (int i = 0; i < gridCount(); i++) {
-            final Ignite ignite = grid(i);
+            final Ignite ignite = ignite(i);
 
             futs.add(GridTestUtils.runAsync(new Callable<Void>() {
                 @Override public Void call() throws Exception {
@@ -388,7 +388,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
      */
     @Test
     public void testLatchBroadcast() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
         ClusterGroup srvsGrp = ignite.cluster().forServers();
 
         int numOfSrvs = srvsGrp.nodes().size();
@@ -444,7 +444,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
         if (gridCount() == 1)
             return;
 
-        IgniteCountDownLatch latch = grid(0).countDownLatch("l2", gridCount() * 3,
+        IgniteCountDownLatch latch = ignite(0).countDownLatch("l2", gridCount() * 3,
             true,
             true);
 
@@ -455,7 +455,7 @@ public abstract class IgniteCountDownLatchAbstractSelfTest extends IgniteAtomics
         final AtomicInteger cnt = new AtomicInteger();
 
         for (int i = 0; i < gridCount(); i++) {
-            final Ignite ignite = grid(i);
+            final Ignite ignite = ignite(i);
 
             futs.add(GridTestUtils.runAsync(new Callable<Void>() {
                 @Override public Void call() throws Exception {

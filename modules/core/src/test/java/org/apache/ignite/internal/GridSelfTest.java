@@ -51,17 +51,17 @@ public class GridSelfTest extends ClusterGroupAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected ClusterGroup projection() {
-        return grid(0).cluster();
+        return ignite(0).cluster();
     }
 
     /** {@inheritDoc} */
     @Override protected UUID localNodeId() {
-        return grid(0).localNode().id();
+        return ignite(0).localNode().id();
     }
 
     /** {@inheritDoc} */
     @Override protected Collection<UUID> remoteNodeIds() {
-        return F.nodeIds(grid(0).cluster().forRemotes().nodes());
+        return F.nodeIds(ignite(0).cluster().forRemotes().nodes());
     }
 
     /** {@inheritDoc} */
@@ -117,7 +117,7 @@ public class GridSelfTest extends ClusterGroupAbstractTest {
 
         final String bye = "BYE!";
 
-        final Ignite g = grid(0);
+        final Ignite g = ignite(0);
 
         final UUID locNodeId = g.cluster().localNode().id();
 
@@ -159,12 +159,12 @@ public class GridSelfTest extends ClusterGroupAbstractTest {
      */
     @Test
     public void testForOthers() throws Exception {
-        ClusterNode node0 = grid(0).localNode();
-        ClusterNode node1 = grid(1).localNode();
-        ClusterNode node2 = grid(2).localNode();
-        ClusterNode node3 = grid(3).localNode();
+        ClusterNode node0 = ignite(0).localNode();
+        ClusterNode node1 = ignite(1).localNode();
+        ClusterNode node2 = ignite(2).localNode();
+        ClusterNode node3 = ignite(3).localNode();
 
-        ClusterGroup p1 = grid(0).cluster().forOthers(node0);
+        ClusterGroup p1 = ignite(0).cluster().forOthers(node0);
 
         assertEquals(3, p1.nodes().size());
 
@@ -172,6 +172,6 @@ public class GridSelfTest extends ClusterGroupAbstractTest {
 
         assertEquals(1, p1.forOthers(node1, node2).nodes().size());
 
-        assertEquals(1, grid(0).cluster().forOthers(node1, node2, node3).nodes().size());
+        assertEquals(1, ignite(0).cluster().forOthers(node1, node2, node3).nodes().size());
     }
 }

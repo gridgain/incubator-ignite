@@ -58,7 +58,7 @@ public class QueryEntityValidationSelfTest extends AbstractIndexingCommonTest {
 
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).createCache(ccfg);
+                ignite(0).createCache(ccfg);
 
                 return null;
             }
@@ -101,7 +101,7 @@ public class QueryEntityValidationSelfTest extends AbstractIndexingCommonTest {
 
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).createCache(ccfg);
+                ignite(0).createCache(ccfg);
 
                 return null;
             }
@@ -149,7 +149,7 @@ public class QueryEntityValidationSelfTest extends AbstractIndexingCommonTest {
 
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid(0).createCache(ccfg);
+                ignite(0).createCache(ccfg);
 
                 return null;
             }

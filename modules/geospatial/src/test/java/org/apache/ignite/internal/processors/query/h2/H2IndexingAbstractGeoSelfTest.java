@@ -138,9 +138,9 @@ public abstract class H2IndexingAbstractGeoSelfTest extends GridCacheAbstractSel
 
             entity.setIndexes(null);
 
-            grid(0).context().cache().dynamicStartSqlCache(ccfg).get();
+            ignite(0).context().cache().dynamicStartSqlCache(ccfg).get();
 
-            IgniteCache<K, V> cache = grid(0).cache(name);
+            IgniteCache<K, V> cache = ignite(0).cache(name);
 
             // Process indexes dynamically.
             for (QueryIndex idx : idxs) {
@@ -152,7 +152,7 @@ public abstract class H2IndexingAbstractGeoSelfTest extends GridCacheAbstractSel
             return cache;
         }
         else
-            return grid(0).getOrCreateCache(ccfg);
+            return ignite(0).getOrCreateCache(ccfg);
     }
 
     /**
@@ -343,7 +343,7 @@ public abstract class H2IndexingAbstractGeoSelfTest extends GridCacheAbstractSel
                 cache.query(new SqlFieldsQuery("DROP INDEX \"EnemyCamp_coords_idx\"")).getAll();
         }
         finally {
-            destroy(cache, grid(0), dynamic);
+            destroy(cache, ignite(0), dynamic);
         }
     }
 
@@ -378,8 +378,8 @@ public abstract class H2IndexingAbstractGeoSelfTest extends GridCacheAbstractSel
         final IgniteCache<Integer, EnemyCamp> cache1 =
             createCache("camp", true, Integer.class, EnemyCamp.class, dynamic);
 
-        final IgniteCache<Integer, EnemyCamp> cache2 = grid(1).cache("camp");
-        final IgniteCache<Integer, EnemyCamp> cache3 = grid(2).cache("camp");
+        final IgniteCache<Integer, EnemyCamp> cache2 = ignite(1).cache("camp");
+        final IgniteCache<Integer, EnemyCamp> cache3 = ignite(2).cache("camp");
 
         try {
             final String[] points = new String[CNT];
@@ -474,7 +474,7 @@ public abstract class H2IndexingAbstractGeoSelfTest extends GridCacheAbstractSel
                 throw err0;
         }
         finally {
-            destroy(cache1, grid(0), dynamic);
+            destroy(cache1, ignite(0), dynamic);
         }
     }
 
@@ -564,8 +564,8 @@ public abstract class H2IndexingAbstractGeoSelfTest extends GridCacheAbstractSel
             checkDistributedQuery();
         }
         finally {
-            destroy(c1, grid(0), dynamic);
-            destroy(c2, grid(0), dynamic);
+            destroy(c1, ignite(0), dynamic);
+            destroy(c2, ignite(0), dynamic);
         }
     }
 
@@ -575,8 +575,8 @@ public abstract class H2IndexingAbstractGeoSelfTest extends GridCacheAbstractSel
      * @throws ParseException If failed.
      */
     private void checkDistributedQuery() throws ParseException {
-        IgniteCache<Integer, Enemy> c1 = grid(0).cache("enemy");
-        IgniteCache<Integer, EnemyCamp> c2 = grid(0).cache("camp");
+        IgniteCache<Integer, Enemy> c1 = ignite(0).cache("enemy");
+        IgniteCache<Integer, EnemyCamp> c2 = ignite(0).cache("camp");
 
         final Geometry lethalArea = new WKTReader().read("POLYGON((30 30, 30 70, 70 70, 70 30, 30 30))");
 

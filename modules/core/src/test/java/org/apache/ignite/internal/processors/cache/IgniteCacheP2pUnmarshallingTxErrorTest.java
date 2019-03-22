@@ -45,7 +45,7 @@ public class IgniteCacheP2pUnmarshallingTxErrorTest extends IgniteCacheP2pUnmars
     private void failOptimistic() {
         IgniteCache<Object, Object> cache = jcache(0);
 
-        try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
             cache.put(new TestKey(String.valueOf(++key)), "");
 
             tx.commit();
@@ -65,7 +65,7 @@ public class IgniteCacheP2pUnmarshallingTxErrorTest extends IgniteCacheP2pUnmars
     private void failPessimictic() {
         IgniteCache<Object, Object> cache = jcache(0);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             cache.put(new TestKey(String.valueOf(++key)), "");
 
             assert false : "p2p marshalling failed, but error response was not sent";
@@ -98,7 +98,7 @@ public class IgniteCacheP2pUnmarshallingTxErrorTest extends IgniteCacheP2pUnmars
         //GridDhtLockRequest unmarshalling failed test
         readCnt.set(3);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             jcache(0).put(new TestKey(String.valueOf(++key)), ""); //No failure at client side.
         }
     }

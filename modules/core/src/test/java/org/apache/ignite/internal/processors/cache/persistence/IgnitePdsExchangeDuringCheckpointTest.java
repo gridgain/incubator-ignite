@@ -41,7 +41,7 @@ public class IgnitePdsExchangeDuringCheckpointTest extends GridCommonAbstractTes
     public void testExchangeOnNodeLeft() throws Exception {
         for (int i = 0; i < 5; i++) {
             startGrids(3);
-            IgniteEx ignite = grid(1);
+            IgniteEx ignite = ignite(1);
             ignite.active(true);
 
             awaitPartitionMapExchange();
@@ -63,7 +63,7 @@ public class IgnitePdsExchangeDuringCheckpointTest extends GridCommonAbstractTes
     public void testExchangeOnNodeJoin() throws Exception {
         for (int i = 0; i < 5; i++) {
             startGrids(2);
-            IgniteEx ignite = grid(1);
+            IgniteEx ignite = ignite(1);
             ignite.active(true);
 
             awaitPartitionMapExchange();

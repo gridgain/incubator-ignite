@@ -206,7 +206,7 @@ public abstract class IgniteWalFlushMultiNodeFailoverAbstractSelfTest extends Gr
 
                     startGrid(gridCount());
 
-                    setFileIOFactory(grid(gridCount()).context().cache().context().wal());
+                    setFileIOFactory(ignite(gridCount()).context().cache().context().wal());
 
                     grid.cluster().setBaselineTopology(grid.cluster().topologyVersion());
 
@@ -234,7 +234,7 @@ public abstract class IgniteWalFlushMultiNodeFailoverAbstractSelfTest extends Gr
 
         Ignite grid0 = startGrids(gridCount() + 1);
 
-        setFileIOFactory(grid(gridCount()).context().cache().context().wal());
+        setFileIOFactory(ignite(gridCount()).context().cache().context().wal());
 
         grid0.cluster().active(true);
 

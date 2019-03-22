@@ -41,7 +41,7 @@ public class BinaryObjectToStringSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -66,7 +66,7 @@ public class BinaryObjectToStringSelfTest extends GridCommonAbstractTest {
         obj.map.put(20, "ccc");
         obj.map.put(30, obj);
 
-        BinaryObject bo = grid().binary().toBinary(obj);
+        BinaryObject bo = ignite().binary().toBinary(obj);
 
         // Check that toString() doesn't fail with StackOverflowError or other exceptions.
         bo.toString();

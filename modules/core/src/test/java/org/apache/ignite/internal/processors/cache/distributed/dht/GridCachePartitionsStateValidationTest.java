@@ -224,7 +224,7 @@ public class GridCachePartitionsStateValidationTest extends GridCommonAbstractTe
                 // Associate each message with existing node UUID.
                 Map<UUID, GridDhtPartitionsSingleMessage> messagesMap = new HashMap<>();
                 for (int i = 0; i < interceptedMessages.size(); i++)
-                    messagesMap.put(grid(i + 1).context().localNodeId(), interceptedMessages.get(i));
+                    messagesMap.put(ignite(i + 1).context().localNodeId(), interceptedMessages.get(i));
 
                 GridDhtPartitionsStateValidator validator = new GridDhtPartitionsStateValidator(ignite.context().cache().context());
 

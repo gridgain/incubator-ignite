@@ -89,7 +89,7 @@ public class GridStealingLoadTest extends GridCommonAbstractTest {
      */
     @Test
     public void testStealingLoad() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         assert ignite != null;
 

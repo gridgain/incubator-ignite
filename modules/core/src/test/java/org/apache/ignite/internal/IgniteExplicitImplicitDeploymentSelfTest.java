@@ -126,7 +126,7 @@ public class IgniteExplicitImplicitDeploymentSelfTest extends GridCommonAbstract
         Ignite ignite = null;
 
         try {
-            ignite = startGrid();
+            ignite = clusterManager__startGrid();
 
             // Explicit Deployment. Task execution should return 0.
             // Say resource class loader - different to task one.
@@ -191,7 +191,7 @@ public class IgniteExplicitImplicitDeploymentSelfTest extends GridCommonAbstract
        Ignite ignite = null;
 
        try {
-           ignite = startGrid();
+           ignite = clusterManager__startGrid();
 
            // First task class loader.
            ClassLoader ldr1 = new GridTestClassLoader(

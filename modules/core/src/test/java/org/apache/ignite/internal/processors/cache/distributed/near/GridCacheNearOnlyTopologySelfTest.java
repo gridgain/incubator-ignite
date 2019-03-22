@@ -124,7 +124,7 @@ public class GridCacheNearOnlyTopologySelfTest extends GridCommonAbstractTest {
             }
 
             for (int i = 0; i < 100; i++)
-                assertFalse("For key: " + i, grid(0).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(0).localNode(), i));
+                assertFalse("For key: " + i, ignite(0).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(0).localNode(), i));
         }
         finally {
             stopAllGrids();
@@ -155,7 +155,7 @@ public class GridCacheNearOnlyTopologySelfTest extends GridCommonAbstractTest {
                 ClusterNode node = compute.affinity(DEFAULT_CACHE_NAME).mapKeyToNode(i);
 
                 assertFalse("For key: " + i, node.id().equals(compute.cluster().localNode().id()));
-                assertFalse("For key: " + i, node.id().equals(grid(0).localNode().id()));
+                assertFalse("For key: " + i, node.id().equals(ignite(0).localNode().id()));
             }
         }
         finally {
@@ -179,9 +179,9 @@ public class GridCacheNearOnlyTopologySelfTest extends GridCommonAbstractTest {
             }
 
             for (int i = 0; i < 10; i++)
-                grid(1).cache(DEFAULT_CACHE_NAME).put(i, i);
+                ignite(1).cache(DEFAULT_CACHE_NAME).put(i, i);
 
-            final Ignite igniteNearOnly = grid(0);
+            final Ignite igniteNearOnly = ignite(0);
             final IgniteCache<Object, Object> nearOnly = igniteNearOnly.cache(DEFAULT_CACHE_NAME);
 
             // Populate near cache.

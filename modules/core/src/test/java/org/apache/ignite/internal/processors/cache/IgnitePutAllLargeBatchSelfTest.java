@@ -178,7 +178,7 @@ public class IgnitePutAllLargeBatchSelfTest extends GridCommonAbstractTest {
         awaitPartitionMapExchange();
 
         try {
-            IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             int keyCnt = 200;
 
@@ -188,12 +188,12 @@ public class IgnitePutAllLargeBatchSelfTest extends GridCommonAbstractTest {
             // Create readers if near cache is enabled.
             for (int g = 1; g < 2; g++) {
                 for (int i = 30; i < 70; i++)
-                    ((IgniteKernal)grid(g)).getCache(DEFAULT_CACHE_NAME).get(i);
+                    ((IgniteKernal)ignite(g)).getCache(DEFAULT_CACHE_NAME).get(i);
             }
 
             info(">>> Starting test tx.");
 
-            try (Transaction tx = grid(0).transactions().txStart(concurrency, TransactionIsolation.REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(concurrency, TransactionIsolation.REPEATABLE_READ)) {
                 Map<Integer, Integer> map = new LinkedHashMap<>();
 
                 for (int i = 0; i < keyCnt; i++)
@@ -208,7 +208,7 @@ public class IgnitePutAllLargeBatchSelfTest extends GridCommonAbstractTest {
 
             //  Check that no stale transactions left and all locks are released.
             for (int g = 0; g < GRID_CNT; g++) {
-                IgniteKernal k = (IgniteKernal)grid(g);
+                IgniteKernal k = (IgniteKernal)ignite(g);
 
                 GridCacheAdapter<Object, Object> cacheAdapter = k.context().cache().internalCache(DEFAULT_CACHE_NAME);
 
@@ -237,12 +237,12 @@ public class IgnitePutAllLargeBatchSelfTest extends GridCommonAbstractTest {
             }
 
             for (int g = 0; g < GRID_CNT; g++) {
-                IgniteCache<Object, Object> checkCache =grid(g).cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Object, Object> checkCache = ignite(g).cache(DEFAULT_CACHE_NAME);
 
-                ClusterNode checkNode = grid(g).localNode();
+                ClusterNode checkNode = ignite(g).localNode();
 
                 for (int i = 0; i < keyCnt; i++) {
-                    if (grid(g).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(checkNode, i))
+                    if (ignite(g).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(checkNode, i))
                         assertEquals(i * i, checkCache.localPeek(i, CachePeekMode.PRIMARY, CachePeekMode.BACKUP));
                 }
             }
@@ -307,7 +307,7 @@ public class IgnitePutAllLargeBatchSelfTest extends GridCommonAbstractTest {
         try {
             Map<Integer, Integer> checkMap = new HashMap<>();
 
-            IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             for (int r = 0; r < 3; r++) {
                 for (int i = 0; i < 10; i++) {

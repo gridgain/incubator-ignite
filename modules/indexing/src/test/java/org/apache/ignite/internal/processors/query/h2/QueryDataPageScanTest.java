@@ -58,6 +58,7 @@ import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.GridQueryProcessor;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
@@ -296,7 +297,7 @@ public class QueryDataPageScanTest extends GridCommonAbstractTest {
         long start = U.currentTimeMillis();
 
         while (!cancel.get() && U.currentTimeMillis() - start < 15_000)
-            doSleep(100);
+            GridTestUtils.doSleep(100);
 
         cancel.set(true);
 

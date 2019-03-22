@@ -107,7 +107,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         strStrPrecision.put(KEY_FIELD_NAME, 5);
         strStrPrecision.put(VAL_FIELD_NAME, 5);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(String.class.getName(), String.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(String.class.getName(), String.class.getName())
             .setFieldsPrecision(strStrPrecision)), STR_CACHE_NAME);
 
         Map<String, Integer> orgAddressPrecision = new HashMap<>();
@@ -115,7 +115,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         orgAddressPrecision.put("name", 5);
         orgAddressPrecision.put("address", 5);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(Organization.class.getName(), Address.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(Organization.class.getName(), Address.class.getName())
             .setKeyFields(Collections.singleton("name"))
             .addQueryField("name", "java.lang.String", "name")
             .addQueryField("address", "java.lang.String", "address")
@@ -125,10 +125,10 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
 
         strOrgPrecision.put(KEY_FIELD_NAME, 5);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(String.class.getName(), Organization.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(String.class.getName(), Organization.class.getName())
             .setFieldsPrecision(strOrgPrecision)), STR_ORG_CACHE_NAME);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(String.class.getName(), Organization.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(String.class.getName(), Organization.class.getName())
             .addQueryField("name", "java.lang.String", "name")
             .addQueryField("address", "java.lang.String", "address")
             .setFieldsPrecision(strOrgPrecision)), STR_ORG_WITH_FIELDS_CACHE_NAME);
@@ -141,7 +141,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         decDecPrecision.put(KEY_FIELD_NAME, 4);
         decDecPrecision.put(VAL_FIELD_NAME, 4);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), BigDecimal.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), BigDecimal.class.getName())
             .setFieldsPrecision(decDecPrecision)), DEC_CACHE_NAME_FOR_PREC);
 
         Map<String, Integer> orgEmployeePrecision = new HashMap<>();
@@ -149,7 +149,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         orgEmployeePrecision.put("id", 4);
         orgEmployeePrecision.put("salary", 4);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(DecOrganization.class.getName(), Employee.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(DecOrganization.class.getName(), Employee.class.getName())
             .setKeyFields(Collections.singleton("id"))
             .addQueryField("id", "java.math.BigDecimal", "id")
             .addQueryField("salary", "java.math.BigDecimal", "salary")
@@ -160,7 +160,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         decEmployeePrecision.put(KEY_FIELD_NAME, 4);
         decEmployeePrecision.put("salary", 4);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), Employee.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), Employee.class.getName())
             .addQueryField("salary", "java.math.BigDecimal", "salary")
             .setFieldsPrecision(decEmployeePrecision)), DEC_EMPL_CACHE_NAME_FOR_PREC);
     }
@@ -177,7 +177,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         decDecScale.put(KEY_FIELD_NAME, 2);
         decDecScale.put(VAL_FIELD_NAME, 2);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), BigDecimal.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), BigDecimal.class.getName())
             .setFieldsScale(decDecScale)
             .setFieldsPrecision(decDecPrecision)), DEC_CACHE_NAME_FOR_SCALE);
 
@@ -191,7 +191,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         orgEmployeeScale.put("id", 2);
         orgEmployeeScale.put("salary", 2);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(DecOrganization.class.getName(), Employee.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(DecOrganization.class.getName(), Employee.class.getName())
             .setKeyFields(Collections.singleton("id"))
             .addQueryField("id", "java.math.BigDecimal", "id")
             .addQueryField("salary", "java.math.BigDecimal", "salary")
@@ -208,7 +208,7 @@ public class IgniteCachePartitionedAtomicColumnConstraintsTest extends AbstractI
         decEmployeeScale.put(KEY_FIELD_NAME, 2);
         decEmployeeScale.put("salary", 2);
 
-        jcache(grid(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), Employee.class.getName())
+        jcache(ignite(0), cacheConfiguration(new QueryEntity(BigDecimal.class.getName(), Employee.class.getName())
             .addQueryField("salary", "java.math.BigDecimal", "salary")
             .setFieldsPrecision(decEmployeePrecision)
             .setFieldsScale(decEmployeeScale)), DEC_EMPL_CACHE_NAME_FOR_SCALE);

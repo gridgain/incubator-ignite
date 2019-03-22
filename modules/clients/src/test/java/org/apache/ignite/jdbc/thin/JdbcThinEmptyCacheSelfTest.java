@@ -64,7 +64,7 @@ public class JdbcThinEmptyCacheSelfTest extends JdbcThinAbstractSelfTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

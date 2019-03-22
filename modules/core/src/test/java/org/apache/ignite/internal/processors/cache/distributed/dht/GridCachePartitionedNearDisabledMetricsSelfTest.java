@@ -82,12 +82,12 @@ public class GridCachePartitionedNearDisabledMetricsSelfTest extends GridCacheAb
     @Ignore("https://issues.apache.org/jira/browse/IGNITE-819")
     @Test
     public void testGettingRemovedKey() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         cache.put(0, 0);
 
         for (int i = 0; i < gridCount(); i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
             // TODO: getting of removed key will produce 3 inner read operations.
             g.cache(DEFAULT_CACHE_NAME).removeAll();
@@ -109,7 +109,7 @@ public class GridCachePartitionedNearDisabledMetricsSelfTest extends GridCacheAb
         long misses = 0;
 
         for (int i = 0; i < gridCount(); i++) {
-            CacheMetrics m = grid(i).cache(DEFAULT_CACHE_NAME).localMetrics();
+            CacheMetrics m = ignite(i).cache(DEFAULT_CACHE_NAME).localMetrics();
 
             removes += m.getCacheRemovals();
             reads += m.getCacheGets();

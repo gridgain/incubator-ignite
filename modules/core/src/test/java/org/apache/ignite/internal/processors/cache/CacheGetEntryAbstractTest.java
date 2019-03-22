@@ -233,7 +233,7 @@ public abstract class CacheGetEntryAbstractTest extends GridCacheAbstractSelfTes
      * @throws Exception If failed.
      */
     private void test(CacheConfiguration cfg, final boolean oneEntry) throws Exception {
-        final IgniteCache<Integer, TestValue> cache = grid(0).createCache(cfg);
+        final IgniteCache<Integer, TestValue> cache = ignite(0).createCache(cfg);
 
         try {
             init(cache);
@@ -244,7 +244,7 @@ public abstract class CacheGetEntryAbstractTest extends GridCacheAbstractSelfTes
                 TransactionConcurrency txConcurrency = concurrency();
                 TransactionIsolation txIsolation = isolation();
 
-                try (Transaction tx = grid(0).transactions().txStart(txConcurrency, txIsolation)) {
+                try (Transaction tx = ignite(0).transactions().txStart(txConcurrency, txIsolation)) {
                     initTx(cache);
 
                     test(cache, txConcurrency, txIsolation, tx, oneEntry);
@@ -282,7 +282,7 @@ public abstract class CacheGetEntryAbstractTest extends GridCacheAbstractSelfTes
 
         GridTestUtils.runMultiThreaded(new Runnable() {
             @Override public void run() {
-                IgniteTransactions txs = grid(0).transactions();
+                IgniteTransactions txs = ignite(0).transactions();
 
                 cache.put(key2, new TestValue(key2));
 
@@ -315,7 +315,7 @@ public abstract class CacheGetEntryAbstractTest extends GridCacheAbstractSelfTes
         final boolean oneEntry) throws Exception {
         GridTestUtils.runMultiThreaded(new Callable<Void>() {
             @Override public Void call() throws Exception {
-                IgniteTransactions txs = grid(0).transactions();
+                IgniteTransactions txs = ignite(0).transactions();
 
                 long stopTime = System.currentTimeMillis() + 3000;
 

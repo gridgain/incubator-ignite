@@ -49,14 +49,14 @@ public class JettyRestProcessorBaselineSelfTest extends JettyRestProcessorCommon
         super.beforeTestsStarted();
 
         // We need to activate cluster.
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         super.afterTest();
 
-        grid(0).cluster().setBaselineTopology(grid(0).cluster().topologyVersion());
+        ignite(0).cluster().setBaselineTopology(ignite(0).cluster().topologyVersion());
     }
 
     /** {@inheritDoc} */
@@ -120,11 +120,11 @@ public class JettyRestProcessorBaselineSelfTest extends JettyRestProcessorCommon
         GridBaselineCommandResponse baseline = JSON_MAPPER.treeToValue(res, GridBaselineCommandResponse.class);
 
         assertTrue(baseline.isActive());
-        assertEquals(grid(0).cluster().topologyVersion(), baseline.getTopologyVersion());
+        assertEquals(ignite(0).cluster().topologyVersion(), baseline.getTopologyVersion());
         assertEquals(baselineSz, baseline.getBaseline().size());
-        assertEqualsCollections(nodeConsistentIds(grid(0).cluster().currentBaselineTopology()), baseline.getBaseline());
+        assertEqualsCollections(nodeConsistentIds(ignite(0).cluster().currentBaselineTopology()), baseline.getBaseline());
         assertEquals(srvsSz, baseline.getServers().size());
-        assertEqualsCollections(nodeConsistentIds(grid(0).cluster().nodes()), baseline.getServers());
+        assertEqualsCollections(nodeConsistentIds(ignite(0).cluster().nodes()), baseline.getServers());
     }
 
     /**
@@ -158,14 +158,14 @@ public class JettyRestProcessorBaselineSelfTest extends JettyRestProcessorCommon
         assertBaseline(content(null, GridRestCommand.BASELINE_CURRENT_STATE), sz, sz + 1);
 
         assertBaseline(content(null, GridRestCommand.BASELINE_SET, "topVer",
-            String.valueOf(grid(0).cluster().topologyVersion())), sz + 1, sz + 1);
+            String.valueOf(ignite(0).cluster().topologyVersion())), sz + 1, sz + 1);
 
         stopGrid(sz);
 
         assertBaseline(content(null, GridRestCommand.BASELINE_CURRENT_STATE), sz + 1, sz);
 
         assertBaseline(content(null, GridRestCommand.BASELINE_SET, "topVer",
-            String.valueOf(grid(0).cluster().topologyVersion())), sz, sz);
+            String.valueOf(ignite(0).cluster().topologyVersion())), sz, sz);
 
         startGrid(sz);
         assertBaseline(content(null, GridRestCommand.BASELINE_CURRENT_STATE), sz, sz + 1);
@@ -173,7 +173,7 @@ public class JettyRestProcessorBaselineSelfTest extends JettyRestProcessorCommon
         ArrayList<String> params = new ArrayList<>();
         int i = 1;
 
-        for (BaselineNode n : grid(0).cluster().nodes()) {
+        for (BaselineNode n : ignite(0).cluster().nodes()) {
             params.add("consistentId" + i++);
             params.add(String.valueOf(n.consistentId()));
         }
@@ -197,7 +197,7 @@ public class JettyRestProcessorBaselineSelfTest extends JettyRestProcessorCommon
         assertBaseline(content(null, GridRestCommand.BASELINE_CURRENT_STATE), sz, sz + 1);
 
         assertBaseline(content(null, GridRestCommand.BASELINE_ADD, "consistentId1",
-            grid(sz).localNode().consistentId().toString()), sz + 1, sz + 1);
+            ignite(sz).localNode().consistentId().toString()), sz + 1, sz + 1);
 
         stopGrid(sz);
     }
@@ -215,9 +215,9 @@ public class JettyRestProcessorBaselineSelfTest extends JettyRestProcessorCommon
         assertBaseline(content(null, GridRestCommand.BASELINE_CURRENT_STATE), sz, sz + 1);
 
         assertBaseline(content(null, GridRestCommand.BASELINE_SET, "topVer",
-            String.valueOf(grid(0).cluster().topologyVersion())), sz + 1, sz + 1);
+            String.valueOf(ignite(0).cluster().topologyVersion())), sz + 1, sz + 1);
 
-        String consistentId = grid(sz).localNode().consistentId().toString();
+        String consistentId = ignite(sz).localNode().consistentId().toString();
 
         stopGrid(sz);
         assertBaseline(content(null, GridRestCommand.BASELINE_CURRENT_STATE), sz + 1, sz);

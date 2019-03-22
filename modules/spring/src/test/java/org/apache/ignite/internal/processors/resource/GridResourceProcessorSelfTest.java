@@ -389,7 +389,7 @@ public class GridResourceProcessorSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testInjectResourceGridTaskAndJob() throws Exception {
-        Ignite g = startGrid();
+        Ignite g = clusterManager__startGrid();
 
         try {
             // Should not be null if task has been completed successfully (meaning all resources have been injected).

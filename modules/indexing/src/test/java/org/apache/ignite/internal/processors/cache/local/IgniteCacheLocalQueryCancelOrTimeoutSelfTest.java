@@ -119,7 +119,7 @@ public class IgniteCacheLocalQueryCancelOrTimeoutSelfTest extends GridCommonAbst
      * Tests cancellation.
      */
     private void testQuery(boolean timeout, int timeoutUnits, TimeUnit timeUnit) {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteCache<Integer, String> cache = ignite.cache(DEFAULT_CACHE_NAME);
 

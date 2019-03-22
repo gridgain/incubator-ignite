@@ -49,7 +49,7 @@ public class BinaryArrayIdentityResolverSelfTest extends GridCommonAbstractTest 
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -190,7 +190,7 @@ public class BinaryArrayIdentityResolverSelfTest extends GridCommonAbstractTest 
      * @return Binary object.
      */
     private BinaryObject asBinary(Object obj) {
-        return grid().binary().toBinary(obj);
+        return ignite().binary().toBinary(obj);
     }
 
     /**
@@ -201,7 +201,7 @@ public class BinaryArrayIdentityResolverSelfTest extends GridCommonAbstractTest 
      * @return Result.
      */
     private BinaryObject build(Class cls, Object... parts) {
-        BinaryObjectBuilder builder = grid().binary().builder(cls.getName());
+        BinaryObjectBuilder builder = ignite().binary().builder(cls.getName());
 
         if (!F.isEmpty(parts)) {
             for (int i = 0; i < parts.length; )

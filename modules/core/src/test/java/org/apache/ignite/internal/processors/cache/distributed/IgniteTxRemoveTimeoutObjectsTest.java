@@ -73,8 +73,8 @@ public class IgniteTxRemoveTimeoutObjectsTest extends GridCacheAbstractSelfTest 
      */
     @Test
     public void testTxRemoveTimeoutObjects() throws Exception {
-        IgniteCache<Integer, Integer> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
-        IgniteCache<Integer, Integer> cache1 = grid(1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache1 = ignite(1).cache(DEFAULT_CACHE_NAME);
 
         // start additional grid to be closed.
         IgniteCache<Integer, Integer> cacheAdditional = startGrid(gridCount()).cache(DEFAULT_CACHE_NAME);
@@ -85,7 +85,7 @@ public class IgniteTxRemoveTimeoutObjectsTest extends GridCacheAbstractSelfTest 
         logTimeoutObjectsFrequency();
 
         info("Tx1 started");
-        try (Transaction tx = grid(gridCount()).transactions().txStart(PESSIMISTIC, SERIALIZABLE, 100, PUT_CNT)) {
+        try (Transaction tx = ignite(gridCount()).transactions().txStart(PESSIMISTIC, SERIALIZABLE, 100, PUT_CNT)) {
             try {
                 for (int i = 0; i < PUT_CNT; i++) {
                     cacheAdditional.put(i, Integer.MIN_VALUE);
@@ -120,7 +120,7 @@ public class IgniteTxRemoveTimeoutObjectsTest extends GridCacheAbstractSelfTest 
         logTimeoutObjectsFrequency();
 
         // Check that the values have not changed and lock can be acquired.
-        try (Transaction tx2 = grid(1).transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
+        try (Transaction tx2 = ignite(1).transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
             info("Tx2 started");
 
             for (int i = 0; i < PUT_CNT; i++) {
@@ -137,7 +137,7 @@ public class IgniteTxRemoveTimeoutObjectsTest extends GridCacheAbstractSelfTest 
         info("Tx2 stopped");
 
         // Assertions should be into a transaction because of near cache.
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
 
             // Check that changes committed.
             for (int i = 0; i < PUT_CNT; i++)

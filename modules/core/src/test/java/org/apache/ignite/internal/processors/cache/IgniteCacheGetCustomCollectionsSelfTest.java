@@ -61,7 +61,7 @@ public class IgniteCacheGetCustomCollectionsSelfTest extends GridCommonAbstractT
         startGrids(3);
 
         try {
-            IgniteEx ignite = grid(0);
+            IgniteEx ignite = ignite(0);
 
             IgniteCache<String, MyMap> cache = ignite.cache("cache");
 

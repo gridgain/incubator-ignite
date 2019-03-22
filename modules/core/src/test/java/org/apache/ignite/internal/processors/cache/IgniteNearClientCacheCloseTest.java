@@ -145,7 +145,7 @@ public class IgniteNearClientCacheCloseTest extends GridCommonAbstractTest {
             startGrid(srvs);
         }
         else
-            srv = grid(0);
+            srv = ignite(0);
 
         IgniteCache<Object, Object> srvCache = srv.createCache(cacheConfiguration(atomicityMode, srvNearCache));
 

@@ -281,7 +281,7 @@ public class SqlTransactionsCommandsWithMvccEnabledSelfTest extends AbstractSche
      * @return Node.
      */
     private IgniteEx node() {
-        return grid(0);
+        return ignite(0);
     }
 
     /**

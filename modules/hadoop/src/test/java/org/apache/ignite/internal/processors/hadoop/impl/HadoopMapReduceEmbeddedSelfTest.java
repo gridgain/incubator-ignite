@@ -145,7 +145,7 @@ public class HadoopMapReduceEmbeddedSelfTest extends HadoopMapReduceTest {
 
             job.setJarByClass(HadoopWordCount2.class);
 
-            IgniteInternalFuture<?> fut = grid(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
+            IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(new HadoopJobId(UUID.randomUUID(), 1),
                     createJobInfo(job.getConfiguration(), null));
 
             fut.get();

@@ -139,7 +139,7 @@ public class IgniteCacheTxRecoveryRollbackTest extends GridCommonAbstractTest {
     private void nearTx1(final TransactionConcurrency concurrency) throws Exception {
         startGrids(4);
 
-        Ignite srv0 = grid(0);
+        Ignite srv0 = ignite(0);
 
         final IgniteCache<Integer, Integer> srvCache = srv0.createCache(cacheConfiguration(2, false, false));
 
@@ -239,7 +239,7 @@ public class IgniteCacheTxRecoveryRollbackTest extends GridCommonAbstractTest {
     private void nearTx2(final TransactionConcurrency concurrency) throws Exception {
         startGrids(4);
 
-        Ignite srv0 = grid(0);
+        Ignite srv0 = ignite(0);
 
         srv0.createCache(cacheConfiguration(2, false, false));
 
@@ -304,7 +304,7 @@ public class IgniteCacheTxRecoveryRollbackTest extends GridCommonAbstractTest {
             // No-op.
         }
 
-        final IgniteCache<Integer, Integer> srvCache = grid(1).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, Integer> srvCache = ignite(1).cache(DEFAULT_CACHE_NAME);
 
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -371,7 +371,7 @@ public class IgniteCacheTxRecoveryRollbackTest extends GridCommonAbstractTest {
     private void txWithStore(final TransactionConcurrency concurrency, boolean writeThrough) throws Exception {
         startGrids(4);
 
-        Ignite srv0 = grid(0);
+        Ignite srv0 = ignite(0);
 
         IgniteCache<Integer, Integer> srv0Cache = srv0.createCache(cacheConfiguration(1, true, writeThrough));
 

@@ -87,7 +87,7 @@ public class ClosureServiceClientsNodesTest extends GridCommonAbstractTest {
         for (int i = 0 ; i < NODES_CNT; i++) {
             log.info("Iteration: " + i);
 
-            Ignite ignite = grid(i);
+            Ignite ignite = ignite(i);
 
             Collection<String> res = ignite.compute().broadcast(new IgniteCallable<String>() {
                 @IgniteInstanceResource
@@ -115,7 +115,7 @@ public class ClosureServiceClientsNodesTest extends GridCommonAbstractTest {
         for (int i = 0 ; i < NODES_CNT; i++) {
             log.info("Iteration: " + i);
 
-            Ignite ignite = grid(i);
+            Ignite ignite = ignite(i);
 
             Collection<String> res = ignite.compute(ignite.cluster().forClients()).
                 broadcast(new IgniteCallable<String>() {
@@ -143,7 +143,7 @@ public class ClosureServiceClientsNodesTest extends GridCommonAbstractTest {
         for (int i = 0 ; i < NODES_CNT; i++) {
             log.info("Iteration: " + i);
 
-            Ignite ignite = grid(i);
+            Ignite ignite = ignite(i);
 
             Collection<String> res = ignite.compute(ignite.cluster().forPredicate(F.<ClusterNode>alwaysTrue())).
                 broadcast(new IgniteCallable<String>() {
@@ -164,12 +164,12 @@ public class ClosureServiceClientsNodesTest extends GridCommonAbstractTest {
      */
     @Test
     public void testDefaultService() throws Exception {
-        UUID clientNodeId = grid(CLIENT_IDX).cluster().localNode().id();
+        UUID clientNodeId = ignite(CLIENT_IDX).cluster().localNode().id();
 
         for (int i = 0 ; i < NODES_CNT; i++) {
             log.info("Iteration: " + i);
 
-            final Ignite ignite = grid(i);
+            final Ignite ignite = ignite(i);
 
             ignite.services().deployNodeSingleton(SINGLETON_NAME, new TestService());
 
@@ -206,12 +206,12 @@ public class ClosureServiceClientsNodesTest extends GridCommonAbstractTest {
      */
     @Test
     public void testClientService() throws Exception {
-        UUID clientNodeId = grid(CLIENT_IDX).cluster().localNode().id();
+        UUID clientNodeId = ignite(CLIENT_IDX).cluster().localNode().id();
 
         for (int i = 0 ; i < NODES_CNT; i++) {
             log.info("Iteration: " + i);
 
-            final Ignite ignite = grid(i);
+            final Ignite ignite = ignite(i);
 
             ignite.services(ignite.cluster().forClients()).deployNodeSingleton(SINGLETON_NAME, new TestService());
 

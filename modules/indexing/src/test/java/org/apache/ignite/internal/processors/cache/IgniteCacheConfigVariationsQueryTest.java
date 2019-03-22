@@ -450,7 +450,7 @@ public class IgniteCacheConfigVariationsQueryTest extends IgniteCacheConfigVaria
                 }
             };
 
-            grid(i).events().localListen(pred, EVT_CACHE_QUERY_OBJECT_READ);
+            ignite(i).events().localListen(pred, EVT_CACHE_QUERY_OBJECT_READ);
 
             objReadLsnrs[i] = pred;
 
@@ -477,7 +477,7 @@ public class IgniteCacheConfigVariationsQueryTest extends IgniteCacheConfigVaria
                 }
             };
 
-            grid(i).events().localListen(execPred, EVT_CACHE_QUERY_EXECUTED);
+            ignite(i).events().localListen(execPred, EVT_CACHE_QUERY_EXECUTED);
 
             qryExecLsnrs[i] = execPred;
         }
@@ -488,8 +488,8 @@ public class IgniteCacheConfigVariationsQueryTest extends IgniteCacheConfigVaria
      */
     private void stopListeners() {
         for (int i = 0; i < gridCount(); i++) {
-            grid(i).events().stopLocalListen(objReadLsnrs[i]);
-            grid(i).events().stopLocalListen(qryExecLsnrs[i]);
+            ignite(i).events().stopLocalListen(objReadLsnrs[i]);
+            ignite(i).events().stopLocalListen(qryExecLsnrs[i]);
         }
     }
 

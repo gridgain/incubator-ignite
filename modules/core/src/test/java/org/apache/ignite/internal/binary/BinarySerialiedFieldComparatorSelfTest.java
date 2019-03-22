@@ -49,7 +49,7 @@ public class BinarySerialiedFieldComparatorSelfTest extends GridCommonAbstractTe
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -560,7 +560,7 @@ public class BinarySerialiedFieldComparatorSelfTest extends GridCommonAbstractTe
     private BinaryObjectImpl build(Object... parts) {
         String typeName = "Type" + TYPE_CTR.get();
 
-        BinaryObjectBuilder builder = grid().binary().builder(typeName);
+        BinaryObjectBuilder builder = ignite().binary().builder(typeName);
 
         if (!F.isEmpty(parts)) {
             for (int i = 0; i < parts.length; )

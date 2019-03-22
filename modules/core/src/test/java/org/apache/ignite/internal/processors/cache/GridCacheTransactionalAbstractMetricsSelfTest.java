@@ -269,10 +269,10 @@ public abstract class GridCacheTransactionalAbstractMetricsSelfTest extends Grid
      */
     private void testCommits(TransactionConcurrency concurrency, TransactionIsolation isolation, boolean put)
         throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < TX_CNT; i++) {
-            Transaction tx = grid(0).transactions().txStart(concurrency, isolation);
+            Transaction tx = ignite(0).transactions().txStart(concurrency, isolation);
 
             if (put)
                 for (int j = 0; j < keyCount(); j++)
@@ -285,8 +285,8 @@ public abstract class GridCacheTransactionalAbstractMetricsSelfTest extends Grid
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            TransactionMetrics metrics = grid(i).transactions().metrics();
-            CacheMetrics cacheMetrics = grid(i).cache(DEFAULT_CACHE_NAME).localMetrics();
+            TransactionMetrics metrics = ignite(i).transactions().metrics();
+            CacheMetrics cacheMetrics = ignite(i).cache(DEFAULT_CACHE_NAME).localMetrics();
 
             if (i == 0) {
                 assertEquals(TX_CNT, metrics.txCommits());
@@ -316,10 +316,10 @@ public abstract class GridCacheTransactionalAbstractMetricsSelfTest extends Grid
      */
     private void testRollbacks(TransactionConcurrency concurrency, TransactionIsolation isolation,
         boolean put) throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < TX_CNT; i++) {
-            Transaction tx = grid(0).transactions().txStart(concurrency, isolation);
+            Transaction tx = ignite(0).transactions().txStart(concurrency, isolation);
 
             if (put)
                 for (int j = 0; j < keyCount(); j++)
@@ -332,8 +332,8 @@ public abstract class GridCacheTransactionalAbstractMetricsSelfTest extends Grid
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            TransactionMetrics metrics = grid(i).transactions().metrics();
-            CacheMetrics cacheMetrics = grid(i).cache(DEFAULT_CACHE_NAME).localMetrics();
+            TransactionMetrics metrics = ignite(i).transactions().metrics();
+            CacheMetrics cacheMetrics = ignite(i).cache(DEFAULT_CACHE_NAME).localMetrics();
 
             assertEquals(0, metrics.txCommits());
             assertEquals(0, cacheMetrics.getCacheTxCommits());
@@ -364,9 +364,9 @@ public abstract class GridCacheTransactionalAbstractMetricsSelfTest extends Grid
      */
     private void doTestSuspendedTxTimeoutRollbacks(TransactionConcurrency concurrency, TransactionIsolation isolation)
         throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-        IgniteTransactions transactions = grid(0).transactions();
+        IgniteTransactions transactions = ignite(0).transactions();
 
         for (int i = 0; i < TX_CNT; i++) {
             Transaction tx = transactions.txStart(concurrency, isolation, TX_TIMEOUT, 0);
@@ -394,8 +394,8 @@ public abstract class GridCacheTransactionalAbstractMetricsSelfTest extends Grid
         assertTrue(cacheMetrics.getAverageTxRollbackTime() > 0);
 
         for (int i = 1; i < gridCount(); i++) {
-            txMetrics = grid(i).transactions().metrics();
-            cacheMetrics = grid(i).cache(DEFAULT_CACHE_NAME).localMetrics();
+            txMetrics = ignite(i).transactions().metrics();
+            cacheMetrics = ignite(i).cache(DEFAULT_CACHE_NAME).localMetrics();
 
             assertEquals(0, txMetrics.txCommits());
             assertEquals(0, cacheMetrics.getCacheTxCommits());

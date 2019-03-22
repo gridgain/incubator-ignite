@@ -125,7 +125,7 @@ public abstract class GridCacheAbstractQueueFailoverDataConsistencySelfTest exte
     private void testAddFailover(boolean collocated) throws Exception {
         CollectionConfiguration colCfg = config(collocated);
 
-        IgniteQueue<Integer> queue = grid(0).queue(QUEUE_NAME, 0, colCfg);
+        IgniteQueue<Integer> queue = ignite(0).queue(QUEUE_NAME, 0, colCfg);
 
         assertNotNull(queue);
         assertEquals(0, queue.size());
@@ -142,7 +142,7 @@ public abstract class GridCacheAbstractQueueFailoverDataConsistencySelfTest exte
         log.info("Test node: " + testNodeIdx) ;
         log.info("Header primary node: " + primaryNode) ;
 
-        queue = grid(testNodeIdx).queue(QUEUE_NAME, 0, null);
+        queue = ignite(testNodeIdx).queue(QUEUE_NAME, 0, null);
 
         assertNotNull(queue);
 
@@ -222,7 +222,7 @@ public abstract class GridCacheAbstractQueueFailoverDataConsistencySelfTest exte
     private void testPollFailover(boolean collocated) throws Exception {
         CollectionConfiguration colCfg = config(collocated);
 
-        IgniteQueue<Integer> queue = grid(0).queue(QUEUE_NAME, 0, colCfg);
+        IgniteQueue<Integer> queue = ignite(0).queue(QUEUE_NAME, 0, colCfg);
 
         assertNotNull(queue);
         assertEquals(0, queue.size());
@@ -239,7 +239,7 @@ public abstract class GridCacheAbstractQueueFailoverDataConsistencySelfTest exte
         log.info("Test node: " + testNodeIdx) ;
         log.info("Primary node: " + primaryNode) ;
 
-        queue = grid(testNodeIdx).queue(QUEUE_NAME, 0, null);
+        queue = ignite(testNodeIdx).queue(QUEUE_NAME, 0, null);
 
         assertNotNull(queue);
 
@@ -372,10 +372,10 @@ public abstract class GridCacheAbstractQueueFailoverDataConsistencySelfTest exte
         CachePeekMode[] modes = new CachePeekMode[]{CachePeekMode.ALL};
 
         for (int i = 0; i < gridCount(); i++) {
-            for (Cache.Entry e : grid(i).context().cache().internalCache(cctx.name()).localEntries(modes)) {
+            for (Cache.Entry e : ignite(i).context().cache().internalCache(cctx.name()).localEntries(modes)) {
                 Object key = e.getKey();
 
-                if (aff.primaryByKey(grid(i).localNode(), key, AffinityTopologyVersion.NONE)
+                if (aff.primaryByKey(ignite(i).localNode(), key, AffinityTopologyVersion.NONE)
                     && key instanceof GridCacheQueueHeaderKey)
                     return i;
             }

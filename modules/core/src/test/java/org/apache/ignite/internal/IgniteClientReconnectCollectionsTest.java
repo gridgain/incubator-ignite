@@ -68,14 +68,14 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      */
     @Test
     public void testCollectionsReconnectClusterRestart() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
         final IgniteQueue<Object> queue = client.queue("q", 0, TX_CFGS);
         final IgniteSet<Object> set = client.set("s", TX_CFGS);
 
-        Ignite srv = grid(0);
+        Ignite srv = ignite(0);
 
         reconnectServersRestart(log, client, Collections.singleton(srv), new Callable<Collection<Ignite>>() {
             @Override public Collection<Ignite> call() throws Exception {
@@ -187,7 +187,7 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      * @throws Exception If failed.
      */
     private void serverNodeReconnect(CollectionConfiguration colCfg) throws Exception {
-        final Ignite client = grid(serverCount());
+        final Ignite client = ignite(serverCount());
 
         final Ignite srv = ignite(0);
 
@@ -206,7 +206,7 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      * @throws Exception If failed.
      */
     private void setReconnect(CollectionConfiguration colCfg) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -240,7 +240,7 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      * @throws Exception If failed.
      */
     private void setReconnectRemove(CollectionConfiguration colCfg) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -286,7 +286,7 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      * @throws Exception If failed.
      */
     private void setReconnectInProgress(final CollectionConfiguration colCfg) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -352,7 +352,7 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      * @throws Exception If failed.
      */
     private void queueReconnect(CollectionConfiguration colCfg) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -384,7 +384,7 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      * @throws Exception If failed.
      */
     private void queueReconnectRemoved(CollectionConfiguration colCfg) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -428,7 +428,7 @@ public class IgniteClientReconnectCollectionsTest extends IgniteClientReconnectA
      * @throws Exception If failed.
      */
     private void queueReconnectInProgress(final CollectionConfiguration colCfg) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 

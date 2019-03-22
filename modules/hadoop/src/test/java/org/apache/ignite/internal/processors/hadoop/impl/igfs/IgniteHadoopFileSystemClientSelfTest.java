@@ -184,7 +184,7 @@ public class IgniteHadoopFileSystemClientSelfTest extends IgfsCommonAbstractTest
      * @throws Exception If failed.
      */
     private void switchHandlerErrorFlag(boolean flag) throws Exception {
-        IgfsProcessorAdapter igfsProc = ((IgniteKernal)grid(0)).context().igfs();
+        IgfsProcessorAdapter igfsProc = ((IgniteKernal)ignite(0)).context().igfs();
 
         Map<String, IgfsContext> igfsMap = getField(igfsProc, "igfsCache");
 

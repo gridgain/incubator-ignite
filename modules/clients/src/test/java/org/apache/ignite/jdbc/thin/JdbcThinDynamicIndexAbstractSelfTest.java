@@ -328,6 +328,6 @@ public abstract class JdbcThinDynamicIndexAbstractSelfTest extends JdbcThinAbstr
      * @return Cache.
      */
     private IgniteCache<String, Person> cache() {
-        return grid(0).cache(DEFAULT_CACHE_NAME);
+        return ignite(0).cache(DEFAULT_CACHE_NAME);
     }
 }

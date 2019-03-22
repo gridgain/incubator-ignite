@@ -30,7 +30,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.StampedLock;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
@@ -382,7 +381,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
         IgniteInternalFuture updateFut = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     int key = ThreadLocalRandom.current().nextInt(0, LARGE_CACHE_SIZE);
                     int val = ThreadLocalRandom.current().nextInt();
@@ -599,7 +598,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
 
         Ignite cli = ignitionStart(clientConfiguration(4));
 
-        waitForDiscovery(srv1, grid(2), grid(3), cli);
+        waitForDiscovery(srv1, ignite(2), ignite(3), cli);
 
         // Start cache and populate it with data.
         createSqlCache(cli);
@@ -666,7 +665,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
         IgniteInternalFuture fut = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     IgniteInternalFuture fut;
 
@@ -704,7 +703,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
             @Override public Void call() throws Exception {
                 while (!stopped.get()) {
                     try {
-                        Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                        Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                         IgniteCache<BinaryObject, BinaryObject> cache = node.cache(CACHE_NAME).withKeepBinary();
 
@@ -940,7 +939,7 @@ public abstract class DynamicColumnsAbstractConcurrentSelfTest extends DynamicCo
         IgniteInternalFuture idxFut = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
                 while (!stopped.get()) {
-                    Ignite node = grid(ThreadLocalRandom.current().nextInt(1, 5));
+                    Ignite node = ignite(ThreadLocalRandom.current().nextInt(1, 5));
 
                     IgniteInternalFuture fut;
 

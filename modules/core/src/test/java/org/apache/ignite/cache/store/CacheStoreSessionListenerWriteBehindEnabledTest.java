@@ -119,7 +119,7 @@ public class CacheStoreSessionListenerWriteBehindEnabledTest extends GridCacheAb
      */
     @Test
     public void testLookup() {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < CNT; ++i)
             cache.get(i);
@@ -133,7 +133,7 @@ public class CacheStoreSessionListenerWriteBehindEnabledTest extends GridCacheAb
      */
     @Test
     public void testUpdate() {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < CNT; ++i)
             cache.put(i, i);
@@ -147,7 +147,7 @@ public class CacheStoreSessionListenerWriteBehindEnabledTest extends GridCacheAb
      */
     @Test
     public void testRemove() {
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < CNT; ++i) {
             cache.remove(i);
@@ -169,7 +169,7 @@ public class CacheStoreSessionListenerWriteBehindEnabledTest extends GridCacheAb
         cfg.setWriteBehindFlushFrequency(1_000);
         cfg.setWriteBehindCoalescing(true);
 
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(cfg);
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(cfg);
 
         try {
             int nUploaders = 5;

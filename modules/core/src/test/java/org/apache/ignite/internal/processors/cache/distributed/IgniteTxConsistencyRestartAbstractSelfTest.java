@@ -98,7 +98,7 @@ public abstract class IgniteTxConsistencyRestartAbstractSelfTest extends GridCom
     public void testTxConsistency() throws Exception {
         startGridsMultiThreaded(GRID_CNT);
 
-        IgniteDataStreamer<Object, Object> ldr = grid(0).dataStreamer(DEFAULT_CACHE_NAME);
+        IgniteDataStreamer<Object, Object> ldr = ignite(0).dataStreamer(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < RANGE; i++) {
             ldr.addData(i, 0);
@@ -142,7 +142,7 @@ public abstract class IgniteTxConsistencyRestartAbstractSelfTest extends GridCom
                 info("Running iteration: " + i);
 
             try {
-                IgniteKernal grid = (IgniteKernal)grid(idx);
+                IgniteKernal grid = (IgniteKernal)ignite(idx);
 
                 IgniteCache<Integer, Integer> cache = grid.cache(DEFAULT_CACHE_NAME);
 
@@ -180,7 +180,7 @@ public abstract class IgniteTxConsistencyRestartAbstractSelfTest extends GridCom
             Integer val = null;
 
             for (int i = 0; i < GRID_CNT; i++) {
-                IgniteEx grid = grid(i);
+                IgniteEx grid = ignite(i);
 
                 IgniteCache<Integer, Integer> cache = grid.cache(DEFAULT_CACHE_NAME);
 

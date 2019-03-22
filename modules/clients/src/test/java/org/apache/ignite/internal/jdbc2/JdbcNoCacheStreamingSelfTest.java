@@ -145,9 +145,9 @@ public class JdbcNoCacheStreamingSelfTest extends GridCommonAbstractTest {
         // Now let's check it's all there.
         for (int i = 1; i <= 100; i++) {
             if (i % 10 != 0)
-                assertEquals(i, grid(0).cache(DEFAULT_CACHE_NAME).get(i));
+                assertEquals(i, ignite(0).cache(DEFAULT_CACHE_NAME).get(i));
             else // All that divides by 10 evenly should point to numbers 100 times greater - see above
-                assertEquals(i * 100, grid(0).cache(DEFAULT_CACHE_NAME).get(i));
+                assertEquals(i * 100, ignite(0).cache(DEFAULT_CACHE_NAME).get(i));
         }
     }
 
@@ -175,6 +175,6 @@ public class JdbcNoCacheStreamingSelfTest extends GridCommonAbstractTest {
         // Now let's check it's all there.
         // i should point to i at all times as we've turned overwrites on above.
         for (int i = 1; i <= 100; i++)
-            assertEquals(i, grid(0).cache(DEFAULT_CACHE_NAME).get(i));
+            assertEquals(i, ignite(0).cache(DEFAULT_CACHE_NAME).get(i));
     }
 }

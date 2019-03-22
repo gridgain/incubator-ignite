@@ -48,7 +48,7 @@ public class JdbcThinLocalQueriesSelfTest extends JdbcThinAbstractSelfTest {
      */
     @Test
     public void testLocalThinJdbcQuery() throws SQLException {
-        try (Connection c = connect(grid(0), "replicatedOnly=true")) {
+        try (Connection c = connect(ignite(0), "replicatedOnly=true")) {
             execute(c, "CREATE TABLE Company(id int primary key, name varchar) WITH " +
                 "\"template=replicated,cache_name=Company\"");
 

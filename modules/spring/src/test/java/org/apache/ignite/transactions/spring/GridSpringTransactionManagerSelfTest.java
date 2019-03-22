@@ -46,7 +46,7 @@ public class GridSpringTransactionManagerSelfTest extends GridSpringTransactionM
     }
 
     @Override public IgniteCache<Integer, String> cache() {
-        return grid().cache(CACHE_NAME);
+        return ignite().cache(CACHE_NAME);
     }
 
     @Override public GridSpringTransactionService service() {
@@ -55,7 +55,7 @@ public class GridSpringTransactionManagerSelfTest extends GridSpringTransactionM
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

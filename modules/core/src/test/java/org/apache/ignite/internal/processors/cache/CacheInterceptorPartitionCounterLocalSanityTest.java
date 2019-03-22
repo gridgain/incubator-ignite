@@ -187,7 +187,7 @@ public class CacheInterceptorPartitionCounterLocalSanityTest extends GridCommonA
                 if (i % 20 == 0)
                     log.info("Iteration: " + i);
 
-                randomUpdate(rnd, expData, grid(0).cache(ccfg.getName()));
+                randomUpdate(rnd, expData, ignite(0).cache(ccfg.getName()));
             }
         }
         finally {

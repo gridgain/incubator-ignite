@@ -79,7 +79,7 @@ public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstr
     public void testException() throws Exception {
         String name = "errorService";
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         ignite.services(ignite.cluster().forRemotes()).deployNodeSingleton(name, new ErrorServiceImpl());
 
@@ -222,12 +222,12 @@ public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstr
     public void testSingletonProxyInvocation() throws Exception {
         final String name = "testProxyInvocationFromSeveralNodes";
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         ignite.services(ignite.cluster().forLocal()).deployClusterSingleton(name, new MapServiceImpl<String, Integer>());
 
         for (int i = 1; i < nodeCount(); i++) {
-            MapService<Integer, String> svc =  grid(i).services()
+            MapService<Integer, String> svc =  ignite(i).services()
                 .serviceProxy(name, MapService.class, false, 1_000L);
 
             // Make sure service is a proxy.
@@ -246,7 +246,7 @@ public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstr
     public void testLocalProxyInvocation() throws Exception {
         final String name = "testLocalProxyInvocation";
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         ignite.services().deployNodeSingleton(name, new MapServiceImpl<String, Integer>());
 
@@ -258,7 +258,7 @@ public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstr
             //wait because after deployNodeSingleton we don't have guarantees what service was deploy.
             boolean wait = GridTestUtils.waitForCondition(new PA() {
                 @Override public boolean apply() {
-                    MapService<Integer, String> svc = grid(idx)
+                    MapService<Integer, String> svc = ignite(idx)
                         .services()
                         .serviceProxy(name, MapService.class, false);
 
@@ -287,7 +287,7 @@ public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstr
     public void testRemoteNotStickProxyInvocation() throws Exception {
         final String name = "testRemoteNotStickProxyInvocation";
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         ignite.services().deployNodeSingleton(name, new MapServiceImpl<String, Integer>());
 
@@ -323,7 +323,7 @@ public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstr
     public void testRemoteStickyProxyInvocation() throws Exception {
         final String name = "testRemoteStickyProxyInvocation";
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         ignite.services().deployNodeSingleton(name, new MapServiceImpl<String, Integer>());
 

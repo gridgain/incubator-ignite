@@ -240,7 +240,7 @@ public class IgniteRebalanceOnCachesStoppingOrDestroyingTest extends GridCommonA
 
         awaitPartitionMapExchange(true, true, null, true);
 
-        assertNull(grid(1).context().failure().failureContext());
+        assertNull(ignite(1).context().failure().failureContext());
     }
 
     /**

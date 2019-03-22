@@ -146,11 +146,11 @@ public class GridCacheQueueMultiNodeConsistencySelfTest extends IgniteCollection
 
         final String queueName = UUID.randomUUID().toString();
 
-        IgniteQueue<Integer> queue0 = grid(0).queue(queueName, QUEUE_CAPACITY, config(false));
+        IgniteQueue<Integer> queue0 = ignite(0).queue(queueName, QUEUE_CAPACITY, config(false));
 
         assertTrue(queue0.isEmpty());
 
-        grid(0).compute().broadcast(new AddAllJob(queueName, RETRIES));
+        ignite(0).compute().broadcast(new AddAllJob(queueName, RETRIES));
 
         assertEquals(GRID_CNT * RETRIES, queue0.size());
 
@@ -159,7 +159,7 @@ public class GridCacheQueueMultiNodeConsistencySelfTest extends IgniteCollection
 
         if (forceRepartition) {
             for (int i = 0; i < GRID_CNT; i++) {
-                IgniteKernal ignite = (IgniteKernal)grid(i);
+                IgniteKernal ignite = (IgniteKernal)ignite(i);
 
                 boolean found = false;
 

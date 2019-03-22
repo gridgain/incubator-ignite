@@ -73,9 +73,9 @@ public class SqlUserCommandSelfTest extends GridCommonAbstractTest {
 
         startGrids(NODES_COUNT);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
-        actxDflt = grid(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
+        actxDflt = ignite(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
 
         assertNotNull(actxDflt);
     }
@@ -97,7 +97,7 @@ public class SqlUserCommandSelfTest extends GridCommonAbstractTest {
         for (int i = 0; i < NODES_COUNT; ++i) {
             userSql(i, "CREATE USER test WITH PASSWORD 'test'");
 
-            AuthorizationContext actx = grid(i).context().authentication()
+            AuthorizationContext actx = ignite(i).context().authentication()
                 .authenticate("TEST", "test");
 
             assertNotNull(actx);
@@ -105,7 +105,7 @@ public class SqlUserCommandSelfTest extends GridCommonAbstractTest {
 
             userSql(i, "ALTER USER test WITH PASSWORD 'newpasswd'");
 
-            actx = grid(i).context().authentication()
+            actx = ignite(i).context().authentication()
                 .authenticate("TEST", "newpasswd");
 
             assertNotNull(actx);
@@ -207,7 +207,7 @@ public class SqlUserCommandSelfTest extends GridCommonAbstractTest {
 
         userSql(0, "CREATE USER user0 WITH PASSWORD 'user0'");
 
-        AuthorizationContext actx = grid(0).context().authentication()
+        AuthorizationContext actx = ignite(0).context().authentication()
             .authenticate("USER0", "user0");
 
         AuthorizationContext.context(actx);
@@ -284,7 +284,7 @@ public class SqlUserCommandSelfTest extends GridCommonAbstractTest {
      * @param sql Sql query.
      */
     private void userSql(int nodeIdx, String sql) {
-        List<List<?>> res = grid(nodeIdx).context().query().querySqlFields(
+        List<List<?>> res = ignite(nodeIdx).context().query().querySqlFields(
             new SqlFieldsQuery(sql), false).getAll();
 
         assertEquals(1, res.size());

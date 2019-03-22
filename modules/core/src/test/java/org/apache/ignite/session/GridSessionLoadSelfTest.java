@@ -104,7 +104,7 @@ public class GridSessionLoadSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void checkSessionLoad() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         assert ignite != null;
         assert ignite.cluster().nodes().size() == 2;

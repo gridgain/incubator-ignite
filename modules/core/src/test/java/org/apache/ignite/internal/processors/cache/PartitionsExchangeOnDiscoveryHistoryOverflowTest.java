@@ -136,7 +136,7 @@ public class PartitionsExchangeOnDiscoveryHistoryOverflowTest extends IgniteCach
 
                 futs[i] = GridTestUtils.runAsync(new Callable<IgniteCache>() {
                     @Override public IgniteCache call() throws Exception {
-                        return grid(gridIdx).createCache(cacheConfiguration(gridIdx, cacheIdx));
+                        return ignite(gridIdx).createCache(cacheConfiguration(gridIdx, cacheIdx));
                     }
                 });
             }
@@ -154,7 +154,7 @@ public class PartitionsExchangeOnDiscoveryHistoryOverflowTest extends IgniteCach
 
                 futs[i] = GridTestUtils.runAsync(new Callable<Void>() {
                     @Override public Void call() throws Exception {
-                        grid(gridIdx).destroyCache(cacheConfiguration(gridIdx, cacheIdx).getName());
+                        ignite(gridIdx).destroyCache(cacheConfiguration(gridIdx, cacheIdx).getName());
 
                         return null;
                     }

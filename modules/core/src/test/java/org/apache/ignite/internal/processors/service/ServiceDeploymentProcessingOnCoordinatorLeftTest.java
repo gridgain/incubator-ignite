@@ -41,7 +41,7 @@ public class ServiceDeploymentProcessingOnCoordinatorLeftTest extends ServiceDep
 
             ((BlockingTcpDiscoverySpi)ignite0.context().discovery().getInjectedDiscoverySpi()).block();
 
-            IgniteEx ignite2 = grid(2);
+            IgniteEx ignite2 = ignite(2);
 
             IgniteFuture fut = ignite2.services().deployNodeSingletonAsync("testService",
                 new LongInitializedTestService(5000L));
@@ -58,7 +58,7 @@ public class ServiceDeploymentProcessingOnCoordinatorLeftTest extends ServiceDep
             fut2.get(TEST_FUTURE_WAIT_TIMEOUT);
             fut3.get(TEST_FUTURE_WAIT_TIMEOUT);
 
-            IgniteEx ignite3 = grid(3);
+            IgniteEx ignite3 = ignite(3);
 
             assertNotNull(ignite3.services().service("testService"));
             assertNotNull(ignite3.services().service("testService2"));
@@ -79,7 +79,7 @@ public class ServiceDeploymentProcessingOnCoordinatorLeftTest extends ServiceDep
 
             ((BlockingTcpDiscoverySpi)ignite0.context().discovery().getInjectedDiscoverySpi()).block();
 
-            IgniteEx ignite4 = grid(4);
+            IgniteEx ignite4 = ignite(4);
 
             IgniteFuture depFut = ignite4.services().deployNodeSingletonAsync("testService",
                 new LongInitializedTestService(5000L));
@@ -93,12 +93,12 @@ public class ServiceDeploymentProcessingOnCoordinatorLeftTest extends ServiceDep
             depFut.get(getTestTimeout());
             depFut2.get(TEST_FUTURE_WAIT_TIMEOUT);
 
-            Ignite ignite2 = grid(2);
+            Ignite ignite2 = ignite(2);
 
             assertNotNull(ignite2.services().service("testService"));
             assertNotNull(ignite2.services().service("testService2"));
 
-            IgniteEx ignite1 = grid(1);
+            IgniteEx ignite1 = ignite(1);
 
             ((BlockingTcpDiscoverySpi)ignite0.context().discovery().getInjectedDiscoverySpi()).block();
 

@@ -88,7 +88,7 @@ public class GridCacheAtomicEntryProcessorDeploymentSelfTest extends GridCommonA
      * @return Cache.
      */
     protected IgniteCache getCache(){
-        return grid(1).cache(DEFAULT_CACHE_NAME);
+        return ignite(1).cache(DEFAULT_CACHE_NAME);
     }
 
     /**
@@ -155,11 +155,11 @@ public class GridCacheAtomicEntryProcessorDeploymentSelfTest extends GridCommonA
             clientMode = true;
             startGrid(1);
 
-            Class procCls = grid(1).configuration().getClassLoader().loadClass(getEntryProcessor());
-            Class valCls = grid(1).configuration().getClassLoader().loadClass(TEST_VALUE);
+            Class procCls = ignite(1).configuration().getClassLoader().loadClass(getEntryProcessor());
+            Class valCls = ignite(1).configuration().getClassLoader().loadClass(TEST_VALUE);
 
-            assertTrue(grid(1).configuration().isClientMode());
-            assertFalse(grid(0).configuration().isClientMode());
+            assertTrue(ignite(1).configuration().isClientMode());
+            assertFalse(ignite(0).configuration().isClientMode());
 
             IgniteCache cache = getCache();
 
@@ -188,11 +188,11 @@ public class GridCacheAtomicEntryProcessorDeploymentSelfTest extends GridCommonA
             clientMode = true;
             startGrid(1);
 
-            Class procCls = grid(1).configuration().getClassLoader().loadClass(getEntryProcessor());
-            Class valCls = grid(1).configuration().getClassLoader().loadClass(TEST_VALUE);
+            Class procCls = ignite(1).configuration().getClassLoader().loadClass(getEntryProcessor());
+            Class valCls = ignite(1).configuration().getClassLoader().loadClass(TEST_VALUE);
 
-            assertTrue(grid(1).configuration().isClientMode());
-            assertFalse(grid(0).configuration().isClientMode());
+            assertTrue(ignite(1).configuration().isClientMode());
+            assertFalse(ignite(0).configuration().isClientMode());
 
             IgniteCache cache = getCache();
 

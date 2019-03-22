@@ -71,7 +71,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         assertEquals(3, svc.called());
 
-        IgniteCache<Integer, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(CACHE_NAME);
 
         assertEquals(3, c.size());
 
@@ -91,7 +91,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         assertEquals(3, svc.called());
 
-        IgniteCache<Integer, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(CACHE_NAME);
 
         assertEquals(3, c.size());
 
@@ -111,7 +111,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         assertEquals(3, svc.called());
 
-        IgniteCache<GridSpringCacheTestKey, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<GridSpringCacheTestKey, String> c = ignite().cache(CACHE_NAME);
 
         assertEquals(3, c.size());
 
@@ -131,7 +131,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         assertEquals(3, svc.called());
 
-        IgniteCache<GridSpringCacheTestKey, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<GridSpringCacheTestKey, String> c = ignite().cache(CACHE_NAME);
 
         assertEquals(3, c.size());
 
@@ -144,7 +144,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testSimpleKeyPut() throws Exception {
-        IgniteCache<Integer, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(CACHE_NAME);
 
         for (int i = 0; i < 3; i++) {
             assertEquals("value" + i + "odd", svc.simpleKeyPut(i));
@@ -166,7 +166,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testSimpleKeyPutNullValue() throws Exception {
-        IgniteCache<Integer, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(CACHE_NAME);
 
         for (int i = 0; i < 3; i++) {
             assertNull(svc.simpleKeyPutNullValue(i));
@@ -188,7 +188,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testComplexKeyPut() throws Exception {
-        IgniteCache<GridSpringCacheTestKey, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<GridSpringCacheTestKey, String> c = ignite().cache(CACHE_NAME);
 
         for (int i = 0; i < 3; i++) {
             assertEquals("value" + i + "suffix" + i + "odd", svc.complexKeyPut(i, "suffix" + i));
@@ -210,7 +210,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testComplexKeyPutNullValue() throws Exception {
-        IgniteCache<GridSpringCacheTestKey, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<GridSpringCacheTestKey, String> c = ignite().cache(CACHE_NAME);
 
         for (int i = 0; i < 3; i++) {
             assertNull(svc.complexKeyPutNullValue(i, "suffix" + i));
@@ -232,7 +232,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testSimpleKeyEvict() throws Exception {
-        IgniteCache<Integer, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(CACHE_NAME);
 
         for (int i = 0; i < 3; i++)
             c.put(i, "value" + i);
@@ -257,7 +257,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testComplexKeyEvict() throws Exception {
-        IgniteCache<GridSpringCacheTestKey, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<GridSpringCacheTestKey, String> c = ignite().cache(CACHE_NAME);
 
         for (int i = 0; i < 3; i++)
             c.put(new GridSpringCacheTestKey(i, "suffix" + i), "value" + i);
@@ -282,7 +282,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testEvictAll() throws Exception {
-        IgniteCache<Integer, String> c = grid().cache(CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(CACHE_NAME);
 
         for (int i = 0; i < 3; i++)
             c.put(i, "value" + i);
@@ -310,7 +310,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         assertEquals(3, dynamicSvc.called());
 
-        IgniteCache<Integer, String> c = grid().cache(DYNAMIC_CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(DYNAMIC_CACHE_NAME);
 
         // Check that correct config is used.
         assertEquals(2, c.getConfiguration(CacheConfiguration.class).getBackups());
@@ -333,7 +333,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         assertEquals(6, dynamicSvc.called());
 
-        IgniteCache<Integer, String> c = grid().cache(DYNAMIC_CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(DYNAMIC_CACHE_NAME);
 
         // Check that correct config is used.
         assertEquals(2, c.getConfiguration(CacheConfiguration.class).getBackups());
@@ -353,7 +353,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         cacheCfg.setName(DYNAMIC_CACHE_NAME);
 
-        IgniteCache<Integer, String> c = grid().createCache(cacheCfg);
+        IgniteCache<Integer, String> c = ignite().createCache(cacheCfg);
 
         for (int i = 0; i < 3; i++)
             c.put(i, "value" + i);
@@ -381,7 +381,7 @@ public abstract class GridSpringCacheManagerAbstractTest extends GridCommonAbstr
 
         cacheCfg.setName(DYNAMIC_CACHE_NAME);
 
-        IgniteCache<Integer, String> c = grid().createCache(cacheCfg);
+        IgniteCache<Integer, String> c = ignite().createCache(cacheCfg);
 
         for (int i = 0; i < 3; i++)
             c.put(i, "value" + i);

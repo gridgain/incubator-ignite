@@ -63,7 +63,7 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
      * @return Affinity nodes for this cache.
      */
     public Collection<ClusterNode> affinityNodes() {
-        return grid(0).cluster().nodes();
+        return ignite(0).cluster().nodes();
     }
 
     /**
@@ -72,7 +72,7 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
     @Test
     public void testPutAllRemoveAll() throws Exception {
         for (int i = 0; i < gridCount(); i++)
-            info(">>>>> Grid" + i + ": " + grid(i).localNode().id());
+            info(">>>>> Grid" + i + ": " + ignite(i).localNode().id());
 
         Map<Integer, Integer> putMap = new LinkedHashMap<>();
 
@@ -81,8 +81,8 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
         for (int i = 0; i < size; i++)
             putMap.put(i, i * i);
 
-        IgniteCache<Object, Object> c0 = grid(0).cache(DEFAULT_CACHE_NAME);
-        IgniteCache<Object, Object> c1 = grid(1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> c0 = ignite(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> c1 = ignite(1).cache(DEFAULT_CACHE_NAME);
 
         c0.putAll(putMap);
 
@@ -100,7 +100,7 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
     @Test
     public void testPutAllPutAll() throws Exception {
         for (int i = 0; i < gridCount(); i++)
-            info(">>>>> Grid" + i + ": " + grid(i).localNode().id());
+            info(">>>>> Grid" + i + ": " + ignite(i).localNode().id());
 
         Map<Integer, Integer> putMap = new LinkedHashMap<>();
 
@@ -109,8 +109,8 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
         for (int i = 0; i < size; i++)
             putMap.put(i, i);
 
-        IgniteCache<Object, Object> prj0 = grid(0).cache(DEFAULT_CACHE_NAME);
-        IgniteCache<Object, Object> prj1 = grid(1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> prj0 = ignite(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> prj1 = ignite(1).cache(DEFAULT_CACHE_NAME);
 
         prj0.putAll(putMap);
 
@@ -140,11 +140,11 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
     @Test
     public void testPutDebug() throws Exception {
         for (int i = 0; i < gridCount(); i++)
-            info(">>>>> Grid" + i + ": " + grid(i).localNode().id());
+            info(">>>>> Grid" + i + ": " + ignite(i).localNode().id());
 
         final int size = 10;
 
-        IgniteCache<Object, Object> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < size; i++) {
             info("Putting value [i=" + i + ']');
@@ -193,12 +193,12 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
             info("Affinity nodes [nodes=" + F.nodeIds(aff.mapKeyToPrimaryAndBackups("key")) +
                 ", locNode=" + ignite(i).cluster().localNode().id() + ']');
 
-            if (aff.isBackup(grid(i).localNode(), "key")) {
+            if (aff.isBackup(ignite(i).localNode(), "key")) {
                 assertNull(c.localPeek("key", NEAR));
 
                 assertEquals((Integer)1, c.localPeek("key", BACKUP));
             }
-            else if (!aff.isPrimaryOrBackup(grid(i).localNode(), "key")) {
+            else if (!aff.isPrimaryOrBackup(ignite(i).localNode(), "key")) {
                 // Initialize near reader.
                 assertEquals((Integer)1, c.get("key"));
 
@@ -223,12 +223,12 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
 
             IgniteCache<String, Integer> c = jcache(i);
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isBackup(grid(i).localNode(), "key")) {
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isBackup(ignite(i).localNode(), "key")) {
                 assert c.localPeek("key", NEAR) == null;
 
                 assert c.localPeek("key", PRIMARY, BACKUP) == 1;
             }
-            else if (!grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), "key")) {
+            else if (!ignite(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(ignite(i).localNode(), "key")) {
                 // Initialize near reader.
                 assertEquals((Integer)1, jcache(i).get("key"));
 
@@ -254,7 +254,7 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
         IgniteEx ignite2 = null;
 
         for (int i = 0; i < gridCount(); i++) {
-            IgniteEx ignite = grid(i);
+            IgniteEx ignite = ignite(i);
 
             if (!Boolean.TRUE.equals(ignite.configuration().isClientMode())) {
                 if (ignite0 == null)
@@ -322,7 +322,7 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
     @Test
     public void testAffinity() throws Exception {
         for (int i = 0; i < gridCount(); i++)
-            info("Grid " + i + ": " + grid(i).localNode().id());
+            info("Grid " + i + ": " + ignite(i).localNode().id());
 
         final Object affKey = new Object() {
             @Override public boolean equals(Object obj) {
@@ -351,7 +351,7 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
         if (!isMultiJvm())
             info("All affinity nodes: " + affinityNodes());
 
-        IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         info("Cache affinity nodes: " + affinity(cache).mapKeyToPrimaryAndBackups(key));
 
@@ -371,7 +371,7 @@ public class GridCachePartitionedMultiNodeFullApiSelfTest extends GridCacheParti
         ClusterNode other = null;
 
         for (int i = 0; i < gridCount(); i++) {
-            ClusterNode node = grid(i).localNode();
+            ClusterNode node = ignite(i).localNode();
 
             if (!node.equals(primary) && !node.equals(backup)) {
                 other = node;

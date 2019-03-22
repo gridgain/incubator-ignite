@@ -184,14 +184,14 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
         List<Integer> keys = new ArrayList<>();
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(0).localNode(), i) && aff.isBackup(grid(1).localNode(), i)) {
+            if (aff.isPrimary(ignite(0).localNode(), i) && aff.isBackup(ignite(1).localNode(), i)) {
                 keys.add(i);
                 break;
             }
         }
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(1).localNode(), i) && aff.isBackup(grid(2).localNode(), i)) {
+            if (aff.isPrimary(ignite(1).localNode(), i) && aff.isBackup(ignite(2).localNode(), i)) {
                 keys.add(i);
                 break;
             }
@@ -203,7 +203,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
             = (TestRecordingCommunicationSpi)nearNode.configuration().getCommunicationSpi();
 
         if (!commit)
-            nearComm.blockMessages(GridNearTxPrepareRequest.class, grid(1).name());
+            nearComm.blockMessages(GridNearTxPrepareRequest.class, ignite(1).name());
 
         GridTestUtils.runAsync(() -> {
             // run in separate thread to exclude tx from thread-local map
@@ -214,7 +214,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
                 cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, 42)").setArgs(k));
 
             List<IgniteInternalTx> txs = IntStream.range(0, baseCnt)
-                .mapToObj(i -> txsOnNode(grid(i), nearTx.xidVersion()))
+                .mapToObj(i -> txsOnNode(ignite(i), nearTx.xidVersion()))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
 
@@ -235,7 +235,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
         if (commit) {
             assertConditionEventually(() -> {
-                int rowsCnt = grid(0).cache(DEFAULT_CACHE_NAME)
+                int rowsCnt = ignite(0).cache(DEFAULT_CACHE_NAME)
                     .query(new SqlFieldsQuery("select * from Integer")).getAll().size();
                 return rowsCnt == keys.size();
             });
@@ -271,14 +271,14 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
         List<Integer> keys = new ArrayList<>();
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(0).localNode(), i) && aff.isBackup(grid(1).localNode(), i)) {
+            if (aff.isPrimary(ignite(0).localNode(), i) && aff.isBackup(ignite(1).localNode(), i)) {
                 keys.add(i);
                 break;
             }
         }
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(1).localNode(), i) && aff.isBackup(grid(2).localNode(), i)) {
+            if (aff.isPrimary(ignite(1).localNode(), i) && aff.isBackup(ignite(2).localNode(), i)) {
                 keys.add(i);
                 break;
             }
@@ -297,12 +297,12 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
             victimBackup = 2;
         }
 
-        TestRecordingCommunicationSpi victimComm = (TestRecordingCommunicationSpi)grid(victim).configuration().getCommunicationSpi();
+        TestRecordingCommunicationSpi victimComm = (TestRecordingCommunicationSpi)ignite(victim).configuration().getCommunicationSpi();
 
         if (commit)
             victimComm.blockMessages(GridNearTxFinishResponse.class, nearNode.name());
         else
-            victimComm.blockMessages(GridDhtTxPrepareRequest.class, grid(victimBackup).name());
+            victimComm.blockMessages(GridDhtTxPrepareRequest.class, ignite(victimBackup).name());
 
         GridNearTxLocal nearTx
             = ((TransactionProxyImpl)nearNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)).tx();
@@ -312,7 +312,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
         List<IgniteInternalTx> txs = IntStream.range(0, baseCnt)
             .filter(i -> i != victim)
-            .mapToObj(i -> txsOnNode(grid(i), nearTx.xidVersion()))
+            .mapToObj(i -> txsOnNode(ignite(i), nearTx.xidVersion()))
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
 
@@ -324,7 +324,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
             assertConditionEventually(() -> txs.stream().anyMatch(tx -> tx.state() == PREPARED));
 
         // drop victim
-        grid(victim).close();
+        ignite(victim).close();
 
         awaitPartitionMapExchange();
 
@@ -386,7 +386,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
         // drop near
         stopGrid(2, true);
 
-        IgniteEx srvNode = grid(0);
+        IgniteEx srvNode = ignite(0);
 
         assertConditionEventually(
             () -> srvNode.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("select * from Integer")).getAll().size() == 2
@@ -417,19 +417,19 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
         int vid = 3;
 
-        IgniteEx victim = grid(vid);
+        IgniteEx victim = ignite(vid);
 
         Affinity<Object> aff = ign.affinity(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(victim.localNode(), i) && !aff.isBackup(grid(0).localNode(), i)) {
+            if (aff.isPrimary(victim.localNode(), i) && !aff.isBackup(ignite(0).localNode(), i)) {
                 keys.add(i);
                 break;
             }
         }
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(victim.localNode(), i) && !aff.isBackup(grid(1).localNode(), i)) {
+            if (aff.isPrimary(victim.localNode(), i) && !aff.isBackup(ignite(1).localNode(), i)) {
                 keys.add(i);
                 break;
             }
@@ -439,7 +439,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
         // prevent prepare on one backup
         ((TestRecordingCommunicationSpi)victim.configuration().getCommunicationSpi())
-            .blockMessages(GridDhtTxPrepareRequest.class, grid(0).name());
+            .blockMessages(GridDhtTxPrepareRequest.class, ignite(0).name());
 
         GridNearTxLocal nearTx = ((TransactionProxyImpl)ign.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)).tx();
 
@@ -447,7 +447,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
             cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, 42)").setArgs(k));
 
         List<IgniteInternalTx> txs = IntStream.range(0, srvCnt)
-            .mapToObj(this::grid)
+            .mapToObj(this::ignite)
             .filter(g -> g != victim)
             .map(g -> txsOnNode(g, nearTx.xidVersion()))
             .flatMap(Collection::stream)
@@ -522,7 +522,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
         int vid = 1;
 
-        IgniteEx victim = grid(vid);
+        IgniteEx victim = ignite(vid);
 
         ArrayList<Integer> keys = new ArrayList<>();
 
@@ -627,7 +627,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
     /** */
     private List<IgniteEx> grids(int cnt, IntPredicate p) {
-        return IntStream.range(0, cnt).filter(p).mapToObj(this::grid).collect(Collectors.toList());
+        return IntStream.range(0, cnt).filter(p).mapToObj(this::ignite).collect(Collectors.toList());
     }
 
     /** */

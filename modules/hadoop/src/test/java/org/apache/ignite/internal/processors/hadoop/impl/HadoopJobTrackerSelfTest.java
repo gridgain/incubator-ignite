@@ -116,7 +116,7 @@ public class HadoopJobTrackerSelfTest extends HadoopAbstractSelfTest {
 
             HadoopJobId jobId = new HadoopJobId(globalId, 1);
 
-            grid(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
+            ignite(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
 
             checkStatus(jobId, false);
 
@@ -164,7 +164,7 @@ public class HadoopJobTrackerSelfTest extends HadoopAbstractSelfTest {
 
             HadoopJobId jobId = new HadoopJobId(globalId, 1);
 
-            grid(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
+            ignite(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
 
             checkStatus(jobId, false);
 
@@ -214,7 +214,7 @@ public class HadoopJobTrackerSelfTest extends HadoopAbstractSelfTest {
      */
     private void checkStatus(HadoopJobId jobId, boolean complete) throws Exception {
         for (int i = 0; i < gridCount(); i++) {
-            IgniteKernal kernal = (IgniteKernal)grid(i);
+            IgniteKernal kernal = (IgniteKernal)ignite(i);
 
             Hadoop hadoop = kernal.hadoop();
 

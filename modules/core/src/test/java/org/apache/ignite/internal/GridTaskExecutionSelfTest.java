@@ -73,7 +73,7 @@ public class GridTaskExecutionSelfTest extends GridCommonAbstractTest {
      *  {@inheritDoc}
      */
     @Override protected void beforeTest() throws Exception {
-        ignite = grid(1);
+        ignite = ignite(1);
     }
 
     /**
@@ -101,7 +101,7 @@ public class GridTaskExecutionSelfTest extends GridCommonAbstractTest {
 
         ArrayList<IgniteFuture<Object>> futs = new ArrayList<>(2016);
 
-        IgniteCompute compute = grid(1).compute(grid(1).cluster().forNodeId(grid(3).localNode().id()));
+        IgniteCompute compute = ignite(1).compute(ignite(1).cluster().forNodeId(ignite(3).localNode().id()));
 
         for (int i = 0; i < 1000; i++) {
             futs.add(compute.callAsync(new IgniteCallable<Object>() {
@@ -128,7 +128,7 @@ public class GridTaskExecutionSelfTest extends GridCommonAbstractTest {
 
         idx.set(locId);
 
-        IgniteCompute compute1 = grid(2).compute(grid(2).cluster().forNodeId(grid(3).localNode().id()));
+        IgniteCompute compute1 = ignite(2).compute(ignite(2).cluster().forNodeId(ignite(3).localNode().id()));
 
         for (int i = 0; i < 100; i++) {
             futs.add(compute1.callAsync(new IgniteCallable<Object>() {

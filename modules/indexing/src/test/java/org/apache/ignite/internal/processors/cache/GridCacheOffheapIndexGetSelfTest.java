@@ -77,10 +77,10 @@ public class GridCacheOffheapIndexGetSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        for(String cacheName : grid(0).cacheNames()) {
+        for(String cacheName : ignite(0).cacheNames()) {
             info("Clear cache: " + cacheName);
 
-            grid(0).cache(cacheName).clear();
+            ignite(0).cache(cacheName).clear();
         }
     }
 
@@ -91,7 +91,7 @@ public class GridCacheOffheapIndexGetSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testGet() throws Exception {
-        IgniteCache<Long, Long> cache = jcache(grid(0), cacheConfiguration(), Long.class, Long.class);
+        IgniteCache<Long, Long> cache = jcache(ignite(0), cacheConfiguration(), Long.class, Long.class);
 
         for (long i = 0; i < 100; i++)
             cache.put(i, i);
@@ -116,11 +116,11 @@ public class GridCacheOffheapIndexGetSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testPutGet() throws Exception {
-        IgniteCache<Object, Object> cache = jcache(grid(0), cacheConfiguration(), Object.class, Object.class);
+        IgniteCache<Object, Object> cache = jcache(ignite(0), cacheConfiguration(), Object.class, Object.class);
 
         Map map = new HashMap();
 
-        try (Transaction tx = grid(0).transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+        try (Transaction tx = ignite(0).transactions().txStart(TransactionConcurrency.PESSIMISTIC,
             TransactionIsolation.REPEATABLE_READ, 100000, 1000)) {
 
             for (int i = 4; i < 400; i++) {
@@ -144,7 +144,7 @@ public class GridCacheOffheapIndexGetSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testWithExpiryPolicy() throws Exception {
-        IgniteCache<Long, Long> cache = jcache(grid(0), cacheConfiguration(), Long.class, Long.class);
+        IgniteCache<Long, Long> cache = jcache(ignite(0), cacheConfiguration(), Long.class, Long.class);
 
         cache = cache.withExpiryPolicy(new TestExiryPolicy());
 

@@ -99,7 +99,7 @@ public abstract class IncludeSensitiveAbstractTest extends GridCacheAbstractSelf
      */
     @Test
     public void test() throws Exception {
-        IgniteCache<Long, String> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Long, String> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         startTx();
 

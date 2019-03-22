@@ -100,7 +100,7 @@ public class IgnitePdsThreadInterruptionTest extends GridCommonAbstractTest {
      */
     @Test
     public void testInterruptsOnRead() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 
@@ -187,7 +187,7 @@ public class IgnitePdsThreadInterruptionTest extends GridCommonAbstractTest {
      */
     @Test
     public void testInterruptsOnWALWrite() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cluster().active(true);
 

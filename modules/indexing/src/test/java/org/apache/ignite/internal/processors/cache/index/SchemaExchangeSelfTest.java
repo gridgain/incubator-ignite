@@ -450,7 +450,7 @@ public class SchemaExchangeSelfTest extends AbstractSchemaSelfTest {
 
         assertTrue(GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
-                return grid(2).context().clientDisconnected();
+                return ignite(2).context().clientDisconnected();
             }
         }, 10_000L));
 

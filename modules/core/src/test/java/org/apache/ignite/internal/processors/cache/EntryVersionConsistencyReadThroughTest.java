@@ -166,7 +166,7 @@ public class EntryVersionConsistencyReadThroughTest extends GridCommonAbstractTe
      */
     @SuppressWarnings("serial")
     private void check(boolean single, CacheConfiguration cc) throws Exception {
-        grid(0).getOrCreateCache(cc);
+        ignite(0).getOrCreateCache(cc);
 
         try {
             final int cnt = 100;
@@ -179,7 +179,7 @@ public class EntryVersionConsistencyReadThroughTest extends GridCommonAbstractTe
                         add("key-" + iter + "-" + i);
                 }};
 
-                IgniteEx grid = grid(i);
+                IgniteEx grid = ignite(i);
 
                 final IgniteCache<String, Integer> cache = grid.cache(DEFAULT_CACHE_NAME);
 
@@ -224,7 +224,7 @@ public class EntryVersionConsistencyReadThroughTest extends GridCommonAbstractTe
             }
         }
         finally {
-            grid(0).destroyCache(DEFAULT_CACHE_NAME);
+            ignite(0).destroyCache(DEFAULT_CACHE_NAME);
         }
     }
 
@@ -237,8 +237,8 @@ public class EntryVersionConsistencyReadThroughTest extends GridCommonAbstractTe
 
         for (ClusterNode node : nodes) {
             for (int i = 0; i < NODES_CNT; i++) {
-                if (grid(i).cluster().localNode().id().equals(node.id())) {
-                    grids.add(grid(i));
+                if (ignite(i).cluster().localNode().id().equals(node.id())) {
+                    grids.add(ignite(i));
 
                     break;
                 }

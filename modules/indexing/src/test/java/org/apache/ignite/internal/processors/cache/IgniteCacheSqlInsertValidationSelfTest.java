@@ -34,7 +34,6 @@ import org.apache.ignite.internal.processors.cache.index.AbstractIndexingCommonT
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.h2.dml.UpdatePlanBuilder;
 import org.apache.ignite.testframework.GridTestUtils;
-import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.TransactionDuplicateKeyException;
 import org.junit.Test;
 
@@ -82,7 +81,7 @@ public class IgniteCacheSqlInsertValidationSelfTest extends AbstractIndexingComm
         Map<String, Object> defsFK2 = new HashMap<>();
         defsFK2.put("fk2", DEFAULT_FK2_VAL);
 
-        cache = jcache(grid(0), defaultCacheConfiguration()
+        cache = jcache(ignite(0), defaultCacheConfiguration()
                 .setName("testCache")
                 .setQueryEntities(Arrays.asList(
                     new QueryEntity(Key.class.getName(), Val.class.getName())

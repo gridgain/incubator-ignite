@@ -56,7 +56,7 @@ public class TcpDiscoverySnapshotHistoryTest extends GridCommonAbstractTest {
     @Test
     public void testHistorySupported() throws Exception {
         try {
-            final Ignite g = startGrid();
+            final Ignite g = clusterManager__startGrid();
 
             DiscoverySpi spi = g.configuration().getDiscoverySpi();
 
@@ -77,7 +77,7 @@ public class TcpDiscoverySnapshotHistoryTest extends GridCommonAbstractTest {
     @Test
     public void testSettingNewTopologyHistorySize() throws Exception {
         try {
-            final Ignite g = startGrid();
+            final Ignite g = clusterManager__startGrid();
 
             TcpDiscoverySpi spi = (TcpDiscoverySpi)g.configuration().getDiscoverySpi();
 

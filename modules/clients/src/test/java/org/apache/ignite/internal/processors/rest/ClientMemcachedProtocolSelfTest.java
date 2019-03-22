@@ -226,11 +226,11 @@ public class ClientMemcachedProtocolSelfTest extends AbstractRestProcessorSelfTe
     public void testIncrement() throws Exception {
         Assert.assertEquals(5, client.incr("incrKey", 3, 2));
 
-        assertEquals(5, grid(0).atomicLong("incrKey", 0, true).get());
+        assertEquals(5, ignite(0).atomicLong("incrKey", 0, true).get());
 
         Assert.assertEquals(15, client.incr("incrKey", 10, 0));
 
-        assertEquals(15, grid(0).atomicLong("incrKey", 0, true).get());
+        assertEquals(15, ignite(0).atomicLong("incrKey", 0, true).get());
     }
 
     /**
@@ -240,11 +240,11 @@ public class ClientMemcachedProtocolSelfTest extends AbstractRestProcessorSelfTe
     public void testDecrement() throws Exception {
         Assert.assertEquals(5, client.decr("decrKey", 10, 15));
 
-        assertEquals(5, grid(0).atomicLong("decrKey", 0, true).get());
+        assertEquals(5, ignite(0).atomicLong("decrKey", 0, true).get());
 
         Assert.assertEquals(2, client.decr("decrKey", 3, 0));
 
-        assertEquals(2, grid(0).atomicLong("decrKey", 0, true).get());
+        assertEquals(2, ignite(0).atomicLong("decrKey", 0, true).get());
     }
 
     /**
@@ -392,7 +392,7 @@ public class ClientMemcachedProtocolSelfTest extends AbstractRestProcessorSelfTe
     public void testCustomPort() throws Exception {
         customPort = 11212;
 
-        Ignite g = startGrid();
+        Ignite g = clusterManager__startGrid();
 
         assert g != null;
         assert g.cluster().nodes().size() == gridCount() + 1;

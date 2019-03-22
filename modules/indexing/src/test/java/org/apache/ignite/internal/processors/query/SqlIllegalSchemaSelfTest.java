@@ -242,7 +242,7 @@ public class SqlIllegalSchemaSelfTest extends AbstractIndexingCommonTest {
      * @throws Exception If failed.
      */
     private void doubleConsumerAccept(Consumer<Ignite> cons) throws Exception {
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         cons.accept(node);
 

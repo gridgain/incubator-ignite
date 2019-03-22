@@ -86,9 +86,9 @@ public class Authentication1kUsersNodeRestartTest extends GridCommonAbstractTest
     public void test1kUsersNodeRestartServer() throws Exception {
         startGrid(0);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
-        IgniteAuthenticationProcessor authenticationProcessor = grid(0).context().authentication();
+        IgniteAuthenticationProcessor authenticationProcessor = ignite(0).context().authentication();
 
         AuthorizationContext actxDflt = authenticationProcessor.authenticate(User.DFAULT_USER_NAME, "ignite");
 

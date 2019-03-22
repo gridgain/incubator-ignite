@@ -98,7 +98,7 @@ public class LargeEntryUpdateTest extends GridCommonAbstractTest {
      */
     @Test
     public void testEntryUpdate() throws Exception {
-        try (Ignite ignite = startGrid()) {
+        try (Ignite ignite = clusterManager__startGrid()) {
             for (int i = 0; i < CACHE_COUNT; ++i) {
                 IgniteCache<Long, byte[]> cache = ignite.cache(CACHE_PREFIX + i);
 

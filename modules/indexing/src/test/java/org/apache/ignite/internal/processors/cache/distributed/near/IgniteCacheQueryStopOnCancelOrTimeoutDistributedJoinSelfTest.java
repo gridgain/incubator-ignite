@@ -43,49 +43,49 @@ public class IgniteCacheQueryStopOnCancelOrTimeoutDistributedJoinSelfTest extend
     /** */
     @Test
     public void testCancel1() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 1, TimeUnit.MILLISECONDS, false, true);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 1, TimeUnit.MILLISECONDS, false, true);
     }
 
     /** */
     @Test
     public void testCancel2() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 50, TimeUnit.MILLISECONDS, false, true);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 50, TimeUnit.MILLISECONDS, false, true);
     }
 
     /** */
     @Test
     public void testCancel3() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 100, TimeUnit.MILLISECONDS, false, false);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 100, TimeUnit.MILLISECONDS, false, false);
     }
 
     /** */
     @Test
     public void testCancel4() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 500, TimeUnit.MILLISECONDS, false, false);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 500, TimeUnit.MILLISECONDS, false, false);
     }
 
     /** */
     @Test
     public void testTimeout1() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 1, TimeUnit.MILLISECONDS, true, true);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 1, TimeUnit.MILLISECONDS, true, true);
     }
 
     /** */
     @Test
     public void testTimeout2() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 50, TimeUnit.MILLISECONDS, true, true);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 50, TimeUnit.MILLISECONDS, true, true);
     }
 
     /** */
     @Test
     public void testTimeout3() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 100, TimeUnit.MILLISECONDS, true, false);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 100, TimeUnit.MILLISECONDS, true, false);
     }
 
     /** */
     @Test
     public void testTimeout4() throws Exception {
-        testQueryCancel(grid(0), "pe", QRY_LONG, 500, TimeUnit.MILLISECONDS, true, false);
+        testQueryCancel(ignite(0), "pe", QRY_LONG, 500, TimeUnit.MILLISECONDS, true, false);
     }
 
     /** */
@@ -133,7 +133,7 @@ public class IgniteCacheQueryStopOnCancelOrTimeoutDistributedJoinSelfTest extend
      */
     private void checkCleanState() throws IgniteCheckedException {
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteEx grid = grid(i);
+            IgniteEx grid = ignite(i);
 
             // Validate everything was cleaned up.
             ConcurrentMap<UUID, ?> map = U.field(((IgniteH2Indexing)U.field((GridProcessor)U.field(

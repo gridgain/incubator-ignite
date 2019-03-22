@@ -77,15 +77,15 @@ public class GridCacheQueueCleanupSelfTest extends IgniteCollectionAbstractTest 
      */
     @Test
     public void testCleanup() throws Exception {
-        IgniteQueue<Integer> queue = grid(0).queue(QUEUE_NAME1, 0, config(false));
+        IgniteQueue<Integer> queue = ignite(0).queue(QUEUE_NAME1, 0, config(false));
 
         GridCacheContext cctx = GridTestUtils.getFieldValue(queue, "cctx");
 
         final String queueCacheName = cctx.name();
 
-        ClusterNode node = grid(0).affinity(queueCacheName).mapKeyToNode(new GridCacheQueueHeaderKey(QUEUE_NAME1));
+        ClusterNode node = ignite(0).affinity(queueCacheName).mapKeyToNode(new GridCacheQueueHeaderKey(QUEUE_NAME1));
 
-        final Ignite ignite = grid(0).localNode().equals(node) ? grid(1) : grid(0);
+        final Ignite ignite = ignite(0).localNode().equals(node) ? ignite(1) : ignite(0);
 
         /*
         assertNotNull(queue);
@@ -182,7 +182,7 @@ public class GridCacheQueueCleanupSelfTest extends IgniteCollectionAbstractTest 
 
                 for (int i = 0; i < gridCount(); i++) {
                     GridCacheAdapter<Object, Object> cache =
-                        grid(i).context().cache().internalCache(queueCacheName);
+                        ignite(i).context().cache().internalCache(queueCacheName);
 
                     for (Object e : cache.localEntries(new CachePeekMode[]{CachePeekMode.ALL}))
                         cnt++;

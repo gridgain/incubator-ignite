@@ -90,7 +90,7 @@ public class JdbcThinMetadataSelfTest extends JdbcThinAbstractSelfTest {
 
         orgPrecision.put("name", 42);
 
-        IgniteCache<String, Organization> orgCache = jcache(grid(0),
+        IgniteCache<String, Organization> orgCache = jcache(ignite(0),
             cacheConfiguration(new QueryEntity(String.class.getName(), Organization.class.getName())
                 .addQueryField("id", Integer.class.getName(), null)
                 .addQueryField("name", String.class.getName(), null)
@@ -110,7 +110,7 @@ public class JdbcThinMetadataSelfTest extends JdbcThinAbstractSelfTest {
         persFields.put("name", true);
         persFields.put("age", false);
 
-        IgniteCache<AffinityKey, Person> personCache = jcache(grid(0), cacheConfiguration(
+        IgniteCache<AffinityKey, Person> personCache = jcache(ignite(0), cacheConfiguration(
             new QueryEntityEx(
                 new QueryEntity(AffinityKey.class.getName(), Person.class.getName())
                     .addQueryField("name", String.class.getName(), null)
@@ -128,7 +128,7 @@ public class JdbcThinMetadataSelfTest extends JdbcThinAbstractSelfTest {
         personCache.put(new AffinityKey<>("p2", "o1"), new Person("Joe Black", 35, 1));
         personCache.put(new AffinityKey<>("p3", "o2"), new Person("Mike Green", 40, 2));
 
-        jcache(grid(0),
+        jcache(ignite(0),
             defaultCacheConfiguration().setIndexedTypes(Integer.class, Department.class),
             "dep");
 

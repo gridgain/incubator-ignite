@@ -117,7 +117,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
 
         AtomicInteger evts = new AtomicInteger();
 
-        grid(0).events().localListen(new IgnitePredicate<Event>() {
+        ignite(0).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 evts.incrementAndGet();
 
@@ -130,7 +130,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
         block = true;
 
         try {
-            grid(0).compute().broadcast(new IgniteRunnable() {
+            ignite(0).compute().broadcast(new IgniteRunnable() {
                 @Override public void run() {
                     // No-op.
                 }
@@ -143,7 +143,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
 
         block = false;
 
-        assertEquals(NODES_CNT, grid(0).cluster().nodes().size());
+        assertEquals(NODES_CNT, ignite(0).cluster().nodes().size());
         assertEquals(0, evts.get());
     }
 
@@ -164,7 +164,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
 
         AtomicInteger evts = new AtomicInteger();
 
-        grid(0).events().localListen(new IgnitePredicate<Event>() {
+        ignite(0).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 evts.incrementAndGet();
 
@@ -182,7 +182,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
             @Override public Void call() throws Exception {
                 barrier.await();
 
-                grid(1).compute().withNoFailover().broadcast(new IgniteRunnable() {
+                ignite(1).compute().withNoFailover().broadcast(new IgniteRunnable() {
                     @Override public void run() {
                         // No-op.
                     }
@@ -196,7 +196,7 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
             @Override public Void call() throws Exception {
                 barrier.await();
 
-                grid(3).compute().withNoFailover().broadcast(new IgniteRunnable() {
+                ignite(3).compute().withNoFailover().broadcast(new IgniteRunnable() {
                     @Override public void run() {
                         // No-op.
                     }
@@ -224,14 +224,14 @@ public class TcpCommunicationSpiDropNodesTest extends GridCommonAbstractTest {
             assertTrue(e.getCause().getCause() instanceof IgniteSpiException);
         }
 
-        assertEquals(NODES_CNT , grid(0).cluster().nodes().size());
+        assertEquals(NODES_CNT , ignite(0).cluster().nodes().size());
         assertEquals(0, evts.get());
 
         for (int j = 0; j < NODES_CNT; j++) {
             IgniteEx ignite;
 
             try {
-                ignite = grid(j);
+                ignite = ignite(j);
 
                 log.info("Checking topology for grid(" + j + "): " + ignite.cluster().nodes());
 

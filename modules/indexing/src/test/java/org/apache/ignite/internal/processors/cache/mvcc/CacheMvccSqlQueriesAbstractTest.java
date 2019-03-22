@@ -1366,7 +1366,7 @@ public abstract class CacheMvccSqlQueriesAbstractTest extends CacheMvccAbstractT
      * @throws Exception If failed.
      */
     private void testSqlSimplePutRemoveRandom(int inlineSize) throws Exception {
-        Ignite srv0 = grid(0);
+        Ignite srv0 = ignite(0);
 
         IgniteCache<Integer, MvccTestSqlIndexValue> cache = (IgniteCache) srv0.createCache(
             cacheConfiguration(cacheMode(), FULL_SYNC, 0, DFLT_PARTITION_COUNT).

@@ -106,7 +106,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkSuccessfulClientStart(
             new String[] {
@@ -128,7 +128,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkSuccessfulClientStart(
             new String[] {
@@ -148,7 +148,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "TLS_RSA_WITH_AES_128_GCM_SHA256"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkClientStartFailure(
             new String[] {
@@ -168,7 +168,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "TLS_RSA_WITH_AES_128_GCM_SHA256"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkClientStartFailure(
             new String[] {
@@ -191,7 +191,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "SSLv3"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkClientStartFailure(
             null,
@@ -211,7 +211,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "SSLv3"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkClientStartFailure(
             null,
@@ -234,7 +234,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "TLSv1.2"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkSuccessfulClientStart(null,
             new String[] {
@@ -255,7 +255,7 @@ public class SslParametersTest extends GridCommonAbstractTest {
             "TLSv1.2"
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkSuccessfulClientStart(null,
             new String[] {

@@ -53,7 +53,7 @@ public class GridMultipleJobsSelfTest extends GridCommonAbstractTest {
         startGrid(1);
         startGrid(2);
 
-        assertEquals(2, grid(1).cluster().nodes().size());
+        assertEquals(2, ignite(1).cluster().nodes().size());
     }
 
     /** {@inheritDoc} */
@@ -117,7 +117,7 @@ public class GridMultipleJobsSelfTest extends GridCommonAbstractTest {
      */
     private void runTest(final int jobsNum, int threadNum, final Class<? extends IgniteCallable<Boolean>> jobCls)
         throws Exception {
-        final Ignite ignite1 = grid(1);
+        final Ignite ignite1 = ignite(1);
 
         final CountDownLatch latch = new CountDownLatch(jobsNum);
 

@@ -633,10 +633,10 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
 
         startServerNodes(2);
 
-        Ignite srv0 = grid("server-0");
+        Ignite srv0 = ignite("server-0");
         TcpDiscoveryNode srv0Node = (TcpDiscoveryNode)srv0.cluster().localNode();
 
-        TcpDiscoveryNode srv1Node = (TcpDiscoveryNode)grid("server-1").cluster().localNode();
+        TcpDiscoveryNode srv1Node = (TcpDiscoveryNode)ignite("server-1").cluster().localNode();
 
         clientIpFinder = new TcpDiscoveryVmIpFinder();
 
@@ -645,7 +645,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
 
         startClientNodes(1);
 
-        Ignite client = grid("client-0");
+        Ignite client = ignite("client-0");
         TcpDiscoveryNode clientNode = (TcpDiscoveryNode)client.cluster().localNode();
         TestTcpDiscoverySpi clientSpi = (TestTcpDiscoverySpi)client.configuration().getDiscoverySpi();
 
@@ -706,7 +706,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
 
         startServerNodes(2);
 
-        Ignite srv0 = grid("server-0");
+        Ignite srv0 = ignite("server-0");
         TcpDiscoveryNode srv0Node = (TcpDiscoveryNode)srv0.cluster().localNode();
 
         clientIpFinder = new TcpDiscoveryVmIpFinder();
@@ -717,7 +717,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
 
         attachListeners(0, 1);
 
-        Ignite client = grid("client-0");
+        Ignite client = ignite("client-0");
         TcpDiscoveryNode clientNode = (TcpDiscoveryNode)client.cluster().localNode();
         TestTcpDiscoverySpi clientSpi = (TestTcpDiscoverySpi)client.configuration().getDiscoverySpi();
         UUID clientNodeId = clientNode.id();
@@ -730,7 +730,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
 
         startServerNodes(1);
 
-        Ignite srv2 = grid("server-2");
+        Ignite srv2 = ignite("server-2");
         TcpDiscoveryNode srv2Node = (TcpDiscoveryNode)srv2.cluster().localNode();
         clientIpFinder.setAddresses(
             Collections.singleton("localhost:" + srv2Node.discoveryPort()));
@@ -752,7 +752,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
         startServerNodes(2);
         startClientNodes(1);
 
-        Ignite client = grid("client-0");
+        Ignite client = ignite("client-0");
         TestTcpDiscoverySpi clientSpi = (TestTcpDiscoverySpi)client.configuration().getDiscoverySpi();
 
         clientReconnectedLatch = new CountDownLatch(1);
@@ -790,7 +790,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
         startServerNodes(initSrvsNum);
         startClientNodes(1);
 
-        Ignite client = grid("client-0");
+        Ignite client = ignite("client-0");
         TcpDiscoveryNode clientNode = (TcpDiscoveryNode)client.cluster().localNode();
         TestTcpDiscoverySpi clientSpi = (TestTcpDiscoverySpi)client.configuration().getDiscoverySpi();
         final UUID clientNodeId = clientNode.id();
@@ -1236,7 +1236,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
 
         checkNodes(2, 2);
 
-        IgniteMessaging msg = grid(masterName).message();
+        IgniteMessaging msg = ignite(masterName).message();
 
         UUID id = msg.remoteListen(null, new MessageListener());
 
@@ -1270,7 +1270,7 @@ public class TcpClientDiscoverySpiSelfTest extends GridCommonAbstractTest {
     public void testDataExchangeFromServer2() throws Exception {
         startServerNodes(2);
 
-        IgniteMessaging msg = grid("server-1").message();
+        IgniteMessaging msg = ignite("server-1").message();
 
         UUID id = msg.remoteListen(null, new MessageListener());
 

@@ -88,7 +88,7 @@ public abstract class GridCacheDaemonNodeAbstractSelfTest extends GridCommonAbst
 
             startGrid(4);
 
-            IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 30; i++)
                 cache.put(i, i);
@@ -120,7 +120,7 @@ public abstract class GridCacheDaemonNodeAbstractSelfTest extends GridCommonAbst
 
             startGrid(4);
 
-            IgniteCache<Integer, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 30; i++) {
                 try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {

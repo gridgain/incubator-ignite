@@ -53,8 +53,8 @@ public abstract class GridCacheAtomicReferenceApiSelfAbstractTest extends Ignite
         String atomicName2 = UUID.randomUUID().toString();
 
         String initVal = "1";
-        IgniteAtomicReference<String> atomic1 = grid(0).atomicReference(atomicName1, initVal, true);
-        IgniteAtomicReference<String> atomic2 = grid(0).atomicReference(atomicName2, null, true);
+        IgniteAtomicReference<String> atomic1 = ignite(0).atomicReference(atomicName1, initVal, true);
+        IgniteAtomicReference<String> atomic2 = ignite(0).atomicReference(atomicName2, null, true);
 
         assertNotNull(atomic1);
         assertNotNull(atomic2);
@@ -65,8 +65,8 @@ public abstract class GridCacheAtomicReferenceApiSelfAbstractTest extends Ignite
         atomic1.close();
         atomic2.close();
 
-        assertNull(grid(0).atomicReference(atomicName1, null, false));
-        assertNull(grid(0).atomicReference(atomicName2, null, false));
+        assertNull(ignite(0).atomicReference(atomicName1, null, false));
+        assertNull(ignite(0).atomicReference(atomicName2, null, false));
 
         try {
             atomic1.get();
@@ -89,7 +89,7 @@ public abstract class GridCacheAtomicReferenceApiSelfAbstractTest extends Ignite
 
         String initVal = "qwerty";
 
-        IgniteAtomicReference<String> atomic = grid(0).atomicReference(atomicName, initVal, true);
+        IgniteAtomicReference<String> atomic = ignite(0).atomicReference(atomicName, initVal, true);
 
         assertEquals(initVal, atomic.get());
 
@@ -109,7 +109,7 @@ public abstract class GridCacheAtomicReferenceApiSelfAbstractTest extends Ignite
 
         String initVal = "qwerty";
 
-        IgniteAtomicReference<String> atomic = grid(0).atomicReference(atomicName, initVal, true);
+        IgniteAtomicReference<String> atomic = ignite(0).atomicReference(atomicName, initVal, true);
 
         assertEquals(initVal, atomic.get());
 
@@ -131,7 +131,7 @@ public abstract class GridCacheAtomicReferenceApiSelfAbstractTest extends Ignite
     public void testCompareAndSetNullValue() throws Exception {
         String atomicName = UUID.randomUUID().toString();
 
-        IgniteAtomicReference<String> atomic = grid(0).atomicReference(atomicName, null, true);
+        IgniteAtomicReference<String> atomic = ignite(0).atomicReference(atomicName, null, true);
 
         assertEquals(null, atomic.get());
 
@@ -149,7 +149,7 @@ public abstract class GridCacheAtomicReferenceApiSelfAbstractTest extends Ignite
      */
     @Test
     public void testIsolation() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         CacheConfiguration cfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
@@ -200,7 +200,7 @@ public abstract class GridCacheAtomicReferenceApiSelfAbstractTest extends Ignite
      */
     @Test
     public void testMultipleStructuresInDifferentGroups() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicReference<String> ref1 = ignite.atomicReference("ref1", "a", true);
         IgniteAtomicReference<String> ref2 = ignite.atomicReference("ref2", "b", true);

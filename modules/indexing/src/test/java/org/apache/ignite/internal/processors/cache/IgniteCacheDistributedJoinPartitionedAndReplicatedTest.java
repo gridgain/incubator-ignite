@@ -202,7 +202,7 @@ public class IgniteCacheDistributedJoinPartitionedAndReplicatedTest extends Grid
      */
     private void join(boolean idx, CacheMode persCacheMode, CacheMode orgCacheMode, CacheMode accCacheMode)
         throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         for (CacheConfiguration ccfg : caches(idx, persCacheMode, orgCacheMode, accCacheMode))
             client.createCache(ccfg);

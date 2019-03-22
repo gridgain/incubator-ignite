@@ -161,7 +161,7 @@ public class ClientTcpSslAuthenticationSelfTest extends GridCommonAbstractTest {
         srvTrustMgr.shouldFail(false);
         clientTrustMgr.shouldFail(fail);
 
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             try (GridClientImpl c = createClient()) {
@@ -185,7 +185,7 @@ public class ClientTcpSslAuthenticationSelfTest extends GridCommonAbstractTest {
         srvTrustMgr.shouldFail(fail);
         clientTrustMgr.shouldFail(false);
 
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             try (GridClientImpl c = createClient()) {

@@ -78,7 +78,7 @@ public class SystemWorkersTerminationTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSyntheticWorkerTermination() throws Exception {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         WorkersRegistry registry = ignite.context().workersRegistry();
 

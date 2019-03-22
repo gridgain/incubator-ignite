@@ -93,7 +93,7 @@ public class GridBinaryAffinityKeySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAffinity() throws Exception {
-        checkAffinity(grid(0));
+        checkAffinity(ignite(0));
 
         try (Ignite igniteNoCache = startGrid(GRID_CNT)) {
             try {
@@ -163,12 +163,12 @@ public class GridBinaryAffinityKeySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAffinityRun() throws Exception {
-        Affinity<Object> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+        Affinity<Object> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 1000; i++) {
             nodeId.set(null);
 
-            grid(0).compute().affinityRun(DEFAULT_CACHE_NAME, new TestObject(i), new IgniteRunnable() {
+            ignite(0).compute().affinityRun(DEFAULT_CACHE_NAME, new TestObject(i), new IgniteRunnable() {
                 @IgniteInstanceResource
                 private Ignite ignite;
 
@@ -179,7 +179,7 @@ public class GridBinaryAffinityKeySelfTest extends GridCommonAbstractTest {
 
             assertEquals(aff.mapKeyToNode(i).id(), nodeId.get());
 
-            grid(0).compute().affinityRun(DEFAULT_CACHE_NAME, new AffinityKey(0, i), new IgniteRunnable() {
+            ignite(0).compute().affinityRun(DEFAULT_CACHE_NAME, new AffinityKey(0, i), new IgniteRunnable() {
                 @IgniteInstanceResource
                 private Ignite ignite;
 
@@ -197,12 +197,12 @@ public class GridBinaryAffinityKeySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAffinityCall() throws Exception {
-        Affinity<Object> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+        Affinity<Object> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 1000; i++) {
             nodeId.set(null);
 
-            grid(0).compute().affinityCall(DEFAULT_CACHE_NAME, new TestObject(i), new IgniteCallable<Object>() {
+            ignite(0).compute().affinityCall(DEFAULT_CACHE_NAME, new TestObject(i), new IgniteCallable<Object>() {
                 @IgniteInstanceResource
                 private Ignite ignite;
 

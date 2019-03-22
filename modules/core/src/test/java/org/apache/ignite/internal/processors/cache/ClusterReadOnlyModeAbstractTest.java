@@ -115,7 +115,7 @@ public class ClusterReadOnlyModeAbstractTest extends GridCommonAbstractTest {
      */
     protected void changeClusterReadOnlyMode(boolean readOnly) {
         for (int idx = 0; idx < SRVS; idx++) {
-            IgniteEx ignite = grid(idx);
+            IgniteEx ignite = ignite(idx);
 
             ignite.context().cache().context().readOnlyMode(readOnly);
         }

@@ -213,13 +213,13 @@ public class GridCacheClearSelfTest extends GridCommonAbstractTest {
      * @return Client 1.
      */
     private Ignite client1() {
-        return grid("client1");
+        return ignite("client1");
     }
 
     /**
      * @return Client 2.
      */
     private Ignite client2() {
-        return grid("client2");
+        return ignite("client2");
     }
 }

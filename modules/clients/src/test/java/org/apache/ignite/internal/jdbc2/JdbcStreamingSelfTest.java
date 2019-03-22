@@ -292,7 +292,7 @@ public class JdbcStreamingSelfTest extends JdbcThinAbstractSelfTest {
      * @return Person cache.
      */
     protected IgniteCache<Integer, Object> cache() {
-        return grid(0).cache("person");
+        return ignite(0).cache("person");
     }
 
     /**
@@ -300,7 +300,7 @@ public class JdbcStreamingSelfTest extends JdbcThinAbstractSelfTest {
      * @param name name of person to put.
      */
     protected void put(int id, String name) {
-        BinaryObjectBuilder bldr = grid(0).binary().builder("Person");
+        BinaryObjectBuilder bldr = ignite(0).binary().builder("Person");
 
         bldr.setField("name", name);
 

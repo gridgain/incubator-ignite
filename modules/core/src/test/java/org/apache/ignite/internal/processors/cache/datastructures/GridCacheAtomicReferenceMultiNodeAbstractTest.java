@@ -51,9 +51,9 @@ public abstract class GridCacheAtomicReferenceMultiNodeAbstractTest extends Igni
         final String newVal = UUID.randomUUID().toString();
 
         // Initialize atomicReference in cache.
-        IgniteAtomicReference<String> ref = grid(0).atomicReference(refName, val, true);
+        IgniteAtomicReference<String> ref = ignite(0).atomicReference(refName, val, true);
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         // Execute task on all grid nodes.
         ignite.compute().call(new IgniteCallable<Object>() {
@@ -112,9 +112,9 @@ public abstract class GridCacheAtomicReferenceMultiNodeAbstractTest extends Igni
         final String newStamp = UUID.randomUUID().toString();
 
         // Initialize atomicStamped in cache.
-        IgniteAtomicStamped<String, String> stamped = grid(0).atomicStamped(stampedName, val, stamp, true);
+        IgniteAtomicStamped<String, String> stamped = ignite(0).atomicStamped(stampedName, val, stamp, true);
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         // Execute task on all grid nodes.
         ignite.compute().call(new IgniteCallable<String>() {

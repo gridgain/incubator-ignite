@@ -33,7 +33,6 @@ import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.IgniteTransactions;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheRebalanceMode;
@@ -211,7 +210,7 @@ public abstract class GridCacheAbstractNodeRestartSelfTest extends GridCommonAbs
         startGrids();
 
         try {
-            IgniteCache<Integer, String> c = grid(idx).cache(CACHE_NAME);
+            IgniteCache<Integer, String> c = ignite(idx).cache(CACHE_NAME);
 
             for (int j = 0; j < retries; j++) {
                 for (int i = 0; i < keyCnt; i++)
@@ -608,9 +607,9 @@ public abstract class GridCacheAbstractNodeRestartSelfTest extends GridCommonAbs
 
                             info("Starting put thread: " + gridIdx);
 
-                            Thread.currentThread().setName("put-worker-" + grid(gridIdx).name());
+                            Thread.currentThread().setName("put-worker-" + ignite(gridIdx).name());
 
-                            IgniteCache<Integer, String> cache = grid(gridIdx).cache(CACHE_NAME);
+                            IgniteCache<Integer, String> cache = ignite(gridIdx).cache(CACHE_NAME);
 
                             while (System.currentTimeMillis() < endTime && err.get() == null) {
                                 int key = RAND.nextInt(keyCnt);
@@ -736,7 +735,7 @@ public abstract class GridCacheAbstractNodeRestartSelfTest extends GridCommonAbs
 
                             info("Starting put thread: " + gridIdx);
 
-                            Ignite ignite = grid(gridIdx);
+                            Ignite ignite = ignite(gridIdx);
 
                             Thread.currentThread().setName("put-worker-" + ignite.name());
 
@@ -893,7 +892,7 @@ public abstract class GridCacheAbstractNodeRestartSelfTest extends GridCommonAbs
 
                             info("Starting put thread: " + gridIdx);
 
-                            Ignite ignite = grid(gridIdx);
+                            Ignite ignite = ignite(gridIdx);
 
                             Thread.currentThread().setName("put-worker-" + ignite.name());
 

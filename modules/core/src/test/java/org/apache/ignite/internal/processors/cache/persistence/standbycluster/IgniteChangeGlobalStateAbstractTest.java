@@ -156,7 +156,7 @@ public abstract class IgniteChangeGlobalStateAbstractTest extends GridCommonAbst
             startPrimary(i);
 
         if (cnt > 0)
-            grid("node0" + primarySuffix).active(true);
+            ignite("node0" + primarySuffix).active(true);
     }
 
     /**

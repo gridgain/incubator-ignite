@@ -300,8 +300,8 @@ public abstract class IgnitePdsCacheRebalancingAbstractTest extends GridCommonAb
 
         awaitPartitionMapExchange();
 
-        ignite2 = grid(2);
-        ignite3 = grid(3);
+        ignite2 = ignite(2);
+        ignite3 = ignite(3);
 
         IgniteCache<Integer, Integer> cache2 = ignite2.cache(CACHE);
         IgniteCache<Integer, Integer> cache3 = ignite3.cache(CACHE);
@@ -390,7 +390,7 @@ public abstract class IgnitePdsCacheRebalancingAbstractTest extends GridCommonAb
                     Ignite ignite;
 
                     try {
-                        ignite = grid(rnd.nextInt(nodes));
+                        ignite = ignite(rnd.nextInt(nodes));
                     }
                     catch (Exception ignored) {
                         continue;
@@ -539,7 +539,7 @@ public abstract class IgnitePdsCacheRebalancingAbstractTest extends GridCommonAb
     private void testForceRebalance(String cacheName) throws Exception {
         startGrids(4);
 
-        final Ignite ig = grid(1);
+        final Ignite ig = ignite(1);
 
         ig.cluster().active(true);
 
@@ -638,7 +638,7 @@ public abstract class IgnitePdsCacheRebalancingAbstractTest extends GridCommonAb
             Map<Integer, Long> cntrs = new HashMap<>();
 
             for (int g = 0; g < 4; g++) {
-                IgniteEx ig0 = grid(g);
+                IgniteEx ig0 = ignite(g);
 
                 for (GridDhtLocalPartition part : ig0.cachex(CACHE).context().topology().currentLocalPartitions()) {
                     if (cntrs.containsKey(part.id()))

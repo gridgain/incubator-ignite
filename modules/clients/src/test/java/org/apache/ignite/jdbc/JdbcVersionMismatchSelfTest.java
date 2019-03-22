@@ -36,7 +36,7 @@ import org.junit.Test;
 public class JdbcVersionMismatchSelfTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         try (Connection conn = connect()) {
             executeUpdate(conn,

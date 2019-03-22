@@ -121,7 +121,7 @@ public class BinaryObjectBuilderAdditionalSelfTest extends GridCommonAbstractTes
      * @return Binaries API.
      */
     protected IgniteBinary binaries() {
-        return grid(0).binary();
+        return ignite(0).binary();
     }
 
     /**
@@ -1655,7 +1655,7 @@ public class BinaryObjectBuilderAdditionalSelfTest extends GridCommonAbstractTes
 
         builder.build();
 
-        MarshallerContext marshCtx = grid(0).context().marshallerContext();
+        MarshallerContext marshCtx = ignite(0).context().marshallerContext();
 
         String actualTypeName = marshCtx.getClassName(MarshallerPlatformIds.JAVA_ID, typeId);
 

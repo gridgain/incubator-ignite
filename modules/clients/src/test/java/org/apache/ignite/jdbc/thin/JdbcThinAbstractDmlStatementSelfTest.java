@@ -61,7 +61,7 @@ public abstract class JdbcThinAbstractDmlStatementSelfTest extends JdbcThinAbstr
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).destroyCache(DEFAULT_CACHE_NAME);
+        ignite(0).destroyCache(DEFAULT_CACHE_NAME);
 
         conn.close();
 

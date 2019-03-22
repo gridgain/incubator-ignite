@@ -853,7 +853,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         startWithCaches1(SRVS, CLIENTS);
 
         final Ignite srv = ignite(0);
-        IgniteEx client = grid(SRVS);
+        IgniteEx client = ignite(SRVS);
 
         if (persistenceEnabled())
             ignite(0).cluster().active(true);
@@ -957,7 +957,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         startWithCaches1(SRVS, CLIENTS);
 
         final Ignite srv = ignite(0);
-        IgniteEx client = grid(SRVS);
+        IgniteEx client = ignite(SRVS);
 
         checkNoCaches(SRVS + CLIENTS);
 
@@ -1290,7 +1290,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         );
 
         for (int gridIdx = 0; gridIdx < nodes; gridIdx++) {
-            TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(grid(gridIdx));
+            TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(ignite(gridIdx));
 
             blockExchangeSingleMessage(spi, deactivationTopVer);
         }
@@ -1308,7 +1308,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         Assert.assertFalse(crd.context().state().publicApiActiveState(true));
 
         for (int gridIdx = 0; gridIdx < nodes; gridIdx++) {
-            TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(grid(gridIdx));
+            TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(ignite(gridIdx));
 
             spi.stopBlock();
         }
@@ -1406,7 +1406,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
      */
     final void checkNoCaches(int nodes) {
         for (int i = 0; i < nodes; i++) {
-            grid(i).context().state().publicApiActiveState(true);
+            ignite(i).context().state().publicApiActiveState(true);
 
             GridCacheProcessor cache = ((IgniteEx)ignite(i)).context().cache();
 

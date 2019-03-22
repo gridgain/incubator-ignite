@@ -146,7 +146,7 @@ public abstract class GridCacheBasicStoreAbstractTest extends GridCommonAbstract
         assert map.isEmpty();
 
         if (atomicityMode() == TRANSACTIONAL) {
-            try (Transaction tx = grid().transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite().transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
                 for (int i = 1; i <= 10; i++) {
                     cache.put(i, Integer.toString(i));
 
@@ -179,7 +179,7 @@ public abstract class GridCacheBasicStoreAbstractTest extends GridCommonAbstract
         store.resetLastMethod();
 
         if (atomicityMode() == TRANSACTIONAL) {
-            try (Transaction tx = grid().transactions().txStart()) {
+            try (Transaction tx = ignite().transactions().txStart()) {
                 for (int i = 1; i <= 10; i++) {
                     String val = cache.getAndRemove(i);
 
@@ -218,7 +218,7 @@ public abstract class GridCacheBasicStoreAbstractTest extends GridCommonAbstract
         assert map.isEmpty();
 
         if (atomicityMode() == TRANSACTIONAL) {
-            try (Transaction tx = grid().transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite().transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
                 for (int i = 1; i <= 10; i++)
                     cache.put(i, Integer.toString(i));
 

@@ -167,14 +167,14 @@ public class MvccRepeatableReadOperationsTest extends MvccRepeatableReadBulkOpsT
      */
     @Test
     public void testGetAndUpdateOperations() throws IgniteCheckedException {
-        Ignite node1 = grid(0);
+        Ignite node1 = ignite(0);
 
         TestCache<Integer, MvccTestAccount> cache1 = new TestCache<>(node1.cache(DEFAULT_CACHE_NAME));
 
         final Set<Integer> keysForUpdate = new HashSet<>(3);
         final Set<Integer> keysForRemove = new HashSet<>(3);
 
-        final Set<Integer> allKeys = generateKeySet(grid(0).cache(DEFAULT_CACHE_NAME), keysForUpdate, keysForRemove);
+        final Set<Integer> allKeys = generateKeySet(ignite(0).cache(DEFAULT_CACHE_NAME), keysForUpdate, keysForRemove);
 
         final Map<Integer, MvccTestAccount> initialMap = keysForRemove.stream().collect(
             Collectors.toMap(k -> k, k -> new MvccTestAccount(k, 1)));
@@ -229,14 +229,14 @@ public class MvccRepeatableReadOperationsTest extends MvccRepeatableReadBulkOpsT
      */
     @Test
     public void testPutIfAbsentConsistency() throws IgniteCheckedException {
-        Ignite node1 = grid(0);
+        Ignite node1 = ignite(0);
 
         TestCache<Integer, MvccTestAccount> cache1 = new TestCache<>(node1.cache(DEFAULT_CACHE_NAME));
 
         final Set<Integer> keysForCreate = new HashSet<>(3);
         final Set<Integer> keysForUpdate = new HashSet<>(3);
 
-        final Set<Integer> allKeys = generateKeySet(grid(0).cache(DEFAULT_CACHE_NAME), keysForCreate, keysForUpdate);
+        final Set<Integer> allKeys = generateKeySet(ignite(0).cache(DEFAULT_CACHE_NAME), keysForCreate, keysForUpdate);
 
         final Map<Integer, MvccTestAccount> initialMap = keysForUpdate.stream().collect(
             Collectors.toMap(k -> k, k -> new MvccTestAccount(k, 1)));
@@ -270,14 +270,14 @@ public class MvccRepeatableReadOperationsTest extends MvccRepeatableReadBulkOpsT
      */
     @Test
     public void testReplaceConsistency() throws IgniteCheckedException {
-        Ignite node1 = grid(0);
+        Ignite node1 = ignite(0);
 
         TestCache<Integer, MvccTestAccount> cache1 = new TestCache<>(node1.cache(DEFAULT_CACHE_NAME));
 
         final Set<Integer> existedKeys = new HashSet<>(3);
         final Set<Integer> nonExistedKeys = new HashSet<>(3);
 
-        final Set<Integer> allKeys = generateKeySet(grid(0).cache(DEFAULT_CACHE_NAME), existedKeys, nonExistedKeys);
+        final Set<Integer> allKeys = generateKeySet(ignite(0).cache(DEFAULT_CACHE_NAME), existedKeys, nonExistedKeys);
 
         final Map<Integer, MvccTestAccount> initialMap = existedKeys.stream().collect(
             Collectors.toMap(k -> k, k -> new MvccTestAccount(k, 1)));

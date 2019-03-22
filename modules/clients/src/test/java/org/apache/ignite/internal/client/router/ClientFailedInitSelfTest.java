@@ -157,7 +157,7 @@ public class ClientFailedInitSelfTest extends GridCommonAbstractTest {
                     GridServerUnreachableException.class, GridClientConnectionResetException.class));
             }
 
-            startGrid();
+            clusterManager__startGrid();
 
             try {
                 Thread.sleep(TOP_REFRESH_PERIOD * 2);
@@ -194,7 +194,7 @@ public class ClientFailedInitSelfTest extends GridCommonAbstractTest {
                 assertTrue(X.hasCause(e, GridClientException.class));
             }
 
-            startGrid();
+            clusterManager__startGrid();
 
             try {
                 Thread.sleep(TOP_REFRESH_PERIOD * 2);
@@ -215,11 +215,11 @@ public class ClientFailedInitSelfTest extends GridCommonAbstractTest {
      * @return Grid.
      * @throws Exception If failed.
      */
-    @Override protected Ignite startGrid() throws Exception {
+    @Override protected Ignite clusterManager__startGrid() throws Exception {
         System.setProperty(IGNITE_JETTY_PORT, Integer.toString(JETTY_PORT));
 
         try {
-            return super.startGrid();
+            return super.clusterManager__startGrid();
         }
         finally {
             System.clearProperty(IGNITE_JETTY_PORT);

@@ -357,7 +357,7 @@ public abstract class AbstractPartitionPruningBaseTest extends GridCommonAbstrac
      * @return Client node.
      */
     protected IgniteEx client() {
-        return grid(CLI_NAME);
+        return ignite(CLI_NAME);
     }
 
     /**

@@ -108,7 +108,7 @@ public class IgniteCacheReplicatedFieldsQueryJoinNoPrimaryPartitionsSelfTest ext
     public void testJoinNonCollocated() throws Exception {
         SqlFieldsQuery qry = new SqlFieldsQuery("SELECT COUNT(*) FROM PartValue p, RepValue r WHERE p.repId=r.id");
 
-        long cnt = (Long)grid(NODE_CLI).cache(CACHE_PARTITIONED).query(qry).getAll().get(0).get(0);
+        long cnt = (Long)ignite(NODE_CLI).cache(CACHE_PARTITIONED).query(qry).getAll().get(0).get(0);
 
         assertEquals(PART_CNT, cnt);
     }

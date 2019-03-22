@@ -97,11 +97,11 @@ public class GridOrderedMessageCancelSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTask() throws Exception {
-        Map map = U.field(((IgniteKernal)grid(0)).context().io(), "msgSetMap");
+        Map map = U.field(((IgniteKernal)ignite(0)).context().io(), "msgSetMap");
 
         int initSize =  map.size();
 
-        ComputeTaskFuture<?> fut = executeAsync(compute(grid(0).cluster().forRemotes()), Task.class, null);
+        ComputeTaskFuture<?> fut = executeAsync(compute(ignite(0).cluster().forRemotes()), Task.class, null);
 
         testMessageSet(fut, initSize, map);
     }
@@ -111,11 +111,11 @@ public class GridOrderedMessageCancelSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTaskException() throws Exception {
-        Map map = U.field(((IgniteKernal)grid(0)).context().io(), "msgSetMap");
+        Map map = U.field(((IgniteKernal)ignite(0)).context().io(), "msgSetMap");
 
         int initSize =  map.size();
 
-        ComputeTaskFuture<?> fut = executeAsync(compute(grid(0).cluster().forRemotes()), FailTask.class, null);
+        ComputeTaskFuture<?> fut = executeAsync(compute(ignite(0).cluster().forRemotes()), FailTask.class, null);
 
         testMessageSet(fut, initSize, map);
     }
@@ -151,7 +151,7 @@ public class GridOrderedMessageCancelSelfTest extends GridCommonAbstractTest {
 
         assertTrue(U.await(finishLatch, 5000, MILLISECONDS));
 
-        Map map = U.field(((IgniteKernal)grid(0)).context().io(), "msgSetMap");
+        Map map = U.field(((IgniteKernal)ignite(0)).context().io(), "msgSetMap");
 
         info("Map: " + map);
 

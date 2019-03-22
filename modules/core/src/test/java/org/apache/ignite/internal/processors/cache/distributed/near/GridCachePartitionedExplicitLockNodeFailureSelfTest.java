@@ -89,10 +89,10 @@ public class GridCachePartitionedExplicitLockNodeFailureSelfTest extends GridCom
 
         Integer key = 0;
 
-        while (grid(idx).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key).id().equals(grid(0).localNode().id()))
+        while (ignite(idx).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key).id().equals(ignite(0).localNode().id()))
             key++;
 
-        ClusterNode node = grid(idx).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key);
+        ClusterNode node = ignite(idx).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key);
 
         info("Primary node for key [id=" + node.id() + ", order=" + node.order() + ", key=" + key + ']');
 
@@ -116,7 +116,7 @@ public class GridCachePartitionedExplicitLockNodeFailureSelfTest extends GridCom
 
         for (int i = 1; i < GRID_CNT; i++) {
             futs.add(
-                waitForLocalEvent(grid(i).events(), new P1<Event>() {
+                waitForLocalEvent(ignite(i).events(), new P1<Event>() {
                     @Override public boolean apply(Event e) {
                         info("Received grid event: " + e);
 

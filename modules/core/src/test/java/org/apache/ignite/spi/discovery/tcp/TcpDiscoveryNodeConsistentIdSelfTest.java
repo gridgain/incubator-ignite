@@ -51,17 +51,17 @@ public class TcpDiscoveryNodeConsistentIdSelfTest extends GridCommonAbstractTest
      */
     @Test
     public void testConsistentId() throws Exception {
-        Object id0 = grid(0).localNode().consistentId();
+        Object id0 = ignite(0).localNode().consistentId();
 
-        int port0 = getDiscoveryPort(grid(0));
+        int port0 = getDiscoveryPort(ignite(0));
 
         for (int i = 0; i < 10; ++i) {
             stopAllGrids();
 
             startGrids(1);
 
-            if (port0 == getDiscoveryPort(grid(0)))
-                assertEquals(id0, grid(0).localNode().consistentId());
+            if (port0 == getDiscoveryPort(ignite(0)))
+                assertEquals(id0, ignite(0).localNode().consistentId());
         }
     }
 

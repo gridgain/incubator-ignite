@@ -95,7 +95,7 @@ public class IgniteCacheClientNodeConcurrentStart extends GridCommonAbstractTest
                 awaitPartitionMapExchange();
 
                 for (int node : clientNodes) {
-                    Ignite ignite = grid(node);
+                    Ignite ignite = ignite(node);
 
                     assertTrue(ignite.configuration().isClientMode());
                 }

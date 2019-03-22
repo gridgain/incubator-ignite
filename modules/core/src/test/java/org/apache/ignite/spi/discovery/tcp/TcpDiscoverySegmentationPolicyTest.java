@@ -64,8 +64,8 @@ public class TcpDiscoverySegmentationPolicyTest extends GridCommonAbstractTest {
     public void testStopOnSegmentation() throws Exception {
         startGrids(NODES_CNT);
 
-        IgniteEx ignite1 = grid(1);
-        IgniteEx ignite2 = grid(2);
+        IgniteEx ignite1 = ignite(1);
+        IgniteEx ignite2 = ignite(2);
 
         ((TcpDiscoverySpi)ignite1.configuration().getDiscoverySpi()).brakeConnection();
         ((TcpDiscoverySpi)ignite2.configuration().getDiscoverySpi()).brakeConnection();

@@ -42,8 +42,8 @@ public class ServiceDeploymentProcessingOnNodesLeftTest extends ServiceDeploymen
 
             IgniteEx client = startGrid(getConfiguration("client").setClientMode(true));
 
-            IgniteEx ignite1 = grid(1);
-            IgniteEx ignite2 = grid(2);
+            IgniteEx ignite1 = ignite(1);
+            IgniteEx ignite2 = ignite(2);
 
             ((BlockingTcpCommunicationSpi)ignite1.configuration().getCommunicationSpi()).block();
             ((BlockingTcpCommunicationSpi)ignite2.configuration().getCommunicationSpi()).block();
@@ -59,7 +59,7 @@ public class ServiceDeploymentProcessingOnNodesLeftTest extends ServiceDeploymen
             fut.get(TEST_FUTURE_WAIT_TIMEOUT);
             fut2.get(TEST_FUTURE_WAIT_TIMEOUT);
 
-            IgniteEx ignite3 = grid(3);
+            IgniteEx ignite3 = ignite(3);
 
             assertNotNull(ignite3.services().service("testService"));
             assertNotNull(ignite3.services().service("testService2"));
@@ -80,7 +80,7 @@ public class ServiceDeploymentProcessingOnNodesLeftTest extends ServiceDeploymen
             IgniteEx client1 = startGrid(getConfiguration("client1").setClientMode(true));
             IgniteEx client2 = startGrid(getConfiguration("client2").setClientMode(true));
 
-            IgniteEx ignite1 = grid(1);
+            IgniteEx ignite1 = ignite(1);
 
             ((BlockingTcpCommunicationSpi)client1.configuration().getCommunicationSpi()).block();
             ((BlockingTcpCommunicationSpi)client2.configuration().getCommunicationSpi()).block();
@@ -103,7 +103,7 @@ public class ServiceDeploymentProcessingOnNodesLeftTest extends ServiceDeploymen
 
             assertNotNull(ignite0.services().service("testService"));
 
-            IgniteEx ignite3 = grid(3);
+            IgniteEx ignite3 = ignite(3);
 
             assertNotNull(ignite3.services().service("testService"));
         }

@@ -59,7 +59,7 @@ public class SortedEvictionPolicyPerformanceTest extends GridCommonAbstractTest 
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        ignite = startGrid();
+        ignite = clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

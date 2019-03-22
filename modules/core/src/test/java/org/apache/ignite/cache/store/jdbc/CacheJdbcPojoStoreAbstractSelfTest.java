@@ -310,14 +310,14 @@ public abstract class CacheJdbcPojoStoreAbstractSelfTest extends GridCommonAbstr
         transactional = trn;
         parallelLoadThreshold = threshold;
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /**
      * Check that data was loaded correctly.
      */
     protected void checkCacheLoad() {
-        IgniteCache<Object, Object> c1 = grid().cache(CACHE_NAME);
+        IgniteCache<Object, Object> c1 = ignite().cache(CACHE_NAME);
 
         c1.loadCache(null);
 
@@ -328,7 +328,7 @@ public abstract class CacheJdbcPojoStoreAbstractSelfTest extends GridCommonAbstr
      * Check that data was loaded correctly.
      */
     protected void checkCacheLoadWithSql() {
-        IgniteCache<Object, Object> c1 = grid().cache(CACHE_NAME);
+        IgniteCache<Object, Object> c1 = ignite().cache(CACHE_NAME);
 
         c1.loadCache(null, "org.apache.ignite.cache.store.jdbc.model.PersonKey", "select id, org_id, name, birthday, gender from Person");
 
@@ -352,7 +352,7 @@ public abstract class CacheJdbcPojoStoreAbstractSelfTest extends GridCommonAbstr
 
             stmt = conn.prepareStatement(qry);
 
-            IgniteCache<Object, Object> c1 = grid().cache(CACHE_NAME);
+            IgniteCache<Object, Object> c1 = ignite().cache(CACHE_NAME);
 
             c1.loadCache(null, "org.apache.ignite.cache.store.jdbc.model.PersonKey", stmt);
 
@@ -464,7 +464,7 @@ public abstract class CacheJdbcPojoStoreAbstractSelfTest extends GridCommonAbstr
     private void checkPutRemove() throws Exception {
         boolean binaryMarshaller = marshaller() instanceof BinaryMarshaller || marshaller() == null;
 
-        IgniteCache<Object, Person> c1 = grid().cache(CACHE_NAME);
+        IgniteCache<Object, Person> c1 = ignite().cache(CACHE_NAME);
 
         Connection conn = getConnection();
         try {
@@ -584,7 +584,7 @@ public abstract class CacheJdbcPojoStoreAbstractSelfTest extends GridCommonAbstr
     public void testLoadNotRegisteredType() throws Exception {
         startTestGrid(false, false, false, false, 512);
 
-        IgniteCache<Object, Object> c1 = grid().cache(CACHE_NAME);
+        IgniteCache<Object, Object> c1 = ignite().cache(CACHE_NAME);
 
         try {
             c1.loadCache(null, "PersonKeyWrong", "SELECT * FROM Person");

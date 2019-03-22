@@ -62,7 +62,7 @@ public class IgniteSqlBigIntegerKeyTest extends AbstractIndexingCommonTest {
 
     /** */
     private IgniteCache<Object, Object> getCache() {
-        return grid("client").cache(CACHE_NAME);
+        return ignite("client").cache(CACHE_NAME);
     }
 
     /** */

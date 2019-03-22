@@ -216,13 +216,13 @@ public class ServiceDeploymentOnClientDisconnectTest extends GridCommonAbstractT
      * @return Clients node.
      */
     private IgniteEx client() {
-        return grid("client");
+        return ignite("client");
     }
 
     /**
      * @return Server node.
      */
     private IgniteEx server() {
-        return grid(0);
+        return ignite(0);
     }
 }

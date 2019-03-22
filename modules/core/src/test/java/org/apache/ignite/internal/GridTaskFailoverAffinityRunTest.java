@@ -103,7 +103,7 @@ public class GridTaskFailoverAffinityRunTest extends GridCommonAbstractTest {
     private void nodeRestart() throws Exception {
         startGridsMultiThreaded(4);
 
-        assertEquals((Boolean)clientMode, grid(0).configuration().isClientMode());
+        assertEquals((Boolean)clientMode, ignite(0).configuration().isClientMode());
 
         final AtomicBoolean stop = new AtomicBoolean();
 
@@ -130,7 +130,7 @@ public class GridTaskFailoverAffinityRunTest extends GridCommonAbstractTest {
                 Collection<IgniteFuture<?>> futs = new ArrayList<>(1000);
 
                 for (int i = 0; i < 1000; i++) {
-                    IgniteFuture<?> fut0 = grid(0).compute().affinityCallAsync(DEFAULT_CACHE_NAME, i, new TestJob());
+                    IgniteFuture<?> fut0 = ignite(0).compute().affinityCallAsync(DEFAULT_CACHE_NAME, i, new TestJob());
 
                     assertNotNull(fut0);
 

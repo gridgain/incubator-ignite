@@ -109,13 +109,13 @@ public class JdbcConnectionSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNodeId() throws Exception {
-        String url = CFG_URL_PREFIX + "nodeId=" + grid(0).localNode().id() + '@' + configURL();
+        String url = CFG_URL_PREFIX + "nodeId=" + ignite(0).localNode().id() + '@' + configURL();
 
         try (Connection conn = DriverManager.getConnection(url)) {
             assertNotNull(conn);
         }
 
-        url = CFG_URL_PREFIX + "cache=" + CUSTOM_CACHE_NAME + ":nodeId=" + grid(0).localNode().id() + '@' + configURL();
+        url = CFG_URL_PREFIX + "cache=" + CUSTOM_CACHE_NAME + ":nodeId=" + ignite(0).localNode().id() + '@' + configURL();
 
         try (Connection conn = DriverManager.getConnection(url)) {
             assertNotNull(conn);
@@ -152,7 +152,7 @@ public class JdbcConnectionSelfTest extends GridCommonAbstractTest {
     public void testClientNodeId() throws Exception {
         client = true;
 
-        IgniteEx client = (IgniteEx)startGrid();
+        IgniteEx client = (IgniteEx)clusterManager__startGrid();
 
         UUID clientId = client.localNode().id();
 

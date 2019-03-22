@@ -115,7 +115,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         startGrids(cnt);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         for (int i = 0; i < cnt; i++) {
             String key = UUID.randomUUID().toString();
@@ -129,7 +129,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
         }
 
         for (int i = 1; i < cnt; i++)
-            assertDistributedMetastoragesAreEqual(grid(0), grid(i));
+            assertDistributedMetastoragesAreEqual(ignite(0), ignite(i));
     }
 
     /**
@@ -141,7 +141,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         startGrids(cnt);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         AtomicInteger predCntr = new AtomicInteger();
 
@@ -162,7 +162,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
         assertEquals(cnt, predCntr.get());
 
         for (int i = 1; i < cnt; i++)
-            assertDistributedMetastoragesAreEqual(grid(0), grid(i));
+            assertDistributedMetastoragesAreEqual(ignite(0), ignite(i));
     }
 
     /**
@@ -174,7 +174,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         startGrids(cnt);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         metastorage(0).write("key", "value");
 
@@ -197,7 +197,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
         assertEquals(cnt, predCntr.get());
 
         for (int i = 1; i < cnt; i++)
-            assertDistributedMetastoragesAreEqual(grid(0), grid(i));
+            assertDistributedMetastoragesAreEqual(ignite(0), ignite(i));
     }
 
     /**
@@ -207,7 +207,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
     public void testCas() throws Exception {
         startGrids(2);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         assertFalse(metastorage(0).compareAndSet("key", "expVal", "newVal"));
 
@@ -235,7 +235,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         assertNull(metastorage(0).read("key"));
 
-        assertDistributedMetastoragesAreEqual(grid(0), grid(1));
+        assertDistributedMetastoragesAreEqual(ignite(0), ignite(1));
     }
 
     /**
@@ -277,7 +277,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         assertEquals("value2", metastorage(1).read("key2"));
 
-        assertDistributedMetastoragesAreEqual(ignite, grid(1));
+        assertDistributedMetastoragesAreEqual(ignite, ignite(1));
     }
 
     /**
@@ -289,19 +289,19 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         startGrid(0);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         metastorage(0).write("key1", "value1");
 
         metastorage(0).write("key2", "value2");
 
-        grid(0).cluster().active(false);
+        ignite(0).cluster().active(false);
 
         startGrid(1);
 
         CountDownLatch grid1MetaStorageStartLatch = new CountDownLatch(1);
 
-        grid(1).context().internalSubscriptionProcessor().registerDistributedMetastorageListener(
+        ignite(1).context().internalSubscriptionProcessor().registerDistributedMetastorageListener(
             new DistributedMetastorageLifecycleListener() {
                 @Override public void onReadyForWrite(DistributedMetaStorage metastorage) {
                     grid1MetaStorageStartLatch.countDown();
@@ -309,7 +309,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
             }
         );
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         assertEquals("value1", metastorage(0).read("key1"));
 
@@ -317,14 +317,14 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         grid1MetaStorageStartLatch.await(1, TimeUnit.SECONDS);
 
-        assertDistributedMetastoragesAreEqual(grid(0), grid(1));
+        assertDistributedMetastoragesAreEqual(ignite(0), ignite(1));
     }
 
     /**
      * @return {@link DistributedMetaStorage} instance for i'th node.
      */
     protected DistributedMetaStorage metastorage(int i) {
-        return grid(i).context().distributedMetastorage();
+        return ignite(i).context().distributedMetastorage();
     }
 
     /**

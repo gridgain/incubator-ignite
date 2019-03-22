@@ -127,7 +127,7 @@ public abstract class GridCacheWriteBehindStoreAbstractTest extends GridCommonAb
 
         assert map.isEmpty() : map;
 
-        Transaction tx = grid().transactions().txStart(OPTIMISTIC, REPEATABLE_READ);
+        Transaction tx = ignite().transactions().txStart(OPTIMISTIC, REPEATABLE_READ);
 
         try {
             for (int i = 1; i <= 10; i++) {
@@ -158,7 +158,7 @@ public abstract class GridCacheWriteBehindStoreAbstractTest extends GridCommonAb
 
         store.resetLastMethod();
 
-        tx = grid().transactions().txStart();
+        tx = ignite().transactions().txStart();
 
         try {
             for (int i = 1; i <= 10; i++) {
@@ -193,7 +193,7 @@ public abstract class GridCacheWriteBehindStoreAbstractTest extends GridCommonAb
 
         assert map.isEmpty();
 
-        try (Transaction tx = grid().transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite().transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
             for (int i = 1; i <= 10; i++)
                 cache.put(i, Integer.toString(i));
 

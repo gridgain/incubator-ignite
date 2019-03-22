@@ -62,9 +62,9 @@ public abstract class IgniteDbPutGetAbstractTest extends IgniteDbAbstractTest {
      */
     private IgniteEx ig() {
         if (withClientNearCache())
-            return grid(gridCount());
+            return ignite(gridCount());
 
-        return grid(0);
+        return ignite(0);
     }
 
     /**
@@ -384,7 +384,7 @@ public abstract class IgniteDbPutGetAbstractTest extends IgniteDbAbstractTest {
      */
     @Test
     public void testPutDoesNotTriggerRead() throws Exception {
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         final IgniteCache<Integer, DbValue> cache = ig.cache(DEFAULT_CACHE_NAME);
 
@@ -1078,7 +1078,7 @@ public abstract class IgniteDbPutGetAbstractTest extends IgniteDbAbstractTest {
         Set<DbKey> allKeys = new HashSet<>();
 
         for (int i = 0; i < gridCount(); i++) {
-            Ignite ignite0 = grid(i);
+            Ignite ignite0 = ignite(i);
 
             IgniteCache<DbKey, DbValue> cache0 = ignite0.cache("non-primitive");
 
@@ -1105,7 +1105,7 @@ public abstract class IgniteDbPutGetAbstractTest extends IgniteDbAbstractTest {
         Set<DbKey> allKeys = new HashSet<>();
 
         for (int i = 0; i < gridCount(); i++) {
-            Ignite ignite0 = grid(i);
+            Ignite ignite0 = ignite(i);
 
             IgniteCache<DbKey, DbValue> cache0 = ignite0.cache("non-primitive");
 
@@ -1154,7 +1154,7 @@ public abstract class IgniteDbPutGetAbstractTest extends IgniteDbAbstractTest {
         for (int i = 0; i < gridCount(); i++) {
             Set<DbKey> allKeys = new HashSet<>();
 
-            Ignite ignite0 = grid(i);
+            Ignite ignite0 = ignite(i);
 
             IgniteCache<DbKey, DbValue> cache0 = ignite0.cache("non-primitive");
 
@@ -1176,7 +1176,7 @@ public abstract class IgniteDbPutGetAbstractTest extends IgniteDbAbstractTest {
      */
     private void checkScanPartition(Map<Integer, Integer> partCntrs) {
         for (int i = 0; i < gridCount(); i++) {
-            Ignite ignite0 = grid(i);
+            Ignite ignite0 = ignite(i);
 
             IgniteCache<DbKey, DbValue> cache0 = ignite0.cache("non-primitive");
 

@@ -56,7 +56,7 @@ public class IgniteSqlCreateTableTemplateTest extends AbstractIndexingCommonTest
     /** {@inheritDoc} */
     @SuppressWarnings("deprecation")
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /**
@@ -64,7 +64,7 @@ public class IgniteSqlCreateTableTemplateTest extends AbstractIndexingCommonTest
      */
     @Test
     public void testSelectForTableWithDataInsertedWithKeyValueAPI() {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
         IgniteCache cache = ignite.getOrCreateCache("test");
 
         createTable(cache, "PERSON", "DEFAULT_TEMPLATE");
@@ -131,7 +131,7 @@ public class IgniteSqlCreateTableTemplateTest extends AbstractIndexingCommonTest
     @SuppressWarnings("unchecked")
     @Test
     public void testCustomAffinityKeyMapperIsNotOverwritten() {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         IgniteCache cache = ignite.getOrCreateCache("test");
 

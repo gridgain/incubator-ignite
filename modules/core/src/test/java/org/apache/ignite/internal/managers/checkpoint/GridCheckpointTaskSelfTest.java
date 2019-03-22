@@ -95,8 +95,8 @@ public class GridCheckpointTaskSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        assert grid(1).cache(CACHE_NAME).localSize() == 0 : grid(1).cache(CACHE_NAME);
-        assert grid(2).cache(CACHE_NAME).localSize() == 0 : grid(2).cache(CACHE_NAME);
+        assert ignite(1).cache(CACHE_NAME).localSize() == 0 : ignite(1).cache(CACHE_NAME);
+        assert ignite(2).cache(CACHE_NAME).localSize() == 0 : ignite(2).cache(CACHE_NAME);
 
         stopAllGrids();
     }
@@ -106,7 +106,7 @@ public class GridCheckpointTaskSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testFailover() throws Exception {
-        grid(1).compute().execute(FailoverTestTask.class, null);
+        ignite(1).compute().execute(FailoverTestTask.class, null);
     }
 
     /**
@@ -114,7 +114,7 @@ public class GridCheckpointTaskSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testReduce() throws Exception {
-        grid(1).compute().execute(ReduceTestTask.class, null);
+        ignite(1).compute().execute(ReduceTestTask.class, null);
     }
 
     /**

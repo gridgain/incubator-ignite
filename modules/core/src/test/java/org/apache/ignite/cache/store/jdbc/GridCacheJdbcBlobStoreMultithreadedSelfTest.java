@@ -192,7 +192,7 @@ public class GridCacheJdbcBlobStoreMultithreadedSelfTest extends GridCommonAbstr
 
             @Override public Object call() throws Exception {
                 for (int i = 0; i < TX_CNT; i++) {
-                    IgniteEx ignite = grid(rnd.nextInt(GRID_CNT));
+                    IgniteEx ignite = ignite(rnd.nextInt(GRID_CNT));
 
                     IgniteCache<Object, Object> cache = ignite.cache(DEFAULT_CACHE_NAME);
 

@@ -98,7 +98,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
 
     @SuppressWarnings("unchecked")
     @Override public void beforeTest() throws Exception {
-        grid().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
+        ignite().<Integer, String>getOrCreateCache(defaultCacheConfiguration());
 
         // find an available local port
         try (ServerSocket ss = new ServerSocket(0)) {
@@ -108,7 +108,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
         }
 
         // create Camel streamer
-        dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME);
+        dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME);
         streamer = createCamelStreamer(dataStreamer);
     }
 
@@ -122,7 +122,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
 
         dataStreamer.close();
 
-        grid().cache(DEFAULT_CACHE_NAME).clear();
+        ignite().cache(DEFAULT_CACHE_NAME).clear();
     }
 
     /**
@@ -294,7 +294,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
     private CamelStreamer<Integer, String> createCamelStreamer(IgniteDataStreamer<Integer, String> dataStreamer) {
         CamelStreamer<Integer, String> streamer = new CamelStreamer<>();
 
-        streamer.setIgnite(grid());
+        streamer.setIgnite(ignite());
         streamer.setStreamer(dataStreamer);
         streamer.setEndpointUri("jetty:" + url);
 
@@ -385,7 +385,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
      * Subscribe to cache put events.
      */
     private CountDownLatch subscribeToPutEvents(int expect) {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         // Listen to cache PUT events and expect as many as messages as test data items
         final CountDownLatch latch = new CountDownLatch(expect);
@@ -409,7 +409,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
      */
     private void assertCacheEntriesLoaded(int cnt) {
         // get the cache and check that the entries are present
-        IgniteCache<Integer, String> cache = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, String> cache = ignite().cache(DEFAULT_CACHE_NAME);
 
         // for each key from 0 to count from the TEST_DATA (ordered by key), check that the entry is present in cache
         for (Integer key : new ArrayList<>(new TreeSet<>(TEST_DATA.keySet())).subList(0, cnt))
@@ -419,7 +419,7 @@ public class IgniteCamelStreamerTest extends GridCommonAbstractTest {
         assertEquals(cnt, cache.size(CachePeekMode.ALL));
 
         // remove the event listener
-        grid().events(grid().cluster().forCacheNodes(DEFAULT_CACHE_NAME)).stopRemoteListen(remoteLsnr);
+        ignite().events(ignite().cluster().forCacheNodes(DEFAULT_CACHE_NAME)).stopRemoteListen(remoteLsnr);
     }
 
 }

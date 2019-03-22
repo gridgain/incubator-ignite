@@ -107,7 +107,7 @@ public class IgfsFragmentizerAbstractSelfTest extends IgfsCommonAbstractTest {
      * @throws Exception If failed.
      */
     protected void awaitFileFragmenting(int gridIdx, IgfsPath path) throws Exception {
-        IgfsEx igfs = (IgfsEx)grid(gridIdx).fileSystem("igfs");
+        IgfsEx igfs = (IgfsEx)ignite(gridIdx).fileSystem("igfs");
 
         IgfsMetaManager meta = igfs.context().meta();
 
@@ -139,6 +139,6 @@ public class IgfsFragmentizerAbstractSelfTest extends IgfsCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).fileSystem("igfs").clear();
+        ignite(0).fileSystem("igfs").clear();
     }
 }

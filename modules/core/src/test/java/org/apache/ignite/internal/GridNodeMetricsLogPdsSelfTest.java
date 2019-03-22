@@ -54,7 +54,7 @@ public class GridNodeMetricsLogPdsSelfTest extends GridNodeMetricsLogSelfTest {
 
         super.beforeTest();
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
     }
 
     /** {@inheritDoc} */
@@ -107,7 +107,7 @@ public class GridNodeMetricsLogPdsSelfTest extends GridNodeMetricsLogSelfTest {
 
         assertTrue("Persistence metrics have unexpected format.", summaryFmtMatches);
 
-        Set<String> expRegions = grid(0).context().cache().context().database().dataRegions().stream()
+        Set<String> expRegions = ignite(0).context().cache().context().database().dataRegions().stream()
             .filter(v -> v.config().isPersistenceEnabled())
             .map(v -> v.config().getName().trim())
             .collect(Collectors.toSet());

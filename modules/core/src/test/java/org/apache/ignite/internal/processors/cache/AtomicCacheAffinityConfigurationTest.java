@@ -56,7 +56,7 @@ public class AtomicCacheAffinityConfigurationTest extends GridCommonAbstractTest
             startGrids(3);
 
             for (int i = 0; i < 3; i++) {
-                IgniteEx igniteEx = grid(i);
+                IgniteEx igniteEx = ignite(i);
 
                 IgniteAtomicLong atomic = igniteEx.atomicLong("test", 0, true);
 
@@ -89,7 +89,7 @@ public class AtomicCacheAffinityConfigurationTest extends GridCommonAbstractTest
             startGrids(3);
 
             for (int i = 0; i < 3; i++) {
-                IgniteEx igniteEx = grid(i);
+                IgniteEx igniteEx = ignite(i);
 
                 IgniteAtomicLong atomic = igniteEx.atomicLong("test", 0, true);
 
@@ -122,7 +122,7 @@ public class AtomicCacheAffinityConfigurationTest extends GridCommonAbstractTest
             startGrids(3);
 
             for (int i = 0; i < 3; i++) {
-                IgniteEx igniteEx = grid(i);
+                IgniteEx igniteEx = ignite(i);
 
                 IgniteAtomicLong atomic = igniteEx.atomicLong("test", 0, true);
 
@@ -144,7 +144,7 @@ public class AtomicCacheAffinityConfigurationTest extends GridCommonAbstractTest
      *
      */
     private void checkAtomics() {
-        Ignite node0 = grid(0);
+        Ignite node0 = ignite(0);
 
         node0.atomicLong("l1", 0, true).incrementAndGet();
         node0.atomicSequence("s1", 10, true);

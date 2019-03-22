@@ -78,7 +78,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        ignite = grid();
+        ignite = ignite();
     }
 
     /** {@inheritDoc} */
@@ -239,7 +239,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
         startGrid(1);
 
         try {
-            final List<Integer> keys = primaryKeys(grid(1).cache(DEFAULT_CACHE_NAME), 2, 1);
+            final List<Integer> keys = primaryKeys(ignite(1).cache(DEFAULT_CACHE_NAME), 2, 1);
 
             Lock lock1 = cache.lock(keys.get(1));
 
@@ -279,8 +279,8 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
             assertFalse(cache.isLocalLocked(keys.get(0), false));
             assertFalse(cache.isLocalLocked(keys.get(1), false));
 
-            assertFalse(grid(1).cache(DEFAULT_CACHE_NAME).isLocalLocked(keys.get(0), false));
-            assertFalse(grid(1).cache(DEFAULT_CACHE_NAME).isLocalLocked(keys.get(1), false));
+            assertFalse(ignite(1).cache(DEFAULT_CACHE_NAME).isLocalLocked(keys.get(0), false));
+            assertFalse(ignite(1).cache(DEFAULT_CACHE_NAME).isLocalLocked(keys.get(1), false));
 
             assertTrue(isOk.get());
         }

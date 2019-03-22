@@ -424,8 +424,8 @@ public class IgniteCacheAtomicProtocolTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange();
 
-        Ignite srv0 = grid(0);
-        final Ignite srv1 = grid(1);
+        Ignite srv0 = ignite(0);
+        final Ignite srv1 = ignite(1);
 
         final Integer key = primaryKey(srv0.cache(TEST_CACHE));
 
@@ -465,8 +465,8 @@ public class IgniteCacheAtomicProtocolTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange();
 
-        final Ignite srv0 = grid(0);
-        final Ignite srv1 = grid(1);
+        final Ignite srv0 = ignite(0);
+        final Ignite srv1 = ignite(1);
 
         final Integer key = primaryKey(srv0.cache(TEST_CACHE));
 
@@ -506,7 +506,7 @@ public class IgniteCacheAtomicProtocolTest extends GridCommonAbstractTest {
         awaitPartitionMapExchange();
 
         for (int i = 0; i < SRVS; i++)
-            testSpi(grid(i)).blockMessages(GridDhtAtomicNearResponse.class, clientNode.name());
+            testSpi(ignite(i)).blockMessages(GridDhtAtomicNearResponse.class, clientNode.name());
 
         final Map<Integer, Integer> map = new HashMap<>();
 
@@ -535,7 +535,7 @@ public class IgniteCacheAtomicProtocolTest extends GridCommonAbstractTest {
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 for (int i = 0; i < SRVS; i++) {
-                    if (grid(i).context().cache().context().mvcc().atomicFuturesCount() != 0)
+                    if (ignite(i).context().cache().context().mvcc().atomicFuturesCount() != 0)
                         return false;
                 }
 
@@ -544,7 +544,7 @@ public class IgniteCacheAtomicProtocolTest extends GridCommonAbstractTest {
         }, 5000);
 
         for (int i = 0; i < SRVS; i++)
-            assertEquals(0, grid(i).context().cache().context().mvcc().atomicFuturesCount());
+            assertEquals(0, ignite(i).context().cache().context().mvcc().atomicFuturesCount());
 
         checkData(map);
     }

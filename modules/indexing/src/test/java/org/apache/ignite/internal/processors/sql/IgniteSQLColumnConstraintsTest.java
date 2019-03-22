@@ -350,7 +350,7 @@ public class IgniteSQLColumnConstraintsTest extends AbstractIndexingCommonTest {
         SqlFieldsQuery qry = new SqlFieldsQuery(sql)
             .setArgs(args);
 
-        return grid(0).context().query().querySqlFields(qry, true).getAll();
+        return ignite(0).context().query().querySqlFields(qry, true).getAll();
     }
 
     /** */

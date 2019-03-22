@@ -74,7 +74,7 @@ public class ClientDefaultCacheSelfTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         System.setProperty(IGNITE_JETTY_PORT, String.valueOf(HTTP_PORT));
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -84,7 +84,7 @@ public class ClientDefaultCacheSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        locNodeId = grid().localNode().id();
+        locNodeId = ignite().localNode().id();
     }
 
     /** {@inheritDoc} */

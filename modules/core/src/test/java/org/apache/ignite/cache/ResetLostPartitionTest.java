@@ -33,9 +33,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.topology.Grid
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopologyImpl;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
-import org.junit.Assume;
 import org.junit.Test;
 
 import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.LOST;
@@ -147,7 +145,7 @@ public class ResetLostPartitionTest extends GridCommonAbstractTest {
     private void doRebalanceAfterPartitionsWereLost(boolean reactivateGridBeforeResetPart) throws Exception {
         startGrids(3);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         Ignite igniteClient = startGrid(getClientConfiguration("client"));
 
@@ -160,7 +158,7 @@ public class ResetLostPartitionTest extends GridCommonAbstractTest {
 
         stopGrid("client");
 
-        String dn2DirName = grid(1).name().replace(".", "_");
+        String dn2DirName = ignite(1).name().replace(".", "_");
 
         stopGrid(1);
 
@@ -201,12 +199,12 @@ public class ResetLostPartitionTest extends GridCommonAbstractTest {
         assertTrue(hasLost);
 
         if (reactivateGridBeforeResetPart) {
-            grid(0).cluster().active(false);
-            grid(0).cluster().active(true);
+            ignite(0).cluster().active(false);
+            ignite(0).cluster().active(true);
         }
 
         //Try to reset lost partitions.
-        grid(2).resetLostPartitions(Arrays.asList(CACHE_NAMES));
+        ignite(2).resetLostPartitions(Arrays.asList(CACHE_NAMES));
 
         awaitPartitionMapExchange();
 
@@ -231,7 +229,7 @@ public class ResetLostPartitionTest extends GridCommonAbstractTest {
      * @return Partitions states for given cache name.
      */
     private List<GridDhtPartitionState> getPartitionsStates(int gridNumber, String cacheName) {
-        CacheGroupContext cgCtx = grid(gridNumber).context().cache().cacheGroup(CU.cacheId(cacheName));
+        CacheGroupContext cgCtx = ignite(gridNumber).context().cache().cacheGroup(CU.cacheId(cacheName));
 
         GridDhtPartitionTopologyImpl top = (GridDhtPartitionTopologyImpl)cgCtx.topology();
 

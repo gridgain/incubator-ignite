@@ -103,9 +103,9 @@ public class GridCacheNearTxMultiNodeSelfTest extends GridCommonAbstractTest {
             assert backupNode != otherNode;
             assert priNode != otherNode;
 
-            final Ignite priIgnite = grid(priNode);
-            Ignite backupIgnite = grid(backupNode);
-            Ignite otherIgnite = grid(otherNode);
+            final Ignite priIgnite = ignite(priNode);
+            Ignite backupIgnite = ignite(backupNode);
+            Ignite otherIgnite = ignite(otherNode);
 
             List<Ignite> ignites = F.asList(otherIgnite, priIgnite, backupIgnite);
 
@@ -194,7 +194,7 @@ public class GridCacheNearTxMultiNodeSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void testReadersUpdate(TransactionConcurrency concurrency, TransactionIsolation isolation) throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
         IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
         try (Transaction tx = ignite.transactions().txStart(concurrency, isolation)) {
@@ -206,7 +206,7 @@ public class GridCacheNearTxMultiNodeSelfTest extends GridCommonAbstractTest {
 
         // Create readers.
         for (int g = 0; g < GRID_CNT; g++) {
-            IgniteCache<Integer, Integer> c = grid(g).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> c = ignite(g).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 100; i++)
                 assertEquals((Integer)1, c.get(i));
@@ -220,7 +220,7 @@ public class GridCacheNearTxMultiNodeSelfTest extends GridCommonAbstractTest {
         }
 
         for (int g = 0; g < GRID_CNT; g++) {
-            IgniteCache<Integer, Integer> c = grid(g).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, Integer> c = ignite(g).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 100; i++)
                 assertEquals((Integer)2, c.get(i));

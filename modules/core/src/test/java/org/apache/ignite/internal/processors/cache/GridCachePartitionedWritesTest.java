@@ -106,14 +106,14 @@ public class GridCachePartitionedWritesTest extends GridCommonAbstractTest {
             }
         };
 
-        startGrid();
+        clusterManager__startGrid();
 
         IgniteCache<Integer, String> cache = jcache();
 
         try {
             cache.get(1);
 
-            Transaction tx = grid().transactions().txStart();
+            Transaction tx = ignite().transactions().txStart();
 
             try {
                 for (int i = 1; i <= 10; i++)
@@ -129,7 +129,7 @@ public class GridCachePartitionedWritesTest extends GridCommonAbstractTest {
 
             assert putCnt.get() == 10;
 
-            tx = grid().transactions().txStart();
+            tx = ignite().transactions().txStart();
 
             try {
                 for (int i = 1; i <= 10; i++) {

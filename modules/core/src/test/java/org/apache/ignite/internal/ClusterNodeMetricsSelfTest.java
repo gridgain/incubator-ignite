@@ -74,7 +74,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -108,7 +108,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAllocatedMemory() throws Exception {
-        IgniteEx ignite = grid();
+        IgniteEx ignite = ignite();
 
         final IgniteCache cache = ignite.getOrCreateCache(CACHE_NAME);
 
@@ -161,7 +161,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSingleTaskMetrics() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         final CountDownLatch taskLatch = new CountDownLatch(1);
         ignite.compute().executeAsync(new GridTestTask(taskLatch), "testArg");
@@ -210,7 +210,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testInternalTaskMetrics() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         // Visor task is internal and should not affect metrics.
         ignite.compute().withName("visor-test-task").execute(new TestInternalTask(), "testArg");
@@ -255,7 +255,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testIoMetrics() throws Exception {
-        Ignite ignite0 = grid();
+        Ignite ignite0 = ignite();
         Ignite ignite1 = startGrid(1);
 
         Object msg = new TestMessage();
@@ -309,7 +309,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testClusterNodeMetrics() throws Exception {
-        final Ignite ignite0 = grid();
+        final Ignite ignite0 = ignite();
         final Ignite ignite1 = startGrid(1);
 
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
@@ -338,7 +338,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testJmxClusterMetrics() throws Exception {
-        Ignite node = grid();
+        Ignite node = ignite();
 
         Ignite node1 = startGrid(1);
 

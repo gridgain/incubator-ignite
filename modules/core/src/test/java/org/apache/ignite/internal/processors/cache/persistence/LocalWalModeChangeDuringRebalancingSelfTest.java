@@ -443,7 +443,7 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
         startGridsMultiThreaded(2, 2);
 
         for (int nodeIdx = 2; nodeIdx < nodeCnt; nodeIdx++) {
-            CacheGroupContext grpCtx = grid(nodeIdx).cachex(REPL_CACHE).context().group();
+            CacheGroupContext grpCtx = ignite(nodeIdx).cachex(REPL_CACHE).context().group();
 
             assertFalse(grpCtx.walEnabled());
         }
@@ -455,14 +455,14 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
         awaitPartitionMapExchange();
 
         for (int nodeIdx = 2; nodeIdx < nodeCnt; nodeIdx++) {
-            CacheGroupContext grpCtx = grid(nodeIdx).cachex(REPL_CACHE).context().group();
+            CacheGroupContext grpCtx = ignite(nodeIdx).cachex(REPL_CACHE).context().group();
 
             assertTrue(grpCtx.walEnabled());
         }
 
         // Check no data loss.
         for (int nodeIdx = 2; nodeIdx < nodeCnt; nodeIdx++) {
-            IgniteCache<Integer, Integer> cache0 = grid(nodeIdx).cache(REPL_CACHE);
+            IgniteCache<Integer, Integer> cache0 = ignite(nodeIdx).cache(REPL_CACHE);
 
             for (int k = 0; k < keyCnt; k++)
                 Assert.assertEquals("nodeIdx=" + nodeIdx + ", key=" + k, (Integer)(2 * k), cache0.get(k));

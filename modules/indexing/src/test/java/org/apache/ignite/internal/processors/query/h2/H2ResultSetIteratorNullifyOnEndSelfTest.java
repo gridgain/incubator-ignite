@@ -162,7 +162,7 @@ public class H2ResultSetIteratorNullifyOnEndSelfTest extends AbstractIndexingCom
      * @return Cache.
      */
     private IgniteCache<String, Person> cache() {
-        return grid(0).cache("pers");
+        return ignite(0).cache("pers");
     }
 
     /**

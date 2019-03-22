@@ -130,7 +130,7 @@ public class TxOptimisticPrepareOnUnstableTopologyTest extends GridCommonAbstrac
             compFut.get();
 
             for (int i = 0; i < GRID_CNT; i++) {
-                IgniteTxManager tm = ((IgniteKernal)grid(i)).internalCache(CACHE_NAME).context().tm();
+                IgniteTxManager tm = ((IgniteKernal)ignite(i)).internalCache(CACHE_NAME).context().tm();
 
                 assertEquals("txMap is not empty: " + i, 0, tm.idMapSize());
             }

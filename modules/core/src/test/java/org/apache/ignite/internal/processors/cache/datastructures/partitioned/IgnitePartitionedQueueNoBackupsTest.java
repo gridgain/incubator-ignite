@@ -61,7 +61,7 @@ public class IgnitePartitionedQueueNoBackupsTest extends GridCachePartitionedQue
      */
     @Test
     public void testCollocation() throws Exception {
-        IgniteQueue<Integer> queue = grid(0).queue("queue", 0, config(true));
+        IgniteQueue<Integer> queue = ignite(0).queue("queue", 0, config(true));
 
         for (int i = 0; i < 1000; i++)
             assertTrue(queue.add(i));
@@ -73,7 +73,7 @@ public class IgnitePartitionedQueueNoBackupsTest extends GridCachePartitionedQue
         UUID setNodeId = null;
 
         for (int i = 0; i < gridCount(); i++) {
-            IgniteKernal grid = (IgniteKernal)grid(i);
+            IgniteKernal grid = (IgniteKernal)ignite(i);
 
             GridCacheAdapter cache = grid.context().cache().internalCache(cctx.name());
 

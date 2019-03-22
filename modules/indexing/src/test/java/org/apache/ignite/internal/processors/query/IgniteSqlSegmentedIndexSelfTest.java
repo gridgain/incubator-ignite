@@ -74,7 +74,7 @@ public class IgniteSqlSegmentedIndexSelfTest extends AbstractIndexingCommonTest 
     @Override protected void afterTest() throws Exception {
         super.afterTest();
 
-        grid(0).destroyCaches(Arrays.asList(PERSON_CAHE_NAME, ORG_CACHE_NAME));
+        ignite(0).destroyCaches(Arrays.asList(PERSON_CAHE_NAME, ORG_CACHE_NAME));
     }
 
     /**

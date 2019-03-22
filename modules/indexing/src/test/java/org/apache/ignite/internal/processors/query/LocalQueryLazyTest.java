@@ -46,9 +46,9 @@ public class LocalQueryLazyTest extends AbstractIndexingCommonTest {
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
-        startGrid();
+        clusterManager__startGrid();
 
-        IgniteCache<Long, Long> c = grid().createCache(new CacheConfiguration<Long, Long>()
+        IgniteCache<Long, Long> c = ignite().createCache(new CacheConfiguration<Long, Long>()
             .setName("test")
             .setSqlSchema("TEST")
             .setQueryEntities(Collections.singleton(new QueryEntity(Long.class, Long.class)
@@ -99,7 +99,7 @@ public class LocalQueryLazyTest extends AbstractIndexingCommonTest {
      * @return Results cursor.
      */
     private FieldsQueryCursor<List<?>> sql(String sql, Object ... args) {
-        return grid().context().query().querySqlFields(new SqlFieldsQuery(sql)
+        return ignite().context().query().querySqlFields(new SqlFieldsQuery(sql)
             .setLocal(true)
             .setLazy(true)
             .setSchema("TEST")

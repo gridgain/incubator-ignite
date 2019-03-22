@@ -95,7 +95,7 @@ public class IgniteCacheNearLockValueSelfTest extends GridCommonAbstractTest {
 
                 assertEquals(1, reqs.size());
 
-                GridCacheAdapter<Object, Object> primary = ((IgniteKernal)grid(1)).internalCache("partitioned");
+                GridCacheAdapter<Object, Object> primary = ((IgniteKernal)ignite(1)).internalCache("partitioned");
 
                 GridCacheEntryEx dhtEntry = primary.peekEx(primary.context().toCacheKeyObject("key1"));
 
@@ -106,7 +106,7 @@ public class IgniteCacheNearLockValueSelfTest extends GridCommonAbstractTest {
                 assertEquals(dhtEntry.version(), req.dhtVersion(0));
 
                 // Check entry version in near cache after commit.
-                GridCacheAdapter<Object, Object> near = ((IgniteKernal)grid(0)).internalCache("partitioned");
+                GridCacheAdapter<Object, Object> near = ((IgniteKernal)ignite(0)).internalCache("partitioned");
 
                 GridNearCacheEntry nearEntry = (GridNearCacheEntry)near.peekEx(near.context().toCacheKeyObject("key1"));
 

@@ -93,13 +93,13 @@ public class GridCacheQuerySerializationSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testSerialization() throws Exception {
-        IgniteEx g0 = grid(0);
+        IgniteEx g0 = ignite(0);
 
         IgniteCache<Integer, GridCacheQueryTestValue> c0 = g0.cache(CACHE_NAME);
         c0.put(1, value("A", 1, 1));
         c0.put(2, value("B", 2, 2));
 
-        IgniteEx g1 = grid(1);
+        IgniteEx g1 = ignite(1);
         IgniteCache<Integer, GridCacheQueryTestValue> c1 = g1.cache(CACHE_NAME);
         c1.put(3, value("C", 3, 3));
         c1.put(4, value("D", 4, 4));

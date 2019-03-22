@@ -67,8 +67,8 @@ public class IgniteSqlDefaultValueTest extends GridCommonAbstractTest {
     @Override protected void afterTest() throws Exception {
         Collection<String> tblNames = new ArrayList<>();
 
-        for (String cacheName : grid(0).context().cache().publicCacheNames()) {
-            for (GridQueryTypeDescriptor table : grid(0).context().query().types(cacheName))
+        for (String cacheName : ignite(0).context().cache().publicCacheNames()) {
+            for (GridQueryTypeDescriptor table : ignite(0).context().query().types(cacheName))
                 tblNames.add(table.tableName());
         }
 
@@ -218,7 +218,7 @@ public class IgniteSqlDefaultValueTest extends GridCommonAbstractTest {
      * @return Results set.
      */
     private List<List<?>> sql(String sql, Object ... args) {
-        return grid(NODE_CLIENT).context().query().querySqlFields(
+        return ignite(NODE_CLIENT).context().query().querySqlFields(
             new SqlFieldsQuery(sql).setArgs(args), false).getAll();
     }
 }

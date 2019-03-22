@@ -96,7 +96,7 @@ public class IgniteSlowClientDetectionSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSlowClient() throws Exception {
-        final IgniteEx slowClient = grid(nodeCount() - 1);
+        final IgniteEx slowClient = ignite(nodeCount() - 1);
 
         final ClusterNode slowClientNode = slowClient.localNode();
 
@@ -120,7 +120,7 @@ public class IgniteSlowClientDetectionSelfTest extends GridCommonAbstractTest {
         final CountDownLatch evtFailedLatch = new CountDownLatch(nodeCount() - 1);
 
         for (int i = 0; i < nodeCount() - 1; i++) {
-            grid(i).events().localListen(new IgnitePredicate<Event>() {
+            ignite(i).events().localListen(new IgnitePredicate<Event>() {
                 @Override public boolean apply(Event evt) {
                     assertEquals("Unexpected event: " + evt, evt.type(), EventType.EVT_NODE_FAILED);
 
@@ -141,7 +141,7 @@ public class IgniteSlowClientDetectionSelfTest extends GridCommonAbstractTest {
 
         IgniteCache<Object, Object> cache = slowClient.getOrCreateCache(PARTITIONED);
 
-        IgniteEx client0 = grid(nodeCount() - 2);
+        IgniteEx client0 = ignite(nodeCount() - 2);
 
         assertTrue(client0.cluster().localNode().isClient());
 

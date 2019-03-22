@@ -191,14 +191,14 @@ public abstract class CacheGetsDistributionAbstractTest extends GridCommonAbstra
      * @throws Exception In case of an error.
      */
     protected void runTestBalancingDistribution(boolean batchMode) throws Exception {
-        IgniteCache<Integer, String> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<Integer, String> cache = ignite(0).createCache(cacheConfiguration());
 
         List<Integer> keys = primaryKeys(cache, PRIMARY_KEYS_NUMBER);
 
         for (Integer key : keys)
             cache.put(key, VAL_PREFIX + key);
 
-        IgniteCache<Integer, String> clientCache = grid(CLIENT_NAME).cache(DEFAULT_CACHE_NAME)
+        IgniteCache<Integer, String> clientCache = ignite(CLIENT_NAME).cache(DEFAULT_CACHE_NAME)
             .withAllowAtomicOpsInTx();
 
         assertTrue(GridTestUtils.waitForCondition(
@@ -210,7 +210,7 @@ public abstract class CacheGetsDistributionAbstractTest extends GridCommonAbstra
                     if (idx >= PRIMARY_KEYS_NUMBER)
                         idx = 0;
 
-                    try (Transaction tx = grid(CLIENT_NAME).transactions().txStart()) {
+                    try (Transaction tx = ignite(CLIENT_NAME).transactions().txStart()) {
                         if (batchMode) {
                             Set<Integer> keys0 = new TreeSet<>();
 
@@ -238,7 +238,7 @@ public abstract class CacheGetsDistributionAbstractTest extends GridCommonAbstra
                     }
 
                     for (int i = 0; i < gridCount(); i++) {
-                        IgniteEx ignite = grid(i);
+                        IgniteEx ignite = ignite(i);
 
                         long getsCnt = ignite.cache(DEFAULT_CACHE_NAME).localMetrics().getCacheGets();
 
@@ -261,7 +261,7 @@ public abstract class CacheGetsDistributionAbstractTest extends GridCommonAbstra
      */
     @Test
     public void testGetRequestsDistribution() throws Exception {
-        UUID destId = grid(0).localNode().id();
+        UUID destId = ignite(0).localNode().id();
 
         runTestSameHostDistribution(destId, false);
     }
@@ -274,7 +274,7 @@ public abstract class CacheGetsDistributionAbstractTest extends GridCommonAbstra
      */
     @Test
     public void testGetAllRequestsDistribution() throws Exception {
-        UUID destId = grid(gridCount() - 1).localNode().id();
+        UUID destId = ignite(gridCount() - 1).localNode().id();
 
         runTestSameHostDistribution(destId, true);
     }
@@ -289,23 +289,23 @@ public abstract class CacheGetsDistributionAbstractTest extends GridCommonAbstra
     protected void runTestSameHostDistribution(final UUID destId, final boolean batchMode) throws Exception {
         Map<UUID, String> macs = getClusterMacs();
 
-        String clientMac = macs.get(grid(CLIENT_NAME).localNode().id());
+        String clientMac = macs.get(ignite(CLIENT_NAME).localNode().id());
 
         macs.put(destId, clientMac);
 
         replaceMacAddresses(G.allGrids(), macs);
 
-        IgniteCache<Integer, String> cache = grid(0).createCache(cacheConfiguration());
+        IgniteCache<Integer, String> cache = ignite(0).createCache(cacheConfiguration());
 
         List<Integer> keys = primaryKeys(cache, PRIMARY_KEYS_NUMBER);
 
         for (Integer key : keys)
             cache.put(key, VAL_PREFIX + key);
 
-        IgniteCache<Integer, String> clientCache = grid(CLIENT_NAME).cache(DEFAULT_CACHE_NAME)
+        IgniteCache<Integer, String> clientCache = ignite(CLIENT_NAME).cache(DEFAULT_CACHE_NAME)
             .withAllowAtomicOpsInTx();
 
-        try (Transaction tx = grid(CLIENT_NAME).transactions().txStart()) {
+        try (Transaction tx = ignite(CLIENT_NAME).transactions().txStart()) {
             if (batchMode) {
                 Map<Integer, String> results = clientCache.getAll(new TreeSet<>(keys));
 
@@ -321,7 +321,7 @@ public abstract class CacheGetsDistributionAbstractTest extends GridCommonAbstra
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            IgniteEx ignite = grid(i);
+            IgniteEx ignite = ignite(i);
 
             long getsCnt = ignite.cache(DEFAULT_CACHE_NAME).localMetrics().getCacheGets();
 

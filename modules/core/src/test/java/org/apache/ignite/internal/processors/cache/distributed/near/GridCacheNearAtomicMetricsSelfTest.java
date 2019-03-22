@@ -42,7 +42,7 @@ public class GridCacheNearAtomicMetricsSelfTest extends GridCacheNearMetricsSelf
      */
     @Test
     public void testNearCachePutRemoveGetMetrics() {
-        IgniteEx initiator = grid(0);
+        IgniteEx initiator = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = initiator.cache(DEFAULT_CACHE_NAME);
 

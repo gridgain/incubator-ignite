@@ -178,7 +178,7 @@ public class GridCacheContinuousQueryConcurrentTest extends GridCommonAbstractTe
         ExecutorService execSrv = newSingleThreadExecutor();
 
         try {
-            final IgniteCache<Integer, String> cache = grid(0).getOrCreateCache(ccfg);
+            final IgniteCache<Integer, String> cache = ignite(0).getOrCreateCache(ccfg);
 
             for (int i = 0; i < 10; i++) {
                 log.info("Start iteration: " + i);
@@ -223,7 +223,7 @@ public class GridCacheContinuousQueryConcurrentTest extends GridCommonAbstractTe
         finally {
             execSrv.shutdownNow();
 
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
         }
     }
 
@@ -239,7 +239,7 @@ public class GridCacheContinuousQueryConcurrentTest extends GridCommonAbstractTe
         IgniteInternalFuture<?> restartFut = null;
 
         try {
-            final IgniteCache<Integer, String> cache = grid(0).getOrCreateCache(ccfg);
+            final IgniteCache<Integer, String> cache = ignite(0).getOrCreateCache(ccfg);
 
             restartFut = GridTestUtils.runAsync(new Callable<Void>() {
                 @Override public Void call() throws Exception {
@@ -248,7 +248,7 @@ public class GridCacheContinuousQueryConcurrentTest extends GridCommonAbstractTe
 
                         assert GridTestUtils.waitForCondition(new PA() {
                             @Override public boolean apply() {
-                                return grid(0).cluster().nodes().size() == NODES + 1;
+                                return ignite(0).cluster().nodes().size() == NODES + 1;
                             }
                         }, 5000L);
 
@@ -258,7 +258,7 @@ public class GridCacheContinuousQueryConcurrentTest extends GridCommonAbstractTe
 
                         assert GridTestUtils.waitForCondition(new PA() {
                             @Override public boolean apply() {
-                                return grid(0).cluster().nodes().size() == NODES;
+                                return ignite(0).cluster().nodes().size() == NODES;
                             }
                         }, 5000L);
 
@@ -316,7 +316,7 @@ public class GridCacheContinuousQueryConcurrentTest extends GridCommonAbstractTe
         finally {
             execSrv.shutdownNow();
 
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
 
             if (restartFut != null) {
                 stopRes.set(true);
@@ -393,7 +393,7 @@ public class GridCacheContinuousQueryConcurrentTest extends GridCommonAbstractTe
                         v = cache.get(key);
 
                         if (v == null)
-                            doSleep(100);
+                            GridTestUtils.doSleep(100);
                         else {
                             log.info("Completed by async mvcc get: " + id);
 

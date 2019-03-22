@@ -89,7 +89,7 @@ public class CacheMvccReplicatedSqlTxQueriesTest extends CacheMvccSqlTxQueriesAb
 
         startGrid(3);
 
-        Ignite node = client ? grid(3) : grid(0);
+        Ignite node = client ? ignite(3) : ignite(0);
 
         List<List<?>> r;
 
@@ -127,7 +127,7 @@ public class CacheMvccReplicatedSqlTxQueriesTest extends CacheMvccSqlTxQueriesAb
         }
 
         for (int n = 0; n < 3; ++n) {
-            node = grid(n);
+            node = ignite(n);
 
             r = runSqlLocal(node, "SELECT _key, _val FROM \"target\".Integer ORDER BY _key");
 
@@ -166,7 +166,7 @@ public class CacheMvccReplicatedSqlTxQueriesTest extends CacheMvccSqlTxQueriesAb
 
         Random rnd = ThreadLocalRandom.current();
 
-        Ignite node = grid(rnd.nextInt(4));
+        Ignite node = ignite(rnd.nextInt(4));
 
         List<List<?>> r;
 
@@ -202,7 +202,7 @@ public class CacheMvccReplicatedSqlTxQueriesTest extends CacheMvccSqlTxQueriesAb
         assertEquals(3L, r.get(0).get(0));
 
         for (int n = 0; n < 3; ++n) {
-            node = grid(n);
+            node = ignite(n);
 
             r = runSqlLocal(node, "SELECT _key, _val FROM \"rep\".Integer ORDER BY _key");
 

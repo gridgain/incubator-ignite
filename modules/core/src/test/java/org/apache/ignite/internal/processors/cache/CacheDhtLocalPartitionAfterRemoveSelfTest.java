@@ -59,7 +59,7 @@ public class CacheDhtLocalPartitionAfterRemoveSelfTest extends GridCommonAbstrac
     public void testMemoryUsage() throws Exception {
         assertEquals(10_000, GridDhtLocalPartition.MAX_DELETE_QUEUE_SIZE);
 
-        IgniteCache<TestKey, Integer> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<TestKey, Integer> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 20_000; ++i)
             cache.put(new TestKey(String.valueOf(i)), i);
@@ -70,7 +70,7 @@ public class CacheDhtLocalPartitionAfterRemoveSelfTest extends GridCommonAbstrac
         assertEquals(0, cache.size());
 
         for (int g = 0; g < GRID_CNT; g++) {
-            cache = grid(g).cache(DEFAULT_CACHE_NAME);
+            cache = ignite(g).cache(DEFAULT_CACHE_NAME);
 
             for (GridDhtLocalPartition p : dht(cache).topology().localPartitions()) {
                 long size = p.dataStore().fullSize();

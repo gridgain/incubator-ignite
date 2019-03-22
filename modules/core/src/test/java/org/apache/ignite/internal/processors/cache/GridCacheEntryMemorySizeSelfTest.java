@@ -107,7 +107,7 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).destroyCache(DEFAULT_CACHE_NAME);
+        ignite(0).destroyCache(DEFAULT_CACHE_NAME);
 
         super.afterTest();
     }
@@ -242,7 +242,7 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
                 while (true) {
                     key++;
 
-                    if (grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key).equals(grid(0).localNode())) {
+                    if (ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key).equals(ignite(0).localNode())) {
                         if (i > 0)
                             jcache(0).put(key, new Value(new byte[i * 1024]));
 
@@ -295,7 +295,7 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
                 while (true) {
                     key++;
 
-                    if (grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key).equals(grid(0).localNode())) {
+                    if (ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key).equals(ignite(0).localNode())) {
                         if (i > 0)
                             jcache(0).put(key, new Value(new byte[i * 1024]));
 

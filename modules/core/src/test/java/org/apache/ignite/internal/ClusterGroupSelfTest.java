@@ -85,12 +85,12 @@ public class ClusterGroupSelfTest extends ClusterGroupAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected ClusterGroup projection() {
-        return grid(0).cluster().forPredicate(F.nodeForNodeIds(ids));
+        return ignite(0).cluster().forPredicate(F.nodeForNodeIds(ids));
     }
 
     /** {@inheritDoc} */
     @Override protected UUID localNodeId() {
-        return grid(0).localNode().id();
+        return ignite(0).localNode().id();
     }
 
     /**
@@ -230,20 +230,20 @@ public class ClusterGroupSelfTest extends ClusterGroupAbstractTest {
 
         int clusterSize = ignite.cluster().nodes().size();
 
-        assertEquals(grid(gridMaxOrder(clusterSize, true)).localNode().id(), evenYoungest.node().id());
-        assertEquals(grid(1).localNode().id(), evenOldest.node().id());
+        assertEquals(ignite(gridMaxOrder(clusterSize, true)).localNode().id(), evenYoungest.node().id());
+        assertEquals(ignite(1).localNode().id(), evenOldest.node().id());
 
-        assertEquals(grid(gridMaxOrder(clusterSize, false)).localNode().id(), oddYoungest.node().id());
-        assertEquals(grid(2).localNode().id(), oddOldest.node().id());
+        assertEquals(ignite(gridMaxOrder(clusterSize, false)).localNode().id(), oddYoungest.node().id());
+        assertEquals(ignite(2).localNode().id(), oddOldest.node().id());
 
         try (Ignite g4 = startGrid(NODES_CNT); Ignite g5 = startGrid(NODES_CNT + 1)) {
             clusterSize = g4.cluster().nodes().size();
 
-            assertEquals(grid(gridMaxOrder(clusterSize, true)).localNode().id(), evenYoungest.node().id());
-            assertEquals(grid(1).localNode().id(), evenOldest.node().id());
+            assertEquals(ignite(gridMaxOrder(clusterSize, true)).localNode().id(), evenYoungest.node().id());
+            assertEquals(ignite(1).localNode().id(), evenOldest.node().id());
 
-            assertEquals(grid(gridMaxOrder(clusterSize, false)).localNode().id(), oddYoungest.node().id());
-            assertEquals(grid(2).localNode().id(), oddOldest.node().id());
+            assertEquals(ignite(gridMaxOrder(clusterSize, false)).localNode().id(), oddYoungest.node().id());
+            assertEquals(ignite(2).localNode().id(), oddOldest.node().id());
         }
     }
 
@@ -263,7 +263,7 @@ public class ClusterGroupSelfTest extends ClusterGroupAbstractTest {
 
         assertEquals(node.id(), obj.node().id());
 
-        try (Ignite ignore = startGrid()) {
+        try (Ignite ignore = clusterManager__startGrid()) {
             obj = marshaller.unmarshal(arr, null);
 
             assertEquals(grp.node().id(), obj.node().id());

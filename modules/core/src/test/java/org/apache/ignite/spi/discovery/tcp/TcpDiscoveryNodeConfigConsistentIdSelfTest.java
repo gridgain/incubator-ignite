@@ -52,19 +52,19 @@ public class TcpDiscoveryNodeConfigConsistentIdSelfTest extends GridCommonAbstra
      */
     @Test
     public void testConsistentId() throws Exception {
-        Object id0 = grid(0).localNode().consistentId();
-        Serializable id1 = grid(0).configuration().getConsistentId();
+        Object id0 = ignite(0).localNode().consistentId();
+        Serializable id1 = ignite(0).configuration().getConsistentId();
 
         assertEquals(id0, id1);
-        assertEquals(grid(0).name(), id0);
-        assertEquals(id0, grid(1).cluster().forRemotes().node().consistentId());
+        assertEquals(ignite(0).name(), id0);
+        assertEquals(id0, ignite(1).cluster().forRemotes().node().consistentId());
 
         for (int i = 0; i < 4; ++i) {
             stopAllGrids();
 
             startGrids(2);
 
-            assertEquals(id0, grid(0).localNode().consistentId());
+            assertEquals(id0, ignite(0).localNode().consistentId());
         }
     }
 }

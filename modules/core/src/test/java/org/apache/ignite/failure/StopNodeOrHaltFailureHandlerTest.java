@@ -26,6 +26,7 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.CA;
 import org.apache.ignite.internal.util.typedef.PE;
 import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.multijvm.IgniteProcessProxy;
 import org.junit.Test;
@@ -59,12 +60,12 @@ public class StopNodeOrHaltFailureHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testJvmHalted() throws Exception {
-        IgniteEx g = grid(0);
-        IgniteEx rmt1 = grid(1);
-        IgniteEx rmt2 = grid(2);
+        IgniteEx g = ignite(0);
+        IgniteEx rmt1 = ignite(1);
+        IgniteEx rmt2 = ignite(2);
 
-        assertTrue(isMultiJvmObject(rmt1));
-        assertTrue(isMultiJvmObject(rmt2));
+        assertTrue(GridTestUtils.isMultiJvmObject(rmt1));
+        assertTrue(GridTestUtils.isMultiJvmObject(rmt2));
 
         assertTrue(g.cluster().nodes().size() == NODES_CNT);
 

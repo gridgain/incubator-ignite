@@ -71,7 +71,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        IgniteCache<Integer, Value> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Value> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < KEYS; i++)
             cache.put(i, new Value(i, "before-" + i));
@@ -79,7 +79,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        IgniteCache<Integer, Value> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Value> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         cache.removeAll();
 
@@ -124,7 +124,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTwoStepSkipReduceSqlQuery() {
-        IgniteCache<Integer, Value> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Value> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         List<Cache.Entry<Integer, Value>> all = cache.query(
             new SqlQuery<Integer, Value>(Value.class, "select * from Value").setPageSize(3)).getAll();
@@ -142,7 +142,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTwoStepReduceSqlQuery() {
-        IgniteCache<Integer, Value> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Value> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         QueryCursor<List<?>> qry = cache.query(new SqlFieldsQuery("select _val from Value order by _key"));
 
@@ -161,7 +161,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testLocalSqlQuery() {
-        IgniteCache<Integer, Value> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Value> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         SqlQuery<Integer, Value> qry = new SqlQuery<>(Value.class.getSimpleName(), "select * from Value");
         qry.setLocal(true);
@@ -181,7 +181,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testLocalSqlFieldsQuery() {
-        IgniteCache<Integer, Value> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Value> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         QueryCursor<List<?>> cur = cache.query(new SqlFieldsQuery("select _val from Value").setLocal(true));
 
@@ -206,7 +206,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
                 try {
                     log.info(">>> Query started");
 
-                    grid(0).cache(DEFAULT_CACHE_NAME).query(qry).getAll();
+                    ignite(0).cache(DEFAULT_CACHE_NAME).query(qry).getAll();
 
                     log.info(">>> Query finished");
                 }
@@ -228,7 +228,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
 
         Thread.sleep(500);
 
-        GridQueryProcessor qryProc = grid(0).context().query();
+        GridQueryProcessor qryProc = ignite(0).context().query();
 
         Collection<GridRunningQueryInfo> queries = qryProc.runningQueries(0);
 
@@ -269,7 +269,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
 
         Thread.sleep(500);
 
-        GridQueryProcessor qryProc = grid(0).context().query();
+        GridQueryProcessor qryProc = ignite(0).context().query();
 
         Collection<GridRunningQueryInfo> queries = qryProc.runningQueries(0);
 
@@ -310,7 +310,7 @@ public class CacheSqlQueryValueCopySelfTest extends GridCommonAbstractTest {
 
         Thread.sleep(500);
 
-        final GridQueryProcessor qryProc = grid(0).context().query();
+        final GridQueryProcessor qryProc = ignite(0).context().query();
 
         Collection<GridRunningQueryInfo> queries = qryProc.runningQueries(0);
 

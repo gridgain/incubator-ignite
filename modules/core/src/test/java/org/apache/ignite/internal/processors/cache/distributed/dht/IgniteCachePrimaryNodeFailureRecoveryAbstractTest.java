@@ -488,7 +488,7 @@ public abstract class IgniteCachePrimaryNodeFailureRecoveryAbstractTest extends 
 
             for (ClusterNode node : keyNodes) {
                 try {
-                    long nodeCntr = updateCoutner(grid(node), key);
+                    long nodeCntr = updateCoutner(ignite(node), key);
 
                     found = true;
 
@@ -511,7 +511,7 @@ public abstract class IgniteCachePrimaryNodeFailureRecoveryAbstractTest extends 
 
             for (ClusterNode node : keyNodes) {
                 try {
-                    Ignite ignite = grid(node);
+                    Ignite ignite = ignite(node);
 
                     found = true;
 

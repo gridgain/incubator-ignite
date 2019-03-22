@@ -96,7 +96,7 @@ public abstract class GridCacheEvictionEventAbstractTest extends GridCommonAbstr
      */
     @Test
     public void testEvictionEvent() throws Exception {
-        Ignite g = grid();
+        Ignite g = ignite();
 
         final CountDownLatch latch = new CountDownLatch(1);
 

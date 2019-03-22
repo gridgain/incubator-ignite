@@ -78,8 +78,8 @@ public class GridManagerLocalMessageListenerSelfTest extends GridCommonAbstractT
     public void testSendMessage() throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteSpiContext ctx0 = ((IgniteSpiAdapter)grid(0).context().io().getSpi()).getSpiContext();
-        IgniteSpiContext ctx1 = ((IgniteSpiAdapter)grid(1).context().io().getSpi()).getSpiContext();
+        IgniteSpiContext ctx0 = ((IgniteSpiAdapter)ignite(0).context().io().getSpi()).getSpiContext();
+        IgniteSpiContext ctx1 = ((IgniteSpiAdapter)ignite(1).context().io().getSpi()).getSpiContext();
 
         String topic = "test-topic";
 
@@ -97,7 +97,7 @@ public class GridManagerLocalMessageListenerSelfTest extends GridCommonAbstractT
 
         long time = System.nanoTime();
 
-        ctx0.send(grid(1).localNode(), "Message", topic);
+        ctx0.send(ignite(1).localNode(), "Message", topic);
 
         assert latch.await(3, SECONDS);
 
@@ -113,9 +113,9 @@ public class GridManagerLocalMessageListenerSelfTest extends GridCommonAbstractT
      */
     @Test
     public void testAddLocalMessageListener() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
-        Manager mgr = new Manager(grid().context(), new Spi());
+        Manager mgr = new Manager(ignite().context(), new Spi());
 
         mgr.start();
 
@@ -129,9 +129,9 @@ public class GridManagerLocalMessageListenerSelfTest extends GridCommonAbstractT
      */
     @Test
     public void testRemoveLocalMessageListener() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
-        Manager mgr = new Manager(grid().context(), new Spi());
+        Manager mgr = new Manager(ignite().context(), new Spi());
 
         assertTrue(mgr.enabled());
 

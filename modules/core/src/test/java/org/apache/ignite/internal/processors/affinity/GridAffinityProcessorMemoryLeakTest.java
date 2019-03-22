@@ -78,7 +78,7 @@ public class GridAffinityProcessorMemoryLeakTest extends GridCommonAbstractTest 
     public void testAffinityProcessor() throws Exception {
         Ignite ignite = startGrid(0);
 
-        IgniteKernal grid = (IgniteKernal)grid(0);
+        IgniteKernal grid = (IgniteKernal)ignite(0);
 
         IgniteCache<String, String> cache;
 

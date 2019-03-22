@@ -158,7 +158,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
         assertNotNull(client.cache(DEFAULT_CACHE_NAME));
 
         assertFalse(client.cache(DEFAULT_CACHE_NAME).localPreloadPartition(0));
-        assertFalse(grid(0).cache(DEFAULT_CACHE_NAME).localPreloadPartition(0));
+        assertFalse(ignite(0).cache(DEFAULT_CACHE_NAME).localPreloadPartition(0));
     }
 
     /** */
@@ -173,7 +173,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
         assertNotNull(client.cache(DEFAULT_CACHE_NAME));
 
         assertFalse(client.cache(DEFAULT_CACHE_NAME).localPreloadPartition(0));
-        assertFalse(grid(0).cache(DEFAULT_CACHE_NAME).localPreloadPartition(0));
+        assertFalse(ignite(0).cache(DEFAULT_CACHE_NAME).localPreloadPartition(0));
     }
 
 
@@ -366,7 +366,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
     public void testPreloadPartitionTransactionalNodeFilteredSync() throws Exception {
         cfgFactory = () -> cacheConfiguration(TRANSACTIONAL);
 
-        preloadPartition(() -> grid(0), PreloadMode.SYNC);
+        preloadPartition(() -> ignite(0), PreloadMode.SYNC);
     }
 
     /** */
@@ -374,7 +374,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
     public void testPreloadPartitionTransactionalNodeFilteredSyncMvcc() throws Exception {
         cfgFactory = () -> cacheConfiguration(TRANSACTIONAL_SNAPSHOT);
 
-        preloadPartition(() -> grid(0), PreloadMode.SYNC);
+        preloadPartition(() -> ignite(0), PreloadMode.SYNC);
     }
 
     /** */
@@ -382,7 +382,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
     public void testPreloadPartitionTransactionalNodeFilteredAsync() throws Exception {
         cfgFactory = () -> cacheConfiguration(TRANSACTIONAL);
 
-        preloadPartition(() -> grid(0), PreloadMode.ASYNC);
+        preloadPartition(() -> ignite(0), PreloadMode.ASYNC);
     }
 
     /** */
@@ -390,7 +390,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
     public void testPreloadPartitionTransactionalNodeFilteredAsyncMvcc() throws Exception {
         cfgFactory = () -> cacheConfiguration(TRANSACTIONAL);
 
-        preloadPartition(() -> grid(0), PreloadMode.ASYNC);
+        preloadPartition(() -> ignite(0), PreloadMode.ASYNC);
     }
 
     /** */
@@ -500,7 +500,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
     public void testPreloadPartitionAtomicNodeFilteredSync() throws Exception {
         cfgFactory = () -> cacheConfiguration(ATOMIC);
 
-        preloadPartition(() -> grid(0), PreloadMode.SYNC);
+        preloadPartition(() -> ignite(0), PreloadMode.SYNC);
     }
 
     /** */
@@ -508,7 +508,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
     public void testPreloadPartitionAtomicNodeFilteredAsync() throws Exception {
         cfgFactory = () -> cacheConfiguration(ATOMIC);
 
-        preloadPartition(() -> grid(0), PreloadMode.ASYNC);
+        preloadPartition(() -> ignite(0), PreloadMode.ASYNC);
     }
 
     /** */
@@ -592,7 +592,7 @@ public class IgnitePdsPartitionPreloadTest extends GridCommonAbstractTest {
     private void preloadPartition(Supplier<Ignite> execNodeFactory, PreloadMode preloadMode) throws Exception {
         Ignite crd = startGridsMultiThreaded(GRIDS_CNT);
 
-        Ignite testNode = grid(1);
+        Ignite testNode = ignite(1);
 
         Object consistentId = testNode.cluster().localNode().consistentId();
 

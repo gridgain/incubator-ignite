@@ -106,7 +106,7 @@ public class RestProcessorStartSelfTest extends GridCommonAbstractTest {
         GridTestUtils.runAsync(new IgniteCallable<Object>() {
             @Override public Object call() {
                 try {
-                    startGrid();
+                    clusterManager__startGrid();
                 }
                 catch (Exception e) {
                     log().error("Grid start failed", e);

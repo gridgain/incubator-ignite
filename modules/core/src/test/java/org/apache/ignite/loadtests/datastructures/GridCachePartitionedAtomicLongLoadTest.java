@@ -87,7 +87,7 @@ public class GridCachePartitionedAtomicLongLoadTest extends GridCommonAbstractTe
      */
     @Test
     public void testLoad() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             multithreaded(new AtomicCallable(), 50);
@@ -103,7 +103,7 @@ public class GridCachePartitionedAtomicLongLoadTest extends GridCommonAbstractTe
     private class AtomicCallable implements Callable<Boolean> {
         /** {@inheritDoc} */
         @Override public Boolean call() throws Exception {
-            Ignite ignite = grid();
+            Ignite ignite = ignite();
 
             IgniteCache cache = ignite.cache(DEFAULT_CACHE_NAME);
 

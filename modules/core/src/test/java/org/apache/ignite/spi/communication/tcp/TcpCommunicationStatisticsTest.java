@@ -133,15 +133,15 @@ public class TcpCommunicationStatisticsTest extends GridCommonAbstractTest {
 
         try {
             // Send custom message from node0 to node1.
-            grid(0).context().io().sendToGridTopic(grid(1).cluster().localNode(), GridTopic.TOPIC_IO_TEST, new GridTestMessage(), GridIoPolicy.PUBLIC_POOL);
+            ignite(0).context().io().sendToGridTopic(ignite(1).cluster().localNode(), GridTopic.TOPIC_IO_TEST, new GridTestMessage(), GridIoPolicy.PUBLIC_POOL);
 
 
             latch.await(10, TimeUnit.SECONDS);
 
-            ClusterGroup clusterGroupNode1 = grid(0).cluster().forNodeId(grid(1).localNode().id());
+            ClusterGroup clusterGroupNode1 = ignite(0).cluster().forNodeId(ignite(1).localNode().id());
 
             // Send job from node0 to node1.
-            grid(0).compute(clusterGroupNode1).call(new IgniteCallable<Boolean>() {
+            ignite(0).compute(clusterGroupNode1).call(new IgniteCallable<Boolean>() {
                 @Override public Boolean call() throws Exception {
                     return Boolean.TRUE;
                 }
@@ -156,8 +156,8 @@ public class TcpCommunicationStatisticsTest extends GridCommonAbstractTest {
                 Map<UUID, Long> msgsReceivedByNode0 = mbean0.getReceivedMessagesByNode();
                 Map<UUID, Long> msgsReceivedByNode1 = mbean1.getReceivedMessagesByNode();
 
-                UUID nodeId0 = grid(0).localNode().id();
-                UUID nodeId1 = grid(1).localNode().id();
+                UUID nodeId0 = ignite(0).localNode().id();
+                UUID nodeId1 = ignite(1).localNode().id();
 
                 assertEquals(msgsReceivedByNode0.get(nodeId1).longValue(), mbean0.getReceivedMessagesCount());
                 assertEquals(msgsReceivedByNode1.get(nodeId0).longValue(), mbean1.getReceivedMessagesCount());

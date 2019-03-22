@@ -221,11 +221,11 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
         startGrid(NODE_CLIENT);
 
         // Add cache template with read-through cache store.
-        grid(NODE_CLIENT).addCacheConfiguration(
+        ignite(NODE_CLIENT).addCacheConfiguration(
             buildCacheConfigurationRestricted(CACHE_READ_THROUGH, true, false, false));
 
         // Add cache template with cache interceptor.
-        grid(NODE_CLIENT).addCacheConfiguration(
+        ignite(NODE_CLIENT).addCacheConfiguration(
             buildCacheConfigurationRestricted(CACHE_INTERCEPTOR, false, true, false));
 
         awaitPartitionMapExchange();
@@ -738,7 +738,7 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
 
         String cacheName = QueryUtils.createTableCacheName("PUBLIC", "TEST");
 
-        IgniteEx client = grid(NODE_CLIENT);
+        IgniteEx client = ignite(NODE_CLIENT);
 
         CacheConfiguration ccfg = client.context().cache().cache(cacheName).configuration();
 
@@ -949,7 +949,7 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
         // Dynamic cache start-up failure (read-through cache store)
         GridTestUtils.assertThrowsAnyCause(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                return grid(NODE_CLIENT).createCache(
+                return ignite(NODE_CLIENT).createCache(
                     buildCacheConfigurationRestricted("dynBadCfgCacheRT", true, false, true));
             }
         }, IgniteCheckedException.class, READ_THROUGH_ERR_MSG);
@@ -968,7 +968,7 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
         // Dynamic cache start-up failure (interceptor)
         GridTestUtils.assertThrowsAnyCause(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                return grid(NODE_CLIENT).createCache(
+                return ignite(NODE_CLIENT).createCache(
                     buildCacheConfigurationRestricted("dynBadCfgCacheINT", false, true, true));
             }
         }, IgniteCheckedException.class, INTERCEPTOR_ERR_MSG);
@@ -1088,11 +1088,11 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
     private void executeForCache(CacheConfiguration ccfg, TestClosure clo, TransactionConcurrency concurrency,
         TransactionIsolation isolation) throws Exception {
 
-        Ignite ignite = grid(NODE_CLIENT);
+        Ignite ignite = ignite(NODE_CLIENT);
         executeForNodeAndCache(ccfg, ignite, clo, concurrency, isolation);
 
         for (int node = 0; node < NODE_COUNT; node++) {
-            ignite = grid(node);
+            ignite = ignite(node);
 
             executeForNodeAndCache(ccfg, ignite, clo, concurrency, isolation);
         }
@@ -1128,7 +1128,7 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
 
     /** */
     private List<List<?>> executeSql(String sqlText) throws Exception {
-        GridQueryProcessor qryProc = grid(NODE_CLIENT).context().query();
+        GridQueryProcessor qryProc = ignite(NODE_CLIENT).context().query();
 
         return qryProc.querySqlFields(new SqlFieldsQuery(sqlText), true).getAll();
     }
@@ -1139,19 +1139,19 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
             String cacheName = ccfg.getName();
 
             if (ccfg.getCacheMode() == CacheMode.LOCAL) {
-                grid(NODE_CLIENT).cache(cacheName).clear();
+                ignite(NODE_CLIENT).cache(cacheName).clear();
 
                 for (int node = 0; node < NODE_COUNT; node++)
-                    grid(node).cache(cacheName).clear();
+                    ignite(node).cache(cacheName).clear();
             }
             else {
                 if (ccfg.getCacheMode() == CacheMode.PARTITIONED && ccfg.getNearConfiguration() != null) {
-                    IgniteCache cache = grid(NODE_CLIENT).getOrCreateNearCache(cacheName, ccfg.getNearConfiguration());
+                    IgniteCache cache = ignite(NODE_CLIENT).getOrCreateNearCache(cacheName, ccfg.getNearConfiguration());
 
                     cache.clear();
                 }
 
-                grid(NODE_CLIENT).cache(cacheName).clear();
+                ignite(NODE_CLIENT).cache(cacheName).clear();
             }
         }
 
@@ -1160,12 +1160,12 @@ public class IgniteSqlNotNullConstraintTest extends AbstractIndexingCommonTest {
 
     /** */
     private void checkState(String schemaName, String tableName, String fieldName) {
-        IgniteEx client = grid(NODE_CLIENT);
+        IgniteEx client = ignite(NODE_CLIENT);
 
         checkNodeState(client, schemaName, tableName, fieldName);
 
         for (int i = 0; i < NODE_COUNT; i++)
-            checkNodeState(grid(i), schemaName, tableName, fieldName);
+            checkNodeState(ignite(i), schemaName, tableName, fieldName);
     }
 
     /** */

@@ -90,7 +90,7 @@ public class IgniteCacheNoClassQuerySelfTest extends GridCommonAbstractTest {
     @Test
     public void testNoClass() throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             fail();
         }

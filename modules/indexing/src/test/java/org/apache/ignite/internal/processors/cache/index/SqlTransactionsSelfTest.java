@@ -381,7 +381,7 @@ public class SqlTransactionsSelfTest extends AbstractSchemaSelfTest {
      * @return Node.
      */
     private IgniteEx node() {
-        return grid(0);
+        return ignite(0);
     }
 
     /**

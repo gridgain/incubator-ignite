@@ -57,7 +57,7 @@ public class GridMBeansTest extends GridCommonAbstractTest {
     /** Check that kernal bean is available */
     @Test
     public void testKernalBeans() throws Exception {
-        checkBean("Kernal", "IgniteKernal", "InstanceName", grid().name());
+        checkBean("Kernal", "IgniteKernal", "InstanceName", ignite().name());
         checkBean("Kernal", "ClusterMetricsMXBeanImpl", "TotalServerNodes", 1);
         checkBean("Kernal", "ClusterMetricsMXBeanImpl", "TotalServerNodes", 1);
     }
@@ -81,8 +81,8 @@ public class GridMBeansTest extends GridCommonAbstractTest {
 
     /** Checks that a bean with the specified group and name is available and has the expected attribute */
     private void checkBean(String grp, String name, String attributeName, Object expAttributeVal) throws Exception {
-        ObjectName mBeanName = IgniteUtils.makeMBeanName(grid().name(), grp, name);
-        Object attributeVal = grid().configuration().getMBeanServer().getAttribute(mBeanName, attributeName);
+        ObjectName mBeanName = IgniteUtils.makeMBeanName(ignite().name(), grp, name);
+        Object attributeVal = ignite().configuration().getMBeanServer().getAttribute(mBeanName, attributeName);
 
         assertEquals(expAttributeVal, attributeVal);
     }

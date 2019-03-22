@@ -134,7 +134,7 @@ public class CachePageWriteLockUnlockTest extends GridCommonAbstractTest {
         int c = 0, k = 0;
 
         while(c < total) {
-            if (grid(0).affinity(DEFAULT_CACHE_NAME).partition(k) == part) {
+            if (ignite(0).affinity(DEFAULT_CACHE_NAME).partition(k) == part) {
                 grid.cache(DEFAULT_CACHE_NAME).put(k, k);
 
                 c++;

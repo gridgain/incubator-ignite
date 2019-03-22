@@ -76,12 +76,12 @@ public class IgniteDynamicCacheWithConfigStartSelfTest extends GridCommonAbstrac
                 client.cache(CACHE_NAME).put(i, i);
 
             for (int i = 0; i < 100; i++)
-                assertEquals(i, grid(0).cache(CACHE_NAME).get(i));
+                assertEquals(i, ignite(0).cache(CACHE_NAME).get(i));
 
             client.cache(CACHE_NAME).removeAll();
 
             for (int i = 0; i < 100; i++)
-                assertNull(grid(0).cache(CACHE_NAME).get(i));
+                assertNull(ignite(0).cache(CACHE_NAME).get(i));
         }
         finally {
             stopAllGrids();

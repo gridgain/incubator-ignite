@@ -72,7 +72,7 @@ public class GridCacheQueryInternalKeysSelfTest extends GridCacheAbstractSelfTes
     @Test
     public void testInternalKeysPreloading() throws Exception {
         try {
-            IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < ENTRY_CNT; i++)
                 cache.put(new GridCacheQueueHeaderKey("queue" + i), 1);
@@ -82,7 +82,7 @@ public class GridCacheQueryInternalKeysSelfTest extends GridCacheAbstractSelfTes
             for (int i = 0; i < ENTRY_CNT; i++) {
                 GridCacheQueueHeaderKey internalKey = new GridCacheQueueHeaderKey("queue" + i);
 
-                Collection<ClusterNode> nodes = grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(internalKey);
+                Collection<ClusterNode> nodes = ignite(0).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(internalKey);
 
                 for (ClusterNode n : nodes) {
                     Ignite g = findGridForNodeId(n.id());

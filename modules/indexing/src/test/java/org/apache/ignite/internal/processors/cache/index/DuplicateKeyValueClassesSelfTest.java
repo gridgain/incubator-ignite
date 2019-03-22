@@ -39,7 +39,7 @@ public class DuplicateKeyValueClassesSelfTest extends AbstractIndexingCommonTest
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).destroyCache(CACHE_NAME);
+        ignite(0).destroyCache(CACHE_NAME);
     }
 
     /**
@@ -53,7 +53,7 @@ public class DuplicateKeyValueClassesSelfTest extends AbstractIndexingCommonTest
             .setName(CACHE_NAME)
             .setIndexedTypes(UUID.class, Clazz1.class, UUID.class, Clazz2.class);
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
     }
 
     /**
@@ -67,7 +67,7 @@ public class DuplicateKeyValueClassesSelfTest extends AbstractIndexingCommonTest
             .setName(CACHE_NAME)
             .setIndexedTypes(UUID.class, Clazz1.class, String.class, Clazz1.class);
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
     }
 
     /**

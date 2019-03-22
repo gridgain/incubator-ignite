@@ -109,9 +109,9 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
             seqNames[i] = UUID.randomUUID().toString();
 
         // Prepare mandatory sequences.
-        seqArr[0] = grid().atomicSequence(seqNames[0], 0, true);
-        seqArr[1] = grid().atomicSequence(seqNames[1], RND.nextLong(), true);
-        seqArr[2] = grid().atomicSequence(seqNames[2], -1 * RND.nextLong(), true);
+        seqArr[0] = ignite().atomicSequence(seqNames[0], 0, true);
+        seqArr[1] = ignite().atomicSequence(seqNames[1], RND.nextLong(), true);
+        seqArr[2] = ignite().atomicSequence(seqNames[2], -1 * RND.nextLong(), true);
 
         // Check and change batch size.
         for (IgniteAtomicSequence seq : seqArr) {
@@ -128,19 +128,19 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
     @Override protected void afterTestsStopped() throws Exception {
         // Remove mandatory sequences from cache.
         for (String seqName : seqNames) {
-            IgniteAtomicSequence seq = grid().atomicSequence(seqName, 0, false);
+            IgniteAtomicSequence seq = ignite().atomicSequence(seqName, 0, false);
 
             assertNotNull(seq);
 
             seq.close();
 
-            assertNull(grid().atomicSequence(seqName, 0, false));
+            assertNull(ignite().atomicSequence(seqName, 0, false));
         }
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteEx grid() {
-        return grid(0);
+    @Override protected IgniteEx ignite() {
+        return ignite(0);
     }
 
     /**
@@ -152,9 +152,9 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
         String locSeqName1 = UUID.randomUUID().toString();
         String locSeqName2 = UUID.randomUUID().toString();
 
-        IgniteAtomicSequence locSeq1 = grid().atomicSequence(locSeqName1, 0, true);
-        IgniteAtomicSequence locSeq2 = grid().atomicSequence(locSeqName2, 0, true);
-        IgniteAtomicSequence locSeq3 = grid().atomicSequence(locSeqName1, 0, true);
+        IgniteAtomicSequence locSeq1 = ignite().atomicSequence(locSeqName1, 0, true);
+        IgniteAtomicSequence locSeq2 = ignite().atomicSequence(locSeqName2, 0, true);
+        IgniteAtomicSequence locSeq3 = ignite().atomicSequence(locSeqName1, 0, true);
 
         assertNotNull(locSeq1);
         assertNotNull(locSeq2);
@@ -255,7 +255,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
      */
     @Test
     public void testGetAndAddInTx() throws Exception {
-        try (Transaction tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite().transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             for (int i = 1; i < MAX_LOOPS_NUM; i++) {
                 for (IgniteAtomicSequence seq : seqArr)
                     getAndAdd(seq, i);
@@ -276,14 +276,14 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
         String locSeqName2 = UUID.randomUUID().toString();
 
         // Sequence.
-        IgniteAtomicSequence locSeq1 = grid().atomicSequence(locSeqName1, 0, true);
+        IgniteAtomicSequence locSeq1 = ignite().atomicSequence(locSeqName1, 0, true);
 
         locSeq1.batchSize(1);
 
         // Sequence.
         long initVal = -1500;
 
-        IgniteAtomicSequence locSeq2 = grid().atomicSequence(locSeqName2, initVal, true);
+        IgniteAtomicSequence locSeq2 = ignite().atomicSequence(locSeqName2, initVal, true);
 
         locSeq2.batchSize(7);
 
@@ -327,7 +327,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
     public void testRemove() throws Exception {
         String locSeqName = UUID.randomUUID().toString();
 
-        IgniteAtomicSequence seq = grid().atomicSequence(locSeqName, 0, true);
+        IgniteAtomicSequence seq = ignite().atomicSequence(locSeqName, 0, true);
 
         seq.addAndGet(153);
 
@@ -349,19 +349,19 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
     @Test
     public void testCacheSets() throws Exception {
         // Make new atomic sequence in cache.
-        IgniteAtomicSequence seq = grid().atomicSequence(UUID.randomUUID().toString(), 0, true);
+        IgniteAtomicSequence seq = ignite().atomicSequence(UUID.randomUUID().toString(), 0, true);
 
         seq.incrementAndGet();
 
         final String cacheName = DataStructuresProcessor.ATOMICS_CACHE_NAME + "@default-ds-group";
 
-        GridCacheAdapter cache = ((IgniteKernal)grid()).internalCache(cacheName);
+        GridCacheAdapter cache = ((IgniteKernal)ignite()).internalCache(cacheName);
 
         assertNotNull(cache);
 
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
-                grid().cache(cacheName);
+                ignite().cache(cacheName);
 
                 return null;
             }
@@ -378,7 +378,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
      */
     @Test
     public void testMultipleStructuresInDifferentGroups() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         AtomicConfiguration cfg = new AtomicConfiguration().setGroupName("grp1");
 
@@ -420,7 +420,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
      */
     @Test
     public void testSequenceReserveSizeFromExplicitConfiguration() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteAtomicSequence seq = ignite.atomicSequence("seq",
             new AtomicConfiguration().setAtomicSequenceReserveSize(BATCH_SIZE + 1), 0, true);
@@ -510,7 +510,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
         String locSeqName = UUID.randomUUID().toString();
 
         // Sequence.
-        IgniteAtomicSequence locSeq = grid().atomicSequence(locSeqName, initVal, true);
+        IgniteAtomicSequence locSeq = ignite().atomicSequence(locSeqName, initVal, true);
 
         locSeq.batchSize(batchSize);
 
@@ -544,7 +544,7 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
         String locSeqName = UUID.randomUUID().toString();
 
         // Sequence.
-        final IgniteAtomicSequence locSeq = grid().atomicSequence(locSeqName, initVal,
+        final IgniteAtomicSequence locSeq = ignite().atomicSequence(locSeqName, initVal,
             true);
 
         locSeq.batchSize(batchSize);
@@ -638,12 +638,12 @@ public abstract class GridCacheSequenceApiSelfAbstractTest extends IgniteAtomics
      * @throws Exception If failed.
      */
     private void removeSequence(String name) throws Exception {
-        IgniteAtomicSequence seq = grid().atomicSequence(name, 0, false);
+        IgniteAtomicSequence seq = ignite().atomicSequence(name, 0, false);
 
         assertNotNull(seq);
 
         seq.close();
 
-        assertNull(grid().atomicSequence(name, 0, false));
+        assertNull(ignite().atomicSequence(name, 0, false));
     }
 }

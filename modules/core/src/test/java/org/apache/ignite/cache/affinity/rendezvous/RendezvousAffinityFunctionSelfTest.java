@@ -31,7 +31,7 @@ public class RendezvousAffinityFunctionSelfTest extends AbstractAffinityFunction
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        ignite = startGrid();
+        ignite = clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

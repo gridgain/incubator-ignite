@@ -181,7 +181,7 @@ public class HadoopTeraSortTest extends HadoopAbstractSelfTest {
 
         HadoopJobId jobId = new HadoopJobId(UUID.randomUUID(), 1);
 
-        IgniteInternalFuture<?> fut = grid(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
+        IgniteInternalFuture<?> fut = ignite(0).hadoop().submit(jobId, createJobInfo(job.getConfiguration(), null));
 
         fut.get();
     }

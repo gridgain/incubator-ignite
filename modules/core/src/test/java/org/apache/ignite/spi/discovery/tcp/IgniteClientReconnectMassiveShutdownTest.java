@@ -118,7 +118,7 @@ public class IgniteClientReconnectMassiveShutdownTest extends GridCommonAbstract
         final AtomicBoolean done = new AtomicBoolean();
 
         // Starting a cache dynamically.
-        Ignite client = grid(GRID_CNT);
+        Ignite client = ignite(GRID_CNT);
 
         assertTrue(client.configuration().isClientMode());
 
@@ -154,7 +154,7 @@ public class IgniteClientReconnectMassiveShutdownTest extends GridCommonAbstract
                     try {
                         int idx = clientIdx.take();
 
-                        Ignite ignite = grid(idx);
+                        Ignite ignite = ignite(idx);
 
                         Thread.currentThread().setName("client-thread-" + ignite.name());
 
@@ -230,11 +230,11 @@ public class IgniteClientReconnectMassiveShutdownTest extends GridCommonAbstract
                     @Override public Object call() throws Exception {
                         Thread.sleep(5_000);
 
-                        Ignite assassin = grid(assassins.take());
+                        Ignite assassin = ignite(assassins.take());
 
                         assertFalse(assassin.configuration().isClientMode());
 
-                        Ignite victim = grid(victims.take());
+                        Ignite victim = ignite(victims.take());
 
                         assertFalse(victim.configuration().isClientMode());
 
@@ -280,7 +280,7 @@ public class IgniteClientReconnectMassiveShutdownTest extends GridCommonAbstract
                 assertTrue("Servers was not stopped.", GridTestUtils.waitForCondition(() -> {
                     for (int i = 0; i < srvsToKill; i++) {
                         try {
-                            grid(i);
+                            ignite(i);
 
                             return false;
                         }

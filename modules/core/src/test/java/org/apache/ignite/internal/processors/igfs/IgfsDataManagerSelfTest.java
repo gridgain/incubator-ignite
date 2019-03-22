@@ -76,7 +76,7 @@ public class IgfsDataManagerSelfTest extends IgfsCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        IgfsEx igfs = (IgfsEx)grid(0).fileSystem("igfs");
+        IgfsEx igfs = (IgfsEx)ignite(0).fileSystem("igfs");
 
         mgr = igfs.context().data();
     }
@@ -123,9 +123,9 @@ public class IgfsDataManagerSelfTest extends IgfsCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (int i = 0; i < NODES_CNT; i++) {
-            grid(i).cachex(grid(i).igfsx("igfs").configuration().getMetaCacheConfiguration().getName()).clear();
+            ignite(i).cachex(ignite(i).igfsx("igfs").configuration().getMetaCacheConfiguration().getName()).clear();
 
-            grid(i).cachex(grid(i).igfsx("igfs").configuration().getDataCacheConfiguration().getName()).clear();
+            ignite(i).cachex(ignite(i).igfsx("igfs").configuration().getDataCacheConfiguration().getName()).clear();
         }
     }
 
@@ -179,7 +179,7 @@ public class IgfsDataManagerSelfTest extends IgfsCommonAbstractTest {
 
             for (int j = 0; j < NODES_CNT; j++) {
                 GridCacheContext<Object, Object> ctx = GridTestUtils.getFieldValue(
-                    grid(j).cachex(grid(j).igfsx("igfs").configuration().getDataCacheConfiguration().getName()),
+                    ignite(j).cachex(ignite(j).igfsx("igfs").configuration().getDataCacheConfiguration().getName()),
                     "ctx");
                 Collection<IgniteInternalTx> txs = ctx.tm().activeTransactions();
 
@@ -272,8 +272,8 @@ public class IgfsDataManagerSelfTest extends IgfsCommonAbstractTest {
             fut.get(3000);
 
             for (int j = 0; j < NODES_CNT; j++) {
-                GridCacheContext<Object, Object> ctx = GridTestUtils.getFieldValue(grid(j).cachex(
-                    grid(j).igfsx("igfs").configuration().getDataCacheConfiguration().getName()),
+                GridCacheContext<Object, Object> ctx = GridTestUtils.getFieldValue(ignite(j).cachex(
+                    ignite(j).igfsx("igfs").configuration().getDataCacheConfiguration().getName()),
                     "ctx");
                 Collection<IgniteInternalTx> txs = ctx.tm().activeTransactions();
 
@@ -359,7 +359,7 @@ public class IgfsDataManagerSelfTest extends IgfsCommonAbstractTest {
 
             for (int j = 0; j < NODES_CNT; j++) {
                 GridCacheContext<Object, Object> ctx = GridTestUtils.getFieldValue(
-                    grid(j).cachex(grid(j).igfsx("igfs").configuration().getDataCacheConfiguration().getName()),
+                    ignite(j).cachex(ignite(j).igfsx("igfs").configuration().getDataCacheConfiguration().getName()),
                     "ctx");
                 Collection<IgniteInternalTx> txs = ctx.tm().activeTransactions();
 
@@ -467,7 +467,7 @@ public class IgfsDataManagerSelfTest extends IgfsCommonAbstractTest {
             do {
                 IgfsBlockKey key = new IgfsBlockKey(info.id(), null, false, block);
 
-                ClusterNode affNode = grid(0).affinity(grid(0).igfsx("igfs").configuration()
+                ClusterNode affNode = ignite(0).affinity(ignite(0).igfsx("igfs").configuration()
                     .getDataCacheConfiguration().getName()).mapKeyToNode(key);
 
                 assertTrue("Failed to find node in affinity [dataMgr=" + loc.nodeIds() +
@@ -544,7 +544,7 @@ public class IgfsDataManagerSelfTest extends IgfsCommonAbstractTest {
                 IgfsBlockKey key = new IgfsBlockKey(info.id(),
                     info.fileMap().affinityKey(block * blockSize, false), false, block);
 
-                ClusterNode affNode = grid(0).affinity(grid(0).igfsx("igfs").configuration()
+                ClusterNode affNode = ignite(0).affinity(ignite(0).igfsx("igfs").configuration()
                     .getDataCacheConfiguration().getName()).mapKeyToNode(key);
 
                 assertTrue("Failed to find node in affinity [dataMgr=" + loc.nodeIds() +

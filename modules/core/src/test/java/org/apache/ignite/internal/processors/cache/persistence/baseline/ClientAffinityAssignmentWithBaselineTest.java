@@ -336,7 +336,7 @@ public class ClientAffinityAssignmentWithBaselineTest extends GridCommonAbstract
 
         List<BaselineNode> fullBlt = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NODES_COUNT; i++)
-            fullBlt.add(grid(i).localNode());
+            fullBlt.add(ignite(i).localNode());
 
         stopGrid(DEFAULT_NODES_COUNT - 1, true);
         stopGrid(DEFAULT_NODES_COUNT - 2, true);
@@ -465,7 +465,7 @@ public class ClientAffinityAssignmentWithBaselineTest extends GridCommonAbstract
 
         List<BaselineNode> fullBlt = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NODES_COUNT; i++)
-            fullBlt.add(grid(i).localNode());
+            fullBlt.add(ignite(i).localNode());
 
         stopGrid(DEFAULT_NODES_COUNT - 1, true);
         stopGrid(DEFAULT_NODES_COUNT - 2, true);

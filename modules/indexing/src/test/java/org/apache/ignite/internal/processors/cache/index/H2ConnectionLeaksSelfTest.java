@@ -77,7 +77,7 @@ public class H2ConnectionLeaksSelfTest extends AbstractIndexingCommonTest {
     public void testConnectionLeaks() throws Exception {
         startGridAndPopulateCache(NODE_CNT);
 
-        final IgniteCache cache = grid(1).cache(CACHE_NAME);
+        final IgniteCache cache = ignite(1).cache(CACHE_NAME);
 
         final CountDownLatch latch = new CountDownLatch(THREAD_CNT);
 
@@ -112,7 +112,7 @@ public class H2ConnectionLeaksSelfTest extends AbstractIndexingCommonTest {
             new Thread() {
                 @Override public void run() {
                     try {
-                        IgniteH2Indexing idx = (IgniteH2Indexing)grid(1).context().query().getIndexing();
+                        IgniteH2Indexing idx = (IgniteH2Indexing)ignite(1).context().query().getIndexing();
 
                         idx.connections().executeStatement(CACHE_NAME, "select *");
                     }
@@ -150,7 +150,7 @@ public class H2ConnectionLeaksSelfTest extends AbstractIndexingCommonTest {
         for (int i = 0; i < ITERS; ++i) {
             startGridAndPopulateCache(1);
 
-            IgniteCache cache = grid(0).cache(CACHE_NAME);
+            IgniteCache cache = ignite(0).cache(CACHE_NAME);
 
             // Execute unfinished & finished queries.
             cache.query(new SqlFieldsQuery("select * from String").setLocal(true)).iterator().next();
@@ -203,7 +203,7 @@ public class H2ConnectionLeaksSelfTest extends AbstractIndexingCommonTest {
      * @return Per-thread connections.
      */
     private Map<Thread, ?> perThreadConnections(int nodeIdx) {
-        return ((IgniteH2Indexing)grid(nodeIdx).context().query().getIndexing()).connections().connectionsForThread();
+        return ((IgniteH2Indexing)ignite(nodeIdx).context().query().getIndexing()).connections().connectionsForThread();
     }
 
     /**
@@ -213,7 +213,7 @@ public class H2ConnectionLeaksSelfTest extends AbstractIndexingCommonTest {
     private void startGridAndPopulateCache(int nodes) throws Exception {
         startGrids(NODE_CNT);
 
-        IgniteCache<Long, String> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Long, String> cache = ignite(0).cache(CACHE_NAME);
 
         for (int i = 0; i < KEY_CNT; i++)
             cache.put((long)i, String.valueOf(i));

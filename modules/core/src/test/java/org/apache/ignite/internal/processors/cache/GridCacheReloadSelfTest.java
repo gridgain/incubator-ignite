@@ -191,7 +191,7 @@ public class GridCacheReloadSelfTest extends GridCommonAbstractTest {
      * @throws Exception If error occurs.
      */
     private void doTest() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         try {
             IgniteCache<Integer, Integer> cache = ignite.cache(CACHE_NAME);

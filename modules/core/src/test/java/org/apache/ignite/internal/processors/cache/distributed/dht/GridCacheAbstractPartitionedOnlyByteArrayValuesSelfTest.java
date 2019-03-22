@@ -76,7 +76,7 @@ public abstract class GridCacheAbstractPartitionedOnlyByteArrayValuesSelfTest ex
         cachesAtomic = new IgniteCache[gridCnt];
 
         for (int i = 0; i < gridCount(); i++)
-            cachesAtomic[i] = grid(i).cache(ATOMIC_CACHE);
+            cachesAtomic[i] = ignite(i).cache(ATOMIC_CACHE);
     }
 
     /** {@inheritDoc} */

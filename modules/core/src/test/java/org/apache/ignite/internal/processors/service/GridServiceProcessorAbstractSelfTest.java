@@ -139,7 +139,7 @@ public abstract class GridServiceProcessorAbstractSelfTest extends GridCommonAbs
      * @return Random grid.
      */
     protected IgniteEx randomGrid() {
-        return grid(RAND.nextInt(nodeCount()));
+        return ignite(RAND.nextInt(nodeCount()));
     }
 
     /**
@@ -298,7 +298,7 @@ public abstract class GridServiceProcessorAbstractSelfTest extends GridCommonAbs
                 int cnt = 0;
 
                 for (int i = 0; i < nodeCount(); i++) {
-                    Collection<DummyService> svcs = grid(i).services().services(name);
+                    Collection<DummyService> svcs = ignite(i).services().services(name);
 
                     if (svcs != null)
                         cnt += svcs.size();

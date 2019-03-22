@@ -97,11 +97,11 @@ public class JdbcConnectionSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNodeId() throws Exception {
-        String url = URL_PREFIX + HOST + "/?nodeId=" + grid(0).localNode().id();
+        String url = URL_PREFIX + HOST + "/?nodeId=" + ignite(0).localNode().id();
 
         assert DriverManager.getConnection(url) != null;
 
-        url = URL_PREFIX + HOST + "/" + CUSTOM_CACHE_NAME + "?nodeId=" + grid(0).localNode().id();
+        url = URL_PREFIX + HOST + "/" + CUSTOM_CACHE_NAME + "?nodeId=" + ignite(0).localNode().id();
 
         assert DriverManager.getConnection(url) != null;
     }

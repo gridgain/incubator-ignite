@@ -33,7 +33,7 @@ public class GridCacheBinaryAtomicEntryProcessorDeploymentSelfTest
     extends GridCacheAtomicEntryProcessorDeploymentSelfTest {
     /** {@inheritDoc} */
     @Override protected IgniteCache getCache() {
-        return grid(1).cache(DEFAULT_CACHE_NAME).withKeepBinary();
+        return ignite(1).cache(DEFAULT_CACHE_NAME).withKeepBinary();
     }
 
     /** {@inheritDoc} */
@@ -92,13 +92,13 @@ public class GridCacheBinaryAtomicEntryProcessorDeploymentSelfTest
             clientMode = true;
             startGrid(1);
 
-            Class valCls = grid(1).configuration().getClassLoader().loadClass(TEST_VALUE);
+            Class valCls = ignite(1).configuration().getClassLoader().loadClass(TEST_VALUE);
 
-            assertTrue(grid(1).configuration().isClientMode());
-            assertFalse(grid(0).configuration().isClientMode());
+            assertTrue(ignite(1).configuration().isClientMode());
+            assertFalse(ignite(0).configuration().isClientMode());
 
-            IgniteCache cache1 = grid(1).cache(DEFAULT_CACHE_NAME);
-            IgniteCache cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache cache1 = ignite(1).cache(DEFAULT_CACHE_NAME);
+            IgniteCache cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             if (withKeepBinary) {
                 cache1 = cache1.withKeepBinary();

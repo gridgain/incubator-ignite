@@ -60,7 +60,7 @@ public class IgniteTxConcurrentRemoveObjectsTest extends GridCommonAbstractTest 
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).destroyCache(DEFAULT_CACHE_NAME);
+        ignite(0).destroyCache(DEFAULT_CACHE_NAME);
 
         super.afterTest();
     }
@@ -114,7 +114,7 @@ public class IgniteTxConcurrentRemoveObjectsTest extends GridCommonAbstractTest 
      */
     public void checkTxLeavesObjectsInLocalPartition(CacheConfiguration<Integer, String> ccfg,
         TransactionConcurrency optimistic, TransactionIsolation isolation) throws Exception {
-        IgniteEx igniteEx = grid(0);
+        IgniteEx igniteEx = ignite(0);
 
         igniteEx.getOrCreateCache(ccfg);
 

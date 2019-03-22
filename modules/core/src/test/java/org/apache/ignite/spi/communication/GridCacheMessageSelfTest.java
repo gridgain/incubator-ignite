@@ -146,8 +146,8 @@ public class GridCacheMessageSelfTest extends GridCommonAbstractTest {
         try {
             startGrids(2);
 
-            Ignite ignite0 = grid(0);
-            Ignite ignite1 = grid(1);
+            Ignite ignite0 = ignite(0);
+            Ignite ignite1 = ignite(1);
 
             ((IgniteKernal)ignite0).context().cache().context().io().addCacheHandler(
                 0, TestBadMessage.class, new CI2<UUID, GridCacheMessage>() {
@@ -179,8 +179,8 @@ public class GridCacheMessageSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void doSend() throws Exception {
-        GridIoManager mgr0 = ((IgniteKernal)grid(0)).context().io();
-        GridIoManager mgr1 = ((IgniteKernal)grid(1)).context().io();
+        GridIoManager mgr0 = ((IgniteKernal)ignite(0)).context().io();
+        GridIoManager mgr1 = ((IgniteKernal)ignite(1)).context().io();
 
         String topic = "test-topic";
 
@@ -208,7 +208,7 @@ public class GridCacheMessageSelfTest extends GridCommonAbstractTest {
 
                         assertEquals(TEST_BODY + "_" + i + "_2", msg2.body());
 
-                        assertEquals(grid(0).localNode().id(), msg2.nodeId());
+                        assertEquals(ignite(0).localNode().id(), msg2.nodeId());
 
                         assertEquals(i, msg2.id());
 
@@ -216,7 +216,7 @@ public class GridCacheMessageSelfTest extends GridCommonAbstractTest {
 
                         assertEquals(count, msg3.getMsgId());
 
-                        assertEquals(grid(1).localNode().id(), msg3.getSourceNodeId());
+                        assertEquals(ignite(1).localNode().id(), msg3.getSourceNodeId());
 
                         count++;
                     }
@@ -232,8 +232,8 @@ public class GridCacheMessageSelfTest extends GridCommonAbstractTest {
         for (int i = 0; i < 10; i++) {
             TestMessage2 mes1 = new TestMessage2();
 
-            mes1.init(new GridTestMessage(grid(1).localNode().id(), i, 0),
-                grid(0).localNode().id(), i, TEST_BODY + "_" + i + "_2");
+            mes1.init(new GridTestMessage(ignite(1).localNode().id(), i, 0),
+                ignite(0).localNode().id(), i, TEST_BODY + "_" + i + "_2");
 
             TestMessage1 mes2 = new TestMessage1();
 
@@ -242,7 +242,7 @@ public class GridCacheMessageSelfTest extends GridCommonAbstractTest {
             msg.add(mes2);
         }
 
-        mgr0.sendToCustomTopic(grid(1).localNode(), topic, msg, GridIoPolicy.PUBLIC_POOL);
+        mgr0.sendToCustomTopic(ignite(1).localNode(), topic, msg, GridIoPolicy.PUBLIC_POOL);
 
         assert latch.await(3, SECONDS);
     }

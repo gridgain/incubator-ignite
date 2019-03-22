@@ -212,7 +212,7 @@ public class IgniteCacheIncrementTxTest extends GridCommonAbstractTest {
             @Override public Void call() throws Exception {
                 int node = threadIdx.incrementAndGet() % nodes;
 
-                Ignite ignite = grid(node);
+                Ignite ignite = ignite(node);
 
                 Thread.currentThread().setName("update-" + ignite.name());
 

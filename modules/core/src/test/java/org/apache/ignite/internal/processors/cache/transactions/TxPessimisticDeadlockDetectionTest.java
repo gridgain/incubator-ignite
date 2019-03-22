@@ -183,7 +183,7 @@ public class TxPessimisticDeadlockDetectionTest extends AbstractDeadlockDetectio
         throws IgniteInterruptedCheckedException, InterruptedException {
         awaitPartitionMapExchange();
 
-        int minorTopVer = grid(0).context().discovery().topologyVersionEx().minorTopologyVersion();
+        int minorTopVer = ignite(0).context().discovery().topologyVersionEx().minorTopologyVersion();
 
         CacheConfiguration ccfg = defaultCacheConfiguration();
 
@@ -304,7 +304,7 @@ public class TxPessimisticDeadlockDetectionTest extends AbstractDeadlockDetectio
                         ((IgniteCacheProxy)cache).context().affinity().primaryByKey(key, NONE);
 
                     List<Object> primaryKeys =
-                        primaryKeys(grid(primaryNode).cache(CACHE_NAME), 5, incrementKey(key, 100 * threadNum));
+                        primaryKeys(ignite(primaryNode).cache(CACHE_NAME), 5, incrementKey(key, 100 * threadNum));
 
                     Map<Object, Integer> entries = new HashMap<>();
 

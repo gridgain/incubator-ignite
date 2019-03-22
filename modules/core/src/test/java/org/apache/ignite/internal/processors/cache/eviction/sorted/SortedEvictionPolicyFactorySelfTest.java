@@ -46,7 +46,7 @@ public class SortedEvictionPolicyFactorySelfTest extends EvictionPolicyFactoryAb
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1", "1");
             MockEntry e2 = new MockEntry("2", "2");
@@ -159,7 +159,7 @@ public class SortedEvictionPolicyFactorySelfTest extends EvictionPolicyFactoryAb
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1", "1");
             MockEntry e2 = new MockEntry("2", "2");

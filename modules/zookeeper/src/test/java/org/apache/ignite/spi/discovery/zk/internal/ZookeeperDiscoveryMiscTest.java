@@ -232,11 +232,11 @@ public class ZookeeperDiscoveryMiscTest extends ZookeeperDiscoverySpiTestBase {
 
         MBeanServer srv = ManagementFactory.getPlatformMBeanServer();
 
-        UUID crdNodeId = grid(0).localNode().id();
+        UUID crdNodeId = ignite(0).localNode().id();
 
         try {
             for (int i = 0; i < 3; i++) {
-                IgniteEx grid = grid(i);
+                IgniteEx grid = ignite(i);
 
                 ObjectName spiName = U.makeMBeanName(grid.context().igniteInstanceName(), "SPIs",
                     ZookeeperDiscoverySpi.class.getSimpleName());

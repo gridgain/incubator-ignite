@@ -184,7 +184,7 @@ public class CacheMetricsEntitiesCountTest extends GridCommonAbstractTest {
     private void fillCache(int igniteIdx, int cacheIdx) {
         log.info("Filling cache, igniteIdx=" + igniteIdx + ", cacheIdx=" + cacheIdx);
 
-        IgniteCache cache = grid(igniteIdx).cache(CACHE_PREFIX + cacheIdx);
+        IgniteCache cache = ignite(igniteIdx).cache(CACHE_PREFIX + cacheIdx);
 
         for (int i = 0; i < ENTITIES_CNT; i++)
             cache.put("key" + igniteIdx + "-" + i, i);
@@ -195,7 +195,7 @@ public class CacheMetricsEntitiesCountTest extends GridCommonAbstractTest {
      * @param cacheIdx Cache index.
      */
     private void checkCacheLocalMetrics(int igniteIdx, int cacheIdx) throws IgniteCheckedException {
-        IgniteInternalCache internalCache = grid(igniteIdx).cachex(CACHE_PREFIX + cacheIdx);
+        IgniteInternalCache internalCache = ignite(igniteIdx).cachex(CACHE_PREFIX + cacheIdx);
 
         GridCacheContext cctx = internalCache.context();
 
@@ -257,7 +257,7 @@ public class CacheMetricsEntitiesCountTest extends GridCommonAbstractTest {
         boolean isEmptySum = true;
 
         for (int igniteIdx = 0; igniteIdx < GRID_CNT; igniteIdx++) {
-            IgniteCache cache = grid(igniteIdx).cache(CACHE_PREFIX + cacheIdx);
+            IgniteCache cache = ignite(igniteIdx).cache(CACHE_PREFIX + cacheIdx);
 
             CacheMetrics metrics = cache.metrics();
 

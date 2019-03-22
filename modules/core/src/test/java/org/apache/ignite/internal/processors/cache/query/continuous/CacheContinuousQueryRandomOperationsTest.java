@@ -147,7 +147,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
             ATOMIC,
             false);
 
-        grid(0).createCache(ccfg);
+        ignite(0).createCache(ccfg);
 
         try {
             final ContinuousQuery qry = new ContinuousQuery();
@@ -172,13 +172,13 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
 
             GridTestUtils.assertThrows(log, new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    return grid(0).cache(ccfg.getName()).query(qry);
+                    return ignite(0).cache(ccfg.getName()).query(qry);
                 }
             }, IgniteException.class, null);
 
         }
         finally {
-            grid(0).destroyCache(ccfg.getName());
+            ignite(0).destroyCache(ccfg.getName());
         }
     }
 
@@ -574,7 +574,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
      * @throws Exception If failed.
      */
     private void singleOperation(CacheConfiguration ccfg) throws Exception {
-        IgniteCache<QueryTestKey, QueryTestValue> cache = grid(getClientIndex()).createCache(ccfg);
+        IgniteCache<QueryTestKey, QueryTestValue> cache = ignite(getClientIndex()).createCache(ccfg);
 
         try {
             AbstractContinuousQuery<QueryTestKey, QueryTestValue> qry = createQuery();
@@ -696,7 +696,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
             }
         }
         finally {
-            grid(getClientIndex()).destroyCache(ccfg.getName());
+            ignite(getClientIndex()).destroyCache(ccfg.getName());
         }
     }
 
@@ -712,7 +712,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
      * @throws Exception If failed.
      */
     private void batchOperation(CacheConfiguration ccfg) throws Exception {
-        IgniteCache<QueryTestKey, QueryTestValue> cache = grid(getClientIndex()).createCache(ccfg);
+        IgniteCache<QueryTestKey, QueryTestValue> cache = ignite(getClientIndex()).createCache(ccfg);
 
         try {
             AbstractContinuousQuery<QueryTestKey, QueryTestValue> qry = createQuery();
@@ -797,7 +797,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
             }
         }
         finally {
-            grid(getClientIndex()).destroyCache(ccfg.getName());
+            ignite(getClientIndex()).destroyCache(ccfg.getName());
         }
     }
 
@@ -1093,7 +1093,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
 
                 evtsQueues.add(evtsQueue);
 
-                QueryCursor<?> cur = grid(getClientIndex()).cache(ccfg.getName()).query(qry);
+                QueryCursor<?> cur = ignite(getClientIndex()).cache(ccfg.getName()).query(qry);
 
                 curs.add(cur);
             }
@@ -1118,7 +1118,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
 
                 evtsQueues.add(evtsQueue);
 
-                QueryCursor<?> cur = grid(rnd.nextInt(getServerNodeCount())).cache(ccfg.getName()).query(qry);
+                QueryCursor<?> cur = ignite(rnd.nextInt(getServerNodeCount())).cache(ccfg.getName()).query(qry);
 
                 curs.add(cur);
             }
@@ -1160,7 +1160,7 @@ public class CacheContinuousQueryRandomOperationsTest extends GridCommonAbstract
                         log.info("Iteration: " + i);
 
                     for (int idx = 0; idx < getServerNodeCount(); idx++)
-                        randomUpdate(rnd, evtsQueues, expData, partCntr, grid(idx).cache(ccfg.getName()));
+                        randomUpdate(rnd, evtsQueues, expData, partCntr, ignite(idx).cache(ccfg.getName()));
                 }
             }
             finally {

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.Test;
@@ -723,27 +724,24 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
         try {
             final byte[] data = createMessage();
 
-            multithreaded(new Runnable() {
-                @Override public void run() {
-                    TestClient client = null;
+            GridTestUtils.runMultiThreaded(() -> {
+                TestClient client = null;
 
-                    try {
-                        client = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost());
+                try {
+                    client = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost());
 
-                        for (int i = 0; i < MSG_CNT; i++)
-                            client.sendMessage(data, data.length);
-                    }
-                    catch (Exception e) {
-                        error("Failed to send message.", e);
-
-                        assert false : "Message sending failed: " + e;
-                    }
-                    finally {
-                        if (client != null)
-                            client.close();
-                    }
+                    for (int i = 0; i < MSG_CNT; i++)
+                        client.sendMessage(data, data.length);
                 }
+                catch (Exception e) {
+                    error("Failed to send message.", e);
 
+                    assert false : "Message sending failed: " + e;
+                }
+                finally {
+                    if (client != null)
+                        client.close();
+                }
             }, THREAD_CNT, "sender");
 
             assert latch.await(30, SECONDS);
@@ -874,40 +872,37 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
         final GridNioServer<?> srvr = startServer(new GridBufferedParser(true, ByteOrder.nativeOrder()), lsnr);
 
         try {
-            multithreaded(new Runnable() {
-                @Override public void run() {
-                    TestClient client = null;
+            GridTestUtils.runMultiThreaded(() -> {
+                TestClient client = null;
 
-                    try {
-                        client = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost());
+                try {
+                    client = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost());
 
-                        while (cntr.getAndIncrement() < MSG_CNT * THREAD_CNT) {
-                            MessageWithId msg = new MessageWithId(idProvider.getAndIncrement());
+                    while (cntr.getAndIncrement() < MSG_CNT * THREAD_CNT) {
+                        MessageWithId msg = new MessageWithId(idProvider.getAndIncrement());
 
-                            byte[] data = serializeMessage(msg);
+                        byte[] data = serializeMessage(msg);
 
-                            long start = System.currentTimeMillis();
+                        long start = System.currentTimeMillis();
 
-                            deliveryDurations.put(msg.getId(), start);
+                        deliveryDurations.put(msg.getId(), start);
 
-                            client.sendMessage(data, data.length);
+                        client.sendMessage(data, data.length);
 
-                            long end = System.currentTimeMillis();
+                        long end = System.currentTimeMillis();
 
-                            sndTimes.put(msg.getId(), end - start);
-                        }
-                    }
-                    catch (Exception e) {
-                        error("Failed to send message.", e);
-
-                        assert false : "Message sending failed: " + e;
-                    }
-                    finally {
-                        if (client != null)
-                            client.close();
+                        sndTimes.put(msg.getId(), end - start);
                     }
                 }
+                catch (Exception e) {
+                    error("Failed to send message.", e);
 
+                    assert false : "Message sending failed: " + e;
+                }
+                finally {
+                    if (client != null)
+                        client.close();
+                }
             }, THREAD_CNT, "sender");
 
             assert latch.await(30, SECONDS);
@@ -958,25 +953,23 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
         srvr.idleTimeout(1000);
 
         try {
-            multithreaded(new Runnable() {
-                @Override public void run() {
-                    try (TestClient ignored = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost())) {
-                        info("Before sleep.");
+            GridTestUtils.runMultiThreaded(() -> {
+                try (TestClient ignored = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost())) {
+                    info("Before sleep.");
 
-                        U.sleep(4000);
+                    U.sleep(4000);
 
-                        info("After sleep.");
-                    }
-                    catch (Exception e) {
-                        error("Failed to create client: " + e.getMessage());
-
-                        fail("Failed to create client: " + e.getMessage());
-                    }
-                    finally {
-                        info("Test thread finished.");
-                    }
+                    info("After sleep.");
                 }
-            }, sesCnt);
+                catch (Exception e) {
+                    error("Failed to create client: " + e.getMessage());
+
+                    fail("Failed to create client: " + e.getMessage());
+                }
+                finally {
+                    info("Test thread finished.");
+                }
+            }, sesCnt, getTestIgniteInstanceName());
 
             assert latch.await(30, SECONDS);
         }
@@ -1034,25 +1027,24 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
         srvr.writeTimeout(500);
 
         try {
-            multithreaded(new Runnable() {
-                @Override public void run() {
-                    try (TestClient ignored = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost())) {
-                        info("Before sleep.");
+            GridTestUtils.runMultiThreaded(() -> {
+                try (TestClient ignored = createClient(U.getLocalHost(), srvr.port(), U.getLocalHost())) {
+                    info("Before sleep.");
 
-                        U.sleep(4000);
+                    U.sleep(4000);
 
-                        info("After sleep.");
-                    }
-                    catch (Exception e) {
-                        error("Failed to create client: ", e);
-
-                        fail("Failed to create client: " + e.getMessage());
-                    }
-                    finally {
-                        info("Test thread finished.");
-                    }
+                    info("After sleep.");
                 }
-            }, sesCnt);
+                catch (Exception e) {
+                    error("Failed to create client: ", e);
+
+                    fail("Failed to create client: " + e.getMessage());
+                }
+                finally {
+                    info("Test thread finished.");
+                }
+
+            }, sesCnt, getTestIgniteInstanceName());
 
             assert latch.await(30, SECONDS);
         }

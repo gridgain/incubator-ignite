@@ -223,7 +223,7 @@ public class GridCacheVersionMultinodeTest extends GridCacheAbstractSelfTest {
         boolean verified = false;
 
         for (int i = 0; i < gridCount(); i++) {
-            IgniteKernal grid = (IgniteKernal)grid(i);
+            IgniteKernal grid = (IgniteKernal)ignite(i);
 
             GridCacheAdapter<Object, Object> cache = grid.context().cache().internalCache(DEFAULT_CACHE_NAME);
 

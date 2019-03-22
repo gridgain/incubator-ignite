@@ -109,7 +109,7 @@ public class IgnitePdsCacheIntegrationTest extends GridCommonAbstractTest {
         startGrids(GRID_CNT);
 
         try {
-            IgniteEx ig = grid(0);
+            IgniteEx ig = ignite(0);
 
             ig.active(true);
 
@@ -126,7 +126,7 @@ public class IgnitePdsCacheIntegrationTest extends GridCommonAbstractTest {
         startGrids(GRID_CNT);
 
         try {
-            IgniteEx ig = grid(0);
+            IgniteEx ig = ignite(0);
 
             ig.active(true);
 
@@ -145,7 +145,7 @@ public class IgnitePdsCacheIntegrationTest extends GridCommonAbstractTest {
         startGrids(4);
 
         try {
-            final IgniteEx grid = grid(0);
+            final IgniteEx grid = ignite(0);
 
             grid.active(true);
 
@@ -182,7 +182,7 @@ public class IgnitePdsCacheIntegrationTest extends GridCommonAbstractTest {
         }
 
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteEx ignite = grid(i);
+            IgniteEx ignite = ignite(i);
 
             GridCacheAdapter<Object, Object> cache0 = ignite.context().cache().internalCache(CACHE_NAME);
 

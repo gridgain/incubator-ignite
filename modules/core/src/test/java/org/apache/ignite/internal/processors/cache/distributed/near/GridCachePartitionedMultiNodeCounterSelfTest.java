@@ -168,7 +168,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         List<Ignite> ignites = new ArrayList<>();
 
         for (int i = 0; i < max; i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
             if (!U.containsObjectArray(exclude, g))
                 ignites.add(g);
@@ -236,7 +236,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         X.println("*** Retries: " + RETRIES);
         X.println("*** Log frequency: " + LOG_FREQ);
 
-        Affinity<String> aff = affinity(grid(0).<String, Integer>cache(DEFAULT_CACHE_NAME));
+        Affinity<String> aff = affinity(ignite(0).<String, Integer>cache(DEFAULT_CACHE_NAME));
 
         Collection<ClusterNode> affNodes = aff.mapKeyToPrimaryAndBackups(CNTR_KEY);
 
@@ -482,12 +482,12 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         Map<String, Integer> cntrs = new HashMap<>();
 
         for (int i = 0; i < gridCnt; i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
             dht(g).context().tm().printMemoryStats();
             near(g).context().tm().printMemoryStats();
 
-            IgniteCache<String, Integer> cache = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> cache = ignite(i).cache(DEFAULT_CACHE_NAME);
 
             int cntr = nearThreads > 0 && nears.contains(g) ? cache.get(CNTR_KEY) : cache.localPeek(CNTR_KEY);
 
@@ -534,7 +534,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
      * @throws Exception If failed.
      */
     private void checkNearAndPrimaryMultiNode(int gridCnt) throws Exception {
-        Affinity<String> aff = affinity(grid(0).<String, Integer>cache(DEFAULT_CACHE_NAME));
+        Affinity<String> aff = affinity(ignite(0).<String, Integer>cache(DEFAULT_CACHE_NAME));
 
         Collection<ClusterNode> affNodes = aff.mapKeyToPrimaryAndBackups(CNTR_KEY);
 
@@ -567,9 +567,9 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         info("*** ");
 
         for (int i = 0; i < gridCnt; i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
-            IgniteCache<String, Integer> cache = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<String, Integer> cache = ignite(i).cache(DEFAULT_CACHE_NAME);
 
             int cntr = cache.localPeek(CNTR_KEY);
 

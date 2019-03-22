@@ -43,12 +43,12 @@ public class IgniteTxReentryColocatedSelfTest extends IgniteTxReentryAbstractSel
     @Override protected int testKey() {
         int key = 0;
 
-        IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         while (true) {
             Collection<ClusterNode> nodes = affinity(cache).mapKeyToPrimaryAndBackups(key);
 
-            if (nodes.contains(grid(0).localNode()))
+            if (nodes.contains(ignite(0).localNode()))
                 key++;
             else
                 break;

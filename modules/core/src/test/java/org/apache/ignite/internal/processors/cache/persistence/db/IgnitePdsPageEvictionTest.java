@@ -94,7 +94,7 @@ public class IgnitePdsPageEvictionTest extends GridCommonAbstractTest {
      */
     @Test
     public void testPageEvictionSql() throws Exception {
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         ig.active(true);
 

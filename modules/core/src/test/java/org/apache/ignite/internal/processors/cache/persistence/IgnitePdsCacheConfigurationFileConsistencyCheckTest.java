@@ -140,7 +140,7 @@ public class IgnitePdsCacheConfigurationFileConsistencyCheckTest extends GridCom
         startGrids(NODES);
 
         for (int i = 0; i < NODES; i++) {
-            IgniteEx ig = grid(i);
+            IgniteEx ig = ignite(i);
 
             GridCacheSharedContext sharedCtx = ig.context().cache().context();
 
@@ -189,7 +189,7 @@ public class IgnitePdsCacheConfigurationFileConsistencyCheckTest extends GridCom
      */
     private void storeInvalidCacheData(DynamicCacheDescriptor cacheDescr) throws IgniteCheckedException {
         for (int i = 0; i < NODES; i++) {
-            IgniteEx ig = grid(i);
+            IgniteEx ig = ignite(i);
 
             GridCacheSharedContext sharedCtx = ig.context().cache().context();
 
@@ -213,7 +213,7 @@ public class IgnitePdsCacheConfigurationFileConsistencyCheckTest extends GridCom
         Marshaller marshaller = new JdkMarshaller();
 
         for (int i = 0; i < NODES; i++) {
-            IgniteEx ig = grid(i);
+            IgniteEx ig = ignite(i);
 
             GridCacheSharedContext sharedCtx = ig.context().cache().context();
 
@@ -239,7 +239,7 @@ public class IgnitePdsCacheConfigurationFileConsistencyCheckTest extends GridCom
      */
     private void corruptCacheData(DynamicCacheDescriptor cacheDescr) throws Exception {
         for (int i = 0; i < NODES; i++) {
-            IgniteEx ig = grid(i);
+            IgniteEx ig = ignite(i);
 
             GridCacheSharedContext sharedCtx = ig.context().cache().context();
 

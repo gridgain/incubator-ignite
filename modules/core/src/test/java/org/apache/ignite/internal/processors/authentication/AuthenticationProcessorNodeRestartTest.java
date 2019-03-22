@@ -88,9 +88,9 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
 
         startGrids(NODES_COUNT);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
-        actxDflt = grid(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
+        actxDflt = ignite(0).context().authentication().authenticate(User.DFAULT_USER_NAME, "ignite");
 
         assertNotNull(actxDflt);
     }
@@ -125,17 +125,17 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
                     try {
                         switch (state) {
                             case 0:
-                                grid(CLI_NODE).context().authentication().addUser(user, "passwd_" + user);
+                                ignite(CLI_NODE).context().authentication().addUser(user, "passwd_" + user);
 
                                 break;
 
                             case 1:
-                                grid(CLI_NODE).context().authentication().updateUser(user, "new_passwd_" + user);
+                                ignite(CLI_NODE).context().authentication().updateUser(user, "new_passwd_" + user);
 
                                 break;
 
                             case 2:
-                                grid(CLI_NODE).context().authentication().removeUser(user);
+                                ignite(CLI_NODE).context().authentication().removeUser(user);
 
                                 break;
 
@@ -174,7 +174,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
         AuthorizationContext.context(actxDflt);
 
         for (int i = 0; i < testUsersCnt; ++i)
-            grid(CLI_NODE).context().authentication().addUser("test" + i, "passwd_test" + i);
+            ignite(CLI_NODE).context().authentication().addUser("test" + i, "passwd_test" + i);
 
         final IgniteInternalFuture restartFut = GridTestUtils.runAsync(() -> {
             try {
@@ -203,7 +203,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
 
             try {
                 while (!restartFut.isDone()) {
-                    AuthorizationContext actx = grid(CLI_NODE).context().authentication()
+                    AuthorizationContext actx = ignite(CLI_NODE).context().authentication()
                         .authenticate(user, "passwd_" + user);
 
                     assertNotNull(actx);
@@ -279,7 +279,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
                     String user = "test" + usrCnt.getAndIncrement();
 
                     System.out.println("+++ CREATE  " + user);
-                    grid(0).context().authentication().addUser(user, "init");
+                    ignite(0).context().authentication().addUser(user, "init");
                 }
             }
             catch (Exception e) {
@@ -299,7 +299,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
 
                     System.out.println("+++ ALTER " + user);
 
-                    grid(0).context().authentication().updateUser(user, "passwd_" + user);
+                    ignite(0).context().authentication().updateUser(user, "passwd_" + user);
                 }
             }
             catch (Exception e) {
@@ -316,7 +316,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
         System.out.println("+++ START");
         startGrid(0);
 
-        AuthorizationContext actx = grid(0).context().authentication().authenticate("ignite", "ignite");
+        AuthorizationContext actx = ignite(0).context().authentication().authenticate("ignite", "ignite");
     }
 
     /**
@@ -337,11 +337,11 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
 
             try {
                 while (!restartFut.isDone()) {
-                    grid(CLI_NODE).context().authentication().addUser(user, "init");
+                    ignite(CLI_NODE).context().authentication().addUser(user, "init");
 
-                    grid(CLI_NODE).context().authentication().updateUser(user, "passwd_" + user);
+                    ignite(CLI_NODE).context().authentication().updateUser(user, "passwd_" + user);
 
-                    grid(CLI_NODE).context().authentication().removeUser(user);
+                    ignite(CLI_NODE).context().authentication().removeUser(user);
                 }
             }
             catch (Exception e) {
@@ -362,7 +362,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
 
         AuthorizationContext.context(actxDflt);
 
-        grid(CLI_NODE).context().authentication().addUser("test", "test");
+        ignite(CLI_NODE).context().authentication().addUser("test", "test");
 
         GridTestUtils.runMultiThreaded(() -> {
             AuthorizationContext.context(actxDflt);
@@ -370,7 +370,7 @@ public class AuthenticationProcessorNodeRestartTest extends GridCommonAbstractTe
             try {
                 while (!restartFut.isDone()) {
                     GridTestUtils.assertThrows(log, () -> {
-                        grid(CLI_NODE).context().authentication().addUser("test", "test");
+                        ignite(CLI_NODE).context().authentication().addUser("test", "test");
 
                         return null;
                     }, UserManagementException.class, "User already exists");

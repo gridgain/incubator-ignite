@@ -215,21 +215,21 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void dhtDestroy() throws Exception {
-        grid(0).getOrCreateCache(getDhtConfig());
+        ignite(0).getOrCreateCache(getDhtConfig());
 
-        assertNull(grid(0).cache(CACHE_NAME_DHT).get(KEY_VAL));
+        assertNull(ignite(0).cache(CACHE_NAME_DHT).get(KEY_VAL));
 
-        grid(0).cache(CACHE_NAME_DHT).put(KEY_VAL, KEY_VAL);
+        ignite(0).cache(CACHE_NAME_DHT).put(KEY_VAL, KEY_VAL);
 
-        assertEquals(KEY_VAL, grid(0).cache(CACHE_NAME_DHT).get(KEY_VAL));
-        assertEquals(KEY_VAL, grid(1).cache(CACHE_NAME_DHT).get(KEY_VAL));
-        assertEquals(KEY_VAL, grid(2).cache(CACHE_NAME_DHT).get(KEY_VAL));
+        assertEquals(KEY_VAL, ignite(0).cache(CACHE_NAME_DHT).get(KEY_VAL));
+        assertEquals(KEY_VAL, ignite(1).cache(CACHE_NAME_DHT).get(KEY_VAL));
+        assertEquals(KEY_VAL, ignite(2).cache(CACHE_NAME_DHT).get(KEY_VAL));
 
-        assertFalse(grid(0).configuration().isClientMode());
+        assertFalse(ignite(0).configuration().isClientMode());
 
         // DHT Destroy. Cache should be removed from each node.
 
-        IgniteCache<Object, Object> cache = grid(0).cache(CACHE_NAME_DHT);
+        IgniteCache<Object, Object> cache = ignite(0).cache(CACHE_NAME_DHT);
 
         cache.destroy();
 
@@ -256,21 +256,21 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void clientDestroy() throws Exception {
-        grid(0).getOrCreateCache(getClientConfig());
+        ignite(0).getOrCreateCache(getClientConfig());
 
-        assertNull(grid(0).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
+        assertNull(ignite(0).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
 
-        grid(0).cache(CACHE_NAME_CLIENT).put(KEY_VAL, KEY_VAL);
+        ignite(0).cache(CACHE_NAME_CLIENT).put(KEY_VAL, KEY_VAL);
 
-        assertEquals(KEY_VAL, grid(0).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
-        assertEquals(KEY_VAL, grid(1).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
-        assertEquals(KEY_VAL, grid(2).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
+        assertEquals(KEY_VAL, ignite(0).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
+        assertEquals(KEY_VAL, ignite(1).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
+        assertEquals(KEY_VAL, ignite(2).cache(CACHE_NAME_CLIENT).get(KEY_VAL));
 
         // DHT Destroy from client node. Cache should be removed from each node.
 
-        assertTrue(grid(2).configuration().isClientMode());
+        assertTrue(ignite(2).configuration().isClientMode());
 
-        IgniteCache<Object, Object> cache = grid(2).cache(CACHE_NAME_CLIENT);
+        IgniteCache<Object, Object> cache = ignite(2).cache(CACHE_NAME_CLIENT);
 
         cache.destroy(); // Client node.
 
@@ -299,21 +299,21 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void nearDestroy() throws Exception {
-        grid(0).getOrCreateCache(getNearConfig());
+        ignite(0).getOrCreateCache(getNearConfig());
 
-        grid(2).getOrCreateNearCache(CACHE_NAME_NEAR, new NearCacheConfiguration());
+        ignite(2).getOrCreateNearCache(CACHE_NAME_NEAR, new NearCacheConfiguration());
 
-        assertNull(grid(0).cache(CACHE_NAME_NEAR).get(KEY_VAL));
-        assertNull(grid(2).cache(CACHE_NAME_NEAR).get(KEY_VAL));
+        assertNull(ignite(0).cache(CACHE_NAME_NEAR).get(KEY_VAL));
+        assertNull(ignite(2).cache(CACHE_NAME_NEAR).get(KEY_VAL));
 
-        grid(2).cache(CACHE_NAME_NEAR).put(KEY_VAL, KEY_VAL);
-        grid(0).cache(CACHE_NAME_NEAR).put(KEY_VAL, "near-test");
+        ignite(2).cache(CACHE_NAME_NEAR).put(KEY_VAL, KEY_VAL);
+        ignite(0).cache(CACHE_NAME_NEAR).put(KEY_VAL, "near-test");
 
-        assertEquals("near-test", grid(2).cache(CACHE_NAME_NEAR).localPeek(KEY_VAL));
+        assertEquals("near-test", ignite(2).cache(CACHE_NAME_NEAR).localPeek(KEY_VAL));
 
         // Near cache destroy. Cache should be removed from each node.
 
-        IgniteCache<Object, Object> cache = grid(2).cache(CACHE_NAME_NEAR);
+        IgniteCache<Object, Object> cache = ignite(2).cache(CACHE_NAME_NEAR);
 
         cache.destroy();
 
@@ -342,20 +342,20 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void localDestroy() throws Exception {
-        grid(0).getOrCreateCache(getLocalConfig());
+        ignite(0).getOrCreateCache(getLocalConfig());
 
-        assert grid(0).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
-        assert grid(1).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
+        assert ignite(0).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
+        assert ignite(1).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
 
-        grid(0).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 0);
-        grid(1).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 1);
+        ignite(0).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 0);
+        ignite(1).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 1);
 
-        assert grid(0).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 0);
-        assert grid(1).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 1);
+        assert ignite(0).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 0);
+        assert ignite(1).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 1);
 
-        grid(0).cache(CACHE_NAME_LOC).destroy();
+        ignite(0).cache(CACHE_NAME_LOC).destroy();
 
-        assertNull(grid(0).cache(CACHE_NAME_LOC));
+        assertNull(ignite(0).cache(CACHE_NAME_LOC));
     }
 
     /**
@@ -367,7 +367,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
     public void testDhtClose() throws Exception {
         startGridsMultiThreaded(gridCount());
 
-        IgniteCache<Integer, Integer> dhtCache0 = grid(0).getOrCreateCache(getDhtConfig());
+        IgniteCache<Integer, Integer> dhtCache0 = ignite(0).getOrCreateCache(getDhtConfig());
 
         final Integer key = primaryKey(dhtCache0);
 
@@ -379,8 +379,8 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         // DHT Close. No-op.
 
-        IgniteCache<Integer, Integer> dhtCache1 = grid(1).cache(CACHE_NAME_DHT);
-        IgniteCache<Integer, Integer> dhtCache2 = grid(2).cache(CACHE_NAME_DHT);
+        IgniteCache<Integer, Integer> dhtCache1 = ignite(1).cache(CACHE_NAME_DHT);
+        IgniteCache<Integer, Integer> dhtCache2 = ignite(2).cache(CACHE_NAME_DHT);
 
         dhtCache0.close();
 
@@ -398,7 +398,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         // DHT Creation after closed.
 
-        IgniteCache<Integer, Integer> dhtCache0New = grid(0).cache(CACHE_NAME_DHT);
+        IgniteCache<Integer, Integer> dhtCache0New = ignite(0).cache(CACHE_NAME_DHT);
 
         assertNotSame(dhtCache0, dhtCache0New);
 
@@ -414,7 +414,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         startGrid(0);
 
-        dhtCache0 = grid(0).getOrCreateCache(getDhtConfig());
+        dhtCache0 = ignite(0).getOrCreateCache(getDhtConfig());
 
         assertNull(dhtCache0.get(key));
 
@@ -435,7 +435,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
         }
 
         // Reopening cache.
-        dhtCache0 = grid(0).cache(CACHE_NAME_DHT);
+        dhtCache0 = ignite(0).cache(CACHE_NAME_DHT);
 
         assertEquals(key, dhtCache0.get(key)); // Entry not loosed.
     }
@@ -452,9 +452,9 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
         String curVal = null;
 
         for (int i = 0; i < 3; i++) {
-            try (IgniteCache<String, String> cache0 = grid(0).getOrCreateCache(getDhtConfig())) {
-                IgniteCache<String, String> cache1 = grid(1).cache(CACHE_NAME_DHT);
-                IgniteCache<String, String> cache2 = grid(2).cache(CACHE_NAME_DHT);
+            try (IgniteCache<String, String> cache0 = ignite(0).getOrCreateCache(getDhtConfig())) {
+                IgniteCache<String, String> cache1 = ignite(1).cache(CACHE_NAME_DHT);
+                IgniteCache<String, String> cache2 = ignite(2).cache(CACHE_NAME_DHT);
 
                 if (i == 0) {
                     assert cache0.get(KEY_VAL) == null;
@@ -487,7 +487,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
     public void testClientClose() throws Exception {
         startGridsMultiThreaded(gridCount());
 
-        IgniteCache<String, String> cache0 = grid(0).getOrCreateCache(getClientConfig());
+        IgniteCache<String, String> cache0 = ignite(0).getOrCreateCache(getClientConfig());
 
         assert cache0.get(KEY_VAL) == null;
 
@@ -497,8 +497,8 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         // DHT Close from client node. Should affect only client node.
 
-        IgniteCache<String, String> cache1 = grid(1).cache(CACHE_NAME_CLIENT);
-        IgniteCache<String, String> cache2 = grid(2).cache(CACHE_NAME_CLIENT);
+        IgniteCache<String, String> cache1 = ignite(1).cache(CACHE_NAME_CLIENT);
+        IgniteCache<String, String> cache2 = ignite(2).cache(CACHE_NAME_CLIENT);
 
         assert cache2.get(KEY_VAL).equals(KEY_VAL);
 
@@ -517,7 +517,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
         }
 
         // DHT Creation from client node after closed.
-        IgniteCache<String, String> cache2New = grid(2).cache(CACHE_NAME_CLIENT);
+        IgniteCache<String, String> cache2New = ignite(2).cache(CACHE_NAME_CLIENT);
 
         assertNotSame(cache2, cache2New);
 
@@ -542,9 +542,9 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
         String curVal = null;
 
         for (int i = 0; i < 3; i++) {
-            try (IgniteCache<String, String> cache2 = grid(2).getOrCreateCache(getClientConfig())) {
-                IgniteCache<String, String> cache0 = grid(0).cache(CACHE_NAME_CLIENT);
-                IgniteCache<String, String> cache1 = grid(1).cache(CACHE_NAME_CLIENT);
+            try (IgniteCache<String, String> cache2 = ignite(2).getOrCreateCache(getClientConfig())) {
+                IgniteCache<String, String> cache0 = ignite(0).cache(CACHE_NAME_CLIENT);
+                IgniteCache<String, String> cache1 = ignite(1).cache(CACHE_NAME_CLIENT);
 
                 if (i == 0) {
                     assert cache0.get(KEY_VAL) == null;
@@ -581,15 +581,15 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(gridCount());
 
-        IgniteCache<String, String> cache0 = grid(0).getOrCreateCache(getNearConfig());
+        IgniteCache<String, String> cache0 = ignite(0).getOrCreateCache(getNearConfig());
 
         // GridDhtTxPrepareRequest requests to Client node will be counted.
-        CountingTxRequestsToClientNodeTcpCommunicationSpi.nodeFilter = grid(2).context().localNodeId();
+        CountingTxRequestsToClientNodeTcpCommunicationSpi.nodeFilter = ignite(2).context().localNodeId();
 
         // Near Close from client node.
 
-        IgniteCache<String, String> cache1 = grid(1).cache(CACHE_NAME_NEAR);
-        IgniteCache<String, String> cache2 = grid(2).createNearCache(CACHE_NAME_NEAR, new NearCacheConfiguration());
+        IgniteCache<String, String> cache1 = ignite(1).cache(CACHE_NAME_NEAR);
+        IgniteCache<String, String> cache2 = ignite(2).createNearCache(CACHE_NAME_NEAR, new NearCacheConfiguration());
 
         assert cache2.get(KEY_VAL) == null;
 
@@ -630,7 +630,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         // Near Creation from client node after closed.
 
-        IgniteCache<String, String> cache2New = grid(2).createNearCache(CACHE_NAME_NEAR, new NearCacheConfiguration());
+        IgniteCache<String, String> cache2New = ignite(2).createNearCache(CACHE_NAME_NEAR, new NearCacheConfiguration());
 
         assertNotSame(cache2, cache2New);
 
@@ -659,14 +659,14 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         String curVal = null;
 
-        grid(0).getOrCreateCache(getNearConfig());
+        ignite(0).getOrCreateCache(getNearConfig());
 
         NearCacheConfiguration nearCfg = new NearCacheConfiguration();
 
         for (int i = 0; i < 3; i++) {
-            try (IgniteCache<String, String> cache2 = grid(2).getOrCreateNearCache(CACHE_NAME_NEAR, nearCfg)) {
-                IgniteCache<String, String> cache0 = grid(0).cache(CACHE_NAME_NEAR);
-                IgniteCache<String, String> cache1 = grid(1).cache(CACHE_NAME_NEAR);
+            try (IgniteCache<String, String> cache2 = ignite(2).getOrCreateNearCache(CACHE_NAME_NEAR, nearCfg)) {
+                IgniteCache<String, String> cache0 = ignite(0).cache(CACHE_NAME_NEAR);
+                IgniteCache<String, String> cache1 = ignite(1).cache(CACHE_NAME_NEAR);
 
                 assert cache2.localPeek(KEY_VAL) == null;
 
@@ -700,45 +700,45 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
 
         startGridsMultiThreaded(gridCount());
 
-        grid(0).getOrCreateCache(getLocalConfig());
+        ignite(0).getOrCreateCache(getLocalConfig());
 
-        assert grid(0).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
-        assert grid(1).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
+        assert ignite(0).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
+        assert ignite(1).cache(CACHE_NAME_LOC).get(KEY_VAL) == null;
 
-        grid(0).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 0);
-        grid(1).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 1);
+        ignite(0).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 0);
+        ignite(1).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + 1);
 
-        assert grid(0).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 0);
-        assert grid(1).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 1);
+        assert ignite(0).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 0);
+        assert ignite(1).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + 1);
 
         // Local close. Same as Local destroy.
 
-        IgniteCache<Object, Object> cache = grid(1).cache(CACHE_NAME_LOC);
+        IgniteCache<Object, Object> cache = ignite(1).cache(CACHE_NAME_LOC);
 
         cache.close();
 
         checkUsageFails(cache);
 
-        assertNull(grid(1).cache(CACHE_NAME_LOC));
+        assertNull(ignite(1).cache(CACHE_NAME_LOC));
 
         // Local creation after closed.
 
-        AffinityTopologyVersion topVer = grid(1).context().cache().context().exchange().lastTopologyFuture().get();
+        AffinityTopologyVersion topVer = ignite(1).context().cache().context().exchange().lastTopologyFuture().get();
 
-        IgniteInternalFuture<?> fut = grid(0).context().cache().context().exchange().affinityReadyFuture(topVer);
+        IgniteInternalFuture<?> fut = ignite(0).context().cache().context().exchange().affinityReadyFuture(topVer);
 
         if (fut != null)
             fut.get();
 
-        grid(0).getOrCreateCache(getLocalConfig());
+        ignite(0).getOrCreateCache(getLocalConfig());
 
-        grid(0).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + "recreated0");
-        grid(1).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + "recreated1");
-        grid(2).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + "recreated2");
+        ignite(0).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + "recreated0");
+        ignite(1).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + "recreated1");
+        ignite(2).cache(CACHE_NAME_LOC).put(KEY_VAL, KEY_VAL + "recreated2");
 
-        assert grid(0).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + "recreated0");
-        assert grid(1).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + "recreated1");
-        assert grid(2).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + "recreated2");
+        assert ignite(0).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + "recreated0");
+        assert ignite(1).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + "recreated1");
+        assert ignite(2).cache(CACHE_NAME_LOC).get(KEY_VAL).equals(KEY_VAL + "recreated2");
     }
 
     /**
@@ -757,9 +757,9 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
         String curVal = null;
 
         for (int i = 0; i < 3; i++) {
-            try (IgniteCache<String, String> cache2 = grid(2).getOrCreateCache(getLocalConfig())) {
-                IgniteCache<String, String> cache0 = grid(0).cache(CACHE_NAME_LOC);
-                IgniteCache<String, String> cache1 = grid(1).cache(CACHE_NAME_LOC);
+            try (IgniteCache<String, String> cache2 = ignite(2).getOrCreateCache(getLocalConfig())) {
+                IgniteCache<String, String> cache0 = ignite(0).cache(CACHE_NAME_LOC);
+                IgniteCache<String, String> cache1 = ignite(1).cache(CACHE_NAME_LOC);
 
                 assert cache0.get(KEY_VAL) == null;
                 assert cache1.get(KEY_VAL) == null;
@@ -889,7 +889,7 @@ public class CacheStopAndDestroySelfTest extends GridCommonAbstractTest {
         String cacheName = cache.getName();
 
         for (int i = 0; i < 3; i++)
-            assertNull("Unexpected cache for node: " + i, grid(i).cache(cacheName));
+            assertNull("Unexpected cache for node: " + i, ignite(i).cache(cacheName));
     }
 
     /**

@@ -73,7 +73,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         super.afterTest();
 
         for (int i = 0; i < gridCount(); i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
             g.cache(DEFAULT_CACHE_NAME).removeAll();
 
@@ -90,7 +90,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         super.beforeTest();
 
         for (int i = 0; i < gridCount(); i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
             IgniteCache cache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -113,12 +113,12 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testNearCacheDoesNotAffectCacheSize() throws Exception {
-        IgniteCache<Integer, Integer> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Integer> cache0 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 100 ; i++)
             cache0.put(i, i);
 
-        IgniteEx g1 = grid(1);
+        IgniteEx g1 = ignite(1);
 
         IgniteCache<Integer, Integer> cache1 = g1.cache(DEFAULT_CACHE_NAME);
 
@@ -139,7 +139,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testPrimaryPut() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -163,7 +163,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             info("Checking grid: " + g.name());
 
@@ -195,7 +195,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testBackupPut() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -219,7 +219,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
             if (affinity(jcache).isPrimaryOrBackup(g.cluster().localNode(), key))
@@ -250,7 +250,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testNearPut() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -274,7 +274,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -303,7 +303,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testPrimaryRead() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -331,7 +331,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             info("Checking grid: " + g.name());
 
@@ -360,7 +360,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testBackupRead() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -388,7 +388,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -412,7 +412,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testNearRead() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -437,7 +437,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -466,7 +466,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testCreateReadRemoveInvokesFromPrimary() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -479,7 +479,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         removeKeyByEntryProcessor(cache0, key);
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -522,7 +522,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testCreateReadRemoveInvokesFromBackup() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -535,7 +535,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         removeKeyByEntryProcessor(cache0, key);
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -578,7 +578,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testCreateReadRemoveInvokesFromNear() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -599,7 +599,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -634,7 +634,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testReadRemoveInvokesFromPrimary() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -645,7 +645,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         removeKeyByEntryProcessor(cache0, key);
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -681,7 +681,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testReadRemoveInvokesFromBackup() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -692,7 +692,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         removeKeyByEntryProcessor(cache0, key);
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 
@@ -727,7 +727,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testReadRemoveInvokesFromNear() throws Exception {
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteCache<Integer, Integer> cache0 = g0.cache(DEFAULT_CACHE_NAME);
 
@@ -746,7 +746,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         }
 
         for (int j = 0; j < gridCount(); j++) {
-            Ignite g = grid(j);
+            Ignite g = ignite(j);
 
             IgniteCache<Object, Object> jcache = g.cache(DEFAULT_CACHE_NAME);
 

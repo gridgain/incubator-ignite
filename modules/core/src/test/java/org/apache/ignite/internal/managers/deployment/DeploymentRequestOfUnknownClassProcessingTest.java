@@ -82,8 +82,8 @@ public class DeploymentRequestOfUnknownClassProcessingTest extends GridCommonAbs
      */
     @Test
     public void testResponseReceivingOnDeploymentRequestOfUnknownClass() throws Exception {
-        IgniteEx locNode = grid(0);
-        IgniteEx remNode = grid(1);
+        IgniteEx locNode = ignite(0);
+        IgniteEx remNode = ignite(1);
 
         // Register deployment on remote node for attemt to load class on request receiving
         GridTestExternalClassLoader ldr = new GridTestExternalClassLoader(new URL[] {

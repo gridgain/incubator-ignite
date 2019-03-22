@@ -70,7 +70,7 @@ public abstract class IgniteCrossCacheTxAbstractSelfTest extends GridCommonAbstr
         firstCfg.setAtomicityMode(atomicityMode());
         firstCfg.setWriteSynchronizationMode(FULL_SYNC);
 
-        grid(0).createCache(firstCfg);
+        ignite(0).createCache(firstCfg);
 
         CacheConfiguration secondCfg = new CacheConfiguration(SECOND_CACHE);
         secondCfg.setBackups(1);
@@ -80,7 +80,7 @@ public abstract class IgniteCrossCacheTxAbstractSelfTest extends GridCommonAbstr
         if (nearEnabled())
             secondCfg.setNearConfiguration(new NearCacheConfiguration());
 
-        grid(0).createCache(secondCfg);
+        ignite(0).createCache(secondCfg);
     }
 
     /**
@@ -100,10 +100,10 @@ public abstract class IgniteCrossCacheTxAbstractSelfTest extends GridCommonAbstr
         for (int i = 0; i < TX_CNT; i++) {
             int grid = ThreadLocalRandom.current().nextInt(nodeCount());
 
-            IgniteCache<Integer, String> first = grid(grid).cache(FIRST_CACHE);
-            IgniteCache<Integer, String> second = grid(grid).cache(SECOND_CACHE);
+            IgniteCache<Integer, String> first = ignite(grid).cache(FIRST_CACHE);
+            IgniteCache<Integer, String> second = ignite(grid).cache(SECOND_CACHE);
 
-            try (Transaction tx = grid(grid).transactions().txStart(concurrency, isolation)) {
+            try (Transaction tx = ignite(grid).transactions().txStart(concurrency, isolation)) {
                 try {
                     int size = ThreadLocalRandom.current().nextInt(24) + 1;
 
@@ -133,7 +133,7 @@ public abstract class IgniteCrossCacheTxAbstractSelfTest extends GridCommonAbstr
         }
 
         for (int g = 0; g < nodeCount(); g++) {
-            IgniteEx grid = grid(g);
+            IgniteEx grid = ignite(g);
 
             assertEquals(0, grid.context().cache().context().tm().idMapSize());
 

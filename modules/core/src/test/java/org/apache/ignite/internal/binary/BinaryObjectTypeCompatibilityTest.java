@@ -56,7 +56,7 @@ public class BinaryObjectTypeCompatibilityTest extends GridCommonAbstractTest {
      */
     @Test
     public void testCompatibilityWithObject() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         BinaryObjectBuilder bldr = ignite.binary().builder("ObjectWrapper");
         bldr.setField("objField", new Object());

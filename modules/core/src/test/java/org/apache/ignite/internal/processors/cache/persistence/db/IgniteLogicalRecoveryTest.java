@@ -196,7 +196,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
 
         crd.cluster().active(true);
 
-        IgniteEx node = grid(2);
+        IgniteEx node = ignite(2);
 
         AggregateCacheLoader cacheLoader = new AggregateCacheLoader(node);
 
@@ -228,7 +228,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
 
         crd.cluster().active(true);
 
-        IgniteEx node = grid(2);
+        IgniteEx node = ignite(2);
 
         AggregateCacheLoader cacheLoader = new AggregateCacheLoader(node);
 
@@ -291,7 +291,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
 
         crd.cluster().active(true);
 
-        IgniteEx node = grid(2);
+        IgniteEx node = ignite(2);
 
         node.getOrCreateCaches(dynamicCaches);
 
@@ -312,7 +312,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
         checkNoRebalanceAfterRecovery();
 
         for (int idx = 0; idx < 3; idx++)
-            cacheLoader.consistencyCheck(grid(idx));
+            cacheLoader.consistencyCheck(ignite(idx));
 
         checkCacheContextsConsistencyAfterRecovery();
     }
@@ -326,7 +326,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
 
         crd.cluster().active(true);
 
-        IgniteEx node = grid(2);
+        IgniteEx node = ignite(2);
 
         AggregateCacheLoader cacheLoader = new AggregateCacheLoader(node);
 
@@ -347,7 +347,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
         awaitPartitionMapExchange();
 
         for (int idx = 0; idx < 3; idx++)
-            cacheLoader.consistencyCheck(grid(idx));
+            cacheLoader.consistencyCheck(ignite(idx));
 
         checkCacheContextsConsistencyAfterRecovery();
     }
@@ -361,7 +361,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
 
         crd.cluster().active(true);
 
-        IgniteEx node = grid(2);
+        IgniteEx node = ignite(2);
 
         AggregateCacheLoader cacheLoader = new AggregateCacheLoader(node);
 
@@ -385,7 +385,7 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
         // Wait until node will leave cluster.
         GridTestUtils.waitForCondition(() -> {
             try {
-                grid(2);
+                ignite(2);
             }
             catch (IgniteIllegalStateException e) {
                 return true;
@@ -404,20 +404,20 @@ public class IgniteLogicalRecoveryTest extends GridCommonAbstractTest {
         checkNoRebalanceAfterRecovery();
 
         for (int idx = 0; idx < 3; idx++)
-            cacheLoader.consistencyCheck(grid(idx));
+            cacheLoader.consistencyCheck(ignite(idx));
     }
 
     /**
      * Checks that cache contexts have consistent parameters after recovery finished and nodes have joined to topology.
      */
     private void checkCacheContextsConsistencyAfterRecovery() throws Exception {
-        IgniteEx crd = grid(0);
+        IgniteEx crd = ignite(0);
 
         Collection<String> cacheNames = crd.cacheNames();
 
         for (String cacheName : cacheNames) {
             for (int nodeIdx = 1; nodeIdx < 3; nodeIdx++) {
-                IgniteEx node = grid(nodeIdx);
+                IgniteEx node = ignite(nodeIdx);
 
                 GridCacheContext one = cacheContext(crd, cacheName);
                 GridCacheContext other = cacheContext(node, cacheName);

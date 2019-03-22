@@ -162,8 +162,8 @@ public class CacheStoreReadFromBackupTest extends GridCommonAbstractTest {
     private void checkReadSingleFromBackup() throws Exception {
         storeMap.put(1, "val-1");
 
-        IgniteCache<Integer, String> cache0 = grid(0).cache(CACHE_NAME);
-        IgniteCache<Integer, String> cache1 = grid(1).cache(CACHE_NAME);
+        IgniteCache<Integer, String> cache0 = ignite(0).cache(CACHE_NAME);
+        IgniteCache<Integer, String> cache1 = ignite(1).cache(CACHE_NAME);
 
         // Load value on primary and backup.
         assertNotNull(cache0.get(1));
@@ -184,14 +184,14 @@ public class CacheStoreReadFromBackupTest extends GridCommonAbstractTest {
         for (int i = 0; i < 100; i++)
             storeMap.put(i, String.valueOf(i));
 
-        IgniteCache<Integer, String> cache0 = grid(0).cache(CACHE_NAME);
-        IgniteCache<Integer, String> cache1 = grid(1).cache(CACHE_NAME);
+        IgniteCache<Integer, String> cache0 = ignite(0).cache(CACHE_NAME);
+        IgniteCache<Integer, String> cache1 = ignite(1).cache(CACHE_NAME);
 
         assertEquals(storeMap.size(), cache0.getAll(storeMap.keySet()).size());
         assertEquals(storeMap.size(), cache1.getAll(storeMap.keySet()).size());
 
-        Affinity<Integer> aff = grid(0).affinity(CACHE_NAME);
-        ClusterNode node0 = grid(0).cluster().localNode();
+        Affinity<Integer> aff = ignite(0).affinity(CACHE_NAME);
+        ClusterNode node0 = ignite(0).cluster().localNode();
 
         for (Integer key : storeMap.keySet()) {
             if (aff.isPrimary(node0, key)) {

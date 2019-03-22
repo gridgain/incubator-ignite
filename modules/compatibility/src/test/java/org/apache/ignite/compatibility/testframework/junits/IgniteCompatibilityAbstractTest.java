@@ -280,7 +280,7 @@ public abstract class IgniteCompatibilityAbstractTest extends GridCommonAbstract
     }
 
     /** {@inheritDoc} */
-    @Override protected Ignite startGrid(String igniteInstanceName, IgniteConfiguration cfg,
+    @Override protected Ignite clusterManager__startGrid(String igniteInstanceName, IgniteConfiguration cfg,
         GridSpringResourceContext ctx) throws Exception {
         final Ignite ignite;
 
@@ -290,14 +290,14 @@ public abstract class IgniteCompatibilityAbstractTest extends GridCommonAbstract
             final UUID nodeId = cfg.getNodeId();
             final UUID syncNodeId = ((IgniteProcessProxy)rmJvmInstance).getId();
 
-            ignite = super.startGrid(igniteInstanceName, cfg, ctx);
+            ignite = super.clusterManager__startGrid(igniteInstanceName, cfg, ctx);
 
             assert ignite.configuration().getNodeId() == nodeId : "Started node has unexpected node id.";
 
             assert ignite.cluster().node(syncNodeId) != null : "Node has not joined [id=" + nodeId + "]";
         }
         else
-            ignite = super.startGrid(igniteInstanceName, cfg, ctx);
+            ignite = super.clusterManager__startGrid(igniteInstanceName, cfg, ctx);
 
         if (locJvmInstance == null && !isRemoteJvm(igniteInstanceName))
             locJvmInstance = ignite;

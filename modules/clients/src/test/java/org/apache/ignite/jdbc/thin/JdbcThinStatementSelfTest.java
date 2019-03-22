@@ -1060,7 +1060,7 @@ public class JdbcThinStatementSelfTest extends JdbcThinAbstractSelfTest {
 
     /** */
     private void fillCache() {
-        IgniteCache<String, Person> cachePerson = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<String, Person> cachePerson = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         assert cachePerson != null;
 
@@ -1068,7 +1068,7 @@ public class JdbcThinStatementSelfTest extends JdbcThinAbstractSelfTest {
         cachePerson.put("p2", new Person(2, "Joe", "Black", 35));
         cachePerson.put("p3", new Person(3, "Mike", "Green", 40));
 
-        IgniteCache<Integer, Test> cacheTest = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, Test> cacheTest = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 1; i <= 10; i++)
             cacheTest.put(i, new Test(i));

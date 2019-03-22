@@ -33,7 +33,7 @@ public class IgniteDbSingleNodeTinyPutGetTest extends IgniteDbSingleNodePutGetTe
     /** */
     @Test
     public void testPutGetTiny() {
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         IgniteCache<Short, Byte> cache = ig.cache("tiny");
 

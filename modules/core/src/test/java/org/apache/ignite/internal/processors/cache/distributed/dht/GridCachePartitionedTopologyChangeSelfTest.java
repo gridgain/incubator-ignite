@@ -147,7 +147,7 @@ public class GridCachePartitionedTopologyChangeSelfTest extends GridCommonAbstra
         try {
             startGridsMultiThreaded(2);
 
-            IgniteKernal[] nodes = new IgniteKernal[] {(IgniteKernal)grid(0), (IgniteKernal)grid(1)};
+            IgniteKernal[] nodes = new IgniteKernal[] {(IgniteKernal)ignite(0), (IgniteKernal)ignite(1)};
 
             Collection<IgniteInternalFuture> futs = new ArrayList<>();
 
@@ -239,9 +239,9 @@ public class GridCachePartitionedTopologyChangeSelfTest extends GridCommonAbstra
     private void checkTxNodeJoined(int nodeType) throws Exception {
         startGrids(3);
 
-        final IgniteKernal g0 = (IgniteKernal)grid(0);
-        final IgniteKernal g1 = (IgniteKernal)grid(1);
-        final IgniteKernal g2 = (IgniteKernal)grid(2);
+        final IgniteKernal g0 = (IgniteKernal)ignite(0);
+        final IgniteKernal g1 = (IgniteKernal)ignite(1);
+        final IgniteKernal g2 = (IgniteKernal)ignite(2);
 
         IgniteKernal[] nodes = new IgniteKernal[] {g0, g1, g2};
 
@@ -388,10 +388,10 @@ public class GridCachePartitionedTopologyChangeSelfTest extends GridCommonAbstra
     private void checkTxNodeLeft(int nodeType) throws Exception {
         startGridsMultiThreaded(4);
 
-        final IgniteKernal g0 = (IgniteKernal)grid(0);
-        final IgniteKernal g1 = (IgniteKernal)grid(1);
-        final IgniteKernal g2 = (IgniteKernal)grid(2);
-        final IgniteKernal g3 = (IgniteKernal)grid(3);
+        final IgniteKernal g0 = (IgniteKernal)ignite(0);
+        final IgniteKernal g1 = (IgniteKernal)ignite(1);
+        final IgniteKernal g2 = (IgniteKernal)ignite(2);
+        final IgniteKernal g3 = (IgniteKernal)ignite(3);
 
         IgniteKernal[] nodes = new IgniteKernal[] {g0, g1, g2};
 
@@ -510,7 +510,7 @@ public class GridCachePartitionedTopologyChangeSelfTest extends GridCommonAbstra
                 txFut.get(1000);
 
             for (int i = 0; i < 3; i++) {
-                Affinity affinity = grid(i).affinity(DEFAULT_CACHE_NAME);
+                Affinity affinity = ignite(i).affinity(DEFAULT_CACHE_NAME);
 
                 ConcurrentMap addedNodes = U.field(affinity, "addedNodes");
 

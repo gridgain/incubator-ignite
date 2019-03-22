@@ -32,12 +32,12 @@ public class RedisProtocolStringAtomicDatastructuresSelfTest extends RedisCommon
     @Test
     public void testAtomicCommandsTopologyChange() throws Exception {
         try (Jedis jedis = pool.getResource()) {
-            int size = grid(0).cachesx().size();
+            int size = ignite(0).cachesx().size();
 
             jedis.incr("key1");
 
             // Expect that datastructures cache was created and init PME.
-            assertTrue("Topology wasn't changed.", grid(0).cachesx().size() > size);
+            assertTrue("Topology wasn't changed.", ignite(0).cachesx().size() > size);
 
             for (int i = 0; i < 1000; i++)
                 jedis.get("nonExistKey");

@@ -159,24 +159,24 @@ public class IgniteCacheClientQueryReplicatedNodeRestartSelfTest extends GridCom
      *
      */
     private void fillCaches() {
-        IgniteCache<Integer, Company> co = grid(0).cache("co");
+        IgniteCache<Integer, Company> co = ignite(0).cache("co");
 
         for (int i = 0; i < COMPANY_CNT; i++)
             co.put(i, new Company(i));
 
-        IgniteCache<Integer, Product> pr = grid(0).cache("pr");
+        IgniteCache<Integer, Product> pr = ignite(0).cache("pr");
 
         Random rnd = new GridRandom();
 
         for (int i = 0; i < PRODUCT_CNT; i++)
             pr.put(i, new Product(i, rnd.nextInt(COMPANY_CNT)));
 
-        IgniteCache<Integer, Person> pe = grid(0).cache("pe");
+        IgniteCache<Integer, Person> pe = ignite(0).cache("pe");
 
         for (int i = 0; i < PERS_CNT; i++)
             pe.put(i, new Person(i));
 
-        IgniteCache<AffinityKey<Integer>, Purchase> pu = grid(0).cache("pu");
+        IgniteCache<AffinityKey<Integer>, Purchase> pu = ignite(0).cache("pu");
 
         for (int i = 0; i < PURCHASE_CNT; i++) {
             int persId = rnd.nextInt(PERS_CNT);
@@ -211,11 +211,11 @@ public class IgniteCacheClientQueryReplicatedNodeRestartSelfTest extends GridCom
 
         fillCaches();
 
-        final List<List<?>> pRes = grid(0).cache("pu").query(new SqlFieldsQuery(QRY)).getAll();
+        final List<List<?>> pRes = ignite(0).cache("pu").query(new SqlFieldsQuery(QRY)).getAll();
 
         Thread.sleep(3000);
 
-        assertEquals(pRes, grid(0).cache("pu").query(new SqlFieldsQuery(QRY)).getAll());
+        assertEquals(pRes, ignite(0).cache("pu").query(new SqlFieldsQuery(QRY)).getAll());
 
         assertFalse(pRes.isEmpty());
 
@@ -228,7 +228,7 @@ public class IgniteCacheClientQueryReplicatedNodeRestartSelfTest extends GridCom
             int j = 0;
 
             for (String cacheName : F.asList("co", "pr", "pe", "pu")) {
-                IgniteCache<?,?> cache = grid(i).cache(cacheName);
+                IgniteCache<?,?> cache = ignite(i).cache(cacheName);
 
                 assertClient(cache, false);
 
@@ -242,14 +242,14 @@ public class IgniteCacheClientQueryReplicatedNodeRestartSelfTest extends GridCom
         int j = 0;
 
         for (String cacheName : F.asList("co", "pr", "pe", "pu")) {
-            IgniteCache<?,?> cache = grid(GRID_CNT - 1).cache(cacheName);
+            IgniteCache<?,?> cache = ignite(GRID_CNT - 1).cache(cacheName);
 
             assertClient(cache, true);
 
             assertEquals(cacheSize.get(j++).intValue(), cache.size());
         }
 
-        final IgniteCache<?,?> clientCache = grid(GRID_CNT - 1).cache("pu");
+        final IgniteCache<?,?> clientCache = ignite(GRID_CNT - 1).cache("pu");
 
         IgniteInternalFuture<?> fut1 = multithreadedAsync(new CAX() {
             @Override public void applyx() throws IgniteCheckedException {
@@ -300,7 +300,7 @@ public class IgniteCacheClientQueryReplicatedNodeRestartSelfTest extends GridCom
                         // Check for data loss.
                         for (String cacheName : F.asList("co", "pr", "pe", "pu")) {
                             assertEquals(cacheName, cacheSize.get(j++).intValue(),
-                                grid(GRID_CNT - 1).cache(cacheName).size());
+                                ignite(GRID_CNT - 1).cache(cacheName).size());
                         }
 
                         assertEquals(pRes, res); // Fail with nice message.

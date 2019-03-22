@@ -193,7 +193,7 @@ public class GridCachePartitionedTxSalvageSelfTest extends GridCommonAbstractTes
      * @throws Exception If failed.
      */
     private void startTxAndPutKeys(final TransactionConcurrency mode, final boolean prepare) throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         final Collection<Integer> keys = nearKeys(ignite.cache(DEFAULT_CACHE_NAME), KEY_CNT, 0);
 
@@ -202,7 +202,7 @@ public class GridCachePartitionedTxSalvageSelfTest extends GridCommonAbstractTes
                 IgniteCache<Object, Object> c = jcache(0);
 
                 try {
-                    Transaction tx = grid(0).transactions().txStart(mode, REPEATABLE_READ);
+                    Transaction tx = ignite(0).transactions().txStart(mode, REPEATABLE_READ);
 
                     for (Integer key : keys)
                         c.put(key, "val" + key);

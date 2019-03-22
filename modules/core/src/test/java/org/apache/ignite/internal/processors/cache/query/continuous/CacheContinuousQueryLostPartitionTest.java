@@ -62,7 +62,7 @@ public class CacheContinuousQueryLostPartitionTest extends GridCommonAbstractTes
 
         assert GridTestUtils.waitForCondition(new PA() {
             @Override public boolean apply() {
-                return grid(0).cluster().nodes().size() == 2;
+                return ignite(0).cluster().nodes().size() == 2;
             }
         }, 10000L);
     }
@@ -125,11 +125,11 @@ public class CacheContinuousQueryLostPartitionTest extends GridCommonAbstractTes
      * @throws Exception If failed.
      */
     public void testEvent(String cacheName, boolean client) throws Exception {
-        IgniteCache<Integer, String> cache1 = grid(0).getOrCreateCache(cacheName);
+        IgniteCache<Integer, String> cache1 = ignite(0).getOrCreateCache(cacheName);
 
         final AllEventListener<Integer, String> lsnr1 = registerCacheListener(cache1);
 
-        IgniteCache<Integer, String> cache2 = grid(1).getOrCreateCache(cacheName);
+        IgniteCache<Integer, String> cache2 = ignite(1).getOrCreateCache(cacheName);
 
         Integer key = primaryKey(cache1);
 
@@ -165,11 +165,11 @@ public class CacheContinuousQueryLostPartitionTest extends GridCommonAbstractTes
         // node2 now becomes the primary for the key.
         stopGrid(0);
 
-        final int prevSize = grid(1).cluster().nodes().size();
+        final int prevSize = ignite(1).cluster().nodes().size();
 
         GridTestUtils.waitForCondition(new PA() {
             @Override public boolean apply() {
-                return prevSize - 1 == grid(1).cluster().nodes().size();
+                return prevSize - 1 == ignite(1).cluster().nodes().size();
             }
         }, 5000L);
 

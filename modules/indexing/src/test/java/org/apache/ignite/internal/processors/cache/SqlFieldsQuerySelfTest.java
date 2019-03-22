@@ -80,7 +80,7 @@ public class SqlFieldsQuerySelfTest extends GridCommonAbstractTest {
         for (int i = 0; i < 2; i++) {
             createAndFillCache();
 
-            PreparedStatement stmt0 = grid(0).context().query().prepareNativeStatement("person", INSERT);
+            PreparedStatement stmt0 = ignite(0).context().query().prepareNativeStatement("person", INSERT);
 
             // Statement should either be parsed initially or in response to schema change...
             assertTrue(stmt != stmt0);
@@ -99,7 +99,7 @@ public class SqlFieldsQuerySelfTest extends GridCommonAbstractTest {
 
         // Now let's do the same without restarting the cache.
         for (int i = 0; i < 2; i++) {
-            PreparedStatement stmt0 = grid(0).context().query().prepareNativeStatement("person", INSERT);
+            PreparedStatement stmt0 = ignite(0).context().query().prepareNativeStatement("person", INSERT);
 
             // Statement should either be parsed or taken from cache as no schema changes occurred...
             assertTrue(stmt == null || stmt == stmt0);
@@ -117,7 +117,7 @@ public class SqlFieldsQuerySelfTest extends GridCommonAbstractTest {
      *
      */
     private void executeQuery() {
-        IgniteCache<?, ?> cache = grid(1).cache("person");
+        IgniteCache<?, ?> cache = ignite(1).cache("person");
 
         SqlFieldsQuery qry = new SqlFieldsQuery("select name as \"Full Name\", age from person where age > 10");
 
@@ -146,7 +146,7 @@ public class SqlFieldsQuerySelfTest extends GridCommonAbstractTest {
 
         cacheConf.setName("person");
 
-        IgniteCache<Integer, Person> cache = grid(0).createCache(cacheConf);
+        IgniteCache<Integer, Person> cache = ignite(0).createCache(cacheConf);
 
         cache.put(1, new Person("sun", 100));
         cache.put(2, new Person("moon", 50));
@@ -155,7 +155,7 @@ public class SqlFieldsQuerySelfTest extends GridCommonAbstractTest {
     }
 
     private void destroyCache() {
-        grid(0).destroyCache("person");
+        ignite(0).destroyCache("person");
     }
 
     /**

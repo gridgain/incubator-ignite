@@ -63,7 +63,7 @@ public class GridTransformSpringInjectionSelfTest extends GridCacheAbstractSelfT
      */
     @Test
     public void testTransformResourceInjection() throws Exception {
-        Ignite grid = grid(0);
+        Ignite grid = ignite(0);
 
         IgniteCache<String, Integer> cache = grid.createCache(cacheConfiguration(ATOMIC));
 

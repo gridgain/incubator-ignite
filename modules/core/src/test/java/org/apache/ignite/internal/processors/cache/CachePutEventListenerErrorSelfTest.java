@@ -119,7 +119,7 @@ public class CachePutEventListenerErrorSelfTest extends GridCommonAbstractTest {
      */
     private void doTest(CacheMode cacheMode, CacheAtomicityMode atomicityMode)
         throws Exception {
-        Ignite ignite = grid("client");
+        Ignite ignite = ignite("client");
 
         try {
             CacheConfiguration<Integer, Integer> cfg = defaultCacheConfiguration();

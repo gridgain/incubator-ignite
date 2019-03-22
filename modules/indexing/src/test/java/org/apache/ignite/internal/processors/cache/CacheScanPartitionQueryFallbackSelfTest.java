@@ -298,7 +298,7 @@ public class CacheScanPartitionQueryFallbackSelfTest extends GridCommonAbstractT
                     @Override public Object call() throws Exception {
                         int nodeId = nodeIdx.getAndIncrement();
 
-                        IgniteCache<Integer, Integer> cache = grid(nodeId).cache(DEFAULT_CACHE_NAME);
+                        IgniteCache<Integer, Integer> cache = ignite(nodeId).cache(DEFAULT_CACHE_NAME);
 
                         int cntr = 0;
 
@@ -376,7 +376,7 @@ public class CacheScanPartitionQueryFallbackSelfTest extends GridCommonAbstractT
                     @Override public Object call() throws Exception {
                         int nodeId = nodeIdx.getAndIncrement();
 
-                        IgniteCache<Integer, Integer> cache = grid(nodeId).cache(DEFAULT_CACHE_NAME);
+                        IgniteCache<Integer, Integer> cache = ignite(nodeId).cache(DEFAULT_CACHE_NAME);
 
                         int cntr = 0;
 

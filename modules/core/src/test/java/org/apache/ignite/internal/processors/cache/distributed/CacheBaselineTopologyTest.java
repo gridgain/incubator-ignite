@@ -220,7 +220,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     /** */
     private void printSizesDataNodes(int nodesCnt, int emptyNodeIdx) {
         for (int i = 0; i < nodesCnt; i++) {
-            IgniteEx ig = grid(i);
+            IgniteEx ig = ignite(i);
 
             int locSize = ig.cache(CACHE_NAME).localSize(CachePeekMode.PRIMARY);
 
@@ -250,7 +250,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     public void testTopologyChangesWithFixedBaseline() throws Exception {
         startGrids(NODE_COUNT);
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         ignite.cluster().active(true);
 
@@ -259,7 +259,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         Map<ClusterNode, Ignite> nodes = new HashMap<>();
 
         for (int i = 0; i < NODE_COUNT; i++) {
-            Ignite ig = grid(i);
+            Ignite ig = ignite(i);
 
             nodes.put(ig.cluster().localNode(), ig);
         }
@@ -402,7 +402,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     public void testClusterActiveWhileBaselineChanging() throws Exception {
         startGrids(NODE_COUNT);
 
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         ig.cluster().active(true);
 
@@ -421,10 +421,10 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         });
 
         while (!fut.isDone()) {
-            assertTrue(grid(0).cluster().active());
-            assertTrue(grid(0).context().state().publicApiActiveState(false));
-            assertTrue(grid(NODE_COUNT).cluster().active());
-            assertTrue(grid(NODE_COUNT).context().state().publicApiActiveState(false));
+            assertTrue(ignite(0).cluster().active());
+            assertTrue(ignite(0).context().state().publicApiActiveState(false));
+            assertTrue(ignite(NODE_COUNT).cluster().active());
+            assertTrue(ignite(NODE_COUNT).context().state().publicApiActiveState(false));
         }
 
         assertNull(String.valueOf(fut.error()), fut.error());
@@ -448,7 +448,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
             client = false;
         }
         else
-            ignite = grid(0);
+            ignite = ignite(0);
 
         ignite.cluster().active(true);
 
@@ -457,7 +457,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         Map<ClusterNode, Ignite> nodes = new HashMap<>();
 
         for (int i = 0; i < NODE_COUNT; i++) {
-            Ignite ig = grid(i);
+            Ignite ig = ignite(i);
 
             nodes.put(ig.cluster().localNode(), ig);
         }
@@ -564,7 +564,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     public void testPrimaryLeft() throws Exception {
         startGrids(NODE_COUNT);
 
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         ig.cluster().active(true);
 
@@ -596,12 +596,12 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         manualCacheRebalancing(ig, CACHE_NAME);
 
         for (int i = 0; i < NODE_COUNT; i++) {
-            if (grid(i).localNode().equals(affNodes.get(0))) {
+            if (ignite(i).localNode().equals(affNodes.get(0))) {
                 primaryIdx = i;
-                primary = grid(i);
+                primary = ignite(i);
             }
-            else if (grid(i).localNode().equals(affNodes.get(1)))
-                backup = grid(i);
+            else if (ignite(i).localNode().equals(affNodes.get(1)))
+                backup = ignite(i);
         }
 
         assert primary != null;
@@ -652,7 +652,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     public void testPrimaryLeftAndClusterRestart() throws Exception {
         startGrids(NODE_COUNT);
 
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         ig.cluster().active(true);
 
@@ -683,13 +683,13 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         manualCacheRebalancing(ig, CACHE_NAME);
 
         for (int i = 0; i < NODE_COUNT; i++) {
-            if (grid(i).localNode().equals(affNodes.get(0))) {
+            if (ignite(i).localNode().equals(affNodes.get(0))) {
                 primaryIdx = i;
-                primary = grid(i);
+                primary = ignite(i);
             }
-            else if (grid(i).localNode().equals(affNodes.get(1))) {
+            else if (ignite(i).localNode().equals(affNodes.get(1))) {
                 backupIdx = i;
-                backup = grid(i);
+                backup = ignite(i);
             }
         }
 
@@ -724,13 +724,13 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         startGrids(NODE_COUNT);
 
-        ig = grid(0);
-        primary = grid(primaryIdx);
-        backup = grid(backupIdx);
+        ig = ignite(0);
+        primary = ignite(primaryIdx);
+        backup = ignite(backupIdx);
 
         boolean activated = GridTestUtils.waitForCondition(() -> {
             for (int i = 0; i < NODE_COUNT; i++) {
-                if (!grid(i).cluster().active())
+                if (!ignite(i).cluster().active())
                     return false;
             }
 
@@ -764,7 +764,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     public void testMetadataUpdate() throws Exception {
         startGrids(5);
 
-        Ignite ignite3 = grid(3);
+        Ignite ignite3 = ignite(3);
 
         ignite3.cluster().active(true);
 
@@ -786,11 +786,11 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         startGrids(5);
 
-        GridTestUtils.waitForCondition(() -> grid(0).cluster().active(), getTestTimeout());
+        GridTestUtils.waitForCondition(() -> ignite(0).cluster().active(), getTestTimeout());
 
         for (int g = 0; g < 5; g++) {
             for (int i = 0; i < 100; i++)
-                assertEquals(new TestValue(i), grid(g).cache("replicated").get(i));
+                assertEquals(new TestValue(i), ignite(g).cache("replicated").get(i));
         }
     }
 
@@ -801,7 +801,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     public void testClusterRestoredOnRestart() throws Exception {
         startGrids(5);
 
-        Ignite ignite3 = grid(3);
+        Ignite ignite3 = ignite(3);
 
         ignite3.cluster().active(true);
 
@@ -822,11 +822,11 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         startGrids(5);
 
-        GridTestUtils.waitForCondition(() -> grid(0).cluster().active(), getTestTimeout());
+        GridTestUtils.waitForCondition(() -> ignite(0).cluster().active(), getTestTimeout());
 
         for (int g = 0; g < 5; g++) {
             for (int i = 0; i < 2048; i++)
-                assertEquals("For key: " + i, 0, grid(g).cache("unknown_cache").get(i));
+                assertEquals("For key: " + i, 0, ignite(g).cache("unknown_cache").get(i));
         }
     }
 
@@ -976,7 +976,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         startGrids(4);
 
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         ig.cluster().active(true);
 
@@ -1009,7 +1009,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         startGrids(4);
 
-        ig = grid(0);
+        ig = ignite(0);
 
         ig.cluster().active(true);
 
@@ -1018,7 +1018,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         GridDhtPartitionFullMap partMap = ig.cachex(cacheName).context().topology().partitionMap(false);
 
         for (int i = 1; i < 4; i++) {
-            IgniteEx ig0 = grid(i);
+            IgniteEx ig0 = ignite(i);
 
             for (int p = 0; p < 32; p++)
                 assertEqualsCollections(ig.affinity(cacheName).mapPartitionToPrimaryAndBackups(p), ig0.affinity(cacheName).mapPartitionToPrimaryAndBackups(p));

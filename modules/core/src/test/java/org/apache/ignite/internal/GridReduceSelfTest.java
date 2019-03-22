@@ -43,7 +43,7 @@ public class GridReduceSelfTest extends GridCommonAbstractTest {
         startGrids(GRID_CNT);
 
         try {
-            Ignite ignite = grid(0);
+            Ignite ignite = ignite(0);
 
             assert ignite.cluster().nodes().size() == GRID_CNT;
 
@@ -86,7 +86,7 @@ public class GridReduceSelfTest extends GridCommonAbstractTest {
         startGrids(GRID_CNT);
 
         try {
-            Ignite ignite = grid(0);
+            Ignite ignite = ignite(0);
 
             assert ignite.cluster().nodes().size() == GRID_CNT;
 

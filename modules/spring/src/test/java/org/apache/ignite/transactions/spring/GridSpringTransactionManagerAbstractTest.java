@@ -106,7 +106,7 @@ public abstract class GridSpringTransactionManagerAbstractTest extends GridCommo
     @Test
     public void testDoSetRollbackOnlyInExistingTransaction() throws Exception {
         SpringTransactionManager mngr = new SpringTransactionManager();
-        mngr.setIgniteInstanceName(grid().name());
+        mngr.setIgniteInstanceName(ignite().name());
         mngr.onApplicationEvent(null);
 
         TransactionTemplate txTmpl = new TransactionTemplate(mngr);
@@ -116,7 +116,7 @@ public abstract class GridSpringTransactionManagerAbstractTest extends GridCommo
                 @Override public Object doInTransaction(TransactionStatus status) {
                     cache().put(1, "1");
 
-                    Transaction tx = grid().transactions().tx();
+                    Transaction tx = ignite().transactions().tx();
 
                     assertFalse(tx.isRollbackOnly());
 

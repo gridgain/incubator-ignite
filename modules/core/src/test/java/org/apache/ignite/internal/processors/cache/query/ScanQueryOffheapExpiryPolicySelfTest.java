@@ -77,8 +77,8 @@ public class ScanQueryOffheapExpiryPolicySelfTest extends GridCommonAbstractTest
      */
     @Test
     public void testEntriesMovedFromOnHeap() throws Exception {
-        Ignite ignite0 = grid(0);
-        Ignite ignite1 = grid(1);
+        Ignite ignite0 = ignite(0);
+        Ignite ignite1 = ignite(1);
 
         IgniteCache<Integer, Integer> cache0 = ignite0.cache(CACHE_NAME);
         IgniteCache<Integer, Integer> cache1 = ignite1.cache(CACHE_NAME);

@@ -1183,12 +1183,12 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange();
 
-        TestRecordingCommunicationSpi spi0 = TestRecordingCommunicationSpi.spi(grid(0));
+        TestRecordingCommunicationSpi spi0 = TestRecordingCommunicationSpi.spi(ignite(0));
 
         final Set<String> blocked = new HashSet<>();
 
         for (int id : blockedIds) {
-            String name = grid(id).name();
+            String name = ignite(id).name();
 
             blocked.add(name);
         }
@@ -1330,7 +1330,7 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
             for (int i = 0; i < nodes; i++)
                 startServer(i, ++topVer);
 
-            Ignite ignite1 = grid(1);
+            Ignite ignite1 = ignite(1);
 
             checkAffinity(nodes, topVer(nodes, 1), true);
 
@@ -1531,11 +1531,11 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
 
             checkAffinity(3, topVer(5, 1), true);
 
-            long nodeJoinTopVer = grid(3).context().discovery().localJoinEvent().topologyVersion();
+            long nodeJoinTopVer = ignite(3).context().discovery().localJoinEvent().topologyVersion();
 
             assertEquals(5, nodeJoinTopVer);
 
-            List<GridDhtPartitionsExchangeFuture> exFutures = grid(3).context().cache().context().exchange().exchangeFutures();
+            List<GridDhtPartitionsExchangeFuture> exFutures = ignite(3).context().cache().context().exchange().exchangeFutures();
 
             for (GridDhtPartitionsExchangeFuture f : exFutures) {
                 //Shouldn't contains staled futures.
@@ -1950,7 +1950,7 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
                     fail();
             }
 
-            IgniteKernal node = (IgniteKernal)grid(srvs.get(0));
+            IgniteKernal node = (IgniteKernal)ignite(srvs.get(0));
 
             checkAffinity(srvs.size() + clients.size(),
                 node.context().cache().context().exchange().readyAffinityVersion(),
@@ -2150,7 +2150,7 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
             @Override public Void call() throws Exception {
                 int idx = nodeIdx.getAndIncrement();
 
-                Ignite node = grid(idx);
+                Ignite node = ignite(idx);
 
                 List<IgniteCache<Object, Object>> caches = new ArrayList<>();
 
@@ -2309,7 +2309,7 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
 
             boolean wait = GridTestUtils.waitForCondition(new PA() {
                 @Override public boolean apply() {
-                    TestService srvc = grid(srvcNode).services().service(srvcName);
+                    TestService srvc = ignite(srvcNode).services().service(srvcName);
 
                     if (srvc == null)
                         return false;
@@ -2341,7 +2341,7 @@ public class CacheLateAffinityAssignmentTest extends GridCommonAbstractTest {
         if (name == null)
             name = srvs.get(rnd.nextInt(srvs.size()));
 
-        Ignite node = grid(name);
+        Ignite node = ignite(name);
 
         assert  node != null;
 

@@ -153,7 +153,7 @@ public class JoinInActiveNodeToActiveCluster extends AbstractNodeJoinTemplate {
             new Runnable() {
                 @Override public void run() {
                     for (int i = 0; i < 3; i++) {
-                        IgniteEx ig = grid(name(i));
+                        IgniteEx ig = ignite(name(i));
 
                         Map<String, DynamicCacheDescriptor> desc = cacheDescriptors(ig);
 
@@ -270,7 +270,7 @@ public class JoinInActiveNodeToActiveCluster extends AbstractNodeJoinTemplate {
             .afterNodeJoin(new Runnable() {
                 @Override public void run() {
                     for (int i = 0; i < 3; i++) {
-                        IgniteEx ig = grid(name(i));
+                        IgniteEx ig = ignite(name(i));
 
                         Map<String, DynamicCacheDescriptor> desc = cacheDescriptors(ig);
 
@@ -301,7 +301,7 @@ public class JoinInActiveNodeToActiveCluster extends AbstractNodeJoinTemplate {
             }).setEnd(new Runnable() {
                 @Override public void run() {
                     for (int i = 0; i < 3; i++) {
-                        IgniteEx ig = grid(name(i));
+                        IgniteEx ig = ignite(name(i));
 
                         Map<String, DynamicCacheDescriptor> desc = cacheDescriptors(ig);
 
@@ -335,7 +335,7 @@ public class JoinInActiveNodeToActiveCluster extends AbstractNodeJoinTemplate {
                 new Runnable() {
                     @Override public void run() {
                         for (int i = 0; i < 4; i++) {
-                            IgniteEx ig = grid(name(i));
+                            IgniteEx ig = ignite(name(i));
 
                             Map<String, DynamicCacheDescriptor> desc = cacheDescriptors(ig);
 
@@ -359,7 +359,7 @@ public class JoinInActiveNodeToActiveCluster extends AbstractNodeJoinTemplate {
                 new Runnable() {
                     @Override public void run() {
                         for (int i = 0; i < 4; i++) {
-                            IgniteEx ig = grid(name(i));
+                            IgniteEx ig = ignite(name(i));
 
                             Map<String, DynamicCacheDescriptor> desc = cacheDescriptors(ig);
 

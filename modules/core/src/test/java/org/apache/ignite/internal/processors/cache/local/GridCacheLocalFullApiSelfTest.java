@@ -59,7 +59,7 @@ public class GridCacheLocalFullApiSelfTest extends GridCacheAbstractFullApiSelfT
         cache.put("key1", 1);
         cache.put("key2", 2);
 
-        Map<ClusterNode, Collection<String>> map = grid(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(F.asList("key1", "key2"));
+        Map<ClusterNode, Collection<String>> map = ignite(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(F.asList("key1", "key2"));
 
         assert map.size() == 1;
 
@@ -71,7 +71,7 @@ public class GridCacheLocalFullApiSelfTest extends GridCacheAbstractFullApiSelfT
         for (String key : keys)
             assert "key1".equals(key) || "key2".equals(key);
 
-        map = grid(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(F.asList("key1", "key2"));
+        map = ignite(0).<String>affinity(DEFAULT_CACHE_NAME).mapKeysToNodes(F.asList("key1", "key2"));
 
         assert map.size() == 1;
 

@@ -62,7 +62,7 @@ public class IgniteDevOnlyLogTest extends GridCommonAbstractTest {
     public void testDevOnlyQuietMessage() throws Exception {
         additionalArgs = Collections.singletonList("-D" + IgniteSystemProperties.IGNITE_QUIET + "=true");
 
-        log = new GridStringLogger(false, grid(0).log());
+        log = new GridStringLogger(false, ignite(0).log());
 
         Ignite ignite = startGrid(1);
 
@@ -78,7 +78,7 @@ public class IgniteDevOnlyLogTest extends GridCommonAbstractTest {
     public void testDevOnlyVerboseMessage() throws Exception {
         additionalArgs = Collections.singletonList("-D" + IgniteSystemProperties.IGNITE_QUIET + "=false");
 
-        log = new GridStringLogger(false, grid(0).log());
+        log = new GridStringLogger(false, ignite(0).log());
 
         Ignite ignite = startGrid(1);
 
@@ -99,7 +99,7 @@ public class IgniteDevOnlyLogTest extends GridCommonAbstractTest {
         additionalArgs = Collections.singletonList("-D" +
             IgniteSystemProperties.IGNITE_DEV_ONLY_LOGGING_DISABLED + "=true");
 
-        log = new GridStringLogger(false, grid(0).log());
+        log = new GridStringLogger(false, ignite(0).log());
 
         Ignite ignite = startGrid(1);
 
@@ -112,7 +112,7 @@ public class IgniteDevOnlyLogTest extends GridCommonAbstractTest {
 
     /** */
     private void warnDevOnly(final String msg) {
-        grid(0).compute(grid(0).cluster().forRemotes()).broadcast(new IgniteRunnable() {
+        ignite(0).compute(ignite(0).cluster().forRemotes()).broadcast(new IgniteRunnable() {
             @IgniteInstanceResource
             private Ignite ignite;
 

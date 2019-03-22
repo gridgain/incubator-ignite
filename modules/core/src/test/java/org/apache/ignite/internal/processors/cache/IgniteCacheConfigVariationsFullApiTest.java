@@ -180,10 +180,10 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             map.put("key" + i, i);
 
         // Put in primary nodes to avoid near readers which will prevent entry from being cleared.
-        Map<ClusterNode, Collection<String>> mapped = grid(0).<String>affinity(cacheName()).mapKeysToNodes(map.keySet());
+        Map<ClusterNode, Collection<String>> mapped = ignite(0).<String>affinity(cacheName()).mapKeysToNodes(map.keySet());
 
         for (int i = 0; i < gridCount(); i++) {
-            Collection<String> keys = mapped.get(grid(i).localNode());
+            Collection<String> keys = mapped.get(ignite(i).localNode());
 
             if (!F.isEmpty(keys)) {
                 for (String key : keys)
@@ -193,7 +193,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
 
         map.remove("key0");
 
-        mapped = grid(0).<String>affinity(cacheName()).mapKeysToNodes(map.keySet());
+        mapped = ignite(0).<String>affinity(cacheName()).mapKeysToNodes(map.keySet());
 
         for (int i = 0; i < gridCount(); i++) {
             // Will actually delete entry from map.
@@ -201,7 +201,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
 
             assertNull("Failed check for grid: " + i, jcache(i).localPeek("key0", ONHEAP));
 
-            Collection<String> keysCol = mapped.get(grid(i).localNode());
+            Collection<String> keysCol = mapped.get(ignite(i).localNode());
 
             assert jcache(i).localSize() != 0 || F.isEmpty(keysCol);
         }
@@ -210,7 +210,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             executeOnLocalOrRemoteJvm(i, new CheckCacheSizeTask(map, cacheName()));
 
         for (int i = 0; i < gridCount(); i++) {
-            Collection<String> keysCol = mapped.get(grid(i).localNode());
+            Collection<String> keysCol = mapped.get(ignite(i).localNode());
 
             assertEquals("Failed check for grid: " + i, !F.isEmpty(keysCol) ? keysCol.size() : 0,
                 jcache(i).localSize(PRIMARY));
@@ -1404,7 +1404,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         assertEquals(exp, cache.get(key));
 
         for (int i = 0; i < gridCount(); i++) {
-            if (ignite(i).affinity(cacheName()).isPrimaryOrBackup(grid(i).localNode(), key))
+            if (ignite(i).affinity(cacheName()).isPrimaryOrBackup(ignite(i).localNode(), key))
                 assertEquals(exp, jcache(i).localPeek(key));
         }
     }
@@ -2266,8 +2266,8 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         assert cache.getAndPutIfAbsent("key", 2) != null;
 
         for (int i = 0; i < gridCount(); i++) {
-            info("Peek on node [i=" + i + ", id=" + grid(i).localNode().id() + ", val=" +
-                grid(i).cache(cacheName()).localPeek("key", ONHEAP) + ']');
+            info("Peek on node [i=" + i + ", id=" + ignite(i).localNode().id() + ", val=" +
+                ignite(i).cache(cacheName()).localPeek("key", ONHEAP) + ']');
         }
 
         assertEquals((Integer)1, cache.getAndPutIfAbsent("key", 2));
@@ -2805,11 +2805,11 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            info("Peek key on grid [i=" + i + ", nodeId=" + grid(i).localNode().id() +
-                ", peekVal=" + grid(i).cache(cacheName()).localPeek("key", ONHEAP) + ']');
+            info("Peek key on grid [i=" + i + ", nodeId=" + ignite(i).localNode().id() +
+                ", peekVal=" + ignite(i).cache(cacheName()).localPeek("key", ONHEAP) + ']');
 
-            info("Peek key2 on grid [i=" + i + ", nodeId=" + grid(i).localNode().id() +
-                ", peekVal=" + grid(i).cache(cacheName()).localPeek("key2", ONHEAP) + ']');
+            info("Peek key2 on grid [i=" + i + ", nodeId=" + ignite(i).localNode().id() +
+                ", peekVal=" + ignite(i).cache(cacheName()).localPeek("key2", ONHEAP) + ']');
         }
 
         if (storeEnabled() && isLoadPreviousValue() && !isMultiJvm())
@@ -3324,13 +3324,13 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             putToStore(key, Integer.parseInt(key));
 
         for (int g = 0; g < gridCount(); g++)
-            grid(g).cache(cacheName()).localLoadCache(null);
+            ignite(g).cache(cacheName()).localLoadCache(null);
 
         for (int g = 0; g < gridCount(); g++) {
             for (int i = 0; i < cnt; i++) {
                 String key = String.valueOf(i);
 
-                if (grid(0).affinity(cacheName()).mapKeyToPrimaryAndBackups(key).contains(grid(g).localNode()))
+                if (ignite(0).affinity(cacheName()).mapKeyToPrimaryAndBackups(key).contains(ignite(g).localNode()))
                     assertEquals(i, jcache(g).localPeek(key));
                 else
                     assertNull(jcache(g).localPeek(key));
@@ -3738,7 +3738,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
      */
     @Test
     public void testRemoveAfterClear() throws Exception {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         boolean affNode = ignite.context().cache().internalCache(cacheName()).context().affinityNode();
 
@@ -3746,7 +3746,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             if (gridCount() < 2)
                 return;
 
-            ignite = grid(1);
+            ignite = ignite(1);
         }
 
         IgniteCache<Integer, Integer> cache = ignite.cache(cacheName());
@@ -3772,7 +3772,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         cache.clear();
 
         for (int g = 0; g < gridCount(); g++) {
-            Ignite grid0 = grid(g);
+            Ignite grid0 = ignite(g);
 
             grid0.cache(cacheName()).removeAll();
 
@@ -3993,7 +3993,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             final CountDownLatch lockCnt = new CountDownLatch(1);
             final CountDownLatch unlockCnt = new CountDownLatch(1);
 
-            grid(0).events().localListen(new IgnitePredicate<Event>() {
+            ignite(0).events().localListen(new IgnitePredicate<Event>() {
                 @Override public boolean apply(Event evt) {
                     switch (evt.type()) {
                         case EVT_CACHE_OBJECT_LOCKED:
@@ -4185,7 +4185,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
 
         final ExpiryPolicy expiry = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-        grid(0).cache(cacheName()).withExpiryPolicy(expiry).put(key, 1);
+        ignite(0).cache(cacheName()).withExpiryPolicy(expiry).put(key, 1);
 
         boolean wait = waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -4215,10 +4215,10 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             Affinity<String> aff = ignite(0).affinity(cacheName());
 
             for (int i = 0; i < gridCount(); i++) {
-                if (aff.isPrimary(grid(i).cluster().localNode(), key))
+                if (aff.isPrimary(ignite(i).cluster().localNode(), key))
                     assertEquals(1, jcache(i).localPeek(key));
 
-                if (aff.isBackup(grid(i).cluster().localNode(), key))
+                if (aff.isBackup(ignite(i).cluster().localNode(), key))
                     assertEquals(1, jcache(i).localPeek(key));
             }
         }
@@ -4273,10 +4273,10 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             final String key = "1";
             int ttl = 500;
 
-            try (Transaction tx = grid(0).transactions().txStart()) {
+            try (Transaction tx = ignite(0).transactions().txStart()) {
                 final ExpiryPolicy expiry = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-                grid(0).cache(cacheName()).withExpiryPolicy(expiry).put(key, 1);
+                ignite(0).cache(cacheName()).withExpiryPolicy(expiry).put(key, 1);
 
                 tx.commit();
             }
@@ -4405,7 +4405,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         long[] expireTimes = new long[gridCount()];
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(cacheName()).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(cacheName()).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4432,7 +4432,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(cacheName()).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(cacheName()).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4459,7 +4459,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         }
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(cacheName()).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(cacheName()).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4490,7 +4490,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         log.info("Put 4 done");
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).affinity(cacheName()).isPrimaryOrBackup(grid(i).localNode(), key)) {
+            if (ignite(i).affinity(cacheName()).isPrimaryOrBackup(ignite(i).localNode(), key)) {
                 IgnitePair<Long> curEntryTtl = entryTtl(jcache(i), key);
 
                 assertNotNull(curEntryTtl.get1());
@@ -4532,7 +4532,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
 
         IgniteCache srvNodeCache = serverNodeCache();
 
-        if (!isMultiJvmObject(srvNodeCache)) {
+        if (!GridTestUtils.isMultiJvmObject(srvNodeCache)) {
             GridCacheAdapter internalCache = internalCache(srvNodeCache);
 
             if (internalCache.isLocal())
@@ -4605,13 +4605,13 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             Affinity<String> aff = ignite(0).affinity(cacheName());
 
             for (int i = 0; i < gridCount(); i++) {
-                if (aff.isPrimaryOrBackup(grid(i).cluster().localNode(), key1))
+                if (aff.isPrimaryOrBackup(ignite(i).cluster().localNode(), key1))
                     assertEquals(1, jcache(i).localPeek(key1));
 
-                if (aff.isPrimaryOrBackup(grid(i).cluster().localNode(), key2))
+                if (aff.isPrimaryOrBackup(ignite(i).cluster().localNode(), key2))
                     assertEquals(2, jcache(i).localPeek(key2));
 
-                if (aff.isPrimaryOrBackup(grid(i).cluster().localNode(), key3))
+                if (aff.isPrimaryOrBackup(ignite(i).cluster().localNode(), key3))
                     assertEquals(3, jcache(i).localPeek(key3));
             }
         }
@@ -4653,7 +4653,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
 
         final ExpiryPolicy expiry = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-        grid(0).cache(cacheName()).withExpiryPolicy(expiry).put(key, 1);
+        ignite(0).cache(cacheName()).withExpiryPolicy(expiry).put(key, 1);
 
         waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -4917,7 +4917,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
      * @return Ignite instance of the primary node for the specified key.
      */
     protected Ignite primaryIgnite(String key) {
-        ClusterNode node = grid(0).affinity(cacheName()).mapKeyToNode(key);
+        ClusterNode node = ignite(0).affinity(cacheName()).mapKeyToNode(key);
 
         if (node == null)
             throw new IgniteException("Failed to find primary node.");
@@ -4925,7 +4925,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         UUID nodeId = node.id();
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).localNode().id().equals(nodeId))
+            if (ignite(i).localNode().id().equals(nodeId))
                 return ignite(i);
         }
 
@@ -5004,7 +5004,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
      */
     @Test
     public void testIterator() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(cacheName());
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(cacheName());
 
         final int KEYS = 1000;
 
@@ -5013,7 +5013,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
 
         // Try to initialize readers in case when near cache is enabled.
         for (int i = 0; i < gridCount(); i++) {
-            cache = grid(i).cache(cacheName());
+            cache = ignite(i).cache(cacheName());
 
             for (int k = 0; k < KEYS; k++)
                 assertEquals((Object)k, cache.get(k));
@@ -5256,11 +5256,11 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             boolean found = primaryIgnite(key).cache(cacheName()).localPeek(key) != null;
 
             if (keyToRmv.equals(key)) {
-                Collection<ClusterNode> nodes = grid(0).affinity(cacheName()).mapKeyToPrimaryAndBackups(key);
+                Collection<ClusterNode> nodes = ignite(0).affinity(cacheName()).mapKeyToPrimaryAndBackups(key);
 
                 for (int j = 0; j < gridCount(); ++j) {
-                    if (nodes.contains(grid(j).localNode()) && grid(j) != primaryIgnite(key))
-                        assertTrue("Not found on backup removed key ", grid(j).cache(cacheName()).localPeek(key) != null);
+                    if (nodes.contains(ignite(j).localNode()) && ignite(j) != primaryIgnite(key))
+                        assertTrue("Not found on backup removed key ", ignite(j).cache(cacheName()).localPeek(key) != null);
                 }
 
                 assertFalse("Found removed key " + key, found);
@@ -5277,19 +5277,19 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
     public void testLocalClearKeys() throws Exception {
         Map<String, List<String>> keys = addKeys();
 
-        Ignite g = grid(0);
+        Ignite g = ignite(0);
 
         Set<String> keysToRmv = new HashSet<>();
 
         for (int i = 0; i < gridCount(); ++i) {
-            List<String> gridKeys = keys.get(grid(i).name());
+            List<String> gridKeys = keys.get(ignite(i).name());
 
             if (gridKeys.size() > 2) {
                 keysToRmv.add(gridKeys.get(0));
 
                 keysToRmv.add(gridKeys.get(1));
 
-                g = grid(i);
+                g = ignite(i);
 
                 break;
             }
@@ -5327,7 +5327,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         Map<String, List<String>> keys = new HashMap<>();
 
         for (int i = 0; i < gridCount(); ++i)
-            keys.put(grid(i).name(), new ArrayList<String>());
+            keys.put(ignite(i).name(), new ArrayList<String>());
 
         for (int i = 0; i < 500; ++i) {
             String key = "key" + i;
@@ -5457,7 +5457,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         if (!storeEnabled())
             return;
 
-        IgniteCache<String, Integer> cache = grid(0).cache(cacheName());
+        IgniteCache<String, Integer> cache = ignite(0).cache(cacheName());
 
         IgniteCache<String, Integer> cacheSkipStore = cache.withSkipStore();
 
@@ -5673,7 +5673,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         if (!storeEnabled())
             return;
 
-        IgniteCache<String, Integer> cache = grid(0).cache(cacheName());
+        IgniteCache<String, Integer> cache = ignite(0).cache(cacheName());
 
         IgniteCache<String, Integer> cacheSkipStore = cache.withSkipStore();
 
@@ -5713,7 +5713,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
     @Test
     public void testWithSkipStoreTx() throws Exception {
         if (txShouldBeUsed() && storeEnabled()) {
-            IgniteCache<String, Integer> cache = grid(0).cache(cacheName());
+            IgniteCache<String, Integer> cache = ignite(0).cache(cacheName());
 
             IgniteCache<String, Integer> cacheSkipStore = cache.withSkipStore();
 
@@ -6036,7 +6036,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
         };
 
         try {
-            IgniteCache<String, Integer> cache = grid(0).cache(cacheName()).withAllowAtomicOpsInTx();
+            IgniteCache<String, Integer> cache = ignite(0).cache(cacheName()).withAllowAtomicOpsInTx();
 
             List<String> keys = primaryKeysForCache(0, 2, 1);
 
@@ -6045,7 +6045,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             cache.put(keys.get(0), 0);
             cache.put(keys.get(1), 1);
 
-            grid(0).events().localListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
+            ignite(0).events().localListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
 
             if (async && oldAsync)
                 cache = cache.withAsync();
@@ -6096,7 +6096,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
                         return lockEvtCnt.get() == 0;
 
                     if (cacheMode() == PARTITIONED && nearEnabled()) {
-                        if (!grid(0).configuration().isClientMode())
+                        if (!ignite(0).configuration().isClientMode())
                             return lockEvtCnt.get() == 4;
                     }
 
@@ -6105,7 +6105,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
             }, 15000));
         }
         finally {
-            grid(0).events().stopLocalListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
+            ignite(0).events().stopLocalListen(lsnr, EVT_CACHE_OBJECT_LOCKED, EVT_CACHE_OBJECT_UNLOCKED);
         }
     }
 

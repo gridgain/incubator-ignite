@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.processors.cache.GridCacheAlwaysEvictionPolicy;
-import org.apache.ignite.internal.util.typedef.CAX;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
@@ -96,12 +96,12 @@ public class GridCachePartitionedMultiThreadedPutGetSelfTest extends GridCommonA
         super.afterTest();
 
         if (GRID_CNT > 0)
-            grid(0).cache(DEFAULT_CACHE_NAME).removeAll();
+            ignite(0).cache(DEFAULT_CACHE_NAME).removeAll();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            grid(i).cache(DEFAULT_CACHE_NAME).clear();
+            ignite(i).cache(DEFAULT_CACHE_NAME).clear();
 
-            assert grid(i).cache(DEFAULT_CACHE_NAME).localSize() == 0;
+            assert ignite(i).cache(DEFAULT_CACHE_NAME).localSize() == 0;
         }
     }
 
@@ -174,32 +174,30 @@ public class GridCachePartitionedMultiThreadedPutGetSelfTest extends GridCommonA
         throws Exception {
         final AtomicInteger cntr = new AtomicInteger();
 
-        multithreaded(new CAX() {
-            @Override public void applyx() {
-                IgniteCache<Integer, Integer> c = grid(0).cache(DEFAULT_CACHE_NAME);
+        GridTestUtils.runMultiThreaded(() -> {
+            IgniteCache<Integer, Integer> c = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-                for (int i = 0; i < TX_CNT; i++) {
-                    int kv = cntr.incrementAndGet();
+            for (int i = 0; i < TX_CNT; i++) {
+                int kv = cntr.incrementAndGet();
 
-                    try (Transaction tx = grid(0).transactions().txStart(concurrency, isolation)) {
-                        assertNull(c.get(kv));
+                try (Transaction tx = ignite(0).transactions().txStart(concurrency, isolation)) {
+                    assertNull(c.get(kv));
 
-                        c.put(kv, kv);
+                    c.put(kv, kv);
 
-                        assertEquals(Integer.valueOf(kv), c.get(kv));
+                    assertEquals(Integer.valueOf(kv), c.get(kv));
 
-                        // Again.
-                        c.put(kv, kv);
+                    // Again.
+                    c.put(kv, kv);
 
-                        assertEquals(Integer.valueOf(kv), c.get(kv));
+                    assertEquals(Integer.valueOf(kv), c.get(kv));
 
-                        tx.commit();
-                    }
-
-                    if (TEST_INFO && kv % 1000 == 0)
-                        info("Transactions: " + kv);
+                    tx.commit();
                 }
+
+                if (TEST_INFO && kv % 1000 == 0)
+                    info("Transactions: " + kv);
             }
-        }, THREAD_CNT);
+        }, THREAD_CNT, getTestIgniteInstanceName());
     }
 }

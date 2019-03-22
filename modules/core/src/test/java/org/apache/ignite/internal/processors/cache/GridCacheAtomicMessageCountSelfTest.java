@@ -106,7 +106,7 @@ public class GridCacheAtomicMessageCountSelfTest extends GridCommonAbstractTest 
         try {
             awaitPartitionMapExchange();
 
-            TestCommunicationSpi commSpi = (TestCommunicationSpi)grid(0).configuration().getCommunicationSpi();
+            TestCommunicationSpi commSpi = (TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi();
 
             commSpi.registerMessage(GridNearAtomicSingleUpdateRequest.class);
             commSpi.registerMessage(GridNearAtomicFullUpdateRequest.class);
@@ -120,7 +120,7 @@ public class GridCacheAtomicMessageCountSelfTest extends GridCommonAbstractTest 
             int expDhtCnt = 0;
 
             for (int i = 0; i < putCnt; i++) {
-                ClusterNode locNode = grid(0).localNode();
+                ClusterNode locNode = ignite(0).localNode();
 
                 Affinity<Object> affinity = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
@@ -137,7 +137,7 @@ public class GridCacheAtomicMessageCountSelfTest extends GridCommonAbstractTest 
             assertEquals(expDhtCnt, commSpi.messageCount(GridDhtAtomicSingleUpdateRequest.class));
 
             for (int i = 1; i < 4; i++) {
-                commSpi = (TestCommunicationSpi)grid(i).configuration().getCommunicationSpi();
+                commSpi = (TestCommunicationSpi)ignite(i).configuration().getCommunicationSpi();
 
                 assertEquals(0, commSpi.messageCount(GridNearAtomicSingleUpdateRequest.class));
                 assertEquals(0, commSpi.messageCount(GridNearAtomicFullUpdateRequest.class));

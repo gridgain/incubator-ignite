@@ -91,7 +91,7 @@ public class StandaloneWalRecordsIteratorTest extends GridCommonAbstractTest {
      *
      */
     private String createWalFiles() throws Exception {
-        IgniteEx ig = (IgniteEx)startGrid();
+        IgniteEx ig = (IgniteEx)clusterManager__startGrid();
 
         String archiveWalDir = getArchiveWalDirPath(ig);
 

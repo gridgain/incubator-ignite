@@ -93,7 +93,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
     @Test
     public void testRunLocal() throws Exception {
         for (int i = 0; i < NODES_CNT; i++) {
-            IgniteFuture<?> fut = grid(i).scheduler().runLocal(new TestRunnable());
+            IgniteFuture<?> fut = ignite(i).scheduler().runLocal(new TestRunnable());
 
             assert fut.get() == null;
 
@@ -107,7 +107,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
     @Test
     public void testCallLocal() throws Exception {
         for (int i = 0; i < NODES_CNT; i++) {
-            IgniteFuture<?> fut = grid(i).scheduler().callLocal(new TestCallable());
+            IgniteFuture<?> fut = ignite(i).scheduler().callLocal(new TestCallable());
 
             assertEquals(1, fut.get());
 
@@ -129,7 +129,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
 
         try {
             // Execute 2 times after 2 seconds delay every minute.
-            fut = grid(0).scheduler().scheduleLocal(
+            fut = ignite(0).scheduler().scheduleLocal(
                 new Runnable() {
                     @Override public void run() {
                         latch.countDown();
@@ -244,7 +244,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
         long delay = 2; // 2 seconds delay.
 
         try {
-            fut = grid(0).scheduler().scheduleLocal(new Callable<Integer>() {
+            fut = ignite(0).scheduler().scheduleLocal(new Callable<Integer>() {
                 private int cnt;
 
                 @Override public Integer call() {
@@ -301,7 +301,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
         final GridTuple<Integer> tpl = new GridTuple<>(0);
 
         try {
-            fut = grid(0).scheduler().scheduleLocal(new Runnable() {
+            fut = ignite(0).scheduler().scheduleLocal(new Runnable() {
                 @Override public void run() {
                     tpl.set(tpl.get() + 1);
                 }
@@ -355,7 +355,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
 
         try {
             // Invalid delay.
-            grid(0).scheduler().scheduleLocal(run, "{sdf, *} * * * * *").get();
+            ignite(0).scheduler().scheduleLocal(run, "{sdf, *} * * * * *").get();
 
             fail("IgniteException must have been thrown");
         }
@@ -365,7 +365,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
 
         try {
             // Invalid delay.
-            grid(0).scheduler().scheduleLocal(run, "{**, *} * * * * *").get();
+            ignite(0).scheduler().scheduleLocal(run, "{**, *} * * * * *").get();
 
             fail("IgniteException must have been thrown");
         }
@@ -375,7 +375,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
 
         try {
             // Invalid number of executions.
-            grid(0).scheduler().scheduleLocal(run, "{1, ghd} * * * * *").get();
+            ignite(0).scheduler().scheduleLocal(run, "{1, ghd} * * * * *").get();
 
             fail("IgniteException must have been thrown");
         }
@@ -385,7 +385,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
 
         try {
             // Number of executions in pattern must be greater than zero or equal to "*".
-            grid(0).scheduler().scheduleLocal(run, "{*, 0} * * * * *").get();
+            ignite(0).scheduler().scheduleLocal(run, "{*, 0} * * * * *").get();
 
             fail("IgniteException must have been thrown");
         }
@@ -395,7 +395,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
 
         try {
             // Invalid cron expression.
-            grid(0).scheduler().scheduleLocal(run, "{2, 6} * * * * * * * * * *").get();
+            ignite(0).scheduler().scheduleLocal(run, "{2, 6} * * * * * * * * * *").get();
 
             fail("IgniteException must have been thrown");
         }
@@ -405,7 +405,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
 
         try {
             // Invalid both delay and number of calls.
-            grid(0).scheduler().scheduleLocal(run, "{-2, -6} * * * * *").get();
+            ignite(0).scheduler().scheduleLocal(run, "{-2, -6} * * * * *").get();
 
             fail("IgniteException must have been thrown");
         }
@@ -425,7 +425,7 @@ public class GridScheduleSelfTest extends GridCommonAbstractTest {
             }
         };
 
-        SchedulerFuture<Integer> future = grid(0).scheduler().scheduleLocal(run, "{55} 53 3/5 * * *");
+        SchedulerFuture<Integer> future = ignite(0).scheduler().scheduleLocal(run, "{55} 53 3/5 * * *");
 
         try {
             future.get();

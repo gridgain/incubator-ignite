@@ -158,24 +158,24 @@ public class IgniteCacheQueryAbstractDistributedJoinSelfTest extends AbstractInd
      *
      */
     private void fillCaches() {
-        IgniteCache<Integer, Company> co = grid(0).cache("co");
+        IgniteCache<Integer, Company> co = ignite(0).cache("co");
 
         for (int i = 0; i < COMPANY_CNT; i++)
             co.put(i, new Company(i));
 
-        IgniteCache<Integer, Product> pr = grid(0).cache("pr");
+        IgniteCache<Integer, Product> pr = ignite(0).cache("pr");
 
         Random rnd = new GridRandom();
 
         for (int i = 0; i < PRODUCT_CNT; i++)
             pr.put(i, new Product(i, rnd.nextInt(COMPANY_CNT)));
 
-        IgniteCache<Integer, Person> pe = grid(0).cache("pe");
+        IgniteCache<Integer, Person> pe = ignite(0).cache("pe");
 
         for (int i = 0; i < PERS_CNT; i++)
             pe.put(i, new Person(i));
 
-        IgniteCache<Integer, Purchase> pu = grid(0).cache("pu");
+        IgniteCache<Integer, Purchase> pu = ignite(0).cache("pu");
 
         for (int i = 0; i < PURCHASE_CNT; i++) {
             int persId = rnd.nextInt(PERS_CNT);

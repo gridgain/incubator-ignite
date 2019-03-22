@@ -110,7 +110,7 @@ public class DataStreamerImplSelfTest extends GridCommonAbstractTest {
 
         startGrids(2);
 
-        Ignite g1 = grid(1);
+        Ignite g1 = ignite(1);
 
         List<IgniteFuture> futures = new ArrayList<>();
 
@@ -151,7 +151,7 @@ public class DataStreamerImplSelfTest extends GridCommonAbstractTest {
             }
         }, 1);
 
-        Ignite g4 = grid(4);
+        Ignite g4 = ignite(4);
 
         IgniteDataStreamer<Object, Object> dataLdr = g4.dataStreamer(DEFAULT_CACHE_NAME);
 
@@ -187,7 +187,7 @@ public class DataStreamerImplSelfTest extends GridCommonAbstractTest {
 
         startGrids(2);
 
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         IgniteDataStreamer<Integer, String> dataLdr = g0.dataStreamer(DEFAULT_CACHE_NAME);
 
@@ -528,7 +528,7 @@ public class DataStreamerImplSelfTest extends GridCommonAbstractTest {
     @Test
     public void testDataStreamerWaitsUntilDynamicCacheStartIsFinished() throws Exception {
         final Ignite ignite0 = startGrids(2);
-        final Ignite ignite1 = grid(1);
+        final Ignite ignite1 = ignite(1);
 
         final String cacheName = "testCache";
 

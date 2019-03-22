@@ -91,7 +91,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
     @SuppressWarnings("WhileLoopReplaceableByForEach")
     @Test
     public void testNodeRestart() throws Exception {
-        IgniteSet<Integer> set = grid(0).set(SET_NAME, config(false));
+        IgniteSet<Integer> set = ignite(0).set(SET_NAME, config(false));
 
         final int ITEMS = 10_000;
 
@@ -156,7 +156,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
 
                 log.info("Create new set.");
 
-                set = grid(0).set(SET_NAME, config(false));
+                set = ignite(0).set(SET_NAME, config(false));
 
                 set.addAll(items);
             }
@@ -175,7 +175,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
             Set<IgniteUuid> setIds = new HashSet<>();
 
             for (int i = 0; i < gridCount(); i++) {
-                GridCacheAdapter cache = grid(i).context().cache().internalCache(DEFAULT_CACHE_NAME);
+                GridCacheAdapter cache = ignite(i).context().cache().internalCache(DEFAULT_CACHE_NAME);
 
                 Iterator<GridCacheMapEntry> entries = cache.map().entries(cache.context().cacheId()).iterator();
 
@@ -190,7 +190,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
 
                             if (setIds.add(setItem.setId()))
                                 log.info("Unexpected set item [setId=" + setItem.setId() +
-                                    ", grid: " + grid(i).name() +
+                                    ", grid: " + ignite(i).name() +
                                     ", entry=" + entry + ']');
                         }
                     }

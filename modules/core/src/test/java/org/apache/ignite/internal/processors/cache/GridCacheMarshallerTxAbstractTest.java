@@ -75,9 +75,9 @@ public abstract class GridCacheMarshallerTxAbstractTest extends GridCommonAbstra
         String key2 = UUID.randomUUID().toString();
         GridCacheWrongValue1 wrongValue = new GridCacheWrongValue1();
 
-        Transaction tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+        Transaction tx = ignite().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
         try {
-            grid().cache(DEFAULT_CACHE_NAME).put(key, value);
+            ignite().cache(DEFAULT_CACHE_NAME).put(key, value);
 
             tx.commit();
         }
@@ -85,14 +85,14 @@ public abstract class GridCacheMarshallerTxAbstractTest extends GridCommonAbstra
             tx.close();
         }
 
-        tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+        tx = ignite().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
         try {
-            assert value.equals(grid().cache(DEFAULT_CACHE_NAME).get(key));
+            assert value.equals(ignite().cache(DEFAULT_CACHE_NAME).get(key));
 
-            grid().cache(DEFAULT_CACHE_NAME).put(key, newValue);
+            ignite().cache(DEFAULT_CACHE_NAME).put(key, newValue);
 
-            grid().cache(DEFAULT_CACHE_NAME).put(key2, wrongValue);
+            ignite().cache(DEFAULT_CACHE_NAME).put(key2, wrongValue);
 
             tx.commit();
         }
@@ -100,10 +100,10 @@ public abstract class GridCacheMarshallerTxAbstractTest extends GridCommonAbstra
             tx.close();
         }
 
-        tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+        tx = ignite().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
         try {
-            String locVal = (String)grid().cache(DEFAULT_CACHE_NAME).get(key);
+            String locVal = (String)ignite().cache(DEFAULT_CACHE_NAME).get(key);
 
             assert locVal != null;
 

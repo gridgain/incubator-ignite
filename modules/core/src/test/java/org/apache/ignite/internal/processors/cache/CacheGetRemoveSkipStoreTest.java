@@ -115,7 +115,7 @@ public class CacheGetRemoveSkipStoreTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTransactionalNoBackups() throws Exception {
-        checkNoNullReads(grid("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 0));
+        checkNoNullReads(ignite("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 0));
     }
 
     /**
@@ -123,7 +123,7 @@ public class CacheGetRemoveSkipStoreTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTransactionalOneBackup() throws Exception {
-        checkNoNullReads(grid("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 1));
+        checkNoNullReads(ignite("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 1));
     }
 
     /**
@@ -131,7 +131,7 @@ public class CacheGetRemoveSkipStoreTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAtomicNoBackups() throws Exception {
-        checkNoNullReads(grid("client"), configuration(CacheAtomicityMode.ATOMIC, 0));
+        checkNoNullReads(ignite("client"), configuration(CacheAtomicityMode.ATOMIC, 0));
     }
 
     /**
@@ -139,7 +139,7 @@ public class CacheGetRemoveSkipStoreTest extends GridCommonAbstractTest {
      */
     @Test
     public void testAtomicOneBackup() throws Exception {
-        checkNoNullReads(grid("client"), configuration(CacheAtomicityMode.ATOMIC, 1));
+        checkNoNullReads(ignite("client"), configuration(CacheAtomicityMode.ATOMIC, 1));
     }
 
     /**
@@ -150,10 +150,10 @@ public class CacheGetRemoveSkipStoreTest extends GridCommonAbstractTest {
 
         try {
             checkNoNullReads(client.cache(ccfg.getName()), 0);
-            checkNoNullReads(grid(0).cache(ccfg.getName()), primaryKey(grid(0).cache(ccfg.getName())));
+            checkNoNullReads(ignite(0).cache(ccfg.getName()), primaryKey(ignite(0).cache(ccfg.getName())));
 
             if (ccfg.getBackups() > 0)
-                checkNoNullReads(grid(0).cache(ccfg.getName()), backupKey(grid(0).cache(ccfg.getName())));
+                checkNoNullReads(ignite(0).cache(ccfg.getName()), backupKey(ignite(0).cache(ccfg.getName())));
         }
         finally {
             client.destroyCache(ccfg.getName());
@@ -197,28 +197,28 @@ public class CacheGetRemoveSkipStoreTest extends GridCommonAbstractTest {
      */
     @Test
     public void testRemoveIsAppliedTransactionalNoBackups() {
-        checkRemoveIsApplied(grid("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 0));
+        checkRemoveIsApplied(ignite("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 0));
     }
 
     /**
      */
     @Test
     public void testRemoveIsAppliedTransactionalOneBackups() {
-        checkRemoveIsApplied(grid("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 1));
+        checkRemoveIsApplied(ignite("client"), configuration(CacheAtomicityMode.TRANSACTIONAL, 1));
     }
 
     /**
      */
     @Test
     public void testRemoveIsAppliedAtomicNoBackups() {
-        checkRemoveIsApplied(grid("client"), configuration(CacheAtomicityMode.ATOMIC, 0));
+        checkRemoveIsApplied(ignite("client"), configuration(CacheAtomicityMode.ATOMIC, 0));
     }
 
     /**
      */
     @Test
     public void testRemoveIsAppliedAtomicOneBackups() {
-        checkRemoveIsApplied(grid("client"), configuration(CacheAtomicityMode.ATOMIC, 1));
+        checkRemoveIsApplied(ignite("client"), configuration(CacheAtomicityMode.ATOMIC, 1));
     }
 
     /**
@@ -236,7 +236,7 @@ public class CacheGetRemoveSkipStoreTest extends GridCommonAbstractTest {
 
             assertNotNull(cache.get(key));
 
-            Ignite primary = grid(client.affinity(ccfg.getName()).mapKeyToNode(key));
+            Ignite primary = ignite(client.affinity(ccfg.getName()).mapKeyToNode(key));
 
             assertNotNull(primary.cache(ccfg.getName()).localPeek(key));
 

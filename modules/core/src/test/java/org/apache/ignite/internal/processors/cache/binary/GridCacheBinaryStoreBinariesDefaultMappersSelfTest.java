@@ -76,6 +76,6 @@ public class GridCacheBinaryStoreBinariesDefaultMappersSelfTest extends GridCach
      * @return Binary object.
      */
     private Object binary(Object obj) {
-        return grid().binary().toBinary(obj);
+        return ignite().binary().toBinary(obj);
     }
 }

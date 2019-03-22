@@ -130,7 +130,7 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
         GridTestUtils.waitForCondition(new PA() {
             @Override public boolean apply() {
                 for (int i = 0; i < gridCount(); i++) {
-                    if (grid(i).cluster().nodes().size() != gridCount())
+                    if (ignite(i).cluster().nodes().size() != gridCount())
                         return false;
                 }
 
@@ -139,10 +139,10 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
         }, 3000);
 
         for (int i = 0; i < gridCount(); i++)
-            grid(i).destroyCache(CACHE_NAME);
+            ignite(i).destroyCache(CACHE_NAME);
 
         for (int i = 0; i < gridCount(); i++)
-            grid(i).getOrCreateCache(cacheConfiguration());
+            ignite(i).getOrCreateCache(cacheConfiguration());
     }
 
     /**
@@ -167,7 +167,7 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
      */
     @Test
     public void testAllEntries() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(CACHE_NAME);
 
         ContinuousQuery<Integer, Integer> qry = new ContinuousQuery<>();
 
@@ -242,8 +242,8 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
         if (cacheMode() == LOCAL)
             return;
 
-        final IgniteCache<Integer, Integer> cache = grid(0).cache(CACHE_NAME);
-        final IgniteCache<Integer, Integer> cache1 = grid(1).cache(CACHE_NAME);
+        final IgniteCache<Integer, Integer> cache = ignite(0).cache(CACHE_NAME);
+        final IgniteCache<Integer, Integer> cache1 = ignite(1).cache(CACHE_NAME);
 
         final AtomicInteger cntr = new AtomicInteger(0);
         final AtomicInteger cntr1 = new AtomicInteger(0);
@@ -299,7 +299,7 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
         try (QueryCursor<Cache.Entry<Integer, Integer>> query2 = cache1.query(qry2);
             QueryCursor<Cache.Entry<Integer, Integer>> query1 = cache.query(qry1)) {
             for (int i = 0; i < gridCount(); i++) {
-                IgniteCache<Object, Object> cache0 = grid(i).cache(CACHE_NAME);
+                IgniteCache<Object, Object> cache0 = ignite(i).cache(CACHE_NAME);
 
                 cache0.put(1, 1);
                 cache0.put(2, 2);
@@ -376,7 +376,7 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
      */
     @Test
     public void testRestartQuery() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(CACHE_NAME);
 
         final int keyCnt = 300;
 
@@ -435,7 +435,7 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
      */
     @Test
     public void testEntriesByFilter() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(CACHE_NAME);
 
         ContinuousQuery<Integer, Integer> qry = new ContinuousQuery<>();
 
@@ -531,7 +531,7 @@ public abstract class CacheContinuousQueryCounterAbstractTest extends GridCommon
      */
     @Test
     public void testLoadCache() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(CACHE_NAME);
 
         ContinuousQuery<Integer, Integer> qry = new ContinuousQuery<>();
 

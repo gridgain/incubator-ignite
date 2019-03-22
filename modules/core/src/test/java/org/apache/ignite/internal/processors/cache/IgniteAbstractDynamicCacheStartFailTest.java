@@ -478,7 +478,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(0).getOrCreateCache(cfg);
+                ignite(0).getOrCreateCache(cfg);
                 return null;
             }
         }, CacheException.class, null);
@@ -486,7 +486,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
         // Correct the cache configuration. Default constructor creates a good affinity function.
         cfg.setAffinity(new BrokenAffinityFunction());
 
-        checkCacheOperations(grid(0).getOrCreateCache(cfg));
+        checkCacheOperations(ignite(0).getOrCreateCache(cfg));
     }
 
     /**
@@ -496,14 +496,14 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
      */
     @Test
     public void testExistingCacheAfterFailure() throws Exception {
-        IgniteCache<Integer, Value> cache = grid(0).getOrCreateCache(createCacheConfiguration(EXISTING_CACHE_NAME));
+        IgniteCache<Integer, Value> cache = ignite(0).getOrCreateCache(createCacheConfiguration(EXISTING_CACHE_NAME));
 
         CacheConfiguration cfg = createCacheConfigsWithBrokenAffinityFun(
             false, 1, 0, 1, false).get(0);
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(0).getOrCreateCache(cfg);
+                ignite(0).getOrCreateCache(cfg);
                 return null;
             }
         }, CacheException.class, null);
@@ -520,7 +520,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
     public void testTopologyChangesAfterFailure() throws Exception {
         final String clientName = "testTopologyChangesAfterFailure";
 
-        IgniteCache<Integer, Value> cache = grid(0).getOrCreateCache(createCacheConfiguration(EXISTING_CACHE_NAME));
+        IgniteCache<Integer, Value> cache = ignite(0).getOrCreateCache(createCacheConfiguration(EXISTING_CACHE_NAME));
 
         checkCacheOperations(cache);
 
@@ -529,7 +529,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(0).getOrCreateCache(cfg);
+                ignite(0).getOrCreateCache(cfg);
                 return null;
             }
         }, CacheException.class, null);
@@ -553,7 +553,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
 
             Ignite clientNode = startGrid(clientName1, clientCfg);
 
-            List<BaselineNode> baseline = new ArrayList<>(grid(0).cluster().currentBaselineTopology());
+            List<BaselineNode> baseline = new ArrayList<>(ignite(0).cluster().currentBaselineTopology());
 
             baseline.add(serverNode.cluster().localNode());
 
@@ -579,7 +579,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
         final int clientCnt = 3;
         final int numberOfAttempts = 5;
 
-        IgniteCache<Integer, Value> cache = grid(0).getOrCreateCache(createCacheConfiguration(EXISTING_CACHE_NAME));
+        IgniteCache<Integer, Value> cache = ignite(0).getOrCreateCache(createCacheConfiguration(EXISTING_CACHE_NAME));
 
         final AtomicInteger attemptCnt = new AtomicInteger();
         final CountDownLatch stopLatch = new CountDownLatch(clientCnt);
@@ -639,13 +639,13 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
 
         GridTestUtils.assertThrows(log, new Callable<Object>() {
             @Override public Object call() throws Exception {
-                grid(initiatorId).getOrCreateCaches(cfgs);
+                ignite(initiatorId).getOrCreateCaches(cfgs);
                 return null;
             }
         }, CacheException.class, null);
 
         for (CacheConfiguration cfg: cfgs) {
-            IgniteCache cache = grid(initiatorId).cache(cfg.getName());
+            IgniteCache cache = ignite(initiatorId).cache(cfg.getName());
 
             assertNull(cache);
         }
@@ -669,9 +669,9 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
 
         mbSrv.clear();
 
-        for (String cacheName : grid(0).cacheNames()) {
+        for (String cacheName : ignite(0).cacheNames()) {
             if (!(EXISTING_CACHE_NAME.equals(cacheName) || DEFAULT_CACHE_NAME.equals(cacheName)))
-                grid(0).cache(cacheName).destroy();
+                ignite(0).cache(cacheName).destroy();
         }
     }
 
@@ -828,7 +828,7 @@ public abstract class IgniteAbstractDynamicCacheStartFailTest extends GridCacheA
         }
 
         // Check Data Streamer functionality.
-        try (IgniteDataStreamer<Integer, Value> streamer = grid(0).dataStreamer(cache.getName())) {
+        try (IgniteDataStreamer<Integer, Value> streamer = ignite(0).dataStreamer(cache.getName())) {
             for (int i = 0; i < 10_000; ++i)
                 streamer.addData(i, new Value(i));
         }

@@ -107,7 +107,7 @@ public class IgniteCacheLoadRebalanceEvictionSelfTest extends GridCommonAbstract
                 fut.get();
 
             for (int i = 0; i < gridCnt; i++) {
-                IgniteEx grid = grid(i);
+                IgniteEx grid = ignite(i);
 
                 final IgniteCache<Object, Object> cache = grid.cache(DEFAULT_CACHE_NAME);
 

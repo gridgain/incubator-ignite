@@ -515,7 +515,7 @@ public class CacheMvccSqlUpdateCountersTest extends CacheMvccAbstractTest {
 
         Map<Integer, AtomicLong> updPerParts = new HashMap<>(parts);
 
-        Affinity aff = grid(1).cachex(DEFAULT_CACHE_NAME).affinity();
+        Affinity aff = ignite(1).cachex(DEFAULT_CACHE_NAME).affinity();
 
         for (Map.Entry<Integer, AtomicLong> e : tracker.entrySet()) {
             int k = e.getKey();

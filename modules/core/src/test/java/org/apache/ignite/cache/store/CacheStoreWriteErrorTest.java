@@ -83,7 +83,7 @@ public class CacheStoreWriteErrorTest extends GridCommonAbstractTest {
         Throwable t = GridTestUtils.assertThrows(log,
             new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    try (Ignite grid = startGrid()) {
+                    try (Ignite grid = clusterManager__startGrid()) {
                         IgniteCache<BinaryObject, String> cache = grid.cache(CACHE_NAME);
 
                         HashMap<BinaryObject, String> batch = new HashMap<>();

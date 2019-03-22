@@ -58,13 +58,13 @@ public class GridCacheLocalIsolatedNodesSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testIsolatedNodes() throws Exception {
-        Ignite g1 = grid(0);
+        Ignite g1 = ignite(0);
         UUID nid1 = g1.cluster().localNode().id();
 
-        Ignite g2 = grid(1);
+        Ignite g2 = ignite(1);
         UUID nid2 = g2.cluster().localNode().id();
 
-        Ignite g3 = grid(2);
+        Ignite g3 = ignite(2);
         UUID nid3 = g3.cluster().localNode().id();
 
         assert !nid1.equals(nid2);

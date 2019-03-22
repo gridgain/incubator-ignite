@@ -327,7 +327,7 @@ public class GridCacheReferenceCleanupSelfTest extends GridCommonAbstractTest {
             @Override public Collection<WeakReference<Object>> call() throws Exception {
                 Collection<WeakReference<Object>> refs = new ArrayList<>();
 
-                Ignite g = startGrid();
+                Ignite g = clusterManager__startGrid();
 
                 try {
                     IgniteCache<Integer, TestValue> cache = g.cache(DEFAULT_CACHE_NAME);
@@ -368,7 +368,7 @@ public class GridCacheReferenceCleanupSelfTest extends GridCommonAbstractTest {
             @Override public Collection<WeakReference<Object>> call() throws Exception {
                 Collection<WeakReference<Object>> refs = new ArrayList<>();
 
-                Ignite g = startGrid();
+                Ignite g = clusterManager__startGrid();
 
                 try {
                     IgniteCache<Integer, TestValue> cache = g.cache(DEFAULT_CACHE_NAME);
@@ -401,7 +401,7 @@ public class GridCacheReferenceCleanupSelfTest extends GridCommonAbstractTest {
             @Override public Collection<WeakReference<Object>> call() throws Exception {
                 Collection<WeakReference<Object>> refs = new ArrayList<>();
 
-                Ignite g = startGrid();
+                Ignite g = clusterManager__startGrid();
 
                 try {
                     IgniteCache<Integer, TestValue> cache = g.cache(DEFAULT_CACHE_NAME);
@@ -441,7 +441,7 @@ public class GridCacheReferenceCleanupSelfTest extends GridCommonAbstractTest {
             @Override public Collection<WeakReference<Object>> call() throws Exception {
                 Collection<WeakReference<Object>> refs = new ArrayList<>();
 
-                Ignite g = startGrid();
+                Ignite g = clusterManager__startGrid();
 
                 try {
                     IgniteCache<Integer, TestValue> cache = g.cache(DEFAULT_CACHE_NAME);
@@ -478,7 +478,7 @@ public class GridCacheReferenceCleanupSelfTest extends GridCommonAbstractTest {
             @Override public Collection<WeakReference<Object>> call() throws Exception {
                 Collection<WeakReference<Object>> refs = new ArrayList<>();
 
-                Ignite g = startGrid();
+                Ignite g = clusterManager__startGrid();
 
                 try {
                     IgniteCache<Integer, TestValue> cache = g.cache(DEFAULT_CACHE_NAME);

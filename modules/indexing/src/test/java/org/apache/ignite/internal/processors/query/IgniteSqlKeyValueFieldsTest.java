@@ -198,7 +198,7 @@ public class IgniteSqlKeyValueFieldsTest  extends AbstractIndexingCommonTest {
     /** Test for setIndexedTypes() primitive types */
     @Test
     public void testSetIndexTypesPrimitive() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(NODE_CLIENT).cache(CACHE_JOB);
+        IgniteCache<Integer, Integer> cache = ignite(NODE_CLIENT).cache(CACHE_JOB);
 
         checkInsert(cache, "insert into Integer (_key, _val) values (?,?)", 1, 100);
 
@@ -235,7 +235,7 @@ public class IgniteSqlKeyValueFieldsTest  extends AbstractIndexingCommonTest {
      */
     @Test
     public void testQueryEntityAutoKeyValTypes() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(NODE_CLIENT).cache(CACHE_INT_NO_KV_TYPE);
+        IgniteCache<Integer, Integer> cache = ignite(NODE_CLIENT).cache(CACHE_INT_NO_KV_TYPE);
 
         checkInsert(cache, "insert into Integer (_key, _val) values (?,?)", 1, 100);
 
@@ -249,7 +249,7 @@ public class IgniteSqlKeyValueFieldsTest  extends AbstractIndexingCommonTest {
     /** Check that it is possible to not have keyFieldName and valueFieldName */
     @Test
     public void testNoKeyValueAliases() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(NODE_CLIENT).cache(CACHE_PERSON_NO_KV);
+        IgniteCache<Integer, Person> cache = ignite(NODE_CLIENT).cache(CACHE_PERSON_NO_KV);
 
         Person alice = new Person("Alice", 1);
         checkInsert(cache, "insert into Person (_key, _val) values (?,?)", 1, alice);
@@ -265,7 +265,7 @@ public class IgniteSqlKeyValueFieldsTest  extends AbstractIndexingCommonTest {
         Person alice = new Person("Alice", 1);
         Person bob = new Person("Bob", 2);
 
-        IgniteCache<Integer, Person> cache = grid(NODE_CLIENT).cache(CACHE_PERSON);
+        IgniteCache<Integer, Person> cache = ignite(NODE_CLIENT).cache(CACHE_PERSON);
 
         checkInsert(cache, "insert into Person (_key, _val) values (?,?)", 1, alice);
         checkInsert(cache, "insert into Person (id, v) values (?,?)", 2, bob);
@@ -286,7 +286,7 @@ public class IgniteSqlKeyValueFieldsTest  extends AbstractIndexingCommonTest {
     /** Check that joins are working on keyFieldName, valueFieldName columns */
     @Test
     public void testJoinKeyValFields() throws Exception {
-        IgniteEx client = grid(NODE_CLIENT);
+        IgniteEx client = ignite(NODE_CLIENT);
         IgniteCache<Integer, Person> cache = client.cache(CACHE_PERSON);
         IgniteCache<Integer, Integer> cache2 = client.cache(CACHE_JOB);
 
@@ -307,7 +307,7 @@ public class IgniteSqlKeyValueFieldsTest  extends AbstractIndexingCommonTest {
     /** Check automatic addition of index for keyFieldName column */
     @Test
     public void testAutoKeyFieldIndex() throws Exception {
-        IgniteEx client = grid(NODE_CLIENT);
+        IgniteEx client = ignite(NODE_CLIENT);
         IgniteCache<Integer, Person> cache = client.cache(CACHE_PERSON);
 
         QueryCursor<List<?>> cursor = cache.query(new SqlFieldsQuery("explain select * from Person where id = 1"));

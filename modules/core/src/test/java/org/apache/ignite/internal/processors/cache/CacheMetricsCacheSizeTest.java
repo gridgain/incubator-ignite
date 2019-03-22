@@ -82,7 +82,7 @@ public class CacheMetricsCacheSizeTest extends GridCommonAbstractTest {
 
         startGrid(GRID_CNT);
 
-        IgniteCache cacheNode0 = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache cacheNode0 = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < ENTITIES_CNT; i++)
             cacheNode0.put("key-" + i, i);
@@ -101,7 +101,7 @@ public class CacheMetricsCacheSizeTest extends GridCommonAbstractTest {
 
         msg.setCacheMetrics(UUID.randomUUID(), cacheMetrics);
 
-        Marshaller marshaller = grid(0).context().config().getMarshaller();
+        Marshaller marshaller = ignite(0).context().config().getMarshaller();
 
         byte[] buffer = marshaller.marshal(msg);
 
@@ -117,11 +117,11 @@ public class CacheMetricsCacheSizeTest extends GridCommonAbstractTest {
 
         assertEquals("TcpDiscoveryMetricsUpdateMessage serialization error, cacheSize is different", size, cacheMetric2.getCacheSize());
 
-        IgniteCache cacheNode1 = grid(1).cache(DEFAULT_CACHE_NAME);
+        IgniteCache cacheNode1 = ignite(1).cache(DEFAULT_CACHE_NAME);
 
-        IgniteCache cacheNode2 = grid(2).cache(DEFAULT_CACHE_NAME);
+        IgniteCache cacheNode2 = ignite(2).cache(DEFAULT_CACHE_NAME);
 
-        IgniteCache cacheNode3 = grid(3).cache(DEFAULT_CACHE_NAME);
+        IgniteCache cacheNode3 = ignite(3).cache(DEFAULT_CACHE_NAME);
 
         awaitMetricsUpdate(1);
 

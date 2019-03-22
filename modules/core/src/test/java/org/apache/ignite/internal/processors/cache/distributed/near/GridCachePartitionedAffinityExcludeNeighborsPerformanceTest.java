@@ -126,7 +126,7 @@ public class GridCachePartitionedAffinityExcludeNeighborsPerformanceTest extends
         startGridsMultiThreaded(GRIDS);
 
         try {
-            Ignite g = grid(0);
+            Ignite g = ignite(0);
 
             // Warmup.
             checkCountPerformance0(g, 10000);
@@ -208,7 +208,7 @@ public class GridCachePartitionedAffinityExcludeNeighborsPerformanceTest extends
         startGridsMultiThreaded(GRIDS);
 
         try {
-            Ignite g = grid(0);
+            Ignite g = ignite(0);
 
             Affinity<Object> aff = affinity(g);
 

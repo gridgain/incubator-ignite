@@ -124,7 +124,7 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
             startGrids(testsCfg.gridCount());
 
             for (int i = 0; i < testsCfg.gridCount(); i++)
-                info("Grid " + i + ": " + grid(i).localNode().id());
+                info("Grid " + i + ": " + ignite(i).localNode().id());
         }
 
         assert testsCfg.testedNodeIndex() >= 0 : "testedNodeIdx: " + testedNodeIdx;
@@ -134,7 +134,7 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
         if (testsCfg.withClients()) {
             for (int i = 0; i < gridCount(); i++)
                 assertEquals("i: " + i, expectedClient(getTestIgniteInstanceName(i)),
-                    (boolean)grid(i).configuration().isClientMode());
+                    (boolean)ignite(i).configuration().isClientMode());
         }
     }
 
@@ -234,7 +234,7 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
         int cnt = 0;
 
         for (int i = 0; i < gridCount(); i++) {
-            if (grid(i).configuration().isClientMode())
+            if (ignite(i).configuration().isClientMode())
                 cnt++;
         }
 
@@ -242,7 +242,7 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteEx grid() {
+    @Override protected IgniteEx ignite() {
         throw new UnsupportedOperationException("Not supported, grid(int idx) or testedGrid() should be used instead.");
     }
 
@@ -250,14 +250,14 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
      * @return Grid which should be tested.
      */
     protected IgniteEx testedGrid() {
-        return grid(testedNodeIdx);
+        return ignite(testedNodeIdx);
     }
 
     /**
      * @return Tested grid in client mode or not.
      */
     protected boolean isClientMode() {
-        return grid(testedNodeIdx).configuration().isClientMode();
+        return ignite(testedNodeIdx).configuration().isClientMode();
     }
 
     /**
@@ -267,7 +267,7 @@ public abstract class IgniteConfigVariationsAbstractTest extends GridCommonAbstr
         int cnt = 0;
 
         for (int i = 0; i < gridCount(); i++) {
-            if (!grid(i).configuration().isClientMode())
+            if (!ignite(i).configuration().isClientMode())
                 cnt++;
         }
 

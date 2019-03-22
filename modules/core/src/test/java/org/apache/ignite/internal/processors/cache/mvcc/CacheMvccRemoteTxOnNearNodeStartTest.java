@@ -46,7 +46,7 @@ public class CacheMvccRemoteTxOnNearNodeStartTest extends CacheMvccAbstractTest 
     public void testRemoteTxOnNearNodeIsStartedIfPartitionIsMoving() throws Exception {
         startGridsMultiThreaded(3);
 
-        IgniteCache<Object, Object> cache = grid(0).getOrCreateCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
+        IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
             .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT)
             .setCacheMode(cacheMode())
             .setBackups(1)
@@ -54,17 +54,17 @@ public class CacheMvccRemoteTxOnNearNodeStartTest extends CacheMvccAbstractTest 
 
         ArrayList<Integer> keys = new ArrayList<>();
 
-        Affinity<Object> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+        Affinity<Object> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(1).localNode(), i) && aff.isBackup(grid(0).localNode(), i)) {
+            if (aff.isPrimary(ignite(1).localNode(), i) && aff.isBackup(ignite(0).localNode(), i)) {
                 keys.add(i);
                 break;
             }
         }
 
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(1).localNode(), i) && aff.isBackup(grid(2).localNode(), i)) {
+            if (aff.isPrimary(ignite(1).localNode(), i) && aff.isBackup(ignite(2).localNode(), i)) {
                 keys.add(i);
                 break;
             }
@@ -74,7 +74,7 @@ public class CacheMvccRemoteTxOnNearNodeStartTest extends CacheMvccAbstractTest 
 
         stopGrid(2);
 
-        try (Transaction tx = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+        try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             cache.putAll(ImmutableMap.of(
                 keys.get(0), 0,
                 keys.get(1), 1)

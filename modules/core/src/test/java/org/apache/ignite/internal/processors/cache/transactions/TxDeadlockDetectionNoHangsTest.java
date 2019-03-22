@@ -108,14 +108,14 @@ public class TxDeadlockDetectionNoHangsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNoHangsPessimistic() throws Exception {
-        assertTrue(grid(0).context().cache().context().tm().deadlockDetectionEnabled());
+        assertTrue(ignite(0).context().cache().context().tm().deadlockDetectionEnabled());
 
         doTest(PESSIMISTIC);
 
         try {
             GridTestUtils.setFieldValue(null, IgniteTxManager.class, "DEADLOCK_MAX_ITERS", 0);
 
-            assertFalse(grid(0).context().cache().context().tm().deadlockDetectionEnabled());
+            assertFalse(ignite(0).context().cache().context().tm().deadlockDetectionEnabled());
 
             doTest(PESSIMISTIC);
         }
@@ -130,14 +130,14 @@ public class TxDeadlockDetectionNoHangsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNoHangsOptimistic() throws Exception {
-        assertTrue(grid(0).context().cache().context().tm().deadlockDetectionEnabled());
+        assertTrue(ignite(0).context().cache().context().tm().deadlockDetectionEnabled());
 
         doTest(OPTIMISTIC);
 
         try {
             GridTestUtils.setFieldValue(null, IgniteTxManager.class, "DEADLOCK_MAX_ITERS", 0);
 
-            assertFalse(grid(0).context().cache().context().tm().deadlockDetectionEnabled());
+            assertFalse(ignite(0).context().cache().context().tm().deadlockDetectionEnabled());
 
             doTest(OPTIMISTIC);
         }
@@ -181,7 +181,7 @@ public class TxDeadlockDetectionNoHangsTest extends GridCommonAbstractTest {
             long stopTime = System.currentTimeMillis() + 2 * 60_000L;
 
             for (int i = 0; System.currentTimeMillis() < stopTime; i++) {
-                boolean detectionEnabled = grid(0).context().cache().context().tm().deadlockDetectionEnabled();
+                boolean detectionEnabled = ignite(0).context().cache().context().tm().deadlockDetectionEnabled();
 
                 log.info(">>> Iteration " + i + " (detection is " + (detectionEnabled ? "enabled" : "disabled") + ')');
 

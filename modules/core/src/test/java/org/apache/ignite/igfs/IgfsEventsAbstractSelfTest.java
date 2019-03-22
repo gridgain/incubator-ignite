@@ -170,7 +170,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         if (lsnr != null) {
-            grid(1).events().stopLocalListen(lsnr, EVTS_IGFS);
+            ignite(1).events().stopLocalListen(lsnr, EVTS_IGFS);
 
             lsnr = null;
         }
@@ -193,7 +193,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -275,7 +275,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -357,7 +357,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -415,7 +415,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -503,7 +503,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -558,7 +558,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -626,7 +626,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -675,13 +675,13 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         // NB: In case of create-overwrite FILE_PURGED event will be sent in PRIMARY IGFS mode only.
         final boolean awaitForPurgeEvt
-            = grid(1).configuration().getFileSystemConfiguration()[0].getDefaultMode() == IgfsMode.PRIMARY;
+            = ignite(1).configuration().getFileSystemConfiguration()[0].getDefaultMode() == IgfsMode.PRIMARY;
 
         final int evtsCnt = 1 + 4 + (awaitForPurgeEvt ? 1 : 0);
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 
@@ -764,7 +764,7 @@ public abstract class IgfsEventsAbstractSelfTest extends GridCommonAbstractTest 
 
         final CountDownLatch latch = new CountDownLatch(evtsCnt);
 
-        grid(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(lsnr = new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 log.info("Received event [evt=" + evt + ']');
 

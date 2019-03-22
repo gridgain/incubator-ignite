@@ -58,7 +58,7 @@ public abstract class CacheNearUpdateTopologyChangeAbstractTest extends IgniteCa
     public void testNearUpdateTopologyChange() throws Exception {
         awaitPartitionMapExchange();
 
-        final Affinity<Integer> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+        final Affinity<Integer> aff = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
         final Integer key = 9;
 
@@ -95,14 +95,14 @@ public abstract class CacheNearUpdateTopologyChangeAbstractTest extends IgniteCa
 
             ClusterNode primaryNode = aff.mapKeyToNode(key);
 
-            Ignite primary = grid(primaryNode);
+            Ignite primary = ignite(primaryNode);
 
             log.info("Primary node on new topology: " + primary.name());
 
             if (!primaryNode.equals(primaryIgnite.cluster().localNode())) {
                 log.info("Update from new primary: " + primary.name());
 
-                primary = grid(primaryNode);
+                primary = ignite(primaryNode);
 
                 gotNewPrimary = true;
 

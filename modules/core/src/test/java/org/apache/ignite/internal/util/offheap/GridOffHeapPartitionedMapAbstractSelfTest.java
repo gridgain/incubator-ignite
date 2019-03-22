@@ -32,6 +32,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.GridTuple;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -993,27 +994,25 @@ public abstract class GridOffHeapPartitionedMapAbstractSelfTest extends GridComm
 
         assertEquals(0, map.allocatedSize());
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                for (int p = 0; p < parts; p++) {
-                    for (int i = 0; i < 10000; i++) {
-                        String key = string();
+        GridTestUtils.runMultiThreaded(() -> {
+            for (int p = 0; p < parts; p++) {
+                for (int i = 0; i < 10000; i++) {
+                    String key = string();
 
-                        byte[] keyBytes = key.getBytes();
-                        byte[] valBytes = bytes(100);
+                    byte[] keyBytes = key.getBytes();
+                    byte[] valBytes = bytes(100);
 
-                        assert !map.contains(p, hash(key), keyBytes);
+                    assert !map.contains(p, hash(key), keyBytes);
 
-                        map.insert(p, hash(key), keyBytes, valBytes);
+                    map.insert(p, hash(key), keyBytes, valBytes);
 
-                        int n;
+                    int n;
 
-                        if ((n = cnt.incrementAndGet()) % 100000 == 0)
-                            info("Inserted entries: " + n);
-                    }
+                    if ((n = cnt.incrementAndGet()) % 100000 == 0)
+                        info("Inserted entries: " + n);
                 }
             }
-        }, 10);
+        }, 10, getTestIgniteInstanceName());
 
         assert map.allocatedSize() <= mem;
 

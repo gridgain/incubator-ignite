@@ -39,6 +39,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.PE;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.junit.Test;
@@ -154,36 +155,34 @@ public class GridTaskTimeoutSelfTest extends GridCommonAbstractTest {
             }
         }).start();
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                while (!finish.get()) {
-                    try {
-                        ComputeTaskFuture<?> fut = executeAsync(
-                            ignite.compute().withTimeout(TIMEOUT), GridTaskTimeoutTestTask.class.getName(), null);
+        GridTestUtils.runMultiThreaded(() -> {
+            while (!finish.get()) {
+                try {
+                    ComputeTaskFuture<?> fut = executeAsync(
+                        ignite.compute().withTimeout(TIMEOUT), GridTaskTimeoutTestTask.class.getName(), null);
 
-                        fut.get();
+                    fut.get();
 
-                        assert false : "Task has not been timed out. Future: " + fut;
-                    }
-                    catch (ComputeTaskTimeoutException ignored) {
-                        // Expected.
-                    }
-                    catch (IgniteCheckedException e) {
-                        throw new IllegalStateException(e); //shouldn't happen
-                    }
-                    finally {
-                        int cnt0 = cnt.incrementAndGet();
-
-                        if (cnt0 % 100 == 0)
-                            info("Tasks finished: " + cnt0);
-                    }
+                    assert false : "Task has not been timed out. Future: " + fut;
                 }
+                catch (ComputeTaskTimeoutException ignored) {
+                    // Expected.
+                }
+                catch (IgniteCheckedException e) {
+                    throw new IllegalStateException(e); //shouldn't happen
+                }
+                finally {
+                    int cnt0 = cnt.incrementAndGet();
 
-                info("Thread " + Thread.currentThread().getId() + " finishing.");
-
-                finishLatch.countDown();
+                    if (cnt0 % 100 == 0)
+                        info("Tasks finished: " + cnt0);
+                }
             }
-        }, N_THREADS);
+
+            info("Thread " + Thread.currentThread().getId() + " finishing.");
+
+            finishLatch.countDown();
+        }, N_THREADS, getTestIgniteInstanceName());
 
         finishLatch.await();
 

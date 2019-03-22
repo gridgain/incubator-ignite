@@ -106,7 +106,7 @@ public class IgniteSqlEntryCacheModeAgnosticTest extends AbstractIndexingCommonT
      */
     @Test
     public void testCrossCacheModeQuery() throws Exception {
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.cache(LOCAL_CACHE_NAME).put(1, LOCAL_CACHE_NAME);
         ignite.cache(REPLICATED_CACHE_NAME).put(1, REPLICATED_CACHE_NAME);

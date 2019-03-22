@@ -379,7 +379,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
 
         startGrids(2);
 
-        Ignite ignite0 = grid(0);
+        Ignite ignite0 = ignite(0);
 
         ignite0.active(true);
 
@@ -392,7 +392,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
 
         startGrids(2);
 
-        ignite0 = grid(0);
+        ignite0 = ignite(0);
 
         ignite0.active(true);
 
@@ -412,7 +412,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
      */
     private void examineStaticMetadata(int nodesCnt) {
         for (int i = 0; i < nodesCnt; i++) {
-            IgniteCache cache = grid(i).cache(CACHE_NAME).withKeepBinary();
+            IgniteCache cache = ignite(i).cache(CACHE_NAME).withKeepBinary();
 
             BinaryObject o1 = (BinaryObject) cache.get(0);
 
@@ -438,7 +438,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
      */
     private void examineDynamicMetadata(int nodesCount, BinaryObjectExaminer... examiners) {
         for (int i = 0; i < nodesCount; i++) {
-            Ignite ignite = grid(i);
+            Ignite ignite = ignite(i);
 
             for (BinaryObjectExaminer examiner : examiners)
                 examiner.examine(ignite.cache(CACHE_NAME).withKeepBinary());
@@ -455,7 +455,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
         //1: start two nodes, add single BinaryObject
         startGrids(2);
 
-        Ignite ignite0 = grid(0);
+        Ignite ignite0 = ignite(0);
 
         ignite0.active(true);
 
@@ -475,13 +475,13 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
         // modify BinaryObject type, add new instance of modified type
         startGrids(2);
 
-        ignite0 = grid(0);
+        ignite0 = ignite(0);
 
         ignite0.active(true);
 
         examineDynamicMetadata(2, contentExaminer0, structureExaminer0);
 
-        Ignite ignite1 = grid(1);
+        Ignite ignite1 = ignite(1);
 
         BinaryObject bo1 = ignite1
             .binary()
@@ -498,7 +498,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
         // start two additional nodes, check BO instances on all nodes
         startGrids(2);
 
-        ignite0 = grid(0);
+        ignite0 = ignite(0);
 
         ignite0.active(true);
 
@@ -577,7 +577,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
 
         awaitPartitionMapExchange();
 
-        grid(1).cache(CACHE_NAME).put(1, new TestValue2("value"));
+        ignite(1).cache(CACHE_NAME).put(1, new TestValue2("value"));
 
         Ignite ignite2 = startGrid(2);
 
@@ -604,7 +604,7 @@ public class IgnitePdsBinaryMetadataOnClusterRestartTest extends GridCommonAbstr
 
         startGrids(4);
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         examineStaticMetadata(4);
 

@@ -119,14 +119,14 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
 
         forbidden.clear();
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
-        IgniteCache<Object, Object> cache2 = grid(0).createCache(new CacheConfiguration<>("cache2"));
+        IgniteCache<Object, Object> cache2 = ignite(0).createCache(new CacheConfiguration<>("cache2"));
 
         for (int k = 0; k < ENTRY_CNT; k++)
             cache2.put(k, k);
 
-        grid(0).cluster().active(false);
+        ignite(0).cluster().active(false);
 
         checkInactive(GRID_CNT);
 
@@ -149,20 +149,20 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
 
         forbidden.clear();
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         awaitPartitionMapExchange();
 
-        final IgniteCache<Object, Object> cache = grid(0).cache(CACHE_NAME);
+        final IgniteCache<Object, Object> cache = ignite(0).cache(CACHE_NAME);
 
         for (int k = 0; k < ENTRY_CNT; k++)
             cache.put(k, k);
 
         for (int g = 0; g < GRID_CNT; g++) {
             // Tests that state changes are propagated to existing and new nodes.
-            assertTrue(grid(g).cluster().active());
+            assertTrue(ignite(g).cluster().active());
 
-            IgniteCache<Object, Object> cache0 = grid(g).cache(CACHE_NAME);
+            IgniteCache<Object, Object> cache0 = ignite(g).cache(CACHE_NAME);
 
             for (int k = 0; k < ENTRY_CNT; k++)
                 assertEquals(k,  cache0.get(k));
@@ -173,7 +173,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
         startGrid(GRID_CNT + 1);
 
         for (int g = 0; g < GRID_CNT + 2; g++) {
-            IgniteCache<Object, Object> cache0 = grid(g).cache(CACHE_NAME);
+            IgniteCache<Object, Object> cache0 = ignite(g).cache(CACHE_NAME);
 
             for (int k = 0; k < ENTRY_CNT; k++)
                 assertEquals("Failed for [grid=" + g + ", key=" + k + ']', k, cache0.get(k));
@@ -182,23 +182,23 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
         stopGrid(GRID_CNT + 1);
 
         for (int g = 0; g < GRID_CNT + 1; g++)
-            grid(g).cache(CACHE_NAME).rebalance().get();
+            ignite(g).cache(CACHE_NAME).rebalance().get();
 
         stopGrid(GRID_CNT);
 
         for (int g = 0; g < GRID_CNT; g++) {
-            IgniteCache<Object, Object> cache0 = grid(g).cache(CACHE_NAME);
+            IgniteCache<Object, Object> cache0 = ignite(g).cache(CACHE_NAME);
 
             for (int k = 0; k < ENTRY_CNT; k++)
                 assertEquals(k,  cache0.get(k));
         }
 
-        grid(0).cluster().active(false);
+        ignite(0).cluster().active(false);
 
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 for (int g = 0; g < GRID_CNT; g++) {
-                    if (grid(g).cluster().active())
+                    if (ignite(g).cluster().active())
                         return false;
                 }
 
@@ -233,7 +233,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
 
         checkInactive(GRID_CNT + 1);
 
-        Ignite cl = grid(GRID_CNT);
+        Ignite cl = ignite(GRID_CNT);
 
         forbidden.clear();
 
@@ -248,9 +248,9 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
 
         for (int g = 0; g < GRID_CNT + 1; g++) {
             // Tests that state changes are propagated to existing and new nodes.
-            assertTrue(grid(g).cluster().active());
+            assertTrue(ignite(g).cluster().active());
 
-            IgniteCache<Object, Object> cache0 = grid(g).cache(CACHE_NAME);
+            IgniteCache<Object, Object> cache0 = ignite(g).cache(CACHE_NAME);
 
             for (int k = 0; k < ENTRY_CNT; k++)
                 assertEquals(k,  cache0.get(k));
@@ -261,7 +261,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 for (int g = 0; g < GRID_CNT + 1; g++) {
-                    if (grid(g).cluster().active())
+                    if (ignite(g).cluster().active())
                         return false;
                 }
 
@@ -281,7 +281,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
     public void testDeactivationWithPendingLock() throws Exception {
         startGrids(GRID_CNT);
 
-        Lock lock = grid(0).cache(CACHE_NAME).lock(1);
+        Lock lock = ignite(0).cache(CACHE_NAME).lock(1);
 
         lock.lock();
 
@@ -289,7 +289,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
             //noinspection ThrowableNotThrown
             GridTestUtils.assertThrowsAnyCause(log, new Callable<Object>() {
                 @Override public Object call() {
-                    grid(0).cluster().active(false);
+                    ignite(0).cluster().active(false);
 
                     return null;
                 }
@@ -320,7 +320,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
      */
     private void deactivateWithPendingTransaction(TransactionConcurrency concurrency,
         TransactionIsolation isolation) {
-        final Ignite ignite0 = grid(0);
+        final Ignite ignite0 = ignite(0);
 
         final IgniteCache<Object, Object> cache0 = ignite0.cache(CACHE_NAME);
 
@@ -330,7 +330,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
             //noinspection ThrowableNotThrown
             GridTestUtils.assertThrowsAnyCause(log, new Callable<Object>() {
                 @Override public Object call() {
-                    grid(0).cluster().active(false);
+                    ignite(0).cluster().active(false);
 
                     return null;
                 }
@@ -347,7 +347,7 @@ public abstract class ClusterStateAbstractTest extends GridCommonAbstractTest {
      */
     private void checkInactive(int cnt) {
         for (int g = 0; g < cnt; g++)
-            assertFalse(grid(g).cluster().active());
+            assertFalse(ignite(g).cluster().active());
     }
 
     /**

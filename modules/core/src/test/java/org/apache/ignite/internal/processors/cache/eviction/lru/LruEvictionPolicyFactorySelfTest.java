@@ -51,7 +51,7 @@ public class LruEvictionPolicyFactorySelfTest extends EvictionPolicyFactoryAbstr
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             LruEvictionPolicy<String, String> p = policy();
 
@@ -100,7 +100,7 @@ public class LruEvictionPolicyFactorySelfTest extends EvictionPolicyFactoryAbstr
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1", "1");
             MockEntry e2 = new MockEntry("2", "2");
@@ -215,7 +215,7 @@ public class LruEvictionPolicyFactorySelfTest extends EvictionPolicyFactoryAbstr
         policyFactory = createPolicyFactory();
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             MockEntry e1 = new MockEntry("1", "1");
             MockEntry e2 = new MockEntry("2", "2");

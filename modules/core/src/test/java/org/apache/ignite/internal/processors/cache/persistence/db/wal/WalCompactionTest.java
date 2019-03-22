@@ -288,7 +288,7 @@ public class WalCompactionTest extends GridCommonAbstractTest {
         icfg.getDataStorageConfiguration().setWalSegmentSize(300_000_000);
         icfg.getDataStorageConfiguration().setWalSegments(1);
 
-        IgniteEx ig = (IgniteEx)startGrid(getTestIgniteInstanceName(0), optimize(icfg), null);
+        IgniteEx ig = (IgniteEx)clusterManager__startGrid(getTestIgniteInstanceName(0), optimize(icfg), null);
 
         ig.cluster().active(true);
 

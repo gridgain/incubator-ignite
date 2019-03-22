@@ -326,15 +326,15 @@ public abstract class GridCacheAbstractTransformWriteThroughSelfTest extends Gri
             Affinity<Object> affinity = ignite(0).affinity(DEFAULT_CACHE_NAME);
 
             if (nodeType == NEAR_NODE) {
-                if (!affinity.isPrimaryOrBackup(grid(0).localNode(), key))
+                if (!affinity.isPrimaryOrBackup(ignite(0).localNode(), key))
                     keys.add(key);
             }
             else if (nodeType == PRIMARY_NODE) {
-                if (affinity.isPrimary(grid(0).localNode(), key))
+                if (affinity.isPrimary(ignite(0).localNode(), key))
                     keys.add(key);
             }
             else if (nodeType == BACKUP_NODE) {
-                if (affinity.isBackup(grid(0).localNode(), key))
+                if (affinity.isBackup(ignite(0).localNode(), key))
                     keys.add(key);
             }
 

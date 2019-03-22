@@ -105,7 +105,7 @@ public class NonAffinityCoordinatorDynamicStartStopTest extends GridCommonAbstra
 
         cache.destroy();
 
-        grid(DUMMY_GRID_NAME).createCache(CCFG);
+        ignite(DUMMY_GRID_NAME).createCache(CCFG);
     }
 
     /** {@inheritDoc} */

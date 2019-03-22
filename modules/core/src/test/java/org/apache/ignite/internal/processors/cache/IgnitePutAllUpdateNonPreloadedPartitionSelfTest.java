@@ -89,15 +89,15 @@ public class IgnitePutAllUpdateNonPreloadedPartitionSelfTest extends GridCommonA
 
         try {
             for (int i = 0; i < GRID_CNT - 1; i++)
-                grid(i).cache(DEFAULT_CACHE_NAME).rebalance().get();
+                ignite(i).cache(DEFAULT_CACHE_NAME).rebalance().get();
 
             startGrid(GRID_CNT - 1);
 
-            IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
             final int keyCnt = 100;
 
-            try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
+            try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
                 for (int k = 0; k < keyCnt; k++)
                     cache.get(k);
 
@@ -109,7 +109,7 @@ public class IgnitePutAllUpdateNonPreloadedPartitionSelfTest extends GridCommonA
 
             //  Check that no stale transactions left and all locks are released.
             for (int g = 0; g < GRID_CNT; g++) {
-                IgniteKernal k = (IgniteKernal)grid(g);
+                IgniteKernal k = (IgniteKernal)ignite(g);
 
                 GridCacheAdapter<Object, Object> cacheAdapter = k.context().cache().internalCache(DEFAULT_CACHE_NAME);
 

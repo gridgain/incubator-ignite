@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.impl;
 
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.client.GridClientData;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -29,7 +30,7 @@ import static org.apache.ignite.testframework.GridTestUtils.assertThrows;
  */
 public class ClientDataImplSelfTest extends GridCommonAbstractTest {
     /** Mocked client data. */
-    private GridClientData data = allocateInstance0(GridClientDataImpl.class);
+    private GridClientData data = GridTestUtils.allocateInstance0(GridClientDataImpl.class);
 
     /**
      * @throws Exception If failed.

@@ -103,7 +103,7 @@ public class GridCacheConditionalDeploymentSelfTest extends GridCommonAbstractTe
 
         msg.addDepInfo = false;
 
-        IgniteUtils.invoke(GridCacheIoManager.class, ioMgr, "onSend", msg, grid(1).cluster().localNode().id());
+        IgniteUtils.invoke(GridCacheIoManager.class, ioMgr, "onSend", msg, ignite(1).cluster().localNode().id());
 
         assertNull(msg.deployInfo());
     }
@@ -115,7 +115,7 @@ public class GridCacheConditionalDeploymentSelfTest extends GridCommonAbstractTe
     public void testAddedDeploymentInfo() throws Exception {
         GridCacheContext ctx = cacheContext();
 
-        if (grid(0).configuration().getMarshaller() instanceof BinaryMarshaller)
+        if (ignite(0).configuration().getMarshaller() instanceof BinaryMarshaller)
             assertFalse(ctx.deploymentEnabled());
         else {
             GridCacheIoManager ioMgr = cacheIoManager();
@@ -126,7 +126,7 @@ public class GridCacheConditionalDeploymentSelfTest extends GridCommonAbstractTe
 
             msg.addDepInfo = true;
 
-            IgniteUtils.invoke(GridCacheIoManager.class, ioMgr, "onSend", msg, grid(1).cluster().localNode().id());
+            IgniteUtils.invoke(GridCacheIoManager.class, ioMgr, "onSend", msg, ignite(1).cluster().localNode().id());
 
             assertNotNull(msg.deployInfo());
         }
@@ -139,7 +139,7 @@ public class GridCacheConditionalDeploymentSelfTest extends GridCommonAbstractTe
     public void testAddedDeploymentInfo2() throws Exception {
         GridCacheContext ctx = cacheContext();
 
-        if (grid(0).configuration().getMarshaller() instanceof BinaryMarshaller)
+        if (ignite(0).configuration().getMarshaller() instanceof BinaryMarshaller)
             assertFalse(ctx.deploymentEnabled());
         else {
             assertTrue(ctx.deploymentEnabled());
@@ -152,7 +152,7 @@ public class GridCacheConditionalDeploymentSelfTest extends GridCommonAbstractTe
 
             msg.addDepInfo = false;
 
-            IgniteUtils.invoke(GridCacheIoManager.class, ioMgr, "onSend", msg, grid(1).cluster().localNode().id());
+            IgniteUtils.invoke(GridCacheIoManager.class, ioMgr, "onSend", msg, ignite(1).cluster().localNode().id());
 
             assertNull(msg.deployInfo());
         }
@@ -162,14 +162,14 @@ public class GridCacheConditionalDeploymentSelfTest extends GridCommonAbstractTe
      * @return Cache context.
      */
     protected GridCacheContext cacheContext() {
-        return ((IgniteCacheProxy)grid(0).cache(DEFAULT_CACHE_NAME)).context();
+        return ((IgniteCacheProxy)ignite(0).cache(DEFAULT_CACHE_NAME)).context();
     }
 
     /**
      * @return IO manager.
      */
     protected GridCacheIoManager cacheIoManager() {
-        return grid(0).context().cache().context().io();
+        return ignite(0).context().cache().context().io();
     }
 
     /**

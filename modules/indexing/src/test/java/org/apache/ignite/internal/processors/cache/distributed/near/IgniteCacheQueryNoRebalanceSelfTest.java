@@ -57,7 +57,7 @@ public class IgniteCacheQueryNoRebalanceSelfTest extends GridCommonAbstractTest 
      */
     @Test
     public void testQueryNoRebalance() {
-        IgniteCache<Object, Object> cache = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite().cache(DEFAULT_CACHE_NAME);
 
         cache.put(1, 1);
 

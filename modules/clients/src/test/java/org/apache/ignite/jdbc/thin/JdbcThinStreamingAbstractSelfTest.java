@@ -80,7 +80,7 @@ public abstract class JdbcThinStreamingAbstractSelfTest extends JdbcStreamingSel
 
     /** {@inheritDoc} */
     @Override protected Connection createStreamedConnection(boolean allowOverwrite, long flushFreq) throws Exception {
-        Connection c = connect(grid(0), null);
+        Connection c = connect(ignite(0), null);
 
         execute(c, "SET STREAMING 1 BATCH_SIZE " + batchSize + " ALLOW_OVERWRITE " + (allowOverwrite ? 1 : 0) +
             " PER_NODE_BUFFER_SIZE 1000 FLUSH_FREQUENCY " + flushFreq);
@@ -90,7 +90,7 @@ public abstract class JdbcThinStreamingAbstractSelfTest extends JdbcStreamingSel
 
     /** {@inheritDoc} */
     @Override protected Connection createOrdinaryConnection() throws SQLException {
-        return connect(grid(0), null);
+        return connect(ignite(0), null);
     }
 
     /**
@@ -208,7 +208,7 @@ public abstract class JdbcThinStreamingAbstractSelfTest extends JdbcStreamingSel
             assertEquals(nameForId(i), nameForIdInCache(i));
 
         for (int i = 51; i <= 100; i++)
-            assertEquals(i, grid(0).cache("T").get(i));
+            assertEquals(i, ignite(0).cache("T").get(i));
     }
 
     /**

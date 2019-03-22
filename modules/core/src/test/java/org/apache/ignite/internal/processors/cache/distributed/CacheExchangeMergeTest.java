@@ -805,8 +805,8 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
 
         mergeExchangeWaitVersion(srv0, 8, mergedEvts);
 
-        UUID grid3Id = grid(3).localNode().id();
-        UUID grid2Id = grid(2).localNode().id();
+        UUID grid3Id = ignite(3).localNode().id();
+        UUID grid2Id = ignite(2).localNode().id();
 
         stopGrid(getTestIgniteInstanceName(4), true, false);
         stopGrid(getTestIgniteInstanceName(3), true, false);
@@ -1306,7 +1306,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
                 crdNode = locNode;
         }
 
-        AffinityTopologyVersion topVer = ((IgniteKernal)grid(crdNode)).
+        AffinityTopologyVersion topVer = ((IgniteKernal)ignite(crdNode)).
             context().cache().context().exchange().readyAffinityVersion();
 
         Map<String, List<List<ClusterNode>>> affMap = new HashMap<>();

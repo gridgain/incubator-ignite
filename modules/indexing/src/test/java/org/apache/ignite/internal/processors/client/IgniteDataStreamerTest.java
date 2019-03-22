@@ -67,7 +67,7 @@ public class IgniteDataStreamerTest extends GridCommonAbstractTest {
     @Override protected void afterTest() throws Exception {
         super.afterTest();
 
-        grid("client").destroyCache(CACHE_NAME);
+        ignite("client").destroyCache(CACHE_NAME);
     }
 
     /**
@@ -86,7 +86,7 @@ public class IgniteDataStreamerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testStreamerIgniteUuid() throws Exception {
-        Ignite client = grid("client");
+        Ignite client = ignite("client");
 
         IgniteCache<IgniteUuid, Integer> cache =
             client.createCache(cacheConfiguration(IgniteUuid.class, Integer.class));

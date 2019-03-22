@@ -75,7 +75,7 @@ public class CacheStoreSessionListenerLifecycleSelfTest extends GridCommonAbstra
     @Test
     public void testNoCaches() throws Exception {
         try {
-            startGrid();
+            clusterManager__startGrid();
         }
         finally {
             stopGrid();
@@ -91,7 +91,7 @@ public class CacheStoreSessionListenerLifecycleSelfTest extends GridCommonAbstra
     @Test
     public void testNoOverride() throws Exception {
         try {
-            Ignite ignite = startGrid();
+            Ignite ignite = clusterManager__startGrid();
 
             for (int i = 0; i < 2; i++) {
                 CacheConfiguration<Integer, Integer> cacheCfg = cacheConfiguration("cache-" + i);
@@ -154,7 +154,7 @@ public class CacheStoreSessionListenerLifecycleSelfTest extends GridCommonAbstra
     @Test
     public void testPartialOverride() throws Exception {
         try {
-            Ignite ignite = startGrid();
+            Ignite ignite = clusterManager__startGrid();
 
             for (int i = 0; i < 2; i++) {
                 String name = "cache-" + i;
@@ -230,7 +230,7 @@ public class CacheStoreSessionListenerLifecycleSelfTest extends GridCommonAbstra
     @Test
     public void testOverride() throws Exception {
         try {
-            Ignite ignite = startGrid();
+            Ignite ignite = clusterManager__startGrid();
 
             for (int i = 0; i < 2; i++) {
                 String name = "cache-" + i;

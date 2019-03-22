@@ -33,7 +33,7 @@ public class IncludeSensitiveTransactionalTest extends IncludeSensitiveAbstractT
 
     /** {@inheritDoc} */
     @Override protected void startTx() {
-        tx = grid(0).transactions().txStart();
+        tx = ignite(0).transactions().txStart();
     }
 
     /** {@inheritDoc} */

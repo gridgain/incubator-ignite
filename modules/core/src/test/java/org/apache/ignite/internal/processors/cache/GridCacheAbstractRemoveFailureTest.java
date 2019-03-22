@@ -188,9 +188,9 @@ public abstract class GridCacheAbstractRemoveFailureTest extends GridCommonAbstr
     private void putAndRemove(long duration,
         final TransactionConcurrency txConcurrency,
         final TransactionIsolation txIsolation) throws Exception {
-        assertEquals(testClientNode(), (boolean) grid(0).configuration().isClientMode());
+        assertEquals(testClientNode(), (boolean) ignite(0).configuration().isClientMode());
 
-        grid(0).destroyCache(DEFAULT_CACHE_NAME);
+        ignite(0).destroyCache(DEFAULT_CACHE_NAME);
 
         CacheConfiguration<Integer, Integer> ccfg = new CacheConfiguration<>(DEFAULT_CACHE_NAME);
 
@@ -204,7 +204,7 @@ public abstract class GridCacheAbstractRemoveFailureTest extends GridCommonAbstr
         ccfg.setAtomicityMode(atomicityMode());
         ccfg.setNearConfiguration(nearCache());
 
-        final IgniteCache<Integer, Integer> sndCache0 = grid(0).createCache(ccfg);
+        final IgniteCache<Integer, Integer> sndCache0 = ignite(0).createCache(ccfg);
 
         final AtomicBoolean stop = new AtomicBoolean();
 
@@ -446,7 +446,7 @@ public abstract class GridCacheAbstractRemoveFailureTest extends GridCommonAbstr
         Collection<Integer> failedKeys = new HashSet<>();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            Ignite ignite = grid(i);
+            Ignite ignite = ignite(i);
 
             IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 

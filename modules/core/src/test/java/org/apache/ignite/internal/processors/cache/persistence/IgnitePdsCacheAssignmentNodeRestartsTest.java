@@ -233,7 +233,7 @@ public class IgnitePdsCacheAssignmentNodeRestartsTest extends GridCommonAbstract
                 crdNode = locNode;
         }
 
-        AffinityTopologyVersion topVer = ((IgniteKernal) grid(crdNode)).
+        AffinityTopologyVersion topVer = ((IgniteKernal) ignite(crdNode)).
             context().cache().context().exchange().readyAffinityVersion();
 
         Map<String, List<List<ClusterNode>>> affMap = new HashMap<>();

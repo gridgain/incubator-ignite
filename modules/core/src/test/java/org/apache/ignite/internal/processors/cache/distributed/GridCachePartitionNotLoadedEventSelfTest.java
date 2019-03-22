@@ -203,7 +203,7 @@ public class GridCachePartitionNotLoadedEventSelfTest extends GridCommonAbstract
 
         final PartitionNotFullyLoadedListener lsnr = new PartitionNotFullyLoadedListener();
 
-        grid(1).events().localListen(lsnr, EventType.EVT_CACHE_REBALANCE_PART_DATA_LOST);
+        ignite(1).events().localListen(lsnr, EventType.EVT_CACHE_REBALANCE_PART_DATA_LOST);
 
         IgniteCache<Integer, Integer> cache0 = jcache(0);
 
@@ -238,7 +238,7 @@ public class GridCachePartitionNotLoadedEventSelfTest extends GridCommonAbstract
 
         final PartitionNotFullyLoadedListener lsnr = new PartitionNotFullyLoadedListener();
 
-        grid(1).events().localListen(lsnr, EventType.EVT_CACHE_REBALANCE_PART_DATA_LOST);
+        ignite(1).events().localListen(lsnr, EventType.EVT_CACHE_REBALANCE_PART_DATA_LOST);
 
         TestTcpCommunicationSpi.skipMsgType(ignite(0), GridDhtPartitionsFullMessage.class);
 

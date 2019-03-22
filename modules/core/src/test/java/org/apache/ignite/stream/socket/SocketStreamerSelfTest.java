@@ -263,7 +263,7 @@ public class SocketStreamerSelfTest extends GridCommonAbstractTest {
         boolean oneMessagePerTuple) throws Exception {
         SocketStreamer<Message, Integer, String> sockStmr = null;
 
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteCache<Integer, String> cache = ignite.cache(DEFAULT_CACHE_NAME);
 

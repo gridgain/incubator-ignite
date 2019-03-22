@@ -304,7 +304,7 @@ public class GridCacheRebalancingSyncSelfTest extends GridCommonAbstractTest {
 
         long spend = (System.currentTimeMillis() - start) / 1000;
 
-        checkData(grid(1), 0, 0);
+        checkData(ignite(1), 0, 0);
 
         log.info("Spend " + spend + " seconds to rebalance entries.");
     }
@@ -533,7 +533,7 @@ public class GridCacheRebalancingSyncSelfTest extends GridCommonAbstractTest {
                     cacheRCfg.setRebalanceMode(CacheRebalanceMode.SYNC);
                     cacheRCfg.setRebalanceBatchesPrefetchCount(1);
 
-                    grid(0).getOrCreateCache(cacheRCfg);
+                    ignite(0).getOrCreateCache(cacheRCfg);
 
                     while (!concurrentStartFinished3)
                         U.sleep(10);
@@ -580,9 +580,9 @@ public class GridCacheRebalancingSyncSelfTest extends GridCommonAbstractTest {
 
         checkSupplyContextMapIsEmpty();
 
-        checkData(grid(4), 0, 1);
+        checkData(ignite(4), 0, 1);
 
-        final Ignite ignite3 = grid(3);
+        final Ignite ignite3 = ignite(3);
 
         Thread t4 = new Thread() {
             @Override public void run() {
@@ -625,7 +625,7 @@ public class GridCacheRebalancingSyncSelfTest extends GridCommonAbstractTest {
 
         long spend = (System.currentTimeMillis() - start) / 1000;
 
-        checkData(grid(4), 0, 2);
+        checkData(ignite(4), 0, 2);
 
         log.info("Spend " + spend + " seconds to rebalance entries.");
     }

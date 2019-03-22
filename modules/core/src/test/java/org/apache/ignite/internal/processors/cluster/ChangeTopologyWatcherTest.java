@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
 import org.junit.After;
@@ -132,11 +133,11 @@ public class ChangeTopologyWatcherTest extends GridCommonAbstractTest {
 
         stopGrid(1);
 
-        doSleep(AUTO_ADJUST_TIMEOUT / 2);
+        GridTestUtils.doSleep(AUTO_ADJUST_TIMEOUT / 2);
 
         stopGrid(2);
 
-        doSleep(AUTO_ADJUST_TIMEOUT / 2);
+        GridTestUtils.doSleep(AUTO_ADJUST_TIMEOUT / 2);
 
         Set<Object> twoNodeLeftBaseline = ignite0.cluster().currentBaselineTopology().stream()
             .map(BaselineNode::consistentId)
@@ -167,11 +168,11 @@ public class ChangeTopologyWatcherTest extends GridCommonAbstractTest {
 
         stopGrid(1);
 
-        doSleep(AUTO_ADJUST_TIMEOUT / 2);
+        GridTestUtils.doSleep(AUTO_ADJUST_TIMEOUT / 2);
 
         stopGrid(0);
 
-        doSleep(AUTO_ADJUST_TIMEOUT / 2);
+        GridTestUtils.doSleep(AUTO_ADJUST_TIMEOUT / 2);
 
         Ignite ignite2 = ignite(2);
 
@@ -247,7 +248,7 @@ public class ChangeTopologyWatcherTest extends GridCommonAbstractTest {
 
         stopGrid(1);
 
-        doSleep(3000);
+        GridTestUtils.doSleep(3000);
 
         Set<Object> baselineAfterNodeLeft = ignite0.cluster().currentBaselineTopology().stream()
             .map(BaselineNode::consistentId)
@@ -334,11 +335,11 @@ public class ChangeTopologyWatcherTest extends GridCommonAbstractTest {
 
         stopGrid(1);
 
-        doSleep(AUTO_ADJUST_TIMEOUT / 2);
+        GridTestUtils.doSleep(AUTO_ADJUST_TIMEOUT / 2);
 
         IgniteEx igniteClient = startGrid(getConfiguration(getTestIgniteInstanceName(2)).setClientMode(true));
 
-        doSleep(AUTO_ADJUST_TIMEOUT / 2);
+        GridTestUtils.doSleep(AUTO_ADJUST_TIMEOUT / 2);
 
         igniteClient.close();
 

@@ -58,7 +58,7 @@ public class GridCacheLocalLockSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        ignite = grid();
+        ignite = ignite();
     }
 
     /** {@inheritDoc} */

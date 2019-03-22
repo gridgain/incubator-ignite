@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.AtomicConfiguration;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -106,13 +107,13 @@ public class IgniteSequenceInternalCleanupTest extends GridCommonAbstractTest {
                 id += SEQ_RESERVE;
             }
 
-            doSleep(1000);
+            GridTestUtils.doSleep(1000);
 
             long puts = ignite.cache("test0").metrics().getCachePuts();
 
             assertEquals(1, puts);
 
-            grid(GRIDS_CNT - 1).cluster().active(false);
+            ignite(GRIDS_CNT - 1).cluster().active(false);
 
             ignite.cluster().active(true);
 

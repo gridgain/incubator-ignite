@@ -139,13 +139,13 @@ public class IgniteWalFormatFileFailoverTest extends GridCommonAbstractTest {
         startGrid(1);
 
         if (!fsync) {
-            setFileIOFactory(grid(0).context().cache().context().wal());
-            setFileIOFactory(grid(1).context().cache().context().wal());
+            setFileIOFactory(ignite(0).context().cache().context().wal());
+            setFileIOFactory(ignite(1).context().cache().context().wal());
         }
 
         failMtdNameRef.set(formatFile);
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         checkCause(failureHandler(0).awaitFailure(2000).error());
         checkCause(failureHandler(1).awaitFailure(2000).error());
@@ -171,7 +171,7 @@ public class IgniteWalFormatFileFailoverTest extends GridCommonAbstractTest {
      * @return Failure handler configured for grid with given index.
      */
     private TestFailureHandler failureHandler(int gridIdx) {
-        FailureHandler hnd = grid(gridIdx).configuration().getFailureHandler();
+        FailureHandler hnd = ignite(gridIdx).configuration().getFailureHandler();
 
         assertTrue(hnd instanceof TestFailureHandler);
 

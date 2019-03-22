@@ -70,7 +70,7 @@ public class GridIndexingWithNoopSwapSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        ignite = startGrid();
+        ignite = clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

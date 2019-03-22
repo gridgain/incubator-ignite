@@ -88,7 +88,7 @@ public class IgniteCacheStartWithLoadTest extends GridCommonAbstractTest {
         AtomicInteger txLoaderNo = new AtomicInteger(0);
 
         IgniteInternalFuture txLoadFuture = GridTestUtils.runMultiThreadedAsync(() -> {
-            Ignite node = grid(txLoaderNo.getAndIncrement());
+            Ignite node = ignite(txLoaderNo.getAndIncrement());
             IgniteCache<Object, Object> cache = node.cache(CACHE_NAME);
             ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
@@ -118,7 +118,7 @@ public class IgniteCacheStartWithLoadTest extends GridCommonAbstractTest {
         AtomicBoolean cacheRestartStop = new AtomicBoolean();
 
         IgniteInternalFuture cacheRestartFuture = GridTestUtils.runAsync(() -> {
-            Ignite node = grid(0);
+            Ignite node = ignite(0);
 
             final String tmpCacheName = "tmp";
 
@@ -129,7 +129,7 @@ public class IgniteCacheStartWithLoadTest extends GridCommonAbstractTest {
                     boolean hasMoving = false;
 
                     for (int i = 0; i < 4; i++)
-                        hasMoving |= grid(i).cachex(CACHE_NAME).context().topology().hasMovingPartitions();
+                        hasMoving |= ignite(i).cachex(CACHE_NAME).context().topology().hasMovingPartitions();
 
                     if (hasMoving) {
                         log.error("Cache restarter has been stopped because rebalance is triggered for stable caches.");

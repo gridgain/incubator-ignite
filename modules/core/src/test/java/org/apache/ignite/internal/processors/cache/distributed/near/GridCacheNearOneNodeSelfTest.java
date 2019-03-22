@@ -170,7 +170,7 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
         IgniteCache<Object, Object> near = jcache();
         GridCacheAdapter<Integer, String> dht = dht();
 
-        try (Transaction tx = grid().transactions().txStart(OPTIMISTIC, REPEATABLE_READ) ) {
+        try (Transaction tx = ignite().transactions().txStart(OPTIMISTIC, REPEATABLE_READ) ) {
             near.put(2, "2");
             near.put(3, "3");
 
@@ -307,7 +307,7 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
         assertEquals("val1", dhtPeek(1));
         assertNull(near().peekEx(1));
 
-        Transaction tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+        Transaction tx = ignite().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
         assertEquals("val1", cache.get(1));
 
@@ -327,7 +327,7 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
         assertEquals("val1", dhtPeek(1));
         assertNull(near().peekEx(1));
 
-        Transaction tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+        Transaction tx = ignite().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
         assertEquals("val1", cache.get(1));
 

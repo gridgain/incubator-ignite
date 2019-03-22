@@ -117,7 +117,7 @@ public class GridJobMasterLeaveAwareSelfTest extends GridCommonAbstractTest {
     private IgnitePredicate<ClusterNode> excludeLastPredicate() {
         return new IgnitePredicate<ClusterNode>() {
             @Override public boolean apply(ClusterNode e) {
-                return !e.id().equals(grid(GRID_CNT - 1).localNode().id());
+                return !e.id().equals(ignite(GRID_CNT - 1).localNode().id());
             }
         };
     }
@@ -180,7 +180,7 @@ public class GridJobMasterLeaveAwareSelfTest extends GridCommonAbstractTest {
 
         int lastGridIdx = GRID_CNT - 1;
 
-        compute(grid(lastGridIdx).cluster().forPredicate(excludeLastPredicate()))
+        compute(ignite(lastGridIdx).cluster().forPredicate(excludeLastPredicate()))
             .executeAsync(new TestTask(GRID_CNT - 1), null);
 
         jobLatch.await();
@@ -206,12 +206,12 @@ public class GridJobMasterLeaveAwareSelfTest extends GridCommonAbstractTest {
 
         int lastGridIdx = GRID_CNT - 1;
 
-        compute(grid(lastGridIdx).cluster().forPredicate(excludeLastPredicate()))
+        compute(ignite(lastGridIdx).cluster().forPredicate(excludeLastPredicate()))
             .executeAsync(new TestTask(GRID_CNT - 1), null);
 
         jobLatch.await();
 
-        ((CommunicationSpi)grid(lastGridIdx).configuration().getCommunicationSpi()).blockMessages();
+        ((CommunicationSpi)ignite(lastGridIdx).configuration().getCommunicationSpi()).blockMessages();
 
         stopGrid(lastGridIdx, true);
 
@@ -236,19 +236,19 @@ public class GridJobMasterLeaveAwareSelfTest extends GridCommonAbstractTest {
 
         int lastGridIdx = GRID_CNT - 1;
 
-        compute(grid(lastGridIdx).cluster().forPredicate(excludeLastPredicate()))
+        compute(ignite(lastGridIdx).cluster().forPredicate(excludeLastPredicate()))
             .executeAsync(new TestTask(GRID_CNT - 1), null);
 
         jobLatch.await();
 
         for (int i = 0; i < lastGridIdx; i++)
-            ((CommunicationSpi)grid(i).configuration().getCommunicationSpi()).waitLatch();
+            ((CommunicationSpi)ignite(i).configuration().getCommunicationSpi()).waitLatch();
 
         latch.countDown();
 
         // Ensure that all worker nodes has already started job response sending.
         for (int i = 0; i < lastGridIdx; i++)
-            ((CommunicationSpi)grid(i).configuration().getCommunicationSpi()).awaitResponse();
+            ((CommunicationSpi)ignite(i).configuration().getCommunicationSpi()).awaitResponse();
 
         // Now we stop master grid.
         stopGrid(lastGridIdx, true);
@@ -257,7 +257,7 @@ public class GridJobMasterLeaveAwareSelfTest extends GridCommonAbstractTest {
 
         // Release communication SPI wait latches. As master node is stopped, job worker will receive and exception.
         for (int i = 0; i < lastGridIdx; i++)
-            ((CommunicationSpi)grid(i).configuration().getCommunicationSpi()).releaseWaitLatch();
+            ((CommunicationSpi)ignite(i).configuration().getCommunicationSpi()).releaseWaitLatch();
 
         assert invokeLatch.await(5000, MILLISECONDS);
     }
@@ -484,7 +484,7 @@ public class GridJobMasterLeaveAwareSelfTest extends GridCommonAbstractTest {
 
         int lastGridIdx = GRID_CNT - 1;
 
-        IgniteFuture<?> fut = taskStarter.apply(grid(lastGridIdx).cluster().forPredicate(excludeLastPredicate()));
+        IgniteFuture<?> fut = taskStarter.apply(ignite(lastGridIdx).cluster().forPredicate(excludeLastPredicate()));
 
         jobLatch.await();
 

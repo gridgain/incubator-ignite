@@ -188,7 +188,7 @@ public class GridCacheRebalancingWithAsyncClearingTest extends GridCommonAbstrac
         // Check that additional exchange didn't influence on asynchronous partitions eviction.
         boolean asyncClearingIsRunning = false;
         for (int p = 0; p < PARTITIONS_CNT; p++) {
-            GridDhtLocalPartition part = grid(2).cachex(CACHE_NAME).context().topology().localPartition(p);
+            GridDhtLocalPartition part = ignite(2).cachex(CACHE_NAME).context().topology().localPartition(p);
             if (part != null && part.state() == GridDhtPartitionState.MOVING && part.isClearing()) {
                 asyncClearingIsRunning = true;
                 break;

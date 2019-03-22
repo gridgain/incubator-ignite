@@ -39,7 +39,6 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionOptimisticException;
-import org.apache.ignite.transactions.TransactionSerializationException;
 
 import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
@@ -139,7 +138,7 @@ abstract class IgniteTxAbstractTest extends GridCommonAbstractTest {
     protected void checkCommit(TransactionConcurrency concurrency, TransactionIsolation isolation) throws Exception {
         int gridIdx = RAND.nextInt(gridCount());
 
-        Ignite ignite = grid(gridIdx);
+        Ignite ignite = ignite(gridIdx);
 
         if (isTestDebug())
             debug("Checking commit on grid: " + ignite.cluster().localNode().id());
@@ -229,7 +228,7 @@ abstract class IgniteTxAbstractTest extends GridCommonAbstractTest {
         if (printMemoryStats()) {
             if (cntr.getAndIncrement() % 100 == 0)
                 // Print transaction memory stats.
-                ((IgniteKernal)grid(gridIdx)).internalCache(DEFAULT_CACHE_NAME).context().tm().printMemoryStats();
+                ((IgniteKernal)ignite(gridIdx)).internalCache(DEFAULT_CACHE_NAME).context().tm().printMemoryStats();
         }
     }
 
@@ -253,7 +252,7 @@ abstract class IgniteTxAbstractTest extends GridCommonAbstractTest {
         TransactionIsolation isolation) throws Exception {
         int gridIdx = RAND.nextInt(gridCount());
 
-        Ignite ignite = grid(gridIdx);
+        Ignite ignite = ignite(gridIdx);
 
         if (isTestDebug())
             debug("Checking commit on grid: " + ignite.cluster().localNode().id());

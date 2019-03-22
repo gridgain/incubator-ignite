@@ -59,7 +59,7 @@ public abstract class GridCacheQueueJoinedNodeSelfAbstractTest extends IgniteCol
     public void testTakeFromJoined() throws Exception {
         String queueName = UUID.randomUUID().toString();
 
-        IgniteQueue<Integer> queue = grid(0).queue(queueName, 0, config(true));
+        IgniteQueue<Integer> queue = ignite(0).queue(queueName, 0, config(true));
 
         assertNotNull(queue);
 
@@ -67,7 +67,7 @@ public abstract class GridCacheQueueJoinedNodeSelfAbstractTest extends IgniteCol
 
         PutJob putJob = new PutJob(queueName);
 
-        IgniteCompute comp = compute(grid(0).cluster().forLocal());
+        IgniteCompute comp = compute(ignite(0).cluster().forLocal());
 
         IgniteFuture<?> fut = comp.runAsync(putJob);
 
@@ -84,7 +84,7 @@ public abstract class GridCacheQueueJoinedNodeSelfAbstractTest extends IgniteCol
 
             jobs.add(job);
 
-            comp = compute(grid(i).cluster().forLocal());
+            comp = compute(ignite(i).cluster().forLocal());
 
             futs.add(comp.callAsync(job));
 

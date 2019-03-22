@@ -1311,32 +1311,30 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
 
         final int threadCnt = 10;
 
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                int idx = ctr.incrementAndGet();
+        GridTestUtils.runMultiThreaded(() -> {
+            int idx = ctr.incrementAndGet();
 
-                final IgfsPath path = new IgfsPath("/file" + idx);
+            final IgfsPath path = new IgfsPath("/file" + idx);
 
-                try {
-                    for (int i = 0; i < REPEAT_CNT; i++) {
-                        IgfsOutputStream os = igfs.create(path, 128, true/*overwrite*/, null, 0, 256, null);
+            try {
+                for (int i = 0; i < REPEAT_CNT; i++) {
+                    IgfsOutputStream os = igfs.create(path, 128, true/*overwrite*/, null, 0, 256, null);
 
-                        os.write(chunk);
+                    os.write(chunk);
 
-                        os.close();
+                    os.close();
 
-                        assert igfs.exists(path);
-                    }
-
-                    awaitFileClose(igfs, path);
-
-                    checkFileContent(igfs, path, chunk);
+                    assert igfs.exists(path);
                 }
-                catch (IOException | IgniteCheckedException e) {
-                    err.compareAndSet(null, e); // Log the very first error.
-                }
+
+                awaitFileClose(igfs, path);
+
+                checkFileContent(igfs, path, chunk);
             }
-        }, threadCnt);
+            catch (IOException | IgniteCheckedException e) {
+                err.compareAndSet(null, e); // Log the very first error.
+            }
+        }, threadCnt, getTestIgniteInstanceName());
 
         if (err.get() != null)
             throw err.get();
@@ -1834,9 +1832,7 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
             for (int i = 0; i < threadCnt; i++)
                 createFile(igfs, new IgfsPath("/file" + i), false);
 
-            multithreaded(new Runnable() {
-                @Override
-                public void run() {
+            GridTestUtils.runMultiThreaded(() -> {
                     int idx = ctr.getAndIncrement();
 
                     IgfsPath path = new IgfsPath("/file" + idx);
@@ -1862,8 +1858,8 @@ public abstract class IgfsAbstractSelfTest extends IgfsAbstractBaseSelfTest {
                     } catch (IOException | IgniteCheckedException e) {
                         err.compareAndSet(null, e); // Log the very first error.
                     }
-                }
-            }, threadCnt);
+
+            }, threadCnt, getTestIgniteInstanceName());
 
             if (err.get() != null)
                 throw err.get();

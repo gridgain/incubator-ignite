@@ -193,7 +193,7 @@ public class IgniteCacheClientReconnectTest extends GridCommonAbstractTest {
      */
     private void verifyCacheOperationsOnClients() {
         for (int i = SRV_CNT; i < SRV_CNT + CLIENTS_CNT; i++) {
-            IgniteEx cl = grid(i);
+            IgniteEx cl = ignite(i);
 
             if (!forceServerMode)
                 assertTrue(cl.localNode().isClient());
@@ -216,7 +216,7 @@ public class IgniteCacheClientReconnectTest extends GridCommonAbstractTest {
      * Verifies that affinity mappings are the same on clients and servers.
      */
     private void verifyPartitionToNodeMappings() {
-        IgniteEx refSrv = grid(0);
+        IgniteEx refSrv = ignite(0);
         String cacheName;
 
         for (int i = 0; i < CACHES; i++) {
@@ -230,7 +230,7 @@ public class IgniteCacheClientReconnectTest extends GridCommonAbstractTest {
                 assertNotNull("Affinity node for " + j + " partition is null", refAffNode);
 
                 for (int k = SRV_CNT; k < SRV_CNT + CLIENTS_CNT; k++) {
-                    ClusterNode clAffNode = grid(k).affinity(cacheName).mapPartitionToNode(j);
+                    ClusterNode clAffNode = ignite(k).affinity(cacheName).mapPartitionToNode(j);
 
                     assertNotNull("Affinity node for " + k + " client and " + j + " partition is null", clAffNode);
 
@@ -250,12 +250,12 @@ public class IgniteCacheClientReconnectTest extends GridCommonAbstractTest {
      * Verifies {@link AffinityTopologyVersion}s: one obtained from coordinator and all from each client node.
      */
     private void verifyAffinityTopologyVersions() {
-        IgniteEx srv = grid(0);
+        IgniteEx srv = ignite(0);
 
         AffinityTopologyVersion srvTopVer = srv.context().discovery().topologyVersionEx();
 
         for (int i = SRV_CNT; i < SRV_CNT + CLIENTS_CNT; i++) {
-            AffinityTopologyVersion clntTopVer = grid(i).context().discovery().topologyVersionEx();
+            AffinityTopologyVersion clntTopVer = ignite(i).context().discovery().topologyVersionEx();
 
             assertTrue(clntTopVer.equals(srvTopVer));
         }

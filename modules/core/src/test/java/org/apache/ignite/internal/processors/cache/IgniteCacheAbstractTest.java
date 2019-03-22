@@ -222,7 +222,7 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
      * @return Cache.
      */
     @Override protected <K, V> IgniteCache<K, V> jcache(int idx) {
-        return grid(idx).cache(DEFAULT_CACHE_NAME);
+        return ignite(idx).cache(DEFAULT_CACHE_NAME);
     }
 
     /**

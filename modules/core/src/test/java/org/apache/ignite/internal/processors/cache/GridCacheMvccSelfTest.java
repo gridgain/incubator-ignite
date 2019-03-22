@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -48,7 +49,7 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        grid = (IgniteKernal)grid();
+        grid = (IgniteKernal)ignite();
     }
 
     /** {@inheritDoc} */
@@ -1647,17 +1648,16 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
      */
     private void linkCandidates(final GridCacheContext<String, String> ctx,
         final GridCacheMvccCandidate... cands) throws Exception {
-        multithreaded(new Runnable() {
-            @Override public void run() {
-                for (GridCacheMvccCandidate cand : cands) {
-                    boolean b = grid.<String, String>internalCache(DEFAULT_CACHE_NAME).context().mvcc().addNext(ctx, cand);
 
-                    assert b;
-                }
+        GridTestUtils.runMultiThreaded(() -> {
+            for (GridCacheMvccCandidate cand : cands) {
+                boolean b = grid.<String, String>internalCache(DEFAULT_CACHE_NAME).context().mvcc().addNext(ctx, cand);
 
-                info("Link thread finished.");
+                assert b;
             }
-        }, 1);
+
+            info("Link thread finished.");
+        }, 1, getTestIgniteInstanceName());
     }
 
     /**

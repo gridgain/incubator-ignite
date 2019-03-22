@@ -357,6 +357,6 @@ public abstract class H2DynamicIndexingComplexAbstractTest extends DynamicIndexA
      * @return Node to initiate operations from.
      */
     protected IgniteEx node() {
-        return grid(nodeIdx);
+        return ignite(nodeIdx);
     }
 }

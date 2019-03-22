@@ -100,7 +100,7 @@ public class IgniteServiceDynamicCachesSelfTest extends GridCommonAbstractTest {
         CacheConfiguration ccfg = new CacheConfiguration(cacheName);
         ccfg.setBackups(1);
 
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         final IgniteServices svcs = ig.services();
 

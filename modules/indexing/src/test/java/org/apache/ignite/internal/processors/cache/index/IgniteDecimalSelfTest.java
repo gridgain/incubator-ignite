@@ -141,7 +141,7 @@ public class IgniteDecimalSelfTest extends AbstractSchemaSelfTest {
      */
     @Test
     public void testConfiguredFromQueryEntityInDynamicallyCreatedCache() throws Exception {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         String tabName = SALARY_TAB_NAME + "2";
 
@@ -157,7 +157,7 @@ public class IgniteDecimalSelfTest extends AbstractSchemaSelfTest {
      */
     @Test
     public void testConfiguredFromAnnotations() throws Exception {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         CacheConfiguration<Integer, Salary> ccfg = new CacheConfiguration<>("SalaryCache-3");
 
@@ -171,7 +171,7 @@ public class IgniteDecimalSelfTest extends AbstractSchemaSelfTest {
     /** */
     @Test
     public void testSelectDecimal() throws Exception {
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         List rows = execute(grid, "SELECT id, value FROM " + DEC_TAB_NAME + " order by id");
 
@@ -206,7 +206,7 @@ public class IgniteDecimalSelfTest extends AbstractSchemaSelfTest {
      * @return QueryEntity of table.
      */
     private QueryEntity findTableInfo(String tabName) {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         Collection<String> cacheNames = ignite.cacheNames();
         for (String cacheName : cacheNames) {

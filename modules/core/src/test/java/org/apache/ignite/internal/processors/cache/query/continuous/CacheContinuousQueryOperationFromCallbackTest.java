@@ -362,7 +362,7 @@ public class CacheContinuousQueryOperationFromCallbackTest extends GridCommonAbs
                 Set<T2<QueryTestKey, QueryTestValue>> evtsFromCb = Collections.
                     newSetFromMap(new ConcurrentHashMap<T2<QueryTestKey, QueryTestValue>, Boolean>());
 
-                IgniteCache<Object, Object> cache = grid(idx).getOrCreateCache(ccfg.getName());
+                IgniteCache<Object, Object> cache = ignite(idx).getOrCreateCache(ccfg.getName());
 
                 ContinuousQuery qry = new ContinuousQuery();
 
@@ -387,7 +387,7 @@ public class CacheContinuousQueryOperationFromCallbackTest extends GridCommonAbs
 
                     for (int i = 0; i < ITERATION_CNT; i++) {
                         IgniteCache<QueryTestKey, QueryTestValue> cache =
-                            grid(rnd.nextInt(NODES)).cache(ccfg.getName());
+                            ignite(rnd.nextInt(NODES)).cache(ccfg.getName());
 
                         QueryTestKey key = new QueryTestKey(rnd.nextInt(KEYS) - KEYS);
 
@@ -445,7 +445,7 @@ public class CacheContinuousQueryOperationFromCallbackTest extends GridCommonAbs
             }, getTestTimeout());
 
             for (Set<T2<QueryTestKey, QueryTestValue>> set : rcvdEvts)
-                checkEvents(set, ITERATION_CNT * threadCnt, grid(0).cache(ccfg.getName()), false);
+                checkEvents(set, ITERATION_CNT * threadCnt, ignite(0).cache(ccfg.getName()), false);
 
             if (fromLsnr) {
                 final int expCnt = qryCntr.get() * NODES * KEYS_FROM_CALLBACK;
@@ -461,7 +461,7 @@ public class CacheContinuousQueryOperationFromCallbackTest extends GridCommonAbs
                 assertEquals(expCnt, cbCntr.get());
 
                 for (Set<T2<QueryTestKey, QueryTestValue>> set : evtsFromCallbacks)
-                    checkEvents(set, qryCntr.get() * KEYS_FROM_CALLBACK, grid(0).cache(ccfg.getName()), true);
+                    checkEvents(set, qryCntr.get() * KEYS_FROM_CALLBACK, ignite(0).cache(ccfg.getName()), true);
             }
             else {
                 final int expInvkCnt = ITERATION_CNT * threadCnt *
@@ -476,7 +476,7 @@ public class CacheContinuousQueryOperationFromCallbackTest extends GridCommonAbs
                 assertEquals(expInvkCnt, filterCbCntr.get());
 
                 for (Set<T2<QueryTestKey, QueryTestValue>> set : evtsFromCallbacks)
-                    checkEvents(set, expInvkCnt * KEYS_FROM_CALLBACK, grid(0).cache(ccfg.getName()), true);
+                    checkEvents(set, expInvkCnt * KEYS_FROM_CALLBACK, ignite(0).cache(ccfg.getName()), true);
             }
         }
         finally {

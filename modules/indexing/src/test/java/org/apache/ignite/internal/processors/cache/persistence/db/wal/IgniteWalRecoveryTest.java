@@ -43,7 +43,6 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteCompute;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheRebalanceMode;
@@ -497,7 +496,7 @@ public class IgniteWalRecoveryTest extends GridCommonAbstractTest {
     public void testBinaryRecoverBeforePMEWhenMiddleCheckpoint() throws Exception {
         startGrids(3);
 
-        IgniteEx ig2 = grid(2);
+        IgniteEx ig2 = ignite(2);
 
         ig2.cluster().active(true);
 

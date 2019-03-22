@@ -145,8 +145,8 @@ public class GridCacheReplicatedPreloadLifecycleSelfTest extends GridCachePreloa
             info("Checking '" + (i + 1) + "' nodes...");
 
             for (int j = 0; j < G.allGrids().size(); j++) {
-                IgniteCache<String, MyValue> c1 = grid(j).cache("one");
-                IgniteCache<String, MyValue> c2 = grid(j).cache("two");
+                IgniteCache<String, MyValue> c1 = ignite(j).cache("one");
+                IgniteCache<String, MyValue> c2 = ignite(j).cache("two");
 
                 int size1 = c1.localSize(CachePeekMode.ALL);
                 int size2 = c2.localSize(CachePeekMode.ALL);

@@ -129,7 +129,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
     private void oldestNotAffinityNode1(final CacheConfiguration ccfg) throws Exception {
         log.info("Test with cache: " + ccfg.getName());
 
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         assertEquals(1L, ignite.localNode().order());
 
@@ -158,8 +158,8 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
     private void oldestNotAffinityNode2(final CacheConfiguration ccfg) throws Exception {
         log.info("Test with cache: " + ccfg.getName());
 
-        IgniteEx ignite0 = grid(0);
-        IgniteEx ignite1 = grid(1);
+        IgniteEx ignite0 = ignite(0);
+        IgniteEx ignite1 = ignite(1);
 
         assertEquals(1L, ignite0.localNode().order());
 
@@ -190,7 +190,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
     private void notAffinityNode1(final CacheConfiguration ccfg) throws Exception {
         log.info("Test with cache: " + ccfg.getName());
 
-        IgniteEx ignite = grid(1);
+        IgniteEx ignite = ignite(1);
 
         assertEquals(2, ignite.localNode().order());
 
@@ -219,8 +219,8 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
     private void notAffinityNode2(final CacheConfiguration ccfg) throws Exception {
         log.info("Test with cache: " + ccfg.getName());
 
-        IgniteEx ignite0 = grid(0);
-        IgniteEx ignite1 = grid(1);
+        IgniteEx ignite0 = ignite(0);
+        IgniteEx ignite1 = ignite(1);
 
         assertEquals(2L, ignite1.localNode().order());
 
@@ -240,7 +240,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
      */
     @Test
     public void testOldestChanged1() throws Exception {
-        IgniteEx ignite0 = grid(0);
+        IgniteEx ignite0 = ignite(0);
 
         assertEquals(1L, ignite0.localNode().order());
 
@@ -252,7 +252,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
 
         stopGrid(0);
 
-        IgniteEx client = grid(NODES - 1);
+        IgniteEx client = ignite(NODES - 1);
 
         assertTrue(client.configuration().isClientMode());
 
@@ -268,7 +268,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
      */
     @Test
     public void testOldestChanged2() throws Exception {
-        IgniteEx ignite0 = grid(0);
+        IgniteEx ignite0 = ignite(0);
 
         assertEquals(1L, ignite0.localNode().order());
 
@@ -280,7 +280,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
 
         stopGrid(0);
 
-        IgniteEx ingite1 = grid(1);
+        IgniteEx ingite1 = ignite(1);
 
         assertNotNull(ingite1.getOrCreateCache(DEFAULT_CACHE_NAME));
 
@@ -294,7 +294,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
      */
     @Test
     public void testOldestChanged3() throws Exception {
-        IgniteEx ignite0 = grid(0);
+        IgniteEx ignite0 = ignite(0);
 
         assertEquals(1L, ignite0.localNode().order());
 
@@ -306,7 +306,7 @@ public class IgniteDynamicCacheStartNoExchangeTimeoutTest extends GridCommonAbst
 
         stopGrid(0);
 
-        IgniteEx client = grid(NODES - 1);
+        IgniteEx client = ignite(NODES - 1);
 
         assertTrue(client.configuration().isClientMode());
 

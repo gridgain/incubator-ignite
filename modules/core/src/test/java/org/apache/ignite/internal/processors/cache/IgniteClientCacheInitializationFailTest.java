@@ -202,7 +202,7 @@ public class IgniteClientCacheInitializationFailTest extends GridCommonAbstractT
      * @throws Exception If failed.
      */
     private void checkCacheInitialization(final String cacheName) throws Exception {
-        Ignite client = grid("client");
+        Ignite client = ignite("client");
 
         checkFailedCache(client, cacheName);
 

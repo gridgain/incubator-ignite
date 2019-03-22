@@ -94,7 +94,7 @@ public class TxDeadlockDetectionUnmasrhalErrorsTest extends GridCommonAbstractTe
             cache0 = getCache(ignite(0), "cache0");
             cache1 = getCache(ignite(0), "cache1");
 
-            IgniteCache<Integer, Integer> clientCache0 = grid(1).cache("cache0");
+            IgniteCache<Integer, Integer> clientCache0 = ignite(1).cache("cache0");
 
             awaitPartitionMapExchange();
 
@@ -154,7 +154,7 @@ public class TxDeadlockDetectionUnmasrhalErrorsTest extends GridCommonAbstractTe
 
             latch.await();
 
-            Ignite client = grid(1);
+            Ignite client = ignite(1);
 
             try (Transaction tx = client.transactions().txStart(PESSIMISTIC, READ_COMMITTED, 500, 0)) {
                 clientCache0.put(0, 3);

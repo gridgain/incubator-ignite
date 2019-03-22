@@ -62,7 +62,7 @@ public class OffheapCacheMetricsForClusterGroupSelfTest extends GridCommonAbstra
     @Test
     public void testGetOffHeapPrimaryEntriesCount() throws Exception {
         String cacheName = "testGetOffHeapPrimaryEntriesCount";
-        IgniteCache<Integer, Integer> cache = grid("client-0").createCache(cacheConfiguration(cacheName));
+        IgniteCache<Integer, Integer> cache = ignite("client-0").createCache(cacheConfiguration(cacheName));
 
         for (int i = 0; i < 1000; i++)
             cache.put(i, i);
@@ -78,7 +78,7 @@ public class OffheapCacheMetricsForClusterGroupSelfTest extends GridCommonAbstra
 
         assertGetOffHeapPrimaryEntriesCount(cacheName, 1000);
 
-        cache = grid("client-1").cache(cacheName);
+        cache = ignite("client-1").cache(cacheName);
 
         for (int j = 0; j < 1000; j++)
             cache.get(j);
@@ -93,7 +93,7 @@ public class OffheapCacheMetricsForClusterGroupSelfTest extends GridCommonAbstra
         long localBackups = 0L;
 
         for (int i = 0; i < GRID_CNT; i++) {
-            IgniteCache<Integer, Integer> cache = grid("server-" + i).cache(cacheName);
+            IgniteCache<Integer, Integer> cache = ignite("server-" + i).cache(cacheName);
             assertEquals(count, cache.metrics().getOffHeapPrimaryEntriesCount());
             assertEquals(count, cache.mxBean().getOffHeapPrimaryEntriesCount());
             assertEquals(count, cache.metrics().getOffHeapBackupEntriesCount());
@@ -107,7 +107,7 @@ public class OffheapCacheMetricsForClusterGroupSelfTest extends GridCommonAbstra
         assertEquals(count, localBackups);
 
         for (int i = 0; i < CLIENT_CNT; i++) {
-            IgniteCache<Integer, Integer> cache = grid("client-" + i).cache(cacheName);
+            IgniteCache<Integer, Integer> cache = ignite("client-" + i).cache(cacheName);
             assertEquals(count, cache.metrics().getOffHeapPrimaryEntriesCount());
             assertEquals(count, cache.mxBean().getOffHeapPrimaryEntriesCount());
             assertEquals(count, cache.metrics().getOffHeapBackupEntriesCount());

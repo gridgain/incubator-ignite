@@ -105,7 +105,7 @@ public class IgniteCacheFullTextQueryNodeJoiningSelfTest extends GridCommonAbstr
                 for (int i = 0; i < 1000; i++) {
                     IndexedEntity entity = new IndexedEntity("indexed " + i);
 
-                    grid(0).cache(DEFAULT_CACHE_NAME).put(new AffinityKey<>(i, i), entity);
+                    ignite(0).cache(DEFAULT_CACHE_NAME).put(new AffinityKey<>(i, i), entity);
                 }
 
                 Ignite started = startGrid(GRID_CNT);

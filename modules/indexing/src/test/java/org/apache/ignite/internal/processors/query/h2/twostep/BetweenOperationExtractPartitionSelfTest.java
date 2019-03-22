@@ -623,7 +623,7 @@ public class BetweenOperationExtractPartitionSelfTest extends GridCommonAbstract
     private BetweenOperationExtractPartitionSelfTest.TestCommunicationSpi runQuery(String sqlQry, int from, int to,
         int expResCnt) {
         TestCommunicationSpi commSpi =
-            (TestCommunicationSpi)grid(NODES_COUNT).configuration().
+            (TestCommunicationSpi)ignite(NODES_COUNT).configuration().
                 getCommunicationSpi();
 
         commSpi.resetPartitions();
@@ -651,7 +651,7 @@ public class BetweenOperationExtractPartitionSelfTest extends GridCommonAbstract
         String leftRangeOperand, String rightRangeOperand, int expResCnt) {
 
         TestCommunicationSpi commSpi =
-            (TestCommunicationSpi)grid(NODES_COUNT).configuration().
+            (TestCommunicationSpi)ignite(NODES_COUNT).configuration().
                 getCommunicationSpi();
 
         commSpi.resetPartitions();

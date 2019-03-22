@@ -49,7 +49,7 @@ public class IgniteDbSingleNodeWithIndexingPutGetTest extends IgniteDbSingleNode
      */
     @Test
     public void testGroupIndexes() {
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         IgniteCache<Integer, Abc> cache = ig.cache("abc");
 
@@ -78,7 +78,7 @@ public class IgniteDbSingleNodeWithIndexingPutGetTest extends IgniteDbSingleNode
      */
     @Test
     public void testGroupIndexes2() {
-        IgniteEx ig = grid(0);
+        IgniteEx ig = ignite(0);
 
         IgniteCache<Integer,Abc> cache = ig.cache("abc");
 

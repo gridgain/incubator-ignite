@@ -287,7 +287,7 @@ public class CacheMvccBasicContinuousQueryTest extends CacheMvccAbstractTest  {
             cacheConfiguration(cacheMode, FULL_SYNC, backups, srvCnt)
                 .setIndexedTypes(Integer.class, Integer.class));
 
-        IgniteEx primary = grid(0);
+        IgniteEx primary = ignite(0);
 
         List<Integer> keys = primaryKeys(primary.cache(DEFAULT_CACHE_NAME), 3);
 
@@ -376,7 +376,7 @@ public class CacheMvccBasicContinuousQueryTest extends CacheMvccAbstractTest  {
                 boolean allRolledBack = true;
 
                 for (int i = 1; i < srvCnt; i++) {
-                    boolean rolledBack = grid(i).context().cache().context().tm().activeTransactions().stream().allMatch(tx -> tx.state() == ROLLED_BACK);
+                    boolean rolledBack = ignite(i).context().cache().context().tm().activeTransactions().stream().allMatch(tx -> tx.state() == ROLLED_BACK);
 
                     allRolledBack &= rolledBack;
                 }
@@ -386,11 +386,11 @@ public class CacheMvccBasicContinuousQueryTest extends CacheMvccAbstractTest  {
         }, 3_000);
 
         for (int i = 1; i < srvCnt; i++) {
-            IgniteCache backupCache = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache backupCache = ignite(i).cache(DEFAULT_CACHE_NAME);
 
             int size = backupCache.query(new SqlFieldsQuery("select * from Integer")).getAll().size();
 
-            long backupCntr = getUpdateCounter(grid(i), keys.get(0));
+            long backupCntr = getUpdateCounter(ignite(i), keys.get(0));
 
             assertEquals(2, size);
             assertEquals(primaryUpdCntr, backupCntr);
@@ -432,13 +432,13 @@ public class CacheMvccBasicContinuousQueryTest extends CacheMvccAbstractTest  {
 
         startGridsMultiThreaded(srvCnt);
 
-        IgniteEx nearNode = grid(srvCnt - 1);
+        IgniteEx nearNode = ignite(srvCnt - 1);
 
         IgniteCache<Object, Object> cache = nearNode.createCache(
             cacheConfiguration(cacheMode, FULL_SYNC, srvCnt - 1, srvCnt)
                 .setIndexedTypes(Integer.class, Integer.class));
 
-        IgniteEx primary = grid(0);
+        IgniteEx primary = ignite(0);
 
         Affinity<Object> aff = nearNode.affinity(cache.getName());
 
@@ -539,7 +539,7 @@ public class CacheMvccBasicContinuousQueryTest extends CacheMvccAbstractTest  {
                 boolean allRolledBack = true;
 
                 for (int i = 1; i < srvCnt; i++) {
-                    boolean rolledBack = grid(i).context().cache().context().tm().activeTransactions().stream().allMatch(tx -> tx.state() == ROLLED_BACK);
+                    boolean rolledBack = ignite(i).context().cache().context().tm().activeTransactions().stream().allMatch(tx -> tx.state() == ROLLED_BACK);
 
                     allRolledBack &= rolledBack;
                 }
@@ -549,11 +549,11 @@ public class CacheMvccBasicContinuousQueryTest extends CacheMvccAbstractTest  {
         }, 3_000);
 
         for (int i = 1; i < srvCnt; i++) {
-            IgniteCache backupCache = grid(i).cache(DEFAULT_CACHE_NAME);
+            IgniteCache backupCache = ignite(i).cache(DEFAULT_CACHE_NAME);
 
             int size = backupCache.query(new SqlFieldsQuery("select * from Integer")).getAll().size();
 
-            long backupCntr = getUpdateCounter(grid(i), keys.get(0));
+            long backupCntr = getUpdateCounter(ignite(i), keys.get(0));
 
             assertEquals(range * 2, size);
             assertEquals(primaryUpdCntr, backupCntr);

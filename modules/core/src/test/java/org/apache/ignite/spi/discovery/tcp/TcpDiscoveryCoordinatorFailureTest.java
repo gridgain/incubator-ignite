@@ -131,16 +131,16 @@ public class TcpDiscoveryCoordinatorFailureTest extends GridCommonAbstractTest {
 
             IgniteInternalFuture<IgniteEx> fut3 = GridTestUtils.runAsync(() -> startGrid(3), "starter-3");
 
-            ((FailingDiscoverySpi)grid(0).configuration().getDiscoverySpi()).awaitDrop();
+            ((FailingDiscoverySpi)ignite(0).configuration().getDiscoverySpi()).awaitDrop();
 
             IgniteInternalFuture<IgniteEx> fut4 = GridTestUtils.runAsync(() -> startGrid(4), "starter-4");
 
             stopGrid(0, true);
 
-            ((FailingDiscoverySpi)grid(1).configuration().getDiscoverySpi()).awaitDrop();
+            ((FailingDiscoverySpi)ignite(1).configuration().getDiscoverySpi()).awaitDrop();
             stopGrid(1, true);
 
-            ((FailingDiscoverySpi)grid(2).configuration().getDiscoverySpi()).awaitDrop();
+            ((FailingDiscoverySpi)ignite(2).configuration().getDiscoverySpi()).awaitDrop();
             stopGrid(2, true);
 
             stallSpi.startStall();
@@ -150,7 +150,7 @@ public class TcpDiscoveryCoordinatorFailureTest extends GridCommonAbstractTest {
 
             fut4.get();
 
-            IgniteEx newCrd = grid(4);
+            IgniteEx newCrd = ignite(4);
 
             stallSpi.stopStall();
 
@@ -160,7 +160,7 @@ public class TcpDiscoveryCoordinatorFailureTest extends GridCommonAbstractTest {
             fut3.get();
 
             assertEquals("Second node did not join the grid",
-                2, grid(3).cluster().localNode().order());
+                2, ignite(3).cluster().localNode().order());
         }
         finally {
             stopAllGrids();
@@ -178,7 +178,7 @@ public class TcpDiscoveryCoordinatorFailureTest extends GridCommonAbstractTest {
 
             IgniteInternalFuture<IgniteEx> fut = GridTestUtils.runAsync(() -> startGrid(3));
 
-            ((FailingDiscoverySpi)grid(0).configuration().getDiscoverySpi()).awaitDrop();
+            ((FailingDiscoverySpi)ignite(0).configuration().getDiscoverySpi()).awaitDrop();
 
             stopGrid(0, true);
 

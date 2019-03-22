@@ -129,12 +129,12 @@ public class GridCacheVariableTopologySelfTest extends GridCommonAbstractTest {
             @SuppressWarnings({"BusyWait"})
             @Override public void applyx() {
                 while (cnt++ < txCnt && !done.get()) {
-                    IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+                    IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
                     if (cnt % logMod == 0)
                         info("Starting transaction: " + cnt);
 
-                    try (Transaction tx = grid(0).transactions().txStart()) {
+                    try (Transaction tx = ignite(0).transactions().txStart()) {
                         int kv = RAND.nextInt(keyRange);
 
                         cache.put(kv, kv);

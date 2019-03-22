@@ -62,7 +62,7 @@ public class IgniteChangingBaselineCacheQueryNodeRestartSelfTest extends IgniteC
 
         initStoreStrategy();
 
-        grid(0).cluster().active(true);
+        ignite(0).cluster().active(true);
 
         awaitPartitionMapExchange();
     }
@@ -103,7 +103,7 @@ public class IgniteChangingBaselineCacheQueryNodeRestartSelfTest extends IgniteC
                         lastOpChangeUp = true;
                     }
 
-                    grid(0).cluster().setBaselineTopology(baselineNodes(grid(0).cluster().forServers().nodes()));
+                    ignite(0).cluster().setBaselineTopology(baselineNodes(ignite(0).cluster().forServers().nodes()));
 
                     Thread.sleep(baselineTopChangeInterval);
 

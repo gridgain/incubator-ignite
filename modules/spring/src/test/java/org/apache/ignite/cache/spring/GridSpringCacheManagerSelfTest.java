@@ -41,7 +41,7 @@ public class GridSpringCacheManagerSelfTest extends GridSpringCacheManagerAbstra
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -57,8 +57,8 @@ public class GridSpringCacheManagerSelfTest extends GridSpringCacheManagerAbstra
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid().cache(CACHE_NAME).removeAll();
+        ignite().cache(CACHE_NAME).removeAll();
 
-        grid().destroyCache(DYNAMIC_CACHE_NAME);
+        ignite().destroyCache(DYNAMIC_CACHE_NAME);
     }
 }

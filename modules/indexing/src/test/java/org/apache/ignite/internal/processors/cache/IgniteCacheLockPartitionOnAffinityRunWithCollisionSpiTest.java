@@ -65,7 +65,7 @@ public class IgniteCacheLockPartitionOnAffinityRunWithCollisionSpiTest
         cancelAllJobs = true;
         // Workaround for initial update job metadata.
         try {
-            grid(0).compute().affinityRun(
+            ignite(0).compute().affinityRun(
                 Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                 new Integer(orgId),
                 new TestRun(orgId));
@@ -75,9 +75,9 @@ public class IgniteCacheLockPartitionOnAffinityRunWithCollisionSpiTest
         }
         // All partition must be released in spite of any exceptions during the job executions.
         cancelAllJobs = false;
-        ClusterNode n = grid(0).context().affinity()
+        ClusterNode n = ignite(0).context().affinity()
                 .mapKeyToNode(Organization.class.getSimpleName(), orgId);
-        checkPartitionsReservations((IgniteEx)grid(n), orgId, 0);
+        checkPartitionsReservations((IgniteEx)ignite(n), orgId, 0);
     }
 
     /**
@@ -103,7 +103,7 @@ public class IgniteCacheLockPartitionOnAffinityRunWithCollisionSpiTest
                                 n = jobNum.getAndIncrement();
 
                                 log.info("+++ Job submitted " + n);
-                                grid(0).compute().affinityRun(
+                                ignite(0).compute().affinityRun(
                                     Arrays.asList(Organization.class.getSimpleName(), Person.class.getSimpleName()),
                                     new Integer(orgId),
                                     new TestRun(n));

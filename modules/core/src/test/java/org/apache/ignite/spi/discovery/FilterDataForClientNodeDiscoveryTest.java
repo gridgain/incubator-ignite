@@ -82,7 +82,7 @@ public class FilterDataForClientNodeDiscoveryTest extends GridCommonAbstractTest
         for (int i = 0; i < 4; ++i) {
             final int idx0 = i;
 
-            grid(i).context().discovery().setCustomEventListener(
+            ignite(i).context().discovery().setCustomEventListener(
                 MessageForServer.class, new CustomEventListener<MessageForServer>() {
                 @Override public void onCustomEvent(AffinityTopologyVersion topVer, ClusterNode snd,
                     MessageForServer msg) {
@@ -95,7 +95,7 @@ public class FilterDataForClientNodeDiscoveryTest extends GridCommonAbstractTest
         for (int i = 0; i < 4; ++i) {
             Arrays.fill(recvMsg, false);
 
-            grid(i).context().discovery().sendCustomEvent(new MessageForServer());
+            ignite(i).context().discovery().sendCustomEvent(new MessageForServer());
 
             Thread.sleep(500);
 

@@ -219,7 +219,7 @@ public class IgniteCacheContinuousQueryClientTest extends GridCommonAbstractTest
                 @Override public IgniteCache<Integer, Integer> apply() {
                     ++cnt;
 
-                    return grid(CLIENT_ID).cache(DEFAULT_CACHE_NAME);
+                    return ignite(CLIENT_ID).cache(DEFAULT_CACHE_NAME);
                 }
             };
 

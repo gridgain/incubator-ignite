@@ -40,7 +40,7 @@ public class SqlQueryHistoryFromClientSelfTest extends SqlQueryHistorySelfTest {
 
     /** {@inheritDoc} */
     @Override protected IgniteEx queryNode() {
-        IgniteEx node = grid(2);
+        IgniteEx node = ignite(2);
 
         assertTrue(node.context().clientNode());
 

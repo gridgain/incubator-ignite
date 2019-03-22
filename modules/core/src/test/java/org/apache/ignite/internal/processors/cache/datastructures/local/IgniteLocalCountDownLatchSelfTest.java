@@ -48,7 +48,7 @@ public class IgniteLocalCountDownLatchSelfTest extends IgniteCountDownLatchAbstr
     @Test
     @Override public void testLatch() throws Exception {
         // Test main functionality.
-        IgniteCountDownLatch latch = grid(0).countDownLatch("latch", 2, false, true);
+        IgniteCountDownLatch latch = ignite(0).countDownLatch("latch", 2, false, true);
 
         assertNotNull(latch);
 
@@ -57,7 +57,7 @@ public class IgniteLocalCountDownLatchSelfTest extends IgniteCountDownLatchAbstr
         IgniteInternalFuture<?> fut = GridTestUtils.runMultiThreadedAsync(
             new Callable<Object>() {
                 @Nullable @Override public Object call() throws Exception {
-                    IgniteCountDownLatch latch = grid(0).countDownLatch("latch", 2, false, true);
+                    IgniteCountDownLatch latch = ignite(0).countDownLatch("latch", 2, false, true);
 
                     assert latch != null && latch.count() == 2;
 
@@ -86,7 +86,7 @@ public class IgniteLocalCountDownLatchSelfTest extends IgniteCountDownLatchAbstr
         fut.get();
 
         // Test operations on removed latch.
-        IgniteCountDownLatch latch0 = grid(0).countDownLatch("latch", 0, false, false);
+        IgniteCountDownLatch latch0 = ignite(0).countDownLatch("latch", 0, false, false);
 
         assertNotNull(latch0);
 

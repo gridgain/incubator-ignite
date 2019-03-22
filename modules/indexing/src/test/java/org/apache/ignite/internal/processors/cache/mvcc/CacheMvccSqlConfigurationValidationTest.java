@@ -42,7 +42,7 @@ public class CacheMvccSqlConfigurationValidationTest extends CacheMvccAbstractTe
      */
     @Test
     public void testCacheGroupAtomicityModeMismatch1() throws Exception {
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         node.getOrCreateCache(DEFAULT_CACHE_NAME)
             .query(new SqlFieldsQuery("CREATE TABLE City (id int primary key, name varchar, population int) WITH " +
@@ -66,7 +66,7 @@ public class CacheMvccSqlConfigurationValidationTest extends CacheMvccAbstractTe
      */
     @Test
     public void testCacheGroupAtomicityModeMismatch2() throws Exception {
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         node.getOrCreateCache(DEFAULT_CACHE_NAME)
             .query(new SqlFieldsQuery("CREATE TABLE City (id int primary key, name varchar, population int) WITH " +
@@ -90,7 +90,7 @@ public class CacheMvccSqlConfigurationValidationTest extends CacheMvccAbstractTe
     @Test
     public void testTxDifferentMvccSettingsTransactional() throws Exception {
         ccfg = defaultCacheConfiguration().setSqlSchema("PUBLIC");
-        Ignite node = startGrid();
+        Ignite node = clusterManager__startGrid();
 
         IgniteCache cache = node.cache(DEFAULT_CACHE_NAME);
 

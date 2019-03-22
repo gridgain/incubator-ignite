@@ -53,7 +53,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -66,7 +66,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testRehash() throws Exception {
-        IgniteCache<Integer, String> c = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(DEFAULT_CACHE_NAME);
 
         int cnt = 100 * 1024;
 
@@ -98,7 +98,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testRehashRandom() throws Exception {
-        IgniteCache<Integer, String> c = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, String> c = ignite().cache(DEFAULT_CACHE_NAME);
 
         int cnt = 100 * 1024;
 
@@ -147,7 +147,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
         multithreaded(new Callable<Object>() {
             @SuppressWarnings("UnusedAssignment")
             @Override public Object call() throws Exception {
-                IgniteCache<Integer, String> c = grid().cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Integer, String> c = ignite().cache(DEFAULT_CACHE_NAME);
 
                 int tid = tidGen.getAndIncrement();
 
@@ -220,7 +220,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
         multithreaded(new Callable<Object>() {
             @SuppressWarnings("UnusedAssignment")
             @Override public Object call() throws Exception {
-                IgniteCache<Integer, String> c = grid().cache(DEFAULT_CACHE_NAME);
+                IgniteCache<Integer, String> c = ignite().cache(DEFAULT_CACHE_NAME);
 
                 int tid = tidGen.getAndIncrement();
 
@@ -305,7 +305,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testEmptyWeakIterator() throws Exception {
-        final IgniteCache<Integer, String> c = grid().cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, String> c = ignite().cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 10; i++) {
             multithreaded(new Callable<Object>() {

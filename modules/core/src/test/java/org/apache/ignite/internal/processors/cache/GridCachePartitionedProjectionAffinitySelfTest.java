@@ -73,8 +73,8 @@ public class GridCachePartitionedProjectionAffinitySelfTest extends GridCommonAb
     public void testAffinity() throws Exception {
         waitTopologyUpdate();
 
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
 
         for (int i = 0; i < 100; i++)
             assertEquals(g0.affinity(DEFAULT_CACHE_NAME).mapKeyToNode(i).id(), g1.affinity(DEFAULT_CACHE_NAME).mapKeyToNode(i).id());
@@ -85,8 +85,8 @@ public class GridCachePartitionedProjectionAffinitySelfTest extends GridCommonAb
     public void testProjectionAffinity() throws Exception {
         waitTopologyUpdate();
 
-        Ignite g0 = grid(0);
-        Ignite g1 = grid(1);
+        Ignite g0 = ignite(0);
+        Ignite g1 = ignite(1);
 
         ClusterGroup g0Pinned = g0.cluster().forNodeIds(F.asList(g0.cluster().localNode().id()));
 

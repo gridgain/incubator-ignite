@@ -103,17 +103,17 @@ public class IgniteCacheContinuousQueryImmutableEntryTest extends GridCommonAbst
 
         // Add initial values.
         for (int i = 0; i < GRID_COUNT; ++i) {
-            keys[i] = primaryKey(grid(i).cache(DEFAULT_CACHE_NAME));
+            keys[i] = primaryKey(ignite(i).cache(DEFAULT_CACHE_NAME));
 
-            grid(0).cache(DEFAULT_CACHE_NAME).put(keys[i], -1);
+            ignite(0).cache(DEFAULT_CACHE_NAME).put(keys[i], -1);
         }
 
-        try (QueryCursor<?> cur = grid(0).cache(DEFAULT_CACHE_NAME).query(qry)) {
+        try (QueryCursor<?> cur = ignite(0).cache(DEFAULT_CACHE_NAME).query(qry)) {
             // Replace values on the keys.
             for (int i = 0; i < KEYS_COUNT; i++) {
                 log.info("Put key: " + i);
 
-                grid(i % GRID_COUNT).cache(DEFAULT_CACHE_NAME).put(keys[i % GRID_COUNT], i);
+                ignite(i % GRID_COUNT).cache(DEFAULT_CACHE_NAME).put(keys[i % GRID_COUNT], i);
             }
         }
 

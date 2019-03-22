@@ -265,7 +265,7 @@ public class CacheContinuousBatchAckTest extends GridCommonAbstractTest implemen
                 }
             });
 
-            cache = grid(SERVER).getOrCreateCache(ccfg);
+            cache = ignite(SERVER).getOrCreateCache(ccfg);
 
             qry = cache.query(q);
 
@@ -283,7 +283,7 @@ public class CacheContinuousBatchAckTest extends GridCommonAbstractTest implemen
                 qry.close();
 
             if (cache != null)
-                grid(SERVER).destroyCache(cache.getName());
+                ignite(SERVER).destroyCache(cache.getName());
         }
     }
 

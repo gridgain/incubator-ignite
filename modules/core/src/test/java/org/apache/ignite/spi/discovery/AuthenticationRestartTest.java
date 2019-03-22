@@ -67,7 +67,7 @@ public class AuthenticationRestartTest extends GridCommonAbstractTest {
     public void testClientReconnect() throws Exception {
         stopGrid("server");
 
-        final IgniteEx client = grid("client");
+        final IgniteEx client = ignite("client");
 
         waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {

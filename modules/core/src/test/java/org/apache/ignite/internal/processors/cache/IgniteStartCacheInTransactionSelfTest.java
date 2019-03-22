@@ -86,7 +86,7 @@ public class IgniteStartCacheInTransactionSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testStartCache() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final String key = "key";
         final String val = "val";
@@ -113,7 +113,7 @@ public class IgniteStartCacheInTransactionSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testStartConfigurationCache() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final String key = "key";
         final String val = "val";
@@ -140,7 +140,7 @@ public class IgniteStartCacheInTransactionSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testStartConfigurationCacheWithNear() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final String key = "key";
         final String val = "val";
@@ -167,7 +167,7 @@ public class IgniteStartCacheInTransactionSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testGetOrCreateCache() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final String key = "key";
         final String val = "val";
@@ -194,7 +194,7 @@ public class IgniteStartCacheInTransactionSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testGetOrCreateCacheConfiguration() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final String key = "key";
         final String val = "val";
@@ -221,7 +221,7 @@ public class IgniteStartCacheInTransactionSelfTest extends GridCommonAbstractTes
      */
     @Test
     public void testStopCache() throws Exception {
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final String key = "key";
         final String val = "val";
@@ -253,7 +253,7 @@ public class IgniteStartCacheInTransactionSelfTest extends GridCommonAbstractTes
 
         MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.ENTRY_LOCK);
 
-        final Ignite ignite = grid(0);
+        final Ignite ignite = ignite(0);
 
         final String key = "key";
 

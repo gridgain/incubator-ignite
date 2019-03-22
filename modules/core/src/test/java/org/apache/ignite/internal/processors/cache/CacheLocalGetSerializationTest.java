@@ -36,7 +36,7 @@ public class CacheLocalGetSerializationTest extends GridCommonAbstractTest {
      */
     @Test
     public void test() throws Exception {
-        Ignite ig = startGrid();
+        Ignite ig = clusterManager__startGrid();
 
         IgniteCache<Map.Entry<Integer, Integer>, Long> cache = ig.getOrCreateCache(DEFAULT_CACHE_NAME);
 

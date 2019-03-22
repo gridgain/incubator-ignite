@@ -544,7 +544,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
         execute("CREATE TABLE \"BackupTest\" (id BIGINT PRIMARY KEY, name VARCHAR) WITH \"template=" +
             CACHE_NAME_BACKUPS + ", cache_name=" + cacheName + "\"");
 
-        CacheConfiguration ccfg = grid(0).cache(cacheName).getConfiguration(CacheConfiguration.class);
+        CacheConfiguration ccfg = ignite(0).cache(cacheName).getConfiguration(CacheConfiguration.class);
 
         assertEquals(DFLT_BACKUPS, ccfg.getBackups());
 
@@ -553,7 +553,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
         execute("CREATE TABLE \"BackupTest\" (id BIGINT PRIMARY KEY, name VARCHAR) WITH \"template=" +
             CACHE_NAME_BACKUPS + ", cache_name=" + cacheName + ", backups=1\"");
 
-        ccfg = grid(0).cache(cacheName).getConfiguration(CacheConfiguration.class);
+        ccfg = ignite(0).cache(cacheName).getConfiguration(CacheConfiguration.class);
 
         assertEquals(1, ccfg.getBackups());
     }
@@ -601,7 +601,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
      */
     private void testAllNodes(Consumer<? super Ignite> clos) {
         for (int i = 0; i < 4; i++) {
-            IgniteEx node = grid(i);
+            IgniteEx node = ignite(i);
 
             clos.accept(node);
         }
@@ -635,7 +635,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
         String cacheName = cacheName("Person");
 
         for (int i = 0; i < 4; i++) {
-            IgniteEx node = grid(i);
+            IgniteEx node = ignite(i);
 
             assertNotNull(node.cache(cacheName));
 
@@ -808,7 +808,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
      */
     @Test
     public void testCreateTableIfNotExistsCustomSchema() {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         IgniteCache cache = ignite.getOrCreateCache(new CacheConfiguration<>("test").setSqlSchema("\"test\""));
 
@@ -880,14 +880,14 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
      */
     @Test
     public void testDropTableFromClient() throws Exception {
-        execute(grid(0),"CREATE TABLE IF NOT EXISTS \"Person\" (\"id\" int, \"city\" varchar," +
+        execute(ignite(0),"CREATE TABLE IF NOT EXISTS \"Person\" (\"id\" int, \"city\" varchar," +
             " \"name\" varchar, \"surname\" varchar, \"age\" int, PRIMARY KEY (\"id\", \"city\")) WITH " +
             "\"template=cache\"");
 
         execute(client(), "DROP TABLE \"Person\"");
 
         for (int i = 0; i < 4; i++) {
-            IgniteEx node = grid(i);
+            IgniteEx node = ignite(i);
 
             assertNull(node.cache("Person"));
 
@@ -910,7 +910,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
         execute("DROP TABLE \"Person\"");
 
         for (int i = 0; i < 4; i++) {
-            IgniteEx node = grid(i);
+            IgniteEx node = ignite(i);
 
             assertNull(node.cache("Person"));
 
@@ -1026,9 +1026,9 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
      */
     @Test
     public void testIndexNameConflictCheckDiscovery() throws Exception {
-        execute(grid(0), "CREATE TABLE \"Person\" (id int primary key, name varchar)");
+        execute(ignite(0), "CREATE TABLE \"Person\" (id int primary key, name varchar)");
 
-        execute(grid(0), "CREATE INDEX \"idx\" ON \"Person\" (\"name\")");
+        execute(ignite(0), "CREATE INDEX \"idx\" ON \"Person\" (\"name\")");
 
         GridTestUtils.assertThrows(null, new Callable<Object>() {
             @Override public Object call() throws Exception {
@@ -1055,7 +1055,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
      */
     @Test
     public void testTableNameConflictCheckSql() throws Exception {
-        execute(grid(0), "CREATE TABLE \"Person\" (id int primary key, name varchar)");
+        execute(ignite(0), "CREATE TABLE \"Person\" (id int primary key, name varchar)");
 
         GridTestUtils.assertThrows(null, new Callable<Object>() {
             @Override  public Object call() throws Exception {
@@ -1298,7 +1298,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
             "template=replicated\"");
 
         // In order for local queries to work, let's use non client node.
-        IgniteInternalCache cache = grid(0).cachex("cache");
+        IgniteInternalCache cache = ignite(0).cachex("cache");
 
         assertNotNull(cache);
 
@@ -1311,7 +1311,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
 
         execute("CREATE TABLE A(id int primary key, name varchar, surname varchar) WITH \"cache_name=cache\"");
 
-        cache = grid(0).cachex("cache");
+        cache = ignite(0).cachex("cache");
 
         assertNotNull(cache);
 
@@ -1692,7 +1692,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
             execute("create table t1(id int primary key, name varchar)");
             execute("create table t2(id int primary key, name varchar)");
 
-            IgniteH2Indexing h2Idx = (IgniteH2Indexing)grid(0).context().query().getIndexing();
+            IgniteH2Indexing h2Idx = (IgniteH2Indexing)ignite(0).context().query().getIndexing();
 
             String cacheName = cacheName("T1");
 
@@ -1806,7 +1806,7 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
      * @return Client node.
      */
     private IgniteEx client() {
-        return grid(CLIENT);
+        return ignite(CLIENT);
     }
 
     /**

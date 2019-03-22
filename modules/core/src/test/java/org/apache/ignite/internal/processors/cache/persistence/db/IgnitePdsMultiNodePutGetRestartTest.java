@@ -114,7 +114,7 @@ public class IgnitePdsMultiNodePutGetRestartTest extends GridCommonAbstractTest 
         startGrids(GRID_CNT);
 
         try {
-            IgniteEx ig = grid(0);
+            IgniteEx ig = ignite(0);
 
             ig.active(true);
 
@@ -131,7 +131,7 @@ public class IgnitePdsMultiNodePutGetRestartTest extends GridCommonAbstractTest 
         startGrids(GRID_CNT);
 
         try {
-            IgniteEx ig = grid(0);
+            IgniteEx ig = ignite(0);
 
             ig.active(true);
 

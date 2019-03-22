@@ -73,7 +73,7 @@ public class GridTaskJobRejectSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testReject() throws Exception {
-        grid(1).events().localListen(new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 X.println("Task event: " + evt);
 
@@ -81,7 +81,7 @@ public class GridTaskJobRejectSelfTest extends GridCommonAbstractTest {
             }
         }, EVTS_TASK_EXECUTION);
 
-        grid(1).events().localListen(new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 X.println("Job event: " + evt);
 
@@ -91,7 +91,7 @@ public class GridTaskJobRejectSelfTest extends GridCommonAbstractTest {
 
         final CountDownLatch startedLatch = new CountDownLatch(1);
 
-        grid(1).events().localListen(new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 startedLatch.countDown();
 
@@ -101,7 +101,7 @@ public class GridTaskJobRejectSelfTest extends GridCommonAbstractTest {
 
         final AtomicInteger failedOver = new AtomicInteger(0);
 
-        grid(1).events().localListen(new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 failedOver.incrementAndGet();
 
@@ -111,7 +111,7 @@ public class GridTaskJobRejectSelfTest extends GridCommonAbstractTest {
 
         final CountDownLatch finishedLatch = new CountDownLatch(1);
 
-        grid(1).events().localListen(new IgnitePredicate<Event>() {
+        ignite(1).events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event evt) {
                 finishedLatch.countDown();
 
@@ -119,9 +119,9 @@ public class GridTaskJobRejectSelfTest extends GridCommonAbstractTest {
             }
         }, EVT_TASK_FINISHED, EVT_TASK_FAILED);
 
-        final ClusterNode node = grid(1).localNode();
+        final ClusterNode node = ignite(1).localNode();
 
-        ComputeTaskFuture<?> fut = grid(1).compute().executeAsync(new ComputeTaskAdapter<Void, Void>() {
+        ComputeTaskFuture<?> fut = ignite(1).compute().executeAsync(new ComputeTaskAdapter<Void, Void>() {
             @Override public Map<? extends ComputeJob, ClusterNode> map(List<ClusterNode> subgrid,
                 @Nullable Void arg) {
                 return F.asMap(new SleepJob(), node, new SleepJob(), node);

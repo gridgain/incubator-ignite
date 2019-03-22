@@ -76,7 +76,7 @@ public class IgniteWalIteratorExceptionDuringReadTest extends GridCommonAbstract
      */
     @Test
     public void test() throws Exception {
-        IgniteEx ig = (IgniteEx)startGrid();
+        IgniteEx ig = (IgniteEx)clusterManager__startGrid();
 
         ig.cluster().active(true);
 

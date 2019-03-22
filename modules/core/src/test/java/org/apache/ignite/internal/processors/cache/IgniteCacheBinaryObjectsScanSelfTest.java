@@ -91,7 +91,7 @@ public class IgniteCacheBinaryObjectsScanSelfTest extends GridCommonAbstractTest
         Class<?> keyCls = ldr.loadClass(PERSON_KEY_CLS_NAME);
         Class<?> cls = ldr.loadClass(PERSON_CLS_NAME);
 
-        Ignite client = grid("client");
+        Ignite client = ignite("client");
 
         CacheConfiguration<Object, Object> cfg = new CacheConfiguration<>("testCache");
 
@@ -111,7 +111,7 @@ public class IgniteCacheBinaryObjectsScanSelfTest extends GridCommonAbstractTest
      */
     @Test
     public void testScanNoClasses() throws Exception {
-        Ignite client = grid("client");
+        Ignite client = ignite("client");
 
         IgniteCache<Object, Object> cache = client.cache("testCache");
 

@@ -164,7 +164,7 @@ public class IgniteComputeConfigVariationsFullApiTest extends IgniteConfigVariat
                         beforeTest();
 
                     try {
-                        test.test(factory, grid(testedNodeIdx));
+                        test.test(factory, ignite(testedNodeIdx));
                     }
                     finally {
                         if (i + 1 != factories.length)

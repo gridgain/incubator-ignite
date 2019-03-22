@@ -117,11 +117,11 @@ public class DmlInsideTransactionTest extends GridCommonAbstractTest {
         prepareIgnite();
 
         for (String dmlQuery : DML_QUERIES) {
-            grid(0).cache(CACHE_PERSON).query(new SqlFieldsQuery(dmlQuery));
+            ignite(0).cache(CACHE_PERSON).query(new SqlFieldsQuery(dmlQuery));
 
-            grid(0).cache(CACHE_PERSON).clear();
+            ignite(0).cache(CACHE_PERSON).clear();
 
-            grid(0).cache(CACHE_PERSON).query(new SqlFieldsQuery(dmlQuery).setLocal(true));
+            ignite(0).cache(CACHE_PERSON).query(new SqlFieldsQuery(dmlQuery).setLocal(true));
         }
     }
 
@@ -161,7 +161,7 @@ public class DmlInsideTransactionTest extends GridCommonAbstractTest {
      * @param isAllowed true in case DML should work inside transaction, false otherwise.
      */
     private void runDmlInTransactionTest(Query query, boolean isAllowed) {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         IgniteCache<PersonKey, Person> cache = ignite.cache(CACHE_PERSON);
 

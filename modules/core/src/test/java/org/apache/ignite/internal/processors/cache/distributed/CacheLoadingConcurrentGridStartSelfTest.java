@@ -330,7 +330,7 @@ public class CacheLoadingConcurrentGridStartSelfTest extends GridCommonAbstractT
         for (IgniteFuture res : set)
             assertNull(res.get());
 
-        IgniteCache<Integer, String> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, String> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         long size = cache.size(CachePeekMode.PRIMARY);
 
@@ -397,7 +397,7 @@ public class CacheLoadingConcurrentGridStartSelfTest extends GridCommonAbstractT
      * @throws Exception If failed.
      */
     private void assertCacheSize(int expectedCacheSize) throws Exception {
-        final IgniteCache<Integer, String> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, String> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         boolean consistentCache = GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -409,7 +409,7 @@ public class CacheLoadingConcurrentGridStartSelfTest extends GridCommonAbstractT
                 int total = 0;
 
                 for (int i = 0; i < GRIDS_CNT; i++)
-                    total += grid(i).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
+                    total += ignite(i).cache(DEFAULT_CACHE_NAME).localSize(CachePeekMode.PRIMARY);
 
                 if (total != expectedCacheSize)
                     log.info("Total size: " + size);

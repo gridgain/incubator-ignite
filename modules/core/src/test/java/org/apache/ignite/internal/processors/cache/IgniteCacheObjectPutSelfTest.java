@@ -61,7 +61,7 @@ public class IgniteCacheObjectPutSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testPrimitiveValues() throws Exception {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         IgniteCache<Object, Object> cache = ignite.cache(CACHE_NAME);
 
@@ -104,7 +104,7 @@ public class IgniteCacheObjectPutSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testClassValues() throws Exception {
-        IgniteEx ignite = grid(0);
+        IgniteEx ignite = ignite(0);
 
         IgniteCache<Object, Object> cache = ignite.cache(CACHE_NAME);
 

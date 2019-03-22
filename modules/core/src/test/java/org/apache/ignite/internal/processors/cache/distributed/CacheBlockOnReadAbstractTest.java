@@ -342,7 +342,7 @@ public abstract class CacheBlockOnReadAbstractTest extends GridCommonAbstractTes
 
         clients.clear();
 
-        grid(0).cluster().active(false);
+        ignite(0).cluster().active(false);
 
         stopAllGrids();
 

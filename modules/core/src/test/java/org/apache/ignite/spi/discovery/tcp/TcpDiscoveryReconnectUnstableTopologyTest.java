@@ -40,6 +40,7 @@ import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryCustomEventMessage;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -107,7 +108,7 @@ public class TcpDiscoveryReconnectUnstableTopologyTest extends GridCommonAbstrac
 
             DiscoverySpiTestListener lsnr = new DiscoverySpiTestListener();
 
-            spi(grid("client")).setInternalListener(lsnr);
+            spi(ignite("client")).setInternalListener(lsnr);
 
             lsnr.startBlockReconnect();
 
@@ -135,7 +136,7 @@ public class TcpDiscoveryReconnectUnstableTopologyTest extends GridCommonAbstrac
 
             fut.get();
 
-            doSleep(1500); // Wait for reconnect.
+            GridTestUtils.doSleep(1500); // Wait for reconnect.
 
             startGrid(4);
         }

@@ -54,7 +54,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicsReconnectClusterRestart() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -64,7 +64,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
         final IgniteCountDownLatch latch = client.countDownLatch("latch", 1, true, true);
         final IgniteAtomicSequence seq = client.atomicSequence("seq", 1L, true);
 
-        Ignite srv = grid(0);
+        Ignite srv = ignite(0);
 
         reconnectServersRestart(log, client, Collections.singleton(srv), new Callable<Collection<Ignite>>() {
             @Override public Collection<Ignite> call() throws Exception {
@@ -110,7 +110,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicSeqReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -144,7 +144,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicSeqReconnectRemoved() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -193,7 +193,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicSeqReconnectInProgress() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -255,7 +255,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicReferenceReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -297,7 +297,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicReferenceReconnectRemoved() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -351,7 +351,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicReferenceReconnectInProgress() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -419,7 +419,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicStampedReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -461,7 +461,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicStampedReconnectRemoved() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -513,7 +513,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicStampedReconnectInProgress() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -582,7 +582,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicLongReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -614,7 +614,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicLongReconnectRemoved() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -656,7 +656,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testAtomicLongReconnectInProgress() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -712,7 +712,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testLatchReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -754,7 +754,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
      */
     @Test
     public void testSemaphoreReconnect() throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 
@@ -802,7 +802,7 @@ public class IgniteClientReconnectAtomicsTest extends IgniteClientReconnectAbstr
     }
 
     private void testReentrantLockReconnect(final boolean fair) throws Exception {
-        Ignite client = grid(serverCount());
+        Ignite client = ignite(serverCount());
 
         assertTrue(client.cluster().localNode().isClient());
 

@@ -112,9 +112,9 @@ public class IoStatisticsBasicIndexSelfTest extends AbstractIndexingCommonTest {
     public void testNoIndexes() throws Exception {
         indexes = Collections.emptyList();
 
-        startGrid();
+        clusterManager__startGrid();
 
-        grid().cluster().active(true);
+        ignite().cluster().active(true);
 
         populateCache();
 
@@ -138,9 +138,9 @@ public class IoStatisticsBasicIndexSelfTest extends AbstractIndexingCommonTest {
             new QueryIndex("valPojo")
         );
 
-        startGrid();
+        clusterManager__startGrid();
 
-        grid().cluster().active(true);
+        ignite().cluster().active(true);
 
         populateCache();
 
@@ -153,7 +153,7 @@ public class IoStatisticsBasicIndexSelfTest extends AbstractIndexingCommonTest {
 
     /** */
     private void checkStat() {
-        IoStatisticsManager ioStat = grid().context().ioStats();
+        IoStatisticsManager ioStat = ignite().context().ioStats();
 
         Set<String> hashIndexes = ioStat.deriveStatisticNames(IoStatisticsType.HASH_INDEX);
 
@@ -181,7 +181,7 @@ public class IoStatisticsBasicIndexSelfTest extends AbstractIndexingCommonTest {
 
     /** */
     private void checkAll() {
-        IgniteCache<Key, Val> cache = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Key, Val> cache = ignite().cache(DEFAULT_CACHE_NAME);
 
         checkRemovePut(cache);
 
@@ -198,7 +198,7 @@ public class IoStatisticsBasicIndexSelfTest extends AbstractIndexingCommonTest {
 
     /** */
     private void populateCache() {
-        IgniteCache<Key, Val> cache = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Key, Val> cache = ignite().cache(DEFAULT_CACHE_NAME);
 
         for (int i = 0; i < 100; i++)
             cache.put(key(i), val(i));

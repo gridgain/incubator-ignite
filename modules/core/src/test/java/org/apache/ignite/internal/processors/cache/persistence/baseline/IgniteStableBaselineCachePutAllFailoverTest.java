@@ -89,7 +89,7 @@ public class IgniteStableBaselineCachePutAllFailoverTest extends CachePutAllFail
 
         startGrids(GRIDS_COUNT);
 
-        grid(0).active(true);
+        ignite(0).active(true);
 
         startGrid(OUT_OF_BASELINE_GRID_ID);
 

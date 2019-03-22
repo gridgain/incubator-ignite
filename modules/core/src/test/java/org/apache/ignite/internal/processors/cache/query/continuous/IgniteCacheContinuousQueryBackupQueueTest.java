@@ -132,12 +132,12 @@ public class IgniteCacheContinuousQueryBackupQueueTest extends GridCommonAbstrac
         qry.setLocalListener(lsnr);
         qry.setRemoteFilterFactory(new AlwaysFalseFilterFactory());
 
-        try (QueryCursor<?> ignore = grid(0).cache(CACHE_NAME).query(qry)) {
+        try (QueryCursor<?> ignore = ignite(0).cache(CACHE_NAME).query(qry)) {
             for (int i = 0; i < KEYS_COUNT; i++) {
                 log.info("Put key: " + i);
 
                 for (int j = 0; j < 100; j++)
-                    grid(j % GRID_COUNT).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
+                    ignite(j % GRID_COUNT).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
             }
 
             log.info("Finish.");
@@ -157,14 +157,14 @@ public class IgniteCacheContinuousQueryBackupQueueTest extends GridCommonAbstrac
             qry.setLocalListener(new CacheEventListener());
             qry.setRemoteFilterFactory(new AlwaysFalseFilterFactory());
 
-            qryCursors.add(grid(0).cache(CACHE_NAME).query(qry));
+            qryCursors.add(ignite(0).cache(CACHE_NAME).query(qry));
         }
 
         for (int i = 0; i < KEYS_COUNT; i++) {
             log.info("Put key: " + i);
 
             for (int j = 0; j < 150; j++)
-                grid(ThreadLocalRandom.current().nextInt(GRID_COUNT)).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
+                ignite(ThreadLocalRandom.current().nextInt(GRID_COUNT)).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
         }
 
         int size = backupQueueSize();
@@ -207,7 +207,7 @@ public class IgniteCacheContinuousQueryBackupQueueTest extends GridCommonAbstrac
             for (int i = 0; i < KEYS_COUNT; i++) {
                 log.info("Put key: " + i);
 
-                grid(i % GRID_COUNT).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
+                ignite(i % GRID_COUNT).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
             }
 
             int size = backupQueueSize();
@@ -222,7 +222,7 @@ public class IgniteCacheContinuousQueryBackupQueueTest extends GridCommonAbstrac
             for (int i = 0; i < KEYS_COUNT; i++) {
                 log.info("Put key: " + i);
 
-                grid(i % GRID_COUNT).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
+                ignite(i % GRID_COUNT).cache(CACHE_NAME).put(i, new byte[1024 * 50]);
             }
 
             size = backupQueueSize();
@@ -241,7 +241,7 @@ public class IgniteCacheContinuousQueryBackupQueueTest extends GridCommonAbstrac
         int backupQueueSize = -1;
 
         for (int i = 0; i < GRID_COUNT; i++) {
-            for (Collection<Object> backQueue : backupQueues(grid(i)))
+            for (Collection<Object> backQueue : backupQueues(ignite(i)))
                 backupQueueSize += backQueue.size();
         }
 

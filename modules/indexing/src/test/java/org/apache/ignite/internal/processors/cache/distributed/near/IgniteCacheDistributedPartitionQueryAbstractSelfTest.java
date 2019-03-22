@@ -321,8 +321,8 @@ public abstract class IgniteCacheDistributedPartitionQueryAbstractSelfTest exten
         int regionId = 1;
         int p = 1; // Percents counter. Log message will be printed 10 times.
 
-        try (IgniteDataStreamer<ClientKey, Client> clStr = grid(0).dataStreamer("cl");
-             IgniteDataStreamer<DepositKey, Deposit> depStr = grid(0).dataStreamer("de")) {
+        try (IgniteDataStreamer<ClientKey, Client> clStr = ignite(0).dataStreamer("cl");
+             IgniteDataStreamer<DepositKey, Deposit> depStr = ignite(0).dataStreamer("de")) {
             for (int cnt : PARTS_PER_REGION) {
                 // Last region was left empty intentionally.
                 if (regionId < PARTS_PER_REGION.length) {
@@ -358,7 +358,7 @@ public abstract class IgniteCacheDistributedPartitionQueryAbstractSelfTest exten
                 region.name = "Region_" + regionId;
                 region.code = regionId * 10;
 
-                grid(0).cache("re").put(regionId, region);
+                ignite(0).cache("re").put(regionId, region);
 
                 regionId++;
             }

@@ -31,7 +31,7 @@ import org.junit.Test;
 public class IgniteConcurrentEntryProcessorAccessStopTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /**
@@ -43,7 +43,7 @@ public class IgniteConcurrentEntryProcessorAccessStopTest extends GridCommonAbst
     public void testConcurrentAccess() throws Exception {
         CacheConfiguration<Object, Object> ccfg = new CacheConfiguration<>(DEFAULT_CACHE_NAME);
 
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         final IgniteCache<Object, Object> dfltCache = ignite.getOrCreateCache(ccfg);
 
@@ -56,7 +56,7 @@ public class IgniteConcurrentEntryProcessorAccessStopTest extends GridCommonAbst
                         int i = 100_000;
 
                         while (i-- >= 0)
-                            grid().cluster().nodes();
+                            ignite().cluster().nodes();
 
                         e.remove();
 

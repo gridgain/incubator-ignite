@@ -89,14 +89,14 @@ public class GridPartitionedBackupLoadSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testBackupLoad() throws Exception {
-        grid(0).cache(DEFAULT_CACHE_NAME).put(1, 1);
+        ignite(0).cache(DEFAULT_CACHE_NAME).put(1, 1);
 
         assert store.get(1) == 1;
 
         for (int i = 0; i < GRID_CNT; i++) {
             IgniteCache<Integer, Integer> cache = jcache(i);
 
-            if (grid(i).affinity(DEFAULT_CACHE_NAME).isBackup(grid(i).localNode(), 1)) {
+            if (ignite(i).affinity(DEFAULT_CACHE_NAME).isBackup(ignite(i).localNode(), 1)) {
                 assert cache.localPeek(1) == 1;
 
                 jcache(i).localClear(1);

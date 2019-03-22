@@ -38,7 +38,7 @@ public class IgniteCacheObjectKeyIndexingSelfTest extends GridCommonAbstractTest
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -55,7 +55,7 @@ public class IgniteCacheObjectKeyIndexingSelfTest extends GridCommonAbstractTest
     /** */
     @Test
     public void testObjectKeyHandling() throws Exception {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         IgniteCache<Object, TestObject> cache = ignite.getOrCreateCache(cacheCfg());
 
@@ -104,9 +104,9 @@ public class IgniteCacheObjectKeyIndexingSelfTest extends GridCommonAbstractTest
     /** */
     @SuppressWarnings("ConstantConditions")
     private void assertItemsNumber(long num) {
-        assertEquals(num, grid().cachex(DEFAULT_CACHE_NAME).size());
+        assertEquals(num, ignite().cachex(DEFAULT_CACHE_NAME).size());
 
-        assertEquals(num, grid().cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("select count(*) from TestObject")).getAll()
+        assertEquals(num, ignite().cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("select count(*) from TestObject")).getAll()
             .get(0).get(0));
     }
 

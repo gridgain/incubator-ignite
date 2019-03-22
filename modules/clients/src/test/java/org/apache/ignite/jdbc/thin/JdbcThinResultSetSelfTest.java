@@ -89,7 +89,7 @@ public class JdbcThinResultSetSelfTest extends JdbcThinAbstractSelfTest {
 
         startGridsMultiThreaded(3);
 
-        IgniteCache<Integer, TestObject> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, TestObject> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         assert cache != null;
 

@@ -89,7 +89,7 @@ public class PublicThreadpoolStarvationTest extends GridCacheAbstractSelfTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTestsStopped() throws Exception {
-        grid(0).destroyCache(CACHE_NAME);
+        ignite(0).destroyCache(CACHE_NAME);
 
         super.afterTestsStopped();
     }
@@ -98,11 +98,11 @@ public class PublicThreadpoolStarvationTest extends GridCacheAbstractSelfTest {
      * @throws Exception If failed.
      */
     private void fillCaches() throws Exception {
-        grid(0).createCache(CACHE_NAME);
+        ignite(0).createCache(CACHE_NAME);
 
         try (
             IgniteDataStreamer<Integer, String> streamer =
-                grid(0).dataStreamer(CACHE_NAME)) {
+                ignite(0).dataStreamer(CACHE_NAME)) {
 
             for (int i = 0; i < CACHE_SIZE; ++i)
                 streamer.addData(i, "Data " + i);
@@ -116,9 +116,9 @@ public class PublicThreadpoolStarvationTest extends GridCacheAbstractSelfTest {
      */
     @Test
     public void testCacheSizeOnPublicThreadpoolStarvation() throws Exception {
-        grid(0).compute().run(new IgniteRunnable() {
+        ignite(0).compute().run(new IgniteRunnable() {
             @Override public void run() {
-                grid(0).cache(CACHE_NAME).size();
+                ignite(0).cache(CACHE_NAME).size();
             }
         });
     }

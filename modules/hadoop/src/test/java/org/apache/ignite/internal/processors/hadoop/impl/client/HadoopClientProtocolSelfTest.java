@@ -123,7 +123,7 @@ public class HadoopClientProtocolSelfTest extends HadoopAbstractSelfTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).fileSystem(HadoopAbstractSelfTest.igfsName).clear();
+        ignite(0).fileSystem(HadoopAbstractSelfTest.igfsName).clear();
 
         setupLockFile.delete();
         mapLockFile.delete();
@@ -162,7 +162,7 @@ public class HadoopClientProtocolSelfTest extends HadoopAbstractSelfTest {
      */
     @Test
     public void testJobCounters() throws Exception {
-        IgniteFileSystem igfs = grid(0).fileSystem(HadoopAbstractSelfTest.igfsName);
+        IgniteFileSystem igfs = ignite(0).fileSystem(HadoopAbstractSelfTest.igfsName);
 
         igfs.mkdirs(new IgfsPath(PATH_INPUT));
 
@@ -288,7 +288,7 @@ public class HadoopClientProtocolSelfTest extends HadoopAbstractSelfTest {
      * @throws Exception If failed.
      */
     public void checkJobSubmit(boolean noCombiners, boolean noReducers) throws Exception {
-        IgniteFileSystem igfs = grid(0).fileSystem(HadoopAbstractSelfTest.igfsName);
+        IgniteFileSystem igfs = ignite(0).fileSystem(HadoopAbstractSelfTest.igfsName);
 
         igfs.mkdirs(new IgfsPath(PATH_INPUT));
 

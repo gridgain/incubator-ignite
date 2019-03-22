@@ -81,7 +81,7 @@ public class EncryptedCacheCreateTest extends AbstractEncryptionTest {
 
         ccfg.setEncryptionEnabled(true);
 
-        IgniteEx grid = grid(0);
+        IgniteEx grid = ignite(0);
 
         grid.createCache(ccfg);
 
@@ -105,18 +105,18 @@ public class EncryptedCacheCreateTest extends AbstractEncryptionTest {
             ccfg.setEncryptionEnabled(true);
             ccfg.setDataRegionName(NO_PERSISTENCE_REGION);
 
-            grid(0).createCache(ccfg);
+            ignite(0).createCache(ccfg);
         }, IgniteCheckedException.class);
     }
 
     /** @throws Exception If failed. */
     @Test
     public void testPersistedContentEncrypted() throws Exception {
-        IgniteCache<Integer, String> enc = grid(0).createCache(
+        IgniteCache<Integer, String> enc = ignite(0).createCache(
             new CacheConfiguration<Integer, String>(ENCRYPTED_CACHE)
                 .setEncryptionEnabled(true));
 
-        IgniteCache<Integer, String> plain = grid(0).createCache(new CacheConfiguration<>("plain-cache"));
+        IgniteCache<Integer, String> plain = ignite(0).createCache(new CacheConfiguration<>("plain-cache"));
 
         assertNotNull(enc);
 

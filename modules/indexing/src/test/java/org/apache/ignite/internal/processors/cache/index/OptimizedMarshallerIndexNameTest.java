@@ -103,7 +103,7 @@ public class OptimizedMarshallerIndexNameTest extends AbstractIndexingCommonTest
         U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), workSubdir(), true));
 
         startGrid(getTestIgniteInstanceName());
-        grid().active(true);
+        ignite().active(true);
     }
 
     /**
@@ -116,7 +116,7 @@ public class OptimizedMarshallerIndexNameTest extends AbstractIndexingCommonTest
         // Put objects of different types into the same cache
         CacheConfiguration<Object, Object> ccfg = cacheConfiguration("PersonEn");
 
-        IgniteCache<Object, Object> cache = grid().getOrCreateCache(ccfg);
+        IgniteCache<Object, Object> cache = ignite().getOrCreateCache(ccfg);
 
         cache.put(UUID.randomUUID(), new Person(TEST_NAME1, 42));
         cache.put(UUID.randomUUID(), new FalsePerson(32, TEST_NAME2));

@@ -61,12 +61,12 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
      */
     @Test
     public void testTxFromPrimary() throws Exception {
-        ClusterNode txNode = grid(originatingNode()).localNode();
+        ClusterNode txNode = ignite(originatingNode()).localNode();
 
         Integer key = null;
 
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (grid(originatingNode()).affinity(DEFAULT_CACHE_NAME).isPrimary(txNode, i)) {
+            if (ignite(originatingNode()).affinity(DEFAULT_CACHE_NAME).isPrimary(txNode, i)) {
                 key = i;
 
                 break;
@@ -83,12 +83,12 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
      */
     @Test
     public void testTxFromBackup() throws Exception {
-        ClusterNode txNode = grid(originatingNode()).localNode();
+        ClusterNode txNode = ignite(originatingNode()).localNode();
 
         Integer key = null;
 
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (grid(originatingNode()).affinity(DEFAULT_CACHE_NAME).isBackup(txNode, i)) {
+            if (ignite(originatingNode()).affinity(DEFAULT_CACHE_NAME).isBackup(txNode, i)) {
                 key = i;
 
                 break;
@@ -105,13 +105,13 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
      */
     @Test
     public void testTxFromNotColocated() throws Exception {
-        ClusterNode txNode = grid(originatingNode()).localNode();
+        ClusterNode txNode = ignite(originatingNode()).localNode();
 
         Integer key = null;
 
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (!grid(originatingNode()).affinity(DEFAULT_CACHE_NAME).isPrimary(txNode, i)
-                && !grid(originatingNode()).affinity(DEFAULT_CACHE_NAME).isBackup(txNode, i)) {
+            if (!ignite(originatingNode()).affinity(DEFAULT_CACHE_NAME).isPrimary(txNode, i)
+                && !ignite(originatingNode()).affinity(DEFAULT_CACHE_NAME).isBackup(txNode, i)) {
                 key = i;
 
                 break;
@@ -131,7 +131,7 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
         List<ClusterNode> allNodes = new ArrayList<>(GRID_CNT);
 
         for (int i = 0; i < GRID_CNT; i++)
-            allNodes.add(grid(i).localNode());
+            allNodes.add(ignite(i).localNode());
 
         Collection<Integer> keys = new ArrayList<>();
 
@@ -139,7 +139,7 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
             for (Iterator<ClusterNode> iter = allNodes.iterator(); iter.hasNext();) {
                 ClusterNode node = iter.next();
 
-                if (grid(originatingNode()).affinity(DEFAULT_CACHE_NAME).isPrimary(node, i)) {
+                if (ignite(originatingNode()).affinity(DEFAULT_CACHE_NAME).isPrimary(node, i)) {
                     keys.add(i);
 
                     iter.remove();

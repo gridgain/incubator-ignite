@@ -159,24 +159,24 @@ public class IgniteCacheQueryNodeRestartSelfTest2 extends GridCommonAbstractTest
      *
      */
     private void fillCaches() {
-        IgniteCache<Integer, Company> co = grid(0).cache("co");
+        IgniteCache<Integer, Company> co = ignite(0).cache("co");
 
         for (int i = 0; i < COMPANY_CNT; i++)
             co.put(i, new Company(i));
 
-        IgniteCache<Integer, Product> pr = grid(0).cache("pr");
+        IgniteCache<Integer, Product> pr = ignite(0).cache("pr");
 
         Random rnd = new GridRandom();
 
         for (int i = 0; i < PRODUCT_CNT; i++)
             pr.put(i, new Product(i, rnd.nextInt(COMPANY_CNT)));
 
-        IgniteCache<Integer, Person> pe = grid(0).cache("pe");
+        IgniteCache<Integer, Person> pe = ignite(0).cache("pe");
 
         for (int i = 0; i < PERS_CNT; i++)
             pe.put(i, new Person(i));
 
-        IgniteCache<AffinityKey<Integer>, Purchase> pu = grid(0).cache("pu");
+        IgniteCache<AffinityKey<Integer>, Purchase> pu = ignite(0).cache("pu");
 
         for (int i = 0; i < PURCHASE_CNT; i++) {
             int persId = rnd.nextInt(PERS_CNT);
@@ -204,13 +204,13 @@ public class IgniteCacheQueryNodeRestartSelfTest2 extends GridCommonAbstractTest
 
         fillCaches();
 
-        final List<List<?>> pRes = grid(0).cache("pu").query(new SqlFieldsQuery(PARTITIONED_QRY)).getAll();
+        final List<List<?>> pRes = ignite(0).cache("pu").query(new SqlFieldsQuery(PARTITIONED_QRY)).getAll();
 
         Thread.sleep(3000);
 
-        assertEquals(pRes, grid(0).cache("pu").query(new SqlFieldsQuery(PARTITIONED_QRY)).getAll());
+        assertEquals(pRes, ignite(0).cache("pu").query(new SqlFieldsQuery(PARTITIONED_QRY)).getAll());
 
-        final List<List<?>> rRes = grid(0).cache("co").query(new SqlFieldsQuery(REPLICATED_QRY)).getAll();
+        final List<List<?>> rRes = ignite(0).cache("co").query(new SqlFieldsQuery(REPLICATED_QRY)).getAll();
 
         assertFalse(pRes.isEmpty());
         assertFalse(rRes.isEmpty());
@@ -232,7 +232,7 @@ public class IgniteCacheQueryNodeRestartSelfTest2 extends GridCommonAbstractTest
                     while (!locks.compareAndSet(g, 0, 1));
 
                     try {
-                        final IgniteEx grid = grid(g);
+                        final IgniteEx grid = ignite(g);
 
                         if (rnd.nextBoolean()) { // Partitioned query.
                             final IgniteCache<?,?> cache = grid.cache("pu");

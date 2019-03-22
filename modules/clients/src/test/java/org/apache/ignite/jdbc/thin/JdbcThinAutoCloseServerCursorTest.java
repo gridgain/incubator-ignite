@@ -74,7 +74,7 @@ public class JdbcThinAutoCloseServerCursorTest extends JdbcThinAbstractSelfTest 
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Person> cache = ignite(0).cache(CACHE_NAME);
 
         cache.clear();
     }
@@ -86,7 +86,7 @@ public class JdbcThinAutoCloseServerCursorTest extends JdbcThinAbstractSelfTest 
      */
     @Test
     public void testQuery() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Person> cache = ignite(0).cache(CACHE_NAME);
 
         Person persons[] = new Person[] {
             new Person(1, "John", 25),
@@ -197,7 +197,7 @@ public class JdbcThinAutoCloseServerCursorTest extends JdbcThinAbstractSelfTest 
                 assertEquals(1, prepared.getUpdateCount());
             }
 
-            IgniteCache<Integer, Person> cache = grid(0).cache(CACHE_NAME);
+            IgniteCache<Integer, Person> cache = ignite(0).cache(CACHE_NAME);
 
             assertEquals(p, cache.get(1));
         }
@@ -210,7 +210,7 @@ public class JdbcThinAutoCloseServerCursorTest extends JdbcThinAbstractSelfTest 
      */
     @Test
     public void testUpdate() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Person> cache = ignite(0).cache(CACHE_NAME);
 
         Person p = new Person(1, "John", 25);
 
@@ -236,7 +236,7 @@ public class JdbcThinAutoCloseServerCursorTest extends JdbcThinAbstractSelfTest 
      */
     @Test
     public void testDelete() throws Exception {
-        IgniteCache<Integer, Person> cache = grid(0).cache(CACHE_NAME);
+        IgniteCache<Integer, Person> cache = ignite(0).cache(CACHE_NAME);
 
         Person p = new Person(1, "John", 25);
 

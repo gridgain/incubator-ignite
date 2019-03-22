@@ -231,7 +231,7 @@ public abstract class IgniteTxMultiThreadedAbstractTest extends IgniteTxAbstract
      */
     @Test
     public void testOptimisticSerializableConsistency() throws Exception {
-        final IgniteCache<Integer, Long> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, Long> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
         final int THREADS = 3;
 
@@ -251,7 +251,7 @@ public abstract class IgniteTxMultiThreadedAbstractTest extends IgniteTxAbstract
 
                         for (int i = 0; i < ITERATIONS; i++) {
                             while (true) {
-                                try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, SERIALIZABLE)) {
+                                try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, SERIALIZABLE)) {
                                     long val = cache.get(key);
 
                                     cache.put(key, val + 1);
@@ -313,7 +313,7 @@ public abstract class IgniteTxMultiThreadedAbstractTest extends IgniteTxAbstract
             assertEquals((long)THREADS * ITERATIONS, total);
 
             // Try to update one more time to make sure cache is in consistent state.
-            try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, SERIALIZABLE)) {
+            try (Transaction tx = ignite(0).transactions().txStart(OPTIMISTIC, SERIALIZABLE)) {
                 long val = cache.get(key);
 
                 cache.put(key, val);
@@ -322,7 +322,7 @@ public abstract class IgniteTxMultiThreadedAbstractTest extends IgniteTxAbstract
             }
 
             for (int i = 0; i < gridCount(); i++)
-                assertEquals(total, grid(i).cache(DEFAULT_CACHE_NAME).get(key));
+                assertEquals(total, ignite(i).cache(DEFAULT_CACHE_NAME).get(key));
         }
     }
 }

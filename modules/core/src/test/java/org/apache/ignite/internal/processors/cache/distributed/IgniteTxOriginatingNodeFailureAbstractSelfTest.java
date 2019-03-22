@@ -126,29 +126,29 @@ public abstract class IgniteTxOriginatingNodeFailureAbstractSelfTest extends Gri
 
         final Collection<IgniteKernal> grids = new ArrayList<>();
 
-        ClusterNode txNode = grid(originatingNode()).localNode();
+        ClusterNode txNode = ignite(originatingNode()).localNode();
 
         for (int i = 1; i < gridCount(); i++)
-            grids.add((IgniteKernal)grid(i));
+            grids.add((IgniteKernal)ignite(i));
 
         final Map<Integer, String> map = new HashMap<>();
 
         final String initVal = "initialValue";
 
         for (Integer key : keys) {
-            grid(originatingNode()).cache(DEFAULT_CACHE_NAME).put(key, initVal);
+            ignite(originatingNode()).cache(DEFAULT_CACHE_NAME).put(key, initVal);
 
             map.put(key, String.valueOf(key));
         }
 
         Map<Integer, Collection<ClusterNode>> nodeMap = new HashMap<>();
 
-        info("Node being checked: " + grid(1).localNode().id());
+        info("Node being checked: " + ignite(1).localNode().id());
 
         for (Integer key : keys) {
             Collection<ClusterNode> nodes = new ArrayList<>();
 
-            nodes.addAll(grid(1).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key));
+            nodes.addAll(ignite(1).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key));
 
             nodes.remove(txNode);
 
@@ -156,10 +156,10 @@ public abstract class IgniteTxOriginatingNodeFailureAbstractSelfTest extends Gri
         }
 
         info("Starting optimistic tx " +
-            "[values=" + map + ", topVer=" + (grid(1)).context().discovery().topologyVersion() + ']');
+            "[values=" + map + ", topVer=" + (ignite(1)).context().discovery().topologyVersion() + ']');
 
         if (partial)
-            ignoreMessages(grid(1).localNode().id(), ignoreMessageClass());
+            ignoreMessages(ignite(1).localNode().id(), ignoreMessageClass());
 
         final Ignite txIgniteNode = G.ignite(txNode.id());
 

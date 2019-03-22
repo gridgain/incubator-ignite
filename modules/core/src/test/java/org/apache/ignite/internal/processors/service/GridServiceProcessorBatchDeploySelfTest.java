@@ -76,7 +76,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testDeployAll() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         CountDownLatch latch = new CountDownLatch(NUM_SERVICES);
 
@@ -96,7 +96,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testDeployAllAsync() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         CountDownLatch latch = new CountDownLatch(NUM_SERVICES);
 
@@ -118,7 +118,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testDeployAllTopologyChange() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         final AtomicBoolean finished = new AtomicBoolean();
 
@@ -162,7 +162,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testDeployAllTopologyChangeFail() throws Exception {
-        final Ignite client = grid(CLIENT_NODE_NAME);
+        final Ignite client = ignite(CLIENT_NODE_NAME);
 
         final AtomicBoolean finished = new AtomicBoolean();
 
@@ -247,7 +247,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      * @throws Exception If failed.
      */
     private void deployAllFail(boolean async) throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         CountDownLatch latch = new CountDownLatch(NUM_SERVICES - 1);
 
@@ -271,7 +271,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testClashingNames() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         CountDownLatch latch = new CountDownLatch(NUM_SERVICES);
 
@@ -298,7 +298,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testClashingNamesFail() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         List<ServiceConfiguration> cfgs = getConfigs(client.cluster().forServers().predicate(), NUM_SERVICES);
 
@@ -331,7 +331,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testClashingNameDifferentConfig() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         List<ServiceConfiguration> cfgs = getConfigs(client.cluster().forServers().predicate(), NUM_SERVICES);
 
@@ -366,7 +366,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testCancelAll() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         List<ServiceConfiguration> cfgs = getConfigs(client.cluster().forServers().predicate(), NUM_SERVICES);
 
@@ -388,7 +388,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testCancelAllAsync() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         List<ServiceConfiguration> cfgs = getConfigs(client.cluster().forServers().predicate(), NUM_SERVICES);
 
@@ -412,7 +412,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testCancelAllTopologyChange() throws Exception {
-        IgniteEx client = grid(CLIENT_NODE_NAME);
+        IgniteEx client = ignite(CLIENT_NODE_NAME);
 
         Assume.assumeFalse("https://issues.apache.org/jira/browse/IGNITE-10021",
             client.context().service() instanceof GridServiceProcessor);
@@ -466,7 +466,7 @@ public class GridServiceProcessorBatchDeploySelfTest extends GridCommonAbstractT
      */
     @Test
     public void testCancelAllClashingNames() throws Exception {
-        Ignite client = grid(CLIENT_NODE_NAME);
+        Ignite client = ignite(CLIENT_NODE_NAME);
 
         List<ServiceConfiguration> cfgs = getConfigs(client.cluster().forServers().predicate(), NUM_SERVICES);
 

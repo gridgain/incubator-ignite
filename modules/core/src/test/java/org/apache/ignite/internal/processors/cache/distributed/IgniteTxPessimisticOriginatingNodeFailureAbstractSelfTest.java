@@ -159,31 +159,31 @@ public abstract class IgniteTxPessimisticOriginatingNodeFailureAbstractSelfTest 
 
         final Collection<IgniteKernal> grids = new ArrayList<>();
 
-        ClusterNode txNode = grid(originatingNode()).localNode();
+        ClusterNode txNode = ignite(originatingNode()).localNode();
 
         for (int i = 1; i < gridCount(); i++)
-            grids.add((IgniteKernal)grid(i));
+            grids.add((IgniteKernal)ignite(i));
 
-        failingNodeId = grid(0).localNode().id();
+        failingNodeId = ignite(0).localNode().id();
 
         final Map<Integer, String> map = new HashMap<>();
 
         final String initVal = "initialValue";
 
         for (Integer key : keys) {
-            grid(originatingNode()).cache(DEFAULT_CACHE_NAME).put(key, initVal);
+            ignite(originatingNode()).cache(DEFAULT_CACHE_NAME).put(key, initVal);
 
             map.put(key, String.valueOf(key));
         }
 
         Map<Integer, Collection<ClusterNode>> nodeMap = new HashMap<>();
 
-        info("Node being checked: " + grid(1).localNode().id());
+        info("Node being checked: " + ignite(1).localNode().id());
 
         for (Integer key : keys) {
             Collection<ClusterNode> nodes = new ArrayList<>();
 
-            nodes.addAll(grid(1).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key));
+            nodes.addAll(ignite(1).affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key));
 
             nodes.remove(txNode);
 
@@ -191,12 +191,12 @@ public abstract class IgniteTxPessimisticOriginatingNodeFailureAbstractSelfTest 
         }
 
         info("Starting tx [values=" + map + ", topVer=" +
-            ((IgniteKernal)grid(1)).context().discovery().topologyVersion() + ']');
+            ((IgniteKernal)ignite(1)).context().discovery().topologyVersion() + ']');
 
         if (fullFailure)
-            ignoreMessages(ignoreMessageClasses(), F.asList(grid(1).localNode().id()));
+            ignoreMessages(ignoreMessageClasses(), F.asList(ignite(1).localNode().id()));
 
-        final IgniteEx originatingNodeGrid = grid(originatingNode());
+        final IgniteEx originatingNodeGrid = ignite(originatingNode());
 
         GridTestUtils.runAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -229,7 +229,7 @@ public abstract class IgniteTxPessimisticOriginatingNodeFailureAbstractSelfTest 
 
         info(">>> Stopping originating node " + txNode);
 
-        G.stop(grid(originatingNode()).name(), true);
+        G.stop(ignite(originatingNode()).name(), true);
 
         ignoreMessages(Collections.<Class<?>>emptyList(), Collections.<UUID>emptyList());
 
@@ -323,11 +323,11 @@ public abstract class IgniteTxPessimisticOriginatingNodeFailureAbstractSelfTest 
 
         final Collection<IgniteKernal> grids = new ArrayList<>();
 
-        ClusterNode primaryNode = grid(1).localNode();
+        ClusterNode primaryNode = ignite(1).localNode();
 
         for (int i = 0; i < gridCount(); i++) {
             if (i != 1)
-                grids.add((IgniteKernal)grid(i));
+                grids.add((IgniteKernal)ignite(i));
         }
 
         failingNodeId = primaryNode.id();
@@ -337,16 +337,16 @@ public abstract class IgniteTxPessimisticOriginatingNodeFailureAbstractSelfTest 
         final String initVal = "initialValue";
 
         for (Integer key : keys) {
-            grid(originatingNode()).cache(DEFAULT_CACHE_NAME).put(key, initVal);
+            ignite(originatingNode()).cache(DEFAULT_CACHE_NAME).put(key, initVal);
 
             map.put(key, String.valueOf(key));
         }
 
         Map<Integer, Collection<ClusterNode>> nodeMap = new HashMap<>();
 
-        IgniteCache<Integer, String> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Integer, String> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-        info("Failing node ID: " + grid(1).localNode().id());
+        info("Failing node ID: " + ignite(1).localNode().id());
 
         for (Integer key : keys) {
             Collection<ClusterNode> nodes = new ArrayList<>();
@@ -358,11 +358,11 @@ public abstract class IgniteTxPessimisticOriginatingNodeFailureAbstractSelfTest 
             nodeMap.put(key, nodes);
         }
 
-        info("Starting tx [values=" + map + ", topVer=" + grid(1).context().discovery().topologyVersion() + ']');
+        info("Starting tx [values=" + map + ", topVer=" + ignite(1).context().discovery().topologyVersion() + ']');
 
         assertNotNull(cache);
 
-        try (Transaction tx = grid(0).transactions().txStart()) {
+        try (Transaction tx = ignite(0).transactions().txStart()) {
             cache.getAll(keys);
 
             // Should not send any messages.
@@ -480,7 +480,7 @@ public abstract class IgniteTxPessimisticOriginatingNodeFailureAbstractSelfTest 
         Collection<UUID> nodeIds = new ArrayList<>(gridCount());
 
         for (int i = 0; i < gridCount(); i++)
-            nodeIds.add(grid(i).localNode().id());
+            nodeIds.add(ignite(i).localNode().id());
 
         return nodeIds;
     }

@@ -89,7 +89,7 @@ public class GridCacheLocalTxTimeoutSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        ignite = grid();
+        ignite = ignite();
     }
 
     /** {@inheritDoc} */

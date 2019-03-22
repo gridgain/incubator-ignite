@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.mxbean.TransactionsMXBean;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
@@ -88,7 +89,7 @@ public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
 
         assertEquals("1", res);
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         res = bean.getActiveTransactions(null, null, null, null, null, null, null, null, false, false);
 

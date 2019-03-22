@@ -98,7 +98,7 @@ public class CacheAffinityCallSelfTest extends GridCommonAbstractTest {
     public void testAffinityCallFromClientRestartNode() throws Exception {
         startGridsMultiThreaded(SRVS + 1);
 
-        Ignite client = grid(SRVS);
+        Ignite client = ignite(SRVS);
 
         assertTrue(client.configuration().isClientMode());
 
@@ -114,9 +114,9 @@ public class CacheAffinityCallSelfTest extends GridCommonAbstractTest {
         for (int i = 0; i < ITERS; i++) {
             log.info("Iteration: " + i);
 
-            Integer key = primaryKey(grid(0).cache(CACHE_NAME));
+            Integer key = primaryKey(ignite(0).cache(CACHE_NAME));
 
-            AffinityTopologyVersion topVer = grid(0).context().discovery().topologyVersionEx();
+            AffinityTopologyVersion topVer = ignite(0).context().discovery().topologyVersionEx();
 
             IgniteInternalFuture<Object> fut = GridTestUtils.runAsync(new Callable<Object>() {
                 @Override public Object call() throws Exception {
@@ -129,7 +129,7 @@ public class CacheAffinityCallSelfTest extends GridCommonAbstractTest {
             }, "stop-thread");
 
             while (!fut.isDone())
-                grid(1).compute().affinityCall(CACHE_NAME, key, new CheckCallable(key, topVer));
+                ignite(1).compute().affinityCall(CACHE_NAME, key, new CheckCallable(key, topVer));
 
             fut.get();
 
@@ -149,7 +149,7 @@ public class CacheAffinityCallSelfTest extends GridCommonAbstractTest {
 
         final Integer key = 1;
 
-        final IgniteEx client = grid(SRVS);
+        final IgniteEx client = ignite(SRVS);
 
         assertTrue(client.configuration().isClientMode());
         assertNull(client.context().cache().cache(CACHE_NAME));
@@ -198,7 +198,7 @@ public class CacheAffinityCallSelfTest extends GridCommonAbstractTest {
 
         final Integer key = 1;
 
-        final IgniteEx client = grid(SRVS);
+        final IgniteEx client = ignite(SRVS);
 
         assertTrue(client.configuration().isClientMode());
 

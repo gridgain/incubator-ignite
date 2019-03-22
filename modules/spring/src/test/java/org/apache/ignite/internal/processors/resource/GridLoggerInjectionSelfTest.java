@@ -48,7 +48,7 @@ public class GridLoggerInjectionSelfTest extends GridCommonAbstractTest implemen
      */
     @Test
     public void testClosureField() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         ignite.compute().call(new IgniteCallable<Object>() {
             @LoggerResource(categoryClass = GridLoggerInjectionSelfTest.class)
@@ -76,7 +76,7 @@ public class GridLoggerInjectionSelfTest extends GridCommonAbstractTest implemen
      */
     @Test
     public void testClosureMethod() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         ignite.compute().call(new IgniteCallable<Object>() {
             @LoggerResource(categoryClass = GridLoggerInjectionSelfTest.class)
@@ -104,7 +104,7 @@ public class GridLoggerInjectionSelfTest extends GridCommonAbstractTest implemen
      */
     @Test
     public void testStringCategory() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         ignite.compute().call(new IgniteCallable<Object>() {
             @LoggerResource(categoryName = "GridLoggerInjectionSelfTest")

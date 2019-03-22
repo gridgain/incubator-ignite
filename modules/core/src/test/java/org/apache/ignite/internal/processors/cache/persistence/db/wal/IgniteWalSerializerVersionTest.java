@@ -73,7 +73,7 @@ public class IgniteWalSerializerVersionTest extends GridCommonAbstractTest {
     public void testCheckDifferentSerializerVersions() throws Exception {
         System.setProperty(IGNITE_WAL_SERIALIZER_VERSION, "1");
 
-        IgniteEx ig0 = (IgniteEx)startGrid();
+        IgniteEx ig0 = (IgniteEx)clusterManager__startGrid();
 
         IgniteWriteAheadLogManager wal0 = ig0.context().cache().context().wal();
 
@@ -85,7 +85,7 @@ public class IgniteWalSerializerVersionTest extends GridCommonAbstractTest {
 
         System.setProperty(IGNITE_WAL_SERIALIZER_VERSION, "2");
 
-        IgniteEx ig1 = (IgniteEx)startGrid();
+        IgniteEx ig1 = (IgniteEx)clusterManager__startGrid();
 
         IgniteWriteAheadLogManager wal1 = ig1.context().cache().context().wal();
 
@@ -99,7 +99,7 @@ public class IgniteWalSerializerVersionTest extends GridCommonAbstractTest {
 
         GridTestUtils.assertThrowsAnyCause(log, new GPC<Void>() {
             @Override public Void call() throws Exception {
-                startGrid();
+                clusterManager__startGrid();
 
                 return null;
             }
@@ -107,7 +107,7 @@ public class IgniteWalSerializerVersionTest extends GridCommonAbstractTest {
 
         System.setProperty(IGNITE_WAL_SERIALIZER_VERSION, "1");
 
-        IgniteEx ig2 = (IgniteEx)startGrid();
+        IgniteEx ig2 = (IgniteEx)clusterManager__startGrid();
 
         IgniteWriteAheadLogManager wal2 = ig2.context().cache().context().wal();
 
@@ -236,7 +236,7 @@ public class IgniteWalSerializerVersionTest extends GridCommonAbstractTest {
     private void check(Checker checker) throws Exception {
         System.setProperty(IGNITE_WAL_SERIALIZER_VERSION, Integer.toString(checker.serializerVersion()));
 
-        IgniteEx ig0 = (IgniteEx)startGrid();
+        IgniteEx ig0 = (IgniteEx)clusterManager__startGrid();
 
         ig0.active(true);
 

@@ -77,7 +77,7 @@ public class GridDefaultBinaryMappersBinaryMetaDataSelfTest extends GridCommonAb
     @Override protected void beforeTest() throws Exception {
         idx = 0;
 
-        startGrid();
+        clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */
@@ -89,7 +89,7 @@ public class GridDefaultBinaryMappersBinaryMetaDataSelfTest extends GridCommonAb
      * @return Binaries API.
      */
     protected IgniteBinary binaries() {
-        return grid().binary();
+        return ignite().binary();
     }
 
     /**

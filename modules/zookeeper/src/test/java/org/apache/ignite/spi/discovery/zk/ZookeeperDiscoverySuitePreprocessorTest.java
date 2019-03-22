@@ -77,7 +77,7 @@ public class ZookeeperDiscoverySuitePreprocessorTest extends GridCommonAbstractT
 
         checkDiscoverySpi(4);
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkDiscoverySpi(5);
     }

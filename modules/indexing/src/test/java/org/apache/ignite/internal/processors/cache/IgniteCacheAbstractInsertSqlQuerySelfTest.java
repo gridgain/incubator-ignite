@@ -252,7 +252,7 @@ public abstract class IgniteCacheAbstractInsertSqlQuerySelfTest extends GridComm
             return p;
         }
         else {
-            BinaryObjectBuilder o = grid(0).binary().builder("Person");
+            BinaryObjectBuilder o = ignite(0).binary().builder("Person");
             o.setField("id", id);
             o.setField("name", name);
 
@@ -272,7 +272,7 @@ public abstract class IgniteCacheAbstractInsertSqlQuerySelfTest extends GridComm
             return p;
         }
         else {
-            BinaryObjectBuilder o = grid(0).binary().builder("Person2");
+            BinaryObjectBuilder o = ignite(0).binary().builder("Person2");
             o.setField("id", id);
             o.setField("name", name);
             o.setField("IntVal", valFld);

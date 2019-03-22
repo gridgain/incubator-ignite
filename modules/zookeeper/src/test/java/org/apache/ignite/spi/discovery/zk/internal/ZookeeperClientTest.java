@@ -521,7 +521,7 @@ public class ZookeeperClientTest extends GridCommonAbstractTest {
 
             zkCluster.getServers().get(idx).restart();
 
-            doSleep(rnd.nextLong(100) + 1);
+            GridTestUtils.doSleep(rnd.nextLong(100) + 1);
 
             client.createIfNeeded("/apacheIgnite" + i, null, CreateMode.PERSISTENT);
         }

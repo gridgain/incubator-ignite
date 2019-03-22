@@ -115,18 +115,18 @@ public class H2RowCachePageEvictionTest extends AbstractIndexingCommonTest {
     /**
      */
     private void checkRowCacheOnPageEviction() {
-        grid().getOrCreateCache(cacheConfiguration(CACHE_NAME, true));
+        ignite().getOrCreateCache(cacheConfiguration(CACHE_NAME, true));
 
-        int grpId = grid().cachex(CACHE_NAME).context().groupId();
+        int grpId = ignite().cachex(CACHE_NAME).context().groupId();
 
-        assertEquals(grpId, grid().cachex(CACHE_NAME).context().groupId());
+        assertEquals(grpId, ignite().cachex(CACHE_NAME).context().groupId());
 
-        try (IgniteDataStreamer<Integer, Value> stream = grid().dataStreamer(CACHE_NAME)) {
+        try (IgniteDataStreamer<Integer, Value> stream = ignite().dataStreamer(CACHE_NAME)) {
             for (int i = 0; i < ENTRIES; ++i)
                 stream.addData(i, new Value(i));
         }
 
-        H2RowCache rowCache = rowCache(grid()).forGroup(grpId);
+        H2RowCache rowCache = rowCache(ignite()).forGroup(grpId);
 
         fillRowCache(CACHE_NAME);
 
@@ -134,7 +134,7 @@ public class H2RowCachePageEvictionTest extends AbstractIndexingCommonTest {
 
         int rowCacheSizeBeforeEvict = rowCache.size();
 
-        try (IgniteDataStreamer<Integer, Value> stream = grid().dataStreamer(CACHE_NAME)) {
+        try (IgniteDataStreamer<Integer, Value> stream = ignite().dataStreamer(CACHE_NAME)) {
             for (int i = ENTRIES; i < 2 * ENTRIES; ++i)
                 stream.addData(i, new Value(i));
         }
@@ -151,9 +151,9 @@ public class H2RowCachePageEvictionTest extends AbstractIndexingCommonTest {
     public void testEvictPagesWithDiskStorageSingleCacheInGroup() throws Exception {
         persistenceEnabled = true;
 
-        startGrid();
+        clusterManager__startGrid();
 
-        grid().active(true);
+        ignite().active(true);
 
         checkRowCacheOnPageEviction();
     }
@@ -165,11 +165,11 @@ public class H2RowCachePageEvictionTest extends AbstractIndexingCommonTest {
     public void testEvictPagesWithDiskStorageWithOtherCacheInGroup() throws Exception {
         persistenceEnabled = true;
 
-        startGrid();
+        clusterManager__startGrid();
 
-        grid().active(true);
+        ignite().active(true);
 
-        grid().getOrCreateCache(cacheConfiguration("cacheWithoutOnHeapCache", false));
+        ignite().getOrCreateCache(cacheConfiguration("cacheWithoutOnHeapCache", false));
 
         checkRowCacheOnPageEviction();
     }
@@ -181,7 +181,7 @@ public class H2RowCachePageEvictionTest extends AbstractIndexingCommonTest {
     public void testEvictPagesWithoutDiskStorageSingleCacheInGroup() throws Exception {
         persistenceEnabled = false;
 
-        startGrid();
+        clusterManager__startGrid();
 
         checkRowCacheOnPageEviction();
     }
@@ -193,9 +193,9 @@ public class H2RowCachePageEvictionTest extends AbstractIndexingCommonTest {
     public void testEvictPagesWithoutDiskStorageWithOtherCacheInGroup() throws Exception {
         persistenceEnabled = false;
 
-        startGrid();
+        clusterManager__startGrid();
 
-        grid().getOrCreateCache(cacheConfiguration("cacheWithoutOnHeapCache", false));
+        ignite().getOrCreateCache(cacheConfiguration("cacheWithoutOnHeapCache", false));
 
         checkRowCacheOnPageEviction();
     }
@@ -216,7 +216,7 @@ public class H2RowCachePageEvictionTest extends AbstractIndexingCommonTest {
     @SuppressWarnings("unchecked")
     private void fillRowCache(String name) {
         for (int i = 0; i < ENTRIES; ++i)
-            grid().cache(name).query(new SqlQuery(Value.class, "_key = " + i)).getAll();
+            ignite().cache(name).query(new SqlQuery(Value.class, "_key = " + i)).getAll();
     }
 
     /**

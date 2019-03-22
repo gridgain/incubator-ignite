@@ -73,7 +73,7 @@ public class CacheDiscoveryDataConcurrentJoinTest extends GridCommonAbstractTest
 
                             delay = false;
 
-                            doSleep(5000);
+                            GridTestUtils.doSleep(5000);
                         }
                     }
                 }

@@ -288,7 +288,7 @@ public abstract class ClientAbstractMultiNodeSelfTest extends GridCommonAbstract
         assertEquals(NODES_CNT, nodes.size());
 
         for (int i = 0; i < NODES_CNT; i++) {
-            Ignite g = grid(i);
+            Ignite g = ignite(i);
 
             assert g != null;
 

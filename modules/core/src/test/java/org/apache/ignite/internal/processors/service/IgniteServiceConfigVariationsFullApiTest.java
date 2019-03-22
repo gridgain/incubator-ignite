@@ -69,7 +69,7 @@ public class IgniteServiceConfigVariationsFullApiTest extends IgniteConfigVariat
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        isEventDrivenServiceProcessorEnabled = grid(0).context().service() instanceof IgniteServiceProcessor;
+        isEventDrivenServiceProcessorEnabled = ignite(0).context().service() instanceof IgniteServiceProcessor;
     }
 
     /** {@inheritDoc} */
@@ -125,7 +125,7 @@ public class IgniteServiceConfigVariationsFullApiTest extends IgniteConfigVariat
     public void testKeyAffinityDeploy() throws Exception {
         runInAllDataModes(new ServiceTestRunnable(false, new DeployClosure() {
             @Override public void run(IgniteServices services, String svcName, TestService svc) {
-                IgniteCache<Object, Object> cache = grid(testedNodeIdx).getOrCreateCache(CACHE_NAME);
+                IgniteCache<Object, Object> cache = ignite(testedNodeIdx).getOrCreateCache(CACHE_NAME);
 
                 try {
                     services.deployKeyAffinitySingleton(svcName, (Service)svc, cache.getName(), primaryKey(cache));

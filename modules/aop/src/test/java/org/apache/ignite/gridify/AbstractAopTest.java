@@ -384,7 +384,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Default AOP Task in Deployment Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             int res;
@@ -412,7 +412,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Default AOP Task  in Deployment Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         int res;
 
@@ -443,7 +443,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
         this.depMode = depMode;
 
         // Create remote grid to execute test on.
-        Ignite locIgnite = startGrid();
+        Ignite locIgnite = clusterManager__startGrid();
 
         Ignite rmtIgnite = startGrid(getTestIgniteInstanceName() + "Remote");
 
@@ -489,7 +489,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Default AOP Task.");
 
-        startGrid();
+        clusterManager__startGrid();
 
         int res;
 
@@ -529,7 +529,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         int res;
 
@@ -562,7 +562,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         int res;
 
@@ -595,7 +595,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Default AOP Task and exception in Deployment Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             Object targetObj = target();
@@ -637,7 +637,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Default AOP Task in Deploy Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         int res;
 
@@ -670,7 +670,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Test AOP Task in Deploy Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         int res;
 
@@ -703,7 +703,7 @@ public abstract class AbstractAopTest extends GridCommonAbstractTest {
 
         info("Start Gridify test with Test AOP Task in Deployment Mode : " + depMode);
 
-        startGrid();
+        clusterManager__startGrid();
 
         int res;
 

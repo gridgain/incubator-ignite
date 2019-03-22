@@ -99,7 +99,7 @@ public class GridDataStreamerImplSelfTest extends GridCommonAbstractTest {
 
             awaitPartitionMapExchange();
 
-            Ignite g0 = grid(0);
+            Ignite g0 = ignite(0);
 
             IgniteDataStreamer<Integer, String> dataLdr = g0.dataStreamer(DEFAULT_CACHE_NAME);
 
@@ -112,9 +112,9 @@ public class GridDataStreamerImplSelfTest extends GridCommonAbstractTest {
 
             dataLdr.close();
 
-            checkDistribution(grid(0));
+            checkDistribution(ignite(0));
 
-            checkDistribution(grid(1));
+            checkDistribution(ignite(1));
 
             // Check several random keys in cache.
             Random rnd = new Random();
@@ -148,7 +148,7 @@ public class GridDataStreamerImplSelfTest extends GridCommonAbstractTest {
 
             awaitPartitionMapExchange();
 
-            Ignite g0 = grid(0);
+            Ignite g0 = ignite(0);
 
             IgniteDataStreamer<Integer, TestObject2> dataLdr = g0.dataStreamer(DEFAULT_CACHE_NAME);
 
@@ -184,7 +184,7 @@ public class GridDataStreamerImplSelfTest extends GridCommonAbstractTest {
 
             awaitPartitionMapExchange();
 
-            Ignite g0 = grid(0);
+            Ignite g0 = ignite(0);
 
             IgniteDataStreamer<Integer, TestObject> dataLdr = g0.dataStreamer(DEFAULT_CACHE_NAME);
 
@@ -197,9 +197,9 @@ public class GridDataStreamerImplSelfTest extends GridCommonAbstractTest {
 
             dataLdr.close(false);
 
-            checkDistribution(grid(0));
+            checkDistribution(ignite(0));
 
-            checkDistribution(grid(1));
+            checkDistribution(ignite(1));
 
             // Read random keys. Take values as TestObject.
             Random rnd = new Random();
@@ -244,7 +244,7 @@ public class GridDataStreamerImplSelfTest extends GridCommonAbstractTest {
 
             awaitPartitionMapExchange();
 
-            Ignite g0 = grid(0);
+            Ignite g0 = ignite(0);
 
             IgniteDataStreamer<Integer, BinaryObject> dataLdr = g0.dataStreamer(DEFAULT_CACHE_NAME);
 
@@ -260,7 +260,7 @@ public class GridDataStreamerImplSelfTest extends GridCommonAbstractTest {
             dataLdr.close(false);
 
             assertEquals(500, g0.cache(DEFAULT_CACHE_NAME).size(CachePeekMode.ALL));
-            assertEquals(500, grid(1).cache(DEFAULT_CACHE_NAME).size(CachePeekMode.ALL));
+            assertEquals(500, ignite(1).cache(DEFAULT_CACHE_NAME).size(CachePeekMode.ALL));
         }
         finally {
             G.stopAll(true);

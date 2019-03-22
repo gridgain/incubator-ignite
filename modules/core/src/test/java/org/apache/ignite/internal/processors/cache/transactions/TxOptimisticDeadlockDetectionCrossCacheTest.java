@@ -106,21 +106,21 @@ public class TxOptimisticDeadlockDetectionCrossCacheTest extends GridCommonAbstr
 
         final AtomicInteger commitCnt = new AtomicInteger();
 
-        grid(0).events().localListen(new CacheLocksListener(), EventType.EVT_CACHE_OBJECT_LOCKED);
+        ignite(0).events().localListen(new CacheLocksListener(), EventType.EVT_CACHE_OBJECT_LOCKED);
 
         AffinityTopologyVersion waitTopVer = new AffinityTopologyVersion(2, 1);
 
-        IgniteInternalFuture<?> exchFut = grid(0).context().cache().context().exchange().affinityReadyFuture(waitTopVer);
+        IgniteInternalFuture<?> exchFut = ignite(0).context().cache().context().exchange().affinityReadyFuture(waitTopVer);
 
         if (exchFut != null && !exchFut.isDone()) {
             log.info("Waiting for topology exchange future [waitTopVer=" + waitTopVer + ", curTopVer="
-                + grid(0).context().cache().context().exchange().readyAffinityVersion() + ']');
+                + ignite(0).context().cache().context().exchange().readyAffinityVersion() + ']');
 
             exchFut.get();
         }
 
         log.info("Finished topology exchange future [curTopVer="
-            + grid(0).context().cache().context().exchange().readyAffinityVersion() + ']');
+            + ignite(0).context().cache().context().exchange().readyAffinityVersion() + ']');
 
         IgniteInternalFuture<Long> fut = GridTestUtils.runMultiThreadedAsync(new Runnable() {
             @Override public void run() {

@@ -153,7 +153,7 @@ public class IgniteCacheDistributedJoinCollocatedAndNotTest extends GridCommonAb
      */
     @Test
     public void testJoin() throws Exception {
-        Ignite client = grid(2);
+        Ignite client = ignite(2);
 
         IgniteCache<Object, Object> personCache = client.cache(PERSON_CACHE);
         IgniteCache<Object, Object> orgCache = client.cache(ORG_CACHE);

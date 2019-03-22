@@ -101,7 +101,7 @@ public class GridCacheMultiUpdateLockSelfTest extends GridCommonAbstractTest {
         startGrids(3);
 
         try {
-            IgniteKernal g = (IgniteKernal)grid(0);
+            IgniteKernal g = (IgniteKernal)ignite(0);
 
             GridCacheContext<Object, Object> cctx = g.internalCache(DEFAULT_CACHE_NAME).context();
 

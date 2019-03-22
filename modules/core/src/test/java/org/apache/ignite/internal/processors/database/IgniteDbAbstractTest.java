@@ -174,7 +174,7 @@ public abstract class IgniteDbAbstractTest extends GridCommonAbstractTest {
 
         assert gridCount() > 0;
 
-        final IgniteClusterEx cluster = grid(0).cluster();
+        final IgniteClusterEx cluster = ignite(0).cluster();
 
         if (log.isInfoEnabled())
             log.info("BTL before activation: " + cluster.currentBaselineTopology());

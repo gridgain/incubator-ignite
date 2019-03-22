@@ -38,11 +38,11 @@ public class TxLabelTest extends GridCommonAbstractTest {
      */
     @Test
     public void testLabel() {
-        testLabel0(grid(0), "lbl0");
-        testLabel0(grid(0), "lbl1");
+        testLabel0(ignite(0), "lbl0");
+        testLabel0(ignite(0), "lbl1");
 
         try {
-            testLabel0(grid(0), null);
+            testLabel0(ignite(0), null);
 
             fail();
         }

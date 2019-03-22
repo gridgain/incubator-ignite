@@ -142,7 +142,7 @@ public class GridCacheFullTextQuerySelfTest extends GridCommonAbstractTest {
      * @param keepBinary keep binary flag.
      */
     private void checkTextQuery(String clause, boolean loc, boolean keepBinary) throws Exception {
-        final IgniteEx ignite = grid(0);
+        final IgniteEx ignite = ignite(0);
 
         if (F.isEmpty(clause))
             clause = "1*";

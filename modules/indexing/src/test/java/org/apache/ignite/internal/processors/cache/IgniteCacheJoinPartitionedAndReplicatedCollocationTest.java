@@ -169,7 +169,7 @@ public class IgniteCacheJoinPartitionedAndReplicatedCollocationTest extends Abst
      */
     @Test
     public void testJoin() throws Exception {
-        Ignite client = grid(SRVS);
+        Ignite client = ignite(SRVS);
 
         client.createCache(personCache());
 
@@ -187,7 +187,7 @@ public class IgniteCacheJoinPartitionedAndReplicatedCollocationTest extends Abst
      * @throws Exception If failed.
      */
     private void checkJoin(int accBackups) throws Exception {
-        Ignite client = grid(SRVS);
+        Ignite client = ignite(SRVS);
 
         IgniteCache<Object, Object> personCache = client.cache(PERSON_CACHE);
 

@@ -86,7 +86,7 @@ public class GridLifecycleBeanSelfTest extends GridCommonAbstractTest {
         };
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             assertTrue(done.get());
         }
@@ -102,7 +102,7 @@ public class GridLifecycleBeanSelfTest extends GridCommonAbstractTest {
     public void testNoErrors() throws Exception {
         bean = new LifeCycleBaseBean();
 
-        startGrid();
+        clusterManager__startGrid();
 
         try {
             assertEquals(IgniteState.STARTED, G.state(getTestIgniteInstanceName()));
@@ -165,7 +165,7 @@ public class GridLifecycleBeanSelfTest extends GridCommonAbstractTest {
         bean = new LifeCycleExceptionBean(BEFORE_NODE_START, gridErr);
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             assertTrue(false); // Should never get here.
         }
@@ -192,7 +192,7 @@ public class GridLifecycleBeanSelfTest extends GridCommonAbstractTest {
         bean = new LifeCycleExceptionBean(AFTER_NODE_START, gridErr);
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             assertTrue(false); // Should never get here.
         }
@@ -272,7 +272,7 @@ public class GridLifecycleBeanSelfTest extends GridCommonAbstractTest {
         bean = new LifeCycleExceptionBean(evt, gridErr);
 
         try {
-            startGrid();
+            clusterManager__startGrid();
 
             assertEquals(IgniteState.STARTED, G.state(getTestIgniteInstanceName()));
         }

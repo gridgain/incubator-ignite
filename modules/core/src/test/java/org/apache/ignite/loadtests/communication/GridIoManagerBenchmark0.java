@@ -94,8 +94,8 @@ public class GridIoManagerBenchmark0 extends GridCommonAbstractTest {
      */
     @Test
     public void testThroughput() throws Exception {
-        final IgniteKernal sndKernal = (IgniteKernal)grid(0);
-        final IgniteKernal rcvKernal = (IgniteKernal)grid(1);
+        final IgniteKernal sndKernal = (IgniteKernal)ignite(0);
+        final IgniteKernal rcvKernal = (IgniteKernal)ignite(1);
 
         final ClusterNode sndNode = sndKernal.localNode();
         final ClusterNode rcvNode = rcvKernal.localNode();
@@ -190,8 +190,8 @@ public class GridIoManagerBenchmark0 extends GridCommonAbstractTest {
      */
     @Test
     public void testLatency() throws Exception {
-        final IgniteKernal sndKernal = (IgniteKernal)grid(0);
-        final IgniteKernal rcvKernal = (IgniteKernal)grid(1);
+        final IgniteKernal sndKernal = (IgniteKernal)ignite(0);
+        final IgniteKernal rcvKernal = (IgniteKernal)ignite(1);
 
         final ClusterNode sndNode = sndKernal.localNode();
         final ClusterNode rcvNode = rcvKernal.localNode();
@@ -286,8 +286,8 @@ public class GridIoManagerBenchmark0 extends GridCommonAbstractTest {
      */
     @Test
     public void testVariableLoad() throws Exception {
-        final IgniteKernal sndKernal = (IgniteKernal)grid(0);
-        final IgniteKernal rcvKernal = (IgniteKernal)grid(1);
+        final IgniteKernal sndKernal = (IgniteKernal)ignite(0);
+        final IgniteKernal rcvKernal = (IgniteKernal)ignite(1);
 
         final ClusterNode sndNode = sndKernal.localNode();
         final ClusterNode rcvNode = rcvKernal.localNode();

@@ -119,18 +119,18 @@ public class JdbcMetadataSelfTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         startGridsMultiThreaded(3);
 
-        IgniteCache<String, Organization> orgCache = grid(0).cache("org");
+        IgniteCache<String, Organization> orgCache = ignite(0).cache("org");
 
         orgCache.put("o1", new Organization(1, "A"));
         orgCache.put("o2", new Organization(2, "B"));
 
-        IgniteCache<AffinityKey<String>, Person> personCache = grid(0).cache("pers");
+        IgniteCache<AffinityKey<String>, Person> personCache = ignite(0).cache("pers");
 
         personCache.put(new AffinityKey<>("p1", "o1"), new Person("John White", 25, 1));
         personCache.put(new AffinityKey<>("p2", "o1"), new Person("Joe Black", 35, 1));
         personCache.put(new AffinityKey<>("p3", "o2"), new Person("Mike Green", 40, 2));
 
-        jcache(grid(0),
+        jcache(ignite(0),
             defaultCacheConfiguration().setIndexedTypes(Integer.class, Department.class),
             "dep");
 

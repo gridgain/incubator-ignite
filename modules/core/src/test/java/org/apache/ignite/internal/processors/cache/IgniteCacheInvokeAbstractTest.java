@@ -86,7 +86,7 @@ public abstract class IgniteCacheInvokeAbstractTest extends IgniteCacheAbstractT
      */
     @Test
     public void testInternalInvokeNullable() throws Exception {
-        IgniteInternalCache<Integer, Integer> cache = grid(0).cachex(DEFAULT_CACHE_NAME);
+        IgniteInternalCache<Integer, Integer> cache = ignite(0).cachex(DEFAULT_CACHE_NAME);
 
         EntryProcessor<Integer, Integer, Void> processor = new NullableProcessor();
 
@@ -316,10 +316,10 @@ public abstract class IgniteCacheInvokeAbstractTest extends IgniteCacheAbstractT
     public void testInvokeAllAppliedOnceOnBinaryTypeRegistration() {
         IgniteCache<MyKey, Integer> cache = jcache();
 
-        Affinity<Object> affinity = grid(0).affinity(cache.getName());
+        Affinity<Object> affinity = ignite(0).affinity(cache.getName());
 
         for (int i = 0; i < gridCount(); i++) {
-            if(!affinity.isPrimary(grid(i).localNode(), new MyKey(""))) {
+            if(!affinity.isPrimary(ignite(i).localNode(), new MyKey(""))) {
                 cache = jcache(i);
                 break;
             }

@@ -85,7 +85,7 @@ public class Cache64kPartitionsTest extends GridCommonAbstractTest {
         try {
             startGrids(4);
 
-            grid(0).active(true);
+            ignite(0).active(true);
         }
         finally {
             stopAllGrids();

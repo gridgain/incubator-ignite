@@ -201,7 +201,7 @@ public class CacheContinuousQueryExecuteInPrimaryTest extends GridCommonAbstract
      */
     private void doTestWithoutEventsEntries(CacheConfiguration<Integer, String> ccfg) throws Exception {
 
-        try (IgniteCache<Integer, String> cache = grid(0).createCache(ccfg)) {
+        try (IgniteCache<Integer, String> cache = ignite(0).createCache(ccfg)) {
 
             int ITERATION_CNT = 100;
             final AtomicBoolean noOneListen = new AtomicBoolean(true);
@@ -297,7 +297,7 @@ public class CacheContinuousQueryExecuteInPrimaryTest extends GridCommonAbstract
      * @throws Exception If failed.
      */
     public void doTestWithEventsEntries(CacheConfiguration<Integer, String> ccfg) throws Exception {
-        try (IgniteCache<Integer, String> cache = grid(0).createCache(ccfg)) {
+        try (IgniteCache<Integer, String> cache = ignite(0).createCache(ccfg)) {
 
             ContinuousQuery<Integer, String> qry = new ContinuousQuery<>();
 

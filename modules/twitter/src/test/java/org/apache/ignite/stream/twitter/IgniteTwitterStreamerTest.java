@@ -82,7 +82,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
 
     /** */
     private void init() {
-        grid().getOrCreateCache(defaultCacheConfiguration());
+        ignite().getOrCreateCache(defaultCacheConfiguration());
 
         mockSrv.start();
 
@@ -103,7 +103,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
     @Test
     public void testStatusesFilterEndpointOAuth1() throws Exception {
         init();
-        try (IgniteDataStreamer<Long, String> dataStreamer = grid().dataStreamer(DEFAULT_CACHE_NAME)) {
+        try (IgniteDataStreamer<Long, String> dataStreamer = ignite().dataStreamer(DEFAULT_CACHE_NAME)) {
             TwitterStreamerImpl streamer = newStreamerInstance(dataStreamer);
 
             Map<String, String> params = new HashMap<>();
@@ -165,7 +165,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
 
         Status status = TwitterObjectFactory.createStatus(tweet);
 
-        IgniteCache<Long, String> cache = grid().cache(DEFAULT_CACHE_NAME);
+        IgniteCache<Long, String> cache = ignite().cache(DEFAULT_CACHE_NAME);
 
         String cachedVal = cache.get(status.getId());
 
@@ -180,7 +180,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
      * @return Cache listener.
      */
     private CacheListener subscribeToPutEvents() {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         // Listen to cache PUT events and expect as many as messages as test data items.
         CacheListener lsnr = new CacheListener();
@@ -194,7 +194,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
      * @param lsnr Cache listener.
      */
     private void unsubscribeToPutEvents(CacheListener lsnr) {
-        Ignite ignite = grid();
+        Ignite ignite = ignite();
 
         ignite.events(ignite.cluster().forCacheNodes(DEFAULT_CACHE_NAME)).stopLocalListen(lsnr, EVT_CACHE_OBJECT_PUT);
     }
@@ -208,7 +208,7 @@ public class IgniteTwitterStreamerTest extends GridCommonAbstractTest {
 
         TwitterStreamerImpl streamer = new TwitterStreamerImpl(oAuthSettings);
 
-        streamer.setIgnite(grid());
+        streamer.setIgnite(ignite());
         streamer.setStreamer(dataStreamer);
 
         dataStreamer.allowOverwrite(true);

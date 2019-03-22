@@ -122,9 +122,9 @@ public class CacheInterceptorPartitionCounterRandomOperationsTest extends GridCo
         afterRmvEvts.clear();
 
         for (int i = 0; i < NODES; i++) {
-            afterRmvEvts.put(grid(i).cluster().localNode().id(),
+            afterRmvEvts.put(ignite(i).cluster().localNode().id(),
                 new BlockingArrayQueue<Cache.Entry<TestKey, TestValue>>());
-            afterPutEvts.put(grid(i).cluster().localNode().id(),
+            afterPutEvts.put(ignite(i).cluster().localNode().id(),
                 new BlockingArrayQueue<Cache.Entry<TestKey, TestValue>>());
         }
     }
@@ -429,7 +429,7 @@ public class CacheInterceptorPartitionCounterRandomOperationsTest extends GridCo
                     log.info("Iteration: " + i);
 
                 for (int idx = 0; idx < NODES; idx++)
-                    randomUpdate(rnd, expData, partCntr, grid(idx).cache(ccfg.getName()));
+                    randomUpdate(rnd, expData, partCntr, ignite(idx).cache(ccfg.getName()));
             }
         }
         finally {

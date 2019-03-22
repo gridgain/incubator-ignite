@@ -129,9 +129,9 @@ public class IgniteGetNonPlainKeyReadThroughSelfTest extends GridCommonAbstractT
      */
     private void testGet(boolean nullRead) throws Exception {
         try {
-            final Ignite ignite = startGrid();
+            final Ignite ignite = clusterManager__startGrid();
 
-            final GridCacheAdapter cache = ((IgniteKernal)grid()).internalCache(DEFAULT_CACHE_NAME);
+            final GridCacheAdapter cache = ((IgniteKernal)ignite()).internalCache(DEFAULT_CACHE_NAME);
 
             IgniteBiTuple<String, String> key = new IgniteBiTuple<>();
 

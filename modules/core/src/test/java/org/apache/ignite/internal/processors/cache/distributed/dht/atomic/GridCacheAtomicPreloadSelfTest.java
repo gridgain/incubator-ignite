@@ -109,11 +109,11 @@ public class GridCacheAtomicPreloadSelfTest extends GridCommonAbstractTest {
 
             awaitPartitionMapExchange();
 
-            IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> cache = ignite(0).cache(DEFAULT_CACHE_NAME);
 
-            List<Integer> keys = generateKeys(grid(0).localNode(), cache);
+            List<Integer> keys = generateKeys(ignite(0).localNode(), cache);
 
-            IgniteTransactions txs = grid(0).transactions();
+            IgniteTransactions txs = ignite(0).transactions();
 
             assert txs != null;
 
@@ -161,7 +161,7 @@ public class GridCacheAtomicPreloadSelfTest extends GridCommonAbstractTest {
      */
     private void checkTransactions() {
         for (int i = 0; i < 3; i++) {
-            IgniteTxManager tm = ((IgniteKernal)grid(i)).context().cache().context().tm();
+            IgniteTxManager tm = ((IgniteKernal)ignite(i)).context().cache().context().tm();
 
             assertEquals("Uncommitted transactions found on node [idx=" + i + ", mapSize=" + tm.idMapSize() + ']',
                 0, tm.idMapSize());
@@ -174,7 +174,7 @@ public class GridCacheAtomicPreloadSelfTest extends GridCommonAbstractTest {
      */
     private void checkValues(int key, int val) {
         for (int i = 0; i < 3; i++) {
-            IgniteEx grid = grid(i);
+            IgniteEx grid = ignite(i);
 
             ClusterNode node = grid.localNode();
 

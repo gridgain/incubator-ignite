@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.processors.query.QueryField;
 import org.apache.ignite.internal.processors.query.QueryUtils;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.config.GridTestProperties;
 import org.h2.jdbc.JdbcSQLException;
 import org.junit.Test;
@@ -100,7 +101,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
      * @throws SQLException if failed.
      */
     private int checkTableState(String schemaName, String tblName, QueryField... cols) throws SQLException {
-        return checkTableState(grid(nodeIndex()), schemaName, tblName, cols);
+        return checkTableState(ignite(nodeIndex()), schemaName, tblName, cols);
     }
 
     /**
@@ -110,7 +111,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
     public void testAddColumnSimple() throws SQLException {
         run("ALTER TABLE Person ADD COLUMN age int");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         QueryField c = c("AGE", Integer.class.getName());
 
@@ -124,7 +125,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
     public void testAddFewColumnsSimple() throws SQLException {
         run("ALTER TABLE Person ADD COLUMN (age int, \"city\" varchar)");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         checkTableState(QueryUtils.DFLT_SCHEMA, "PERSON", c("AGE", Integer.class.getName()),
             c("city", String.class.getName()));
@@ -241,7 +242,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
     public void testAddColumnToNonDynamicCache() throws SQLException {
         run("ALTER TABLE \"idx\".PERSON ADD COLUMN CITY varchar");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         QueryField c = c("CITY", String.class.getName());
 
@@ -261,7 +262,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
 
         run(cache, "ALTER TABLE \"City\".City ADD COLUMN population int");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         QueryField c = c("POPULATION", Integer.class.getName());
 
@@ -311,7 +312,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
         run(cache, "ALTER TABLE \"GuidTest\".GuidTest ADD COLUMN GUID UUID");
         run(cache, "ALTER TABLE \"GuidTest\".GuidTest ADD COLUMN DATA BINARY(128)");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         QueryField c1 = c("GUID", Object.class.getName());
         QueryField c2 = c("DATA", byte[].class.getName());
@@ -371,7 +372,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
     public void testAddNotNullColumn() throws SQLException {
         run("ALTER TABLE Person ADD COLUMN age int NOT NULL");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         QueryField c = new QueryField("AGE", Integer.class.getName(), false);
 
@@ -385,7 +386,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
     public void testAddNullColumn() throws SQLException {
         run("ALTER TABLE Person ADD COLUMN age int NULL");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         QueryField c = new QueryField("AGE", Integer.class.getName(), true);
 
@@ -403,12 +404,12 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
                 .setSqlSchema(QueryUtils.DFLT_SCHEMA);
 
         try {
-            grid(nodeIndex()).getOrCreateCache(c);
+            ignite(nodeIndex()).getOrCreateCache(c);
 
             doTestAlterTableOnFlatValue("INTEGER");
         }
         finally {
-            grid(nodeIndex()).destroyCache("ints");
+            ignite(nodeIndex()).destroyCache("ints");
         }
     }
 
@@ -465,14 +466,14 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
         try {
             run("CREATE TABLE test (id INT PRIMARY KEY, a INT, b CHAR)");
 
-            QueryField fld = getColumnMeta(grid(nodeIndex()), QueryUtils.DFLT_SCHEMA, "TEST", "A");
+            QueryField fld = getColumnMeta(ignite(nodeIndex()), QueryUtils.DFLT_SCHEMA, "TEST", "A");
 
             assertEquals("A", fld.name());
             assertEquals(Integer.class.getName(), fld.typeName());
 
             run("ALTER TABLE test DROP COLUMN a");
 
-            assertNull(getColumnMeta(grid(nodeIndex()), QueryUtils.DFLT_SCHEMA, "TEST", "A"));
+            assertNull(getColumnMeta(ignite(nodeIndex()), QueryUtils.DFLT_SCHEMA, "TEST", "A"));
         }
         finally {
             run("DROP TABLE IF EXISTS test");
@@ -686,7 +687,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
 
         run(cache, "ALTER TABLE \"City\".City DROP COLUMN state_name");
 
-        doSleep(500);
+        GridTestUtils.doSleep(500);
 
         QueryField c = c("NAME", String.class.getName());
 
@@ -789,7 +790,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
      * @param msg Expected message.
      */
     protected void assertThrows(final String sql, String msg) {
-        assertThrows(grid(nodeIndex()), sql, msg);
+        assertThrows(ignite(nodeIndex()), sql, msg);
     }
 
     /**
@@ -800,7 +801,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
      * @param msg Expected message.
      */
     protected void assertThrowsAnyCause(final String sql, Class<? extends Throwable> cls, String msg) {
-        assertThrowsAnyCause(grid(nodeIndex()), sql, cls, msg);
+        assertThrowsAnyCause(ignite(nodeIndex()), sql, cls, msg);
     }
 
     /**
@@ -809,7 +810,7 @@ public abstract class H2DynamicColumnsAbstractBasicSelfTest extends DynamicColum
      * @return result.
      */
     protected List<List<?>> run(String sql) {
-        return run(grid(nodeIndex()), sql);
+        return run(ignite(nodeIndex()), sql);
     }
 
     /** City class. */

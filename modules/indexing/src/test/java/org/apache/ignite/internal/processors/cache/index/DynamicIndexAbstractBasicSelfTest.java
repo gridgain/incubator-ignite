@@ -98,7 +98,7 @@ public abstract class DynamicIndexAbstractBasicSelfTest extends DynamicIndexAbst
 
         awaitPartitionMapExchange();
 
-        grid(IDX_CLI_NEAR_ONLY).getOrCreateNearCache(CACHE_NAME, new NearCacheConfiguration<>());
+        ignite(IDX_CLI_NEAR_ONLY).getOrCreateNearCache(CACHE_NAME, new NearCacheConfiguration<>());
 
         assertNoIndex(CACHE_NAME, TBL_NAME, IDX_NAME_1);
 
@@ -1309,7 +1309,7 @@ public abstract class DynamicIndexAbstractBasicSelfTest extends DynamicIndexAbst
      * @return If failed.
      */
     protected IgniteEx node() {
-        return grid(nodeIndex());
+        return ignite(nodeIndex());
     }
 
     /**

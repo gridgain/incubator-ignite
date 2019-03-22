@@ -126,7 +126,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      */
     @Test
     public void testIsolation() throws Exception {
-        Ignite ignite = grid(0);
+        Ignite ignite = ignite(0);
 
         CacheConfiguration cfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
@@ -187,7 +187,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
             assertEquals(2, lock.getHoldCount());
         }
 
-        Ignite g0 = grid(0);
+        Ignite g0 = ignite(0);
 
         final IgniteLock lock0 = g0.reentrantLock("lock", false, fair, false);
 
@@ -240,13 +240,13 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
         checkFailoverSafe(fair);
 
         // Test main functionality.
-        IgniteLock lock1 = grid(0).reentrantLock("lock", true, fair, true);
+        IgniteLock lock1 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertFalse(lock1.isLocked());
 
         lock1.lock();
 
-        IgniteFuture<Object> fut = grid(0).compute().callAsync(new IgniteCallable<Object>() {
+        IgniteFuture<Object> fut = ignite(0).compute().callAsync(new IgniteCallable<Object>() {
             @IgniteInstanceResource
             private Ignite ignite;
 
@@ -380,7 +380,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      */
     private IgniteLock createReentrantLock(String lockName, boolean failoverSafe, boolean fair)
         throws Exception {
-        IgniteLock lock = grid(RND.nextInt(NODES_CNT)).reentrantLock(lockName, failoverSafe, fair, true);
+        IgniteLock lock = ignite(RND.nextInt(NODES_CNT)).reentrantLock(lockName, failoverSafe, fair, true);
 
         // Test initialization.
         assert lockName.equals(lock.name());
@@ -397,12 +397,12 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      */
     private void removeReentrantLock(String lockName, final boolean fair)
         throws Exception {
-        IgniteLock lock = grid(RND.nextInt(NODES_CNT)).reentrantLock(lockName, false, fair, true);
+        IgniteLock lock = ignite(RND.nextInt(NODES_CNT)).reentrantLock(lockName, false, fair, true);
 
         assert lock != null;
 
         // Remove lock on random node.
-        IgniteLock lock0 = grid(RND.nextInt(NODES_CNT)).reentrantLock(lockName, false, fair, true);
+        IgniteLock lock0 = ignite(RND.nextInt(NODES_CNT)).reentrantLock(lockName, false, fair, true);
 
         assertNotNull(lock0);
 
@@ -420,14 +420,14 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      */
     @Test
     public void testLockSerialization() throws Exception {
-        final IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+        final IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
         info("Lock created: " + lock);
 
         lock.isFailoverSafe();
         lock.isFair();
 
-        grid(ThreadLocalRandom.current().nextInt(G.allGrids().size())).compute().broadcast(new IgniteCallable<Object>() {
+        ignite(ThreadLocalRandom.current().nextInt(G.allGrids().size())).compute().broadcast(new IgniteCallable<Object>() {
             @Nullable @Override public Object call() throws Exception {
                 Thread.sleep(1000);
 
@@ -452,7 +452,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
     public void testInitialization() throws Exception {
         // Test #name() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertEquals("lock", lock.name());
 
@@ -461,7 +461,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #isFailoverSafe() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             info("Lock created: " + lock);
 
@@ -472,7 +472,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #isFair() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertTrue(lock.isFair());
 
@@ -481,7 +481,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #isBroken() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertFalse(lock.isBroken());
 
@@ -490,7 +490,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #getOrCreateCondition(String ) method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertNotNull(lock.getOrCreateCondition("condition"));
 
@@ -499,7 +499,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #getHoldCount() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertEquals(0, lock.getHoldCount());
 
@@ -508,7 +508,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #isHeldByCurrentThread() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertFalse(lock.isHeldByCurrentThread());
 
@@ -517,7 +517,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #isLocked() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertFalse(lock.isLocked());
 
@@ -526,7 +526,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #hasQueuedThreads() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertFalse(lock.hasQueuedThreads());
 
@@ -535,7 +535,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #hasQueuedThread(Thread ) method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertFalse(lock.hasQueuedThread(Thread.currentThread()));
 
@@ -544,10 +544,10 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #hasWaiters(IgniteCondition ) method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             try {
-                IgniteCondition cond = grid(0).reentrantLock("lock2", true, true, true).getOrCreateCondition("cond");
+                IgniteCondition cond = ignite(0).reentrantLock("lock2", true, true, true).getOrCreateCondition("cond");
 
                 lock.hasWaiters(cond);
 
@@ -573,10 +573,10 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #getWaitQueueLength(IgniteCondition ) method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             try {
-                IgniteCondition cond = grid(0).reentrantLock("lock2", true, true, true).getOrCreateCondition("cond");
+                IgniteCondition cond = ignite(0).reentrantLock("lock2", true, true, true).getOrCreateCondition("cond");
 
                 lock.getWaitQueueLength(cond);
 
@@ -602,7 +602,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #lock() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             lock.lock();
 
@@ -613,7 +613,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #lockInterruptibly() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             lock.lockInterruptibly();
 
@@ -624,7 +624,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #tryLock() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             boolean success = lock.tryLock();
 
@@ -637,7 +637,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #tryLock(long, TimeUnit) method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             boolean success = lock.tryLock(1, MILLISECONDS);
 
@@ -650,7 +650,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #unlock() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             try {
                 lock.unlock();
@@ -666,7 +666,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #removed() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             assertFalse(lock.removed());
 
@@ -677,7 +677,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
         // Test #close() method.
         {
-            IgniteLock lock = grid(0).reentrantLock("lock", true, true, true);
+            IgniteLock lock = ignite(0).reentrantLock("lock", true, true, true);
 
             lock.close();
 
@@ -702,12 +702,12 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
         if (gridCount() == 1)
             return;
 
-        IgniteLock lock = grid(0).reentrantLock("s1", true, fair, true);
+        IgniteLock lock = ignite(0).reentrantLock("s1", true, fair, true);
 
         List<IgniteInternalFuture<?>> futs = new ArrayList<>();
 
         for (int i = 0; i < gridCount(); i++) {
-            final Ignite ignite = grid(i);
+            final Ignite ignite = ignite(i);
 
             futs.add(GridTestUtils.runAsync(new Callable<Void>() {
                 @Override public Void call() throws Exception {
@@ -777,7 +777,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testLockInterruptibly(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -859,7 +859,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
             return;
 
         // Initialize reentrant lock.
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -877,7 +877,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
                 @Override public Object call() throws Exception {
                     final int localNodeId = (int)threadCounter.getAndIncrement();
 
-                    final Ignite grid = grid(localNodeId);
+                    final Ignite grid = ignite(localNodeId);
 
                     IgniteClosure<Ignite, Void> closure = new IgniteClosure<Ignite, Void>() {
                         @Override public Void apply(Ignite ignite) {
@@ -979,7 +979,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testLock(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -1063,7 +1063,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testTryLock(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -1147,7 +1147,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testTryLockTimed(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -1224,7 +1224,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testConditionAwaitUninterruptibly(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -1314,7 +1314,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testConditionInterruptAwait(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -1394,7 +1394,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testHasQueuedThreads(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -1472,7 +1472,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
      * @throws Exception If failed.
      */
     private void testHasConditionQueuedThreads(final boolean fair) throws Exception {
-        final IgniteLock lock0 = grid(0).reentrantLock("lock", true, fair, true);
+        final IgniteLock lock0 = ignite(0).reentrantLock("lock", true, fair, true);
 
         assertEquals(0, lock0.getHoldCount());
 
@@ -1607,7 +1607,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
                 @Override public Object call() throws Exception {
                     final int localNodeId = (int)threadCounter.getAndIncrement();
 
-                    final Ignite grid = grid(localNodeId);
+                    final Ignite grid = ignite(localNodeId);
 
                     IgniteClosure<Ignite, Long> closure = new IgniteClosure<Ignite, Long>() {
                         @Override public Long apply(Ignite ignite) {
@@ -1671,7 +1671,7 @@ public abstract class IgniteLockAbstractSelfTest extends IgniteAtomicsAbstractTe
 
             totalSum += counts.get(i);
 
-            info("Node " + grid(i).localNode().id() + " acquired the lock " + counts.get(i) + " times. ");
+            info("Node " + ignite(i).localNode().id() + " acquired the lock " + counts.get(i) + " times. ");
         }
 
         assertEquals(totalSum, opsCount);

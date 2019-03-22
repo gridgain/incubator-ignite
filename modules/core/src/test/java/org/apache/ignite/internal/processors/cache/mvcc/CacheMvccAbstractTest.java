@@ -1309,7 +1309,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         final List<TestCache> caches = new ArrayList<>(srvs + clients);
 
         for (int i = 0; i < srvs + clients; i++) {
-            Ignite node = grid(i);
+            Ignite node = ignite(i);
 
             caches.add(new TestCache(node.cache(cache.getName())));
         }
@@ -1375,7 +1375,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
             GridTestUtils.runAsync(() -> {
                 while (System.currentTimeMillis() < stopTime)
-                    doSleep(1000);
+                    GridTestUtils.doSleep(1000);
 
                 stop.set(true);
             });
@@ -1824,7 +1824,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                 ScanQuery scanQry = new ScanQuery(new IgniteBiPredicate() {
                     @Override public boolean apply(Object k, Object v) {
                         if (emulateLongQry)
-                            doSleep(ThreadLocalRandom.current().nextInt(50));
+                            GridTestUtils.doSleep(ThreadLocalRandom.current().nextInt(50));
 
                         return k.equals(key);
                     }
@@ -1854,7 +1854,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                     for (List row : cur) {
                         rows.add(row);
 
-                        doSleep(ThreadLocalRandom.current().nextInt(50));
+                        GridTestUtils.doSleep(ThreadLocalRandom.current().nextInt(50));
                     }
                 }
                 else
@@ -1929,7 +1929,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                 ScanQuery scanQry = new ScanQuery(new IgniteBiPredicate() {
                     @Override public boolean apply(Object k, Object v) {
                         if (emulateLongQry)
-                            doSleep(ThreadLocalRandom.current().nextInt(50));
+                            GridTestUtils.doSleep(ThreadLocalRandom.current().nextInt(50));
 
                         return keys.contains(k);
                     }
@@ -1979,7 +1979,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                         for (List row : cur) {
                             rows.add(row);
 
-                            doSleep(ThreadLocalRandom.current().nextInt(50));
+                            GridTestUtils.doSleep(ThreadLocalRandom.current().nextInt(50));
                         }
                     }
                     else

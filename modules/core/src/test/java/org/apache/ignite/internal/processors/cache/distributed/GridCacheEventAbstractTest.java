@@ -88,7 +88,7 @@ public abstract class GridCacheEventAbstractTest extends GridCacheAbstractSelfTe
         evtLsnr = createEventListener();
 
         for (int i = 0; i < gridCnt; i++)
-            grid(i).events().localListen(evtLsnr, EVTS_CACHE);
+            ignite(i).events().localListen(evtLsnr, EVTS_CACHE);
     }
 
     /** */
@@ -194,8 +194,8 @@ public abstract class GridCacheEventAbstractTest extends GridCacheAbstractSelfTe
     @SuppressWarnings({"CaughtExceptionImmediatelyRethrown"})
     private void runTest(TestCacheRunnable run, IgniteBiTuple<Integer, Integer>... evtCnts) throws Exception {
         for (int i = 0; i < gridCount(); i++) {
-            info(">>> Running test for grid [idx=" + i + ", igniteInstanceName=" + grid(i).name() +
-                ", id=" + grid(i).localNode().id() + ']');
+            info(">>> Running test for grid [idx=" + i + ", igniteInstanceName=" + ignite(i).name() +
+                ", id=" + ignite(i).localNode().id() + ']');
 
             try {
                 run.run(jcache(i));
@@ -576,7 +576,7 @@ public abstract class GridCacheEventAbstractTest extends GridCacheAbstractSelfTe
                 String key = e.getKey();
                 Integer val = e.getValue();
 
-                try (Transaction tx = grid(0).transactions().txStart();) {
+                try (Transaction tx = ignite(0).transactions().txStart();) {
                     assert cache.getAndPutIfAbsent(key, val) == null;
 
                     assertEquals(val, cache.getAndPutIfAbsent(key, val));

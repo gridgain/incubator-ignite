@@ -58,6 +58,7 @@ import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryCustomEventMessage;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.junit.Test;
@@ -283,13 +284,13 @@ public class BinaryMetadataConcurrentUpdateWithIndexesTest extends GridCommonAbs
             }
 
             // Give some time to apply update.
-            doSleep(3000);
+            GridTestUtils.doSleep(3000);
 
             // Unblock second metadata update.
             localMetaUpdatedLatch.countDown();
 
             // Give some time for tx to complete (success or fail). fut2 will throw an error if tx has failed on commit.
-            doSleep(3000);
+            GridTestUtils.doSleep(3000);
 
             // Unblock metadata message and allow for correct version acceptance.
             srvWait.set(true);

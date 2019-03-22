@@ -59,7 +59,7 @@ public class JdbcThinDataPageScanPropertySelfTest extends GridCommonAbstractTest
      * Execute provided sql update query.
      */
     private void executeUpdate(String sql) throws Exception {
-        try (Connection conn = GridTestUtils.connect(grid(0), null)) {
+        try (Connection conn = GridTestUtils.connect(ignite(0), null)) {
             try (PreparedStatement upd = conn.prepareStatement(sql)) {
                 upd.executeUpdate();
             }
@@ -75,7 +75,7 @@ public class JdbcThinDataPageScanPropertySelfTest extends GridCommonAbstractTest
 
         executeUpdate("CREATE TABLE TEST (id INT PRIMARY KEY, val INT)");
 
-        IgniteCache<Integer, Integer> cache = grid(0).cache("SQL_PUBLIC_TEST");
+        IgniteCache<Integer, Integer> cache = ignite(0).cache("SQL_PUBLIC_TEST");
 
         for (int i = 0; i < INITIAL_ROWS_CNT; i++)
             executeUpdate("INSERT INTO TEST VALUES (" + i + ", " + (i + 1) + ")");
@@ -122,7 +122,7 @@ public class JdbcThinDataPageScanPropertySelfTest extends GridCommonAbstractTest
 
         int expCnt = 0;
 
-        try (Connection conn = GridTestUtils.connect(grid(0), params)) {
+        try (Connection conn = GridTestUtils.connect(ignite(0), params)) {
             try (PreparedStatement upd = conn.prepareStatement(qryWithParam)) {
                 for (int i = 0; i < TOTAL_QUERIES_TO_EXECUTE; i++) {
                     upd.setInt(1, i);
@@ -164,7 +164,7 @@ public class JdbcThinDataPageScanPropertySelfTest extends GridCommonAbstractTest
     private void checkDataPageScan(String qry, @Nullable Boolean dps) throws Exception {
         String params = (dps == null) ? null : "dataPageScanEnabled=" + dps;
 
-        try (Connection conn = GridTestUtils.connect(grid(0), params)) {
+        try (Connection conn = GridTestUtils.connect(ignite(0), params)) {
             try (PreparedStatement stmt = conn.prepareStatement(qry)) {
                 stmt.execute();
             }

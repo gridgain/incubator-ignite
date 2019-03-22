@@ -295,7 +295,7 @@ public class IgnitePersistentStoreCacheGroupsTest extends GridCommonAbstractTest
         ccfgs = new CacheConfiguration[]{cacheConfiguration(GROUP1, "c1", PARTITIONED, ATOMIC, 1)
             .setIndexedTypes(Integer.class, Person.class)};
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.active(true);
 
@@ -313,7 +313,7 @@ public class IgnitePersistentStoreCacheGroupsTest extends GridCommonAbstractTest
 
         CacheConfiguration ccfg2 = cacheConfiguration(GROUP1, "c2", PARTITIONED, ATOMIC, 1);
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.active(true);
 
@@ -340,7 +340,7 @@ public class IgnitePersistentStoreCacheGroupsTest extends GridCommonAbstractTest
         CacheConfiguration ccfg2 = cacheConfiguration(GROUP1, "c2", PARTITIONED, ATOMIC, 1)
             .setIndexedTypes(Integer.class, Person.class);
 
-        Ignite ignite = startGrid();
+        Ignite ignite = clusterManager__startGrid();
 
         ignite.active(true);
 

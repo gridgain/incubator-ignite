@@ -91,7 +91,7 @@ public class RendezvousAffinityFunctionSimpleBenchmark extends GridCommonAbstrac
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        ignite = startGrid();
+        ignite = clusterManager__startGrid();
     }
 
     /** {@inheritDoc} */

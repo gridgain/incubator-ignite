@@ -277,7 +277,7 @@ public class IgniteCacheConfigurationTemplateTest extends GridCommonAbstractTest
                 @Override public Void call() throws Exception {
                     int node = idx.getAndIncrement() % GRID_CNT;
 
-                    Ignite ignite = grid(node);
+                    Ignite ignite = ignite(node);
 
                     log.info("Add configuration using node: " + ignite.name());
 
@@ -295,7 +295,7 @@ public class IgniteCacheConfigurationTemplateTest extends GridCommonAbstractTest
             }, 15, "add-configuration");
 
             for (int grid = 0; grid < GRID_CNT; grid++)
-                checkGetOrCreate(grid(grid), "org.apache.ignite" + iter, iter);
+                checkGetOrCreate(ignite(grid), "org.apache.ignite" + iter, iter);
         }
 
         Ignite ignite = startGrid(GRID_CNT);
@@ -434,7 +434,7 @@ public class IgniteCacheConfigurationTemplateTest extends GridCommonAbstractTest
      */
     private void checkNoTemplateCaches(int nodes) {
         for (int i = 0; i < nodes; i++) {
-            final Ignite ignite = grid(i);
+            final Ignite ignite = ignite(i);
 
             GridTestUtils.assertThrows(log, new Callable<Void>() {
                 @Override public Void call() throws Exception {

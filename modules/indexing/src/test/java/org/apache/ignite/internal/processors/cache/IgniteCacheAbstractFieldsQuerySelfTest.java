@@ -124,7 +124,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
      * @param clsV Class v.
      */
     protected <K, V> IgniteCache<K, V> jcache(Class<K> clsK, Class<V> clsV) {
-        return jcache(grid(0), cacheConfiguration(), clsK, clsV);
+        return jcache(ignite(0), cacheConfiguration(), clsK, clsV);
     }
 
     /**
@@ -133,7 +133,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
      * @param clsV Class v.
      */
     protected <K, V> IgniteCache<K, V> jcache(String name, Class<K> clsK, Class<V> clsV) {
-        return jcache(grid(0), cacheConfiguration(), name, clsK, clsV);
+        return jcache(ignite(0), cacheConfiguration(), name, clsK, clsV);
     }
 
     /** {@inheritDoc} */
@@ -175,12 +175,12 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
         for (int i = 0; i < 200; i++)
             intCache.put(i, i);
 
-        noOpCache = grid(0).getOrCreateCache("noop");
+        noOpCache = ignite(0).getOrCreateCache("noop");
     }
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        binaryMarshaller = grid(0).configuration().getMarshaller() instanceof BinaryMarshaller;
+        binaryMarshaller = ignite(0).configuration().getMarshaller() instanceof BinaryMarshaller;
     }
 
     /** {@inheritDoc} */
@@ -208,12 +208,12 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
     public void testCacheMetaData() throws Exception {
         // Put internal key to test filtering of internal objects.
 
-        for (String cacheName : grid(0).cacheNames())
-            ((IgniteKernal)grid(0)).getCache(cacheName).getAndPut(new GridCacheInternalKeyImpl("LONG", ""), new GridCacheAtomicLongValue(0));
+        for (String cacheName : ignite(0).cacheNames())
+            ((IgniteKernal)ignite(0)).getCache(cacheName).getAndPut(new GridCacheInternalKeyImpl("LONG", ""), new GridCacheAtomicLongValue(0));
 
         try {
             Collection<GridCacheSqlMetadata> metas =
-                ((IgniteKernal)grid(0)).getCache(intCache.getName()).context().queries().sqlMetadata();
+                ((IgniteKernal)ignite(0)).getCache(intCache.getName()).context().queries().sqlMetadata();
 
             assert metas != null;
 
@@ -341,7 +341,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
             }
         }
         finally {
-            ((IgniteKernal)grid(0)).getCache(intCache.getName()).remove(new GridCacheInternalKeyImpl("LONG", ""));
+            ((IgniteKernal)ignite(0)).getCache(intCache.getName()).remove(new GridCacheInternalKeyImpl("LONG", ""));
         }
     }
 
@@ -350,7 +350,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
      */
     @Test
     public void testExplain() {
-        List<List<?>> res = grid(0).cache(personCache.getName()).query(sqlFieldsQuery(
+        List<List<?>> res = ignite(0).cache(personCache.getName()).query(sqlFieldsQuery(
             String.format("explain select p.age, p.name, o.name " +
                     "from \"%s\".Person p, \"%s\".Organization o where p.orgId = o.id",
                 personCache.getName(), orgCache.getName()))).getAll();
@@ -377,11 +377,11 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
             .addQueryField("strField", "java.lang.String", "strField")
             .setFieldsPrecision(ImmutableMap.of("strField", 999));
 
-        grid(0).getOrCreateCache(cacheConfiguration()
+        ignite(0).getOrCreateCache(cacheConfiguration()
             .setName("cacheWithPrecision")
             .setQueryEntities(Collections.singleton(qeWithPrecision)));
 
-        GridQueryProcessor qryProc = grid(0).context().query();
+        GridQueryProcessor qryProc = ignite(0).context().query();
 
         qryProc.querySqlFields(
             new SqlFieldsQuery("INSERT INTO TestType(_KEY, strField) VALUES(?, ?)")
@@ -418,11 +418,11 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
             .addQueryField("strField", "java.lang.String", "strField")
             .setFieldsPrecision(ImmutableMap.of("strField", 999, "my_key", 777));
 
-        grid(0).getOrCreateCache(cacheConfiguration()
+        ignite(0).getOrCreateCache(cacheConfiguration()
             .setName("cacheWithCustomKeyPrecision")
             .setQueryEntities(Collections.singleton(qeWithPrecision)));
 
-        GridQueryProcessor qryProc = grid(0).context().query();
+        GridQueryProcessor qryProc = ignite(0).context().query();
 
         qryProc.querySqlFields(
             new SqlFieldsQuery("INSERT INTO CustomKeyType(my_key, strField) VALUES(?, ?)")
@@ -876,7 +876,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
             assert res.size() == 200;
         }
         finally {
-            grid(0).destroyCache("tmp_int");
+            ignite(0).destroyCache("tmp_int");
         }
     }
 
@@ -884,7 +884,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
     @Test
     public void testNoPrimitives() throws Exception {
         try {
-            final IgniteCache<Object, Object> cache = grid(0).getOrCreateCache("tmp_without_index");
+            final IgniteCache<Object, Object> cache = ignite(0).getOrCreateCache("tmp_without_index");
 
             cache.put("key", "val");
 
@@ -895,7 +895,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
             }, CacheException.class, null);
         }
         finally {
-            grid(0).destroyCache("tmp_without_index");
+            ignite(0).destroyCache("tmp_without_index");
         }
     }
 

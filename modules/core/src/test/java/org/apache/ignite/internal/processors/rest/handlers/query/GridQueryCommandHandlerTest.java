@@ -38,14 +38,14 @@ public class GridQueryCommandHandlerTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid();
+        clusterManager__startGrid();
 
         ConnectorConfiguration connCfg = new ConnectorConfiguration();
 
         connCfg.setIdleQueryCursorCheckFrequency(1000);
         connCfg.setIdleQueryCursorTimeout(1000);
 
-        grid().configuration().setConnectorConfiguration(connCfg);
+        ignite().configuration().setConnectorConfiguration(connCfg);
 
     }
 
@@ -54,7 +54,7 @@ public class GridQueryCommandHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testSupportedCommands() throws Exception {
-        GridTestKernalContext ctx = newContext(grid().configuration());
+        GridTestKernalContext ctx = newContext(ignite().configuration());
 
         ctx.add(new GridTimeoutProcessor(ctx));
 
@@ -76,7 +76,7 @@ public class GridQueryCommandHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testUnsupportedCommands() throws Exception {
-        GridTestKernalContext ctx = newContext(grid().configuration());
+        GridTestKernalContext ctx = newContext(ignite().configuration());
 
         ctx.add(new GridTimeoutProcessor(ctx));
 
@@ -92,7 +92,7 @@ public class GridQueryCommandHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNullCache() throws Exception {
-        QueryCommandHandler cmdHnd = new QueryCommandHandler(grid().context());
+        QueryCommandHandler cmdHnd = new QueryCommandHandler(ignite().context());
 
         Integer arg1 = 1000;
 
@@ -122,9 +122,9 @@ public class GridQueryCommandHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testNullPageSize() throws Exception {
-        grid().getOrCreateCache(getName());
+        ignite().getOrCreateCache(getName());
 
-        QueryCommandHandler cmdHnd = new QueryCommandHandler(grid().context());
+        QueryCommandHandler cmdHnd = new QueryCommandHandler(ignite().context());
 
         Integer arg1 = 1000;
 
@@ -158,9 +158,9 @@ public class GridQueryCommandHandlerTest extends GridCommonAbstractTest {
      */
     @Test
     public void testQuery() throws Exception {
-        grid().getOrCreateCache(getName());
+        ignite().getOrCreateCache(getName());
 
-        QueryCommandHandler cmdHnd = new QueryCommandHandler(grid().context());
+        QueryCommandHandler cmdHnd = new QueryCommandHandler(ignite().context());
 
         Integer arg1 = 1000;
 

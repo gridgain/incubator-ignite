@@ -287,9 +287,9 @@ public class CacheContinuousQueryOperationP2PTest extends GridCommonAbstractTest
 
         try {
             if (isClient)
-                cache = grid(NODES - 1).cache(ccfg.getName());
+                cache = ignite(NODES - 1).cache(ccfg.getName());
             else
-                cache = grid(rnd.nextInt(NODES - 1)).cache(ccfg.getName());
+                cache = ignite(rnd.nextInt(NODES - 1)).cache(ccfg.getName());
 
             cur = cache.query(qry);
 

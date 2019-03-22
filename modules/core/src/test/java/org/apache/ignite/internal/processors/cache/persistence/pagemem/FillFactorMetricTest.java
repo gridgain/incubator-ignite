@@ -96,9 +96,9 @@ public class FillFactorMetricTest extends GridCommonAbstractTest {
 
         // Cache is created in default region so MY_DATA_REGION will have "empty" metrics.
         CacheConfiguration<Object, Object> cacheCfg = new CacheConfiguration<>().setName(MY_CACHE);
-        grid(0).getOrCreateCache(cacheCfg);
+        ignite(0).getOrCreateCache(cacheCfg);
 
-        DataRegionMetrics m = grid(0).dataRegionMetrics(MY_DATA_REGION);
+        DataRegionMetrics m = ignite(0).dataRegionMetrics(MY_DATA_REGION);
 
         assertEquals(0, m.getTotalAllocatedPages());
 
@@ -115,9 +115,9 @@ public class FillFactorMetricTest extends GridCommonAbstractTest {
 
         startGrids(NODES);
 
-        grid(0).getOrCreateCache(cacheCfg());
+        ignite(0).getOrCreateCache(cacheCfg());
 
-        final int pageSize = grid(0).configuration().getDataStorageConfiguration().getPageSize();
+        final int pageSize = ignite(0).configuration().getDataStorageConfiguration().getPageSize();
 
         IgniteInternalFuture printStatFut = GridTestUtils.runAsync(new Runnable() {
             @Override public void run() {
@@ -136,7 +136,7 @@ public class FillFactorMetricTest extends GridCommonAbstractTest {
             }
 
             protected void printStat(int node) {
-                DataRegionMetrics m = grid(node).dataRegionMetrics(MY_DATA_REGION);
+                DataRegionMetrics m = ignite(node).dataRegionMetrics(MY_DATA_REGION);
 
                 float fillFactor = m.getPagesFillFactor();
 
@@ -162,7 +162,7 @@ public class FillFactorMetricTest extends GridCommonAbstractTest {
 
             IgniteInternalFuture loadFut = GridTestUtils.runAsync(new Runnable() {
                 @Override public void run() {
-                    IgniteCache<Object, Object> cache = grid(0).cache(MY_CACHE);
+                    IgniteCache<Object, Object> cache = ignite(0).cache(MY_CACHE);
 
                     while (!stopLoadFlag.get()) {
                         int i = recordsInCache.incrementAndGet();
@@ -197,7 +197,7 @@ public class FillFactorMetricTest extends GridCommonAbstractTest {
 
             IgniteInternalFuture clearFut = GridTestUtils.runAsync(new Runnable() {
                 @Override public void run() {
-                    IgniteCache<Object, Object> cache = grid(0).cache(MY_CACHE);
+                    IgniteCache<Object, Object> cache = ignite(0).cache(MY_CACHE);
 
                     int i;
                     while ((i = recordsInCache.getAndDecrement()) > 0) {
