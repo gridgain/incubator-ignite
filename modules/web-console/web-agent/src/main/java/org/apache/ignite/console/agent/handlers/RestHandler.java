@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.agent.handlers;
 
+import java.util.Map;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
 
@@ -36,36 +37,20 @@ public class RestHandler {
         this.restExecutor = restExecutor;
     }
 
-//    /** {@inheritDoc} */
-//    @Override public void start() {
-//        EventBus eventBus = vertx.eventBus();
-//
-//        eventBus.consumer(Addresses.NODE_REST, this::handleRest);
-//        eventBus.consumer(Addresses.NODE_VISOR, this::handleRest);
-//    }
+    /**
+     * @param params REST request params.
+     */
+    public RestResult handleRest(Map<String, Object> params) {
+        try {
+            // JsonObject params = msg.body().getJsonObject("params");
 
-//    /**
-//     * @param msg Message.
-//     */
-//    private void handleRest(Message<JsonObject> msg) {
-//        vertx.executeBlocking(
-//            fut -> {
-//                try {
-//                    JsonObject params = msg.body().getJsonObject("params");
-//
-//                    RestResult res = restExecutor.sendRequest(params);
-//
-//                    fut.complete(JsonObject.mapFrom(res));
-//                }
-//                catch (Throwable e) {
-//                    fut.fail(e);
-//                }
-//            },
-//            asyncRes -> {
-//                if (asyncRes.succeeded())
-//                    msg.reply(asyncRes.result());
-//                else
-//                    msg.fail(HTTP_INTERNAL_ERROR, asyncRes.cause().getMessage());
-//            });
-//    }
+            RestResult res = restExecutor.sendRequest(params);
+
+            return res;
+//            fut.complete(JsonObject.mapFrom(res));
+        }
+        catch (Throwable e) {
+            return RestResult.fail(HTTP_INTERNAL_ERROR, e.getMessage());
+        }
+    }
 }

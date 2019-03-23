@@ -255,6 +255,8 @@ export default class AgentManager {
 
         // const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
+        const uri = 'ws://localhost:9000/browsers'; // TODO !!!!
+
         // Open websocket connection to backend.
         this.ws = new Sockette(uri, {
             timeout: 5000, // Retry every 5 seconds

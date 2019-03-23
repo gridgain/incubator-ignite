@@ -32,6 +32,6 @@ public class WebSocketConfiguration implements WebSocketConfigurer {
 	 * @param registry Registry.
 	 */
 	@Override public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		registry.addHandler(new SocketHandler(), "/eventbus");
+		registry.addHandler(new SocketHandler(), "/browsers", "/agents");
 	}
 }

@@ -21,7 +21,10 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
+import java.util.List;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.log4j.Logger;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 /**
  * Utility methods.
@@ -109,26 +112,47 @@ public class AgentUtils {
         return null;
     }
 
-//    /**
-//     * @param path Path to JKS file.
-//     * @param pwd Optional password.
-//     * @return Java key store options or {@code null}.
-//     * @throws FileNotFoundException if failed to resolve path to JKS.
-//     */
-//    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
-//        if (F.isEmpty(path))
-//            return null;
-//
-//        File file = U.resolveIgnitePath(path);
-//
-//        if (file == null)
-//            throw new FileNotFoundException("Failed to resolve path: " + path);
-//
-//        JksOptions jks = new JksOptions().setPath(file.getPath());
-//
-//        if (!F.isEmpty(pwd))
-//            jks.setPassword(pwd);
-//
-//        return jks;
-//    }
+    /**
+     *
+     * @param keyStore
+     * @param keyStorePwd
+     * @param trustAll
+     * @param trustStore
+     * @param trustStorePwd
+     * @param ciphers
+     * @return
+     */
+    public static SslContextFactory sslContextFactory(
+        String keyStore,
+        String keyStorePwd,
+        boolean trustAll,
+        String trustStore,
+        String trustStorePwd,
+        List<String> ciphers
+    ) {
+        SslContextFactory sslContextFactory = new SslContextFactory();
+
+        if (!F.isEmpty(keyStore)) {
+            sslContextFactory.setKeyStorePath(keyStore);
+
+            if (!F.isEmpty(keyStorePwd))
+                sslContextFactory.setKeyStorePassword(keyStorePwd);
+        }
+
+        if (trustAll) {
+            sslContextFactory.setTrustAll(true);
+            sslContextFactory.setHostnameVerifier((hostname, session) -> true);
+        }
+        else if (!F.isEmpty(trustStore)) {
+            sslContextFactory.setTrustStorePath(trustStore);
+
+            if (!F.isEmpty(trustStorePwd))
+                sslContextFactory.setTrustStorePassword(trustStorePwd);
+        }
+
+        if (!F.isEmpty(ciphers))
+            sslContextFactory.setIncludeCipherSuites(ciphers.toArray(new String[] {}));
+
+        return  sslContextFactory;
+    }
 }

@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Scanner;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import org.apache.ignite.console.agent.rest.RestExecutor;
+import org.apache.ignite.console.agent.handlers.WebSocketHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -190,17 +190,12 @@ public class AgentLauncher {
         AgentConfiguration cfg = parseArgs(args);
 
         if (cfg != null) {
-//            VertxOptions opts = new VertxOptions()
-//                .setBlockedThreadCheckInterval(Integer.MAX_VALUE); // TODO IGNITE-5617 Only for debug!
-//
-//            Vertx vertx = Vertx.vertx(opts);
-
-            RestExecutor restExecutor = new RestExecutor(cfg);
-
-//            vertx.deployVerticle(new WebSocketRouter(cfg));
-//            vertx.deployVerticle(new DatabaseHandler(cfg));
-//            vertx.deployVerticle(new ClusterHandler(cfg, restExecutor));
-//            vertx.deployVerticle(new RestHandler(restExecutor));
+            try(WebSocketHandler websocket = new WebSocketHandler(cfg)) {
+                websocket.awaitClose();
+            }
+            catch (Throwable e) {
+                log.error("Agent failed", e);
+            }
         }
     }
 }

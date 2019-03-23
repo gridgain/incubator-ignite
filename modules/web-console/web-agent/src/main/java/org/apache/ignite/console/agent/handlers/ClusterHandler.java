@@ -22,9 +22,14 @@ import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -55,7 +60,7 @@ import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresse
 /**
  * API to transfer topology from Ignite cluster to Web Console.
  */
-public class ClusterHandler {
+public class ClusterHandler implements AutoCloseable {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterHandler.class));
 
@@ -99,7 +104,10 @@ public class ClusterHandler {
     private final RestExecutor restExecutor;
 
     /** */
-    private volatile long curTimer;
+    private static final ScheduledExecutorService pool = Executors.newScheduledThreadPool(1);
+
+    /** */
+    private ScheduledFuture<?> refreshTask;
 
     /**
      * @param cfg Web agent configuration.
@@ -108,16 +116,6 @@ public class ClusterHandler {
         this.cfg = cfg;
         this.restExecutor = restExecutor;
     }
-
-//    /** {@inheritDoc} */
-//    @Override public void start() {
-//        curTimer = vertx.setTimer(1, this::watch);
-//    }
-//
-//    /** {@inheritDoc} */
-//    @Override public void stop() {
-//        vertx.cancelTimer(curTimer);
-//    }
 
     /**
      * Callback on cluster connect.
@@ -128,7 +126,7 @@ public class ClusterHandler {
         log.info("Connection successfully established to cluster with nodes: " +
             nids.stream().map(U::id8).collect(Collectors.joining(",", "[", "]")));
 
-        // vertx.eventBus().send(Addresses.CLUSTER_CONNECTED, nids);
+        // websocket.send(Addresses.CLUSTER_CONNECTED, nids);
     }
 
     /**
@@ -142,7 +140,7 @@ public class ClusterHandler {
 
         log.info("Connection to cluster was lost");
 
-        // vertx.eventBus().publish(Addresses.CLUSTER_DISCONNECTED, null);
+        // websocket.send(Addresses.CLUSTER_DISCONNECTED, null);
     }
 
     /**
@@ -152,13 +150,13 @@ public class ClusterHandler {
      * @return Command result.
      * @throws IOException If failed to execute.
      */
-    private RestResult restCommand(Object params) throws IOException {
-//        if (!F.isEmpty(sesTok))
-//            params.put("sessionToken", sesTok);
-//        else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
-//            params.put("user", cfg.nodeLogin());
-//            params.put("password", cfg.nodePassword());
-//        }
+    private RestResult restCommand(Map<String, Object> params) throws IOException {
+        if (!F.isEmpty(sesTok))
+            params.put("sessionToken", sesTok);
+        else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
+            params.put("user", cfg.nodeLogin());
+            params.put("password", cfg.nodePassword());
+        }
 
         RestResult res = restExecutor.sendRequest(params);
 
@@ -172,7 +170,7 @@ public class ClusterHandler {
                 if (res.getError().startsWith(EXPIRED_SES_ERROR_MSG)) {
                     sesTok = null;
 
-                    // params.remove("sessionToken");
+                    params.remove("sessionToken");
 
                     return restCommand(params);
                 }
@@ -193,31 +191,31 @@ public class ClusterHandler {
         if (ver.compareTo(IGNITE_2_0) < 0)
             return true;
 
-//        JsonObject params = new JsonObject();
+        Map<String, Object> params = new LinkedHashMap<>();
 
         boolean v23 = ver.compareTo(IGNITE_2_3) >= 0;
 
-//        if (v23)
-//            params.put("cmd", "currentState");
-//        else {
-//            params.put("cmd", "exe");
-//            params.put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask");
-//            params.put("p1", nid);
-//            params.put("p2", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTask");
-//            params.put("p3", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTaskArg");
-//            params.put("p4", false);
-//            params.put("p5", EVT_LAST_ORDER_KEY);
-//            params.put("p6", EVT_THROTTLE_CNTR_KEY);
-//
-//            if (ver.compareTo(IGNITE_2_1) >= 0)
-//                params.put("p7", false);
-//            else {
-//                params.put("p7", 10);
-//                params.put("p8", false);
-//            }
-//        }
+        if (v23)
+            params.put("cmd", "currentState");
+        else {
+            params.put("cmd", "exe");
+            params.put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask");
+            params.put("p1", nid);
+            params.put("p2", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTask");
+            params.put("p3", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTaskArg");
+            params.put("p4", false);
+            params.put("p5", EVT_LAST_ORDER_KEY);
+            params.put("p6", EVT_THROTTLE_CNTR_KEY);
 
-        RestResult res = restCommand(null); //params);
+            if (ver.compareTo(IGNITE_2_1) >= 0)
+                params.put("p7", false);
+            else {
+                params.put("p7", 10);
+                params.put("p8", false);
+            }
+        }
+
+        RestResult res = restCommand(params);
 
         if (res.getStatus() == STATUS_SUCCESS)
             return v23 ? Boolean.valueOf(res.getData()) : res.getData().contains("\"active\":true");
@@ -232,62 +230,66 @@ public class ClusterHandler {
      * @throws IOException If failed to collect cluster topology.
      */
     private RestResult topology() throws IOException {
-//        JsonObject params = new JsonObject();
-//
-//        params.put("cmd", "top");
-//        params.put("attr", true);
-//        params.put("mtr", false);
-//        params.put("caches", false);
+        Map<String, Object> params = new LinkedHashMap<>();
+
+        params.put("cmd", "top");
+        params.put("attr", true);
+        params.put("mtr", false);
+        params.put("caches", false);
 
         return restCommand(null/*params*/);
     }
 
     /**
      * Start watch cluster.
-     *
-     * @param tid Timer ID.
      */
-    public void watch(long tid) {
-        try {
-            RestResult res = topology();
+    public void watch() {
+        refreshTask = pool.scheduleWithFixedDelay(() -> {
+            try {
+                RestResult res = topology();
 
-            if (res.getStatus() == STATUS_SUCCESS) {
-                List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
-                    new TypeReference<List<GridClientNodeBean>>() {});
+                if (res.getStatus() == STATUS_SUCCESS) {
+                    List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
+                        new TypeReference<List<GridClientNodeBean>>() {});
 
-                TopologySnapshot newTop = new TopologySnapshot(nodes);
+                    TopologySnapshot newTop = new TopologySnapshot(nodes);
 
-                if (newTop.differentCluster(top))
-                    log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
-                else if (newTop.topologyChanged(top))
-                    log.info("Cluster topology changed, new topology: " + newTop.nid8());
+                    if (newTop.differentCluster(top))
+                        log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
+                    else if (newTop.topologyChanged(top))
+                        log.info("Cluster topology changed, new topology: " + newTop.nid8());
 
-                boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
+                    boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
 
-                newTop.setActive(active);
-                newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+                    newTop.setActive(active);
+                    newTop.setSecured(!F.isEmpty(res.getSessionToken()));
 
-                top = newTop;
+                    top = newTop;
 
-                // vertx.eventBus().send(Addresses.CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
+                    // websocket.send(Addresses.CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
+                }
+                else {
+                    LT.warn(log, res.getError());
+
+                    clusterDisconnect();
+                }
             }
-            else {
-                LT.warn(log, res.getError());
+            catch (ConnectException ignored) {
+                clusterDisconnect();
+            }
+            catch (Throwable e) {
+                log.error("WatchTask failed", e);
 
                 clusterDisconnect();
             }
-        }
-        catch (ConnectException ignored) {
-            clusterDisconnect();
-        }
-        catch (Throwable e) {
-            log.error("WatchTask failed", e);
+        }, 0L, REFRESH_FREQ, TimeUnit.MILLISECONDS);
+    }
 
-            clusterDisconnect();
-        }
-        finally {
-            // curTimer = vertx.setTimer(REFRESH_FREQ, this::watch);
-        }
+    /** {@inheritDoc} */
+    @Override public void close() {
+        refreshTask.cancel(true);
+
+        pool.shutdownNow();
     }
 
     /** */

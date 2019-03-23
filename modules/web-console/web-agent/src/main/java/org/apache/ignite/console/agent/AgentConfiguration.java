@@ -41,7 +41,7 @@ public class AgentConfiguration {
     public static final String DFLT_CFG_PATH = "default.properties";
 
     /** Default server URI. */
-    private static final String DFLT_SERVER_URI = "http://localhost:3000";
+    private static final String DFLT_SERVER_URI = "ws://localhost:3000";
 
     /** Default Ignite node HTTP URI. */
     private static final String DFLT_NODE_URI = "http://localhost:8080";
