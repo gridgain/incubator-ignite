@@ -18,8 +18,13 @@
 package org.apache.ignite.console;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.console.json.Json;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.console.services.AdminService;
@@ -31,12 +36,12 @@ import org.apache.ignite.console.services.NotebooksService;
  * Web Console server.
  */
 public class WebConsoleServer {
-//    static {
-//        Json.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-//    }
+    static {
+        Json.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
-//    /** */
-//    protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
+    /** */
+    protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /** */
     protected WebConsoleConfiguration cfg;
