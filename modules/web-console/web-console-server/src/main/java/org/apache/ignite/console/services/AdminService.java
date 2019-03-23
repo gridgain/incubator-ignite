@@ -17,7 +17,18 @@
 
 package org.apache.ignite.console.services;
 
+import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.transactions.Transaction;
+
+import static org.apache.ignite.console.common.Utils.boolParam;
+import static org.apache.ignite.console.common.Utils.uuidParam;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Service to handle administrator actions.
@@ -60,68 +71,68 @@ public class AdminService extends AbstractService {
         return this;
     }
 
-//    /**
-//     * @param params Parameters in JSON format.
-//     */
-//    @SuppressWarnings("unused")
-//    private JsonArray list(JsonObject params) {
-//        List<Account> accounts = accountsSvc.list();
-//
-//        JsonArray res = new JsonArray();
-//
-//        accounts.forEach(account ->
-//            res.add(new JsonObject()
-//                .put("_id", account._id())
-//                .put("firstName", account.firstName())
-//                .put("lastName", account.lastName())
-//                .put("admin", account.admin())
-//                .put("email", account.email())
-//                .put("company", account.company())
-//                .put("country", account.country())
-//                .put("lastLogin", account.lastLogin())
-//                .put("lastActivity", account.lastActivity())
-//                .put("activated", account.activated())
-//                .put("counters", new JsonObject()
-//                    .put("clusters", 0)
-//                    .put("caches", 0)
-//                    .put("models", 0)
-//                    .put("igfs", 0))
-//            )
-//        );
-//
-//        return res;
-//    }
+    /**
+     * @param params Parameters in JSON format.
+     */
+    @SuppressWarnings("unused")
+    private JsonArray list(JsonObject params) {
+        List<Account> accounts = accountsSvc.list();
 
-//    /**
-//     * Remove account.
-//     *
-//     * @param accId Account Id.
-//     * @return Affected rows JSON object.
-//     */
-//    private JsonObject delete(String accId) {
-//        UUID id = UUID.fromString(accId);
-//
-//        int rows;
-//
-//        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-//            cfgsSvc.deleteByAccountId(id);
-//            notebooksSvc.deleteByAccountId(id);
-//
-//            rows = accountsSvc.delete(id);
-//
-//            tx.commit();
-//        }
-//
-//        return rowsAffected(rows);
-//    }
-//
-//    /**
-//     * @param params Parameters in JSON format.
-//     * @return Affected rows JSON object.
-//     */
-//    private JsonObject toggle(JsonObject params) {
-//        accountsSvc.updatePermission(uuidParam(params, "accountId"), boolParam(params, "admin", false));
-//
-//        return rowsAffected(1);
-//    }
+        JsonArray res = new JsonArray();
+
+        accounts.forEach(account ->
+            res.add(new JsonObject()
+                .put("_id", account._id())
+                .put("firstName", account.firstName())
+                .put("lastName", account.lastName())
+                .put("admin", account.admin())
+                .put("email", account.email())
+                .put("company", account.company())
+                .put("country", account.country())
+                .put("lastLogin", account.lastLogin())
+                .put("lastActivity", account.lastActivity())
+                .put("activated", account.activated())
+                .put("counters", new JsonObject()
+                    .put("clusters", 0)
+                    .put("caches", 0)
+                    .put("models", 0)
+                    .put("igfs", 0))
+            )
+        );
+
+        return res;
+    }
+
+    /**
+     * Remove account.
+     *
+     * @param accId Account Id.
+     * @return Affected rows JSON object.
+     */
+    private JsonObject delete(String accId) {
+        UUID id = UUID.fromString(accId);
+
+        int rows;
+
+        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            cfgsSvc.deleteByAccountId(id);
+            notebooksSvc.deleteByAccountId(id);
+
+            rows = accountsSvc.delete(id);
+
+            tx.commit();
+        }
+
+        return rowsAffected(rows);
+    }
+
+    /**
+     * @param params Parameters in JSON format.
+     * @return Affected rows JSON object.
+     */
+    private JsonObject toggle(JsonObject params) {
+        accountsSvc.updatePermission(uuidParam(params, "accountId"), boolParam(params, "admin", false));
+
+        return rowsAffected(1);
+    }
 }

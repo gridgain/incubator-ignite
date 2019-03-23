@@ -18,6 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**
@@ -27,27 +28,27 @@ public class Notebook extends DataObject {
     /** */
     private String name;
 
-//    /**
-//     * @param json JSON data.
-//     * @return New instance of model DTO.
-//     */
-//    public static Notebook fromJson(JsonObject json) {
-//        String id = json.getString("_id");
-//
-//        if (id == null)
-//            throw new IllegalStateException("Notebook ID not found");
-//
-//        String name = json.getString("name");
-//
-//        if (F.isEmpty(name))
-//            throw new IllegalStateException("Notebook name is empty");
-//
-//        return new Notebook(
-//            UUID.fromString(id),
-//            json.getString("name"),
-//            json.encode()
-//        );
-//    }
+    /**
+     * @param json JSON data.
+     * @return New instance of model DTO.
+     */
+    public static Notebook fromJson(JsonObject json) {
+        String id = json.getString("_id");
+
+        if (id == null)
+            throw new IllegalStateException("Notebook ID not found");
+
+        String name = json.getString("name");
+
+        if (F.isEmpty(name))
+            throw new IllegalStateException("Notebook name is empty");
+
+        return new Notebook(
+            UUID.fromString(id),
+            json.getString("name"),
+            json.encode()
+        );
+    }
 
     /**
      * Full constructor.
@@ -69,10 +70,10 @@ public class Notebook extends DataObject {
         return name;
     }
 
-//    /** {@inheritDoc} */
-//    @Override public JsonObject shortView() {
-//        return new JsonObject()
-//            .put("_id", _id())
-//            .put("name", name);
-//    }
+    /** {@inheritDoc} */
+    @Override public JsonObject shortView() {
+        return new JsonObject()
+            .put("_id", _id())
+            .put("name", name);
+    }
 }

@@ -18,8 +18,6 @@
 package org.apache.ignite.console.routes;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.auth.ContextAccount;
-import org.apache.ignite.console.common.Addresses;
 
 /**
  * Router to handle REST API for configurations.

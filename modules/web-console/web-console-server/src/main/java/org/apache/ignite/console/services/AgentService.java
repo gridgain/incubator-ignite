@@ -17,9 +17,13 @@
 
 package org.apache.ignite.console.services;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 
 /**
  * Service to handle requests to Visor tasks.
@@ -89,28 +93,28 @@ public class AgentService extends AbstractService {
         registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
     }
 
-//    /**
-//     * TODO IGNITE-5617
-//     * @param desc Task descriptor.
-//     * @param nids Node IDs.
-//     * @param args Task arguments.
-//     * @return JSON object with VisorGatewayTask REST descriptor.
-//     */
-//    protected JsonObject prepareNodeVisorParams(VisorTaskDescriptor desc, String nids, JsonArray args) {
-//        JsonObject exeParams =  new JsonObject()
-//            .put("cmd", "exe")
-//            .put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
-//            .put("p1", nids)
-//            .put("p2", desc.getTaskClass());
-//
-//        AtomicInteger idx = new AtomicInteger(3);
-//
-//        Arrays.stream(desc.getArgumentsClasses()).forEach(arg ->  exeParams.put("p" + idx.getAndIncrement(), arg));
-//
-//        args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
-//
-//        return exeParams;
-//    }
+    /**
+     * TODO IGNITE-5617
+     * @param desc Task descriptor.
+     * @param nids Node IDs.
+     * @param args Task arguments.
+     * @return JSON object with VisorGatewayTask REST descriptor.
+     */
+    protected JsonObject prepareNodeVisorParams(VisorTaskDescriptor desc, String nids, JsonArray args) {
+        JsonObject exeParams =  new JsonObject()
+            .put("cmd", "exe")
+            .put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
+            .put("p1", nids)
+            .put("p2", desc.getTaskClass());
+
+        AtomicInteger idx = new AtomicInteger(3);
+
+        Arrays.stream(desc.getArgumentsClasses()).forEach(arg ->  exeParams.put("p" + idx.getAndIncrement(), arg));
+
+        args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
+
+        return exeParams;
+    }
 
 //    /**
 //     * @param be Bridge event

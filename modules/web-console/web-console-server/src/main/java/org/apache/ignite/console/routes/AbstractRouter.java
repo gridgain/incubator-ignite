@@ -29,15 +29,11 @@ public abstract class AbstractRouter implements RestApiRouter {
     /** */
     protected final Ignite ignite;
 
-//    /** */
-//    protected final Vertx vertx;
-
     /**
      * @param ignite Ignite.
      */
-    protected AbstractRouter(Ignite ignite/*, Vertx vertx*/) {
+    protected AbstractRouter(Ignite ignite) {
         this.ignite = ignite;
-        // this.vertx = vertx;
     }
 
 //    /**

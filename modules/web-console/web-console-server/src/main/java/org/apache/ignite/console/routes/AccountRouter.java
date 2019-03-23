@@ -18,12 +18,7 @@
 package org.apache.ignite.console.routes;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.auth.ContextAccount;
 import org.apache.ignite.console.auth.IgniteAuth;
-import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.internal.util.typedef.F;
-
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 /**
  * Router to handle REST API for configurations.

@@ -19,6 +19,7 @@ package org.apache.ignite.console.auth;
 
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonObject;
 
 /**
  * Account saved in session.
@@ -27,8 +28,8 @@ public class ContextAccount {
     /** Account id. */
     private UUID accId;
 
-//    /** Cached principal. */
-//    private JsonObject cachedPrincipal;
+    /** Cached principal. */
+    private JsonObject cachedPrincipal;
 
     /** Auth provider. */
     private IgniteAuth authProvider;

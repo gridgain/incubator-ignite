@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.json;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+/**
+ * @author <a href="http://tfox.org">Tim Fox</a>
+ */
+public class EncodeException extends RuntimeException {
 
-/** */
-@SpringBootApplication
-public class Application {
-    /**
-     * @param args Args.
-     */
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
+  public EncodeException(String message) {
+    super(message);
+  }
+
+  public EncodeException(String message, Throwable cause) {
+    super(message, cause);
+  }
+
+  public EncodeException() {
+  }
 }

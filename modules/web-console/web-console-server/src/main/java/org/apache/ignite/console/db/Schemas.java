@@ -18,8 +18,12 @@
 package org.apache.ignite.console.db;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 
 /**
  * Registry with DTO objects metadata.
@@ -74,54 +78,54 @@ public class Schemas {
         return schemas.get(cls);
     }
 
-//    /**
-//     * Sanitize raw data.
-//     *
-//     * @param schema Schema.
-//     * @param json Data object.
-//     * @return Sanitized object.
-//     */
-//    private static JsonObject sanitize0(Properties schema, JsonObject json) {
-//        Set<String> flds = new HashSet<>(json.fieldNames());
-//
-//        for (String fld : flds) {
-//            if (schema.hasProperty(fld)) {
-//                Properties childSchema = schema.childSchema(fld);
-//
-//                if (childSchema != null) {
-//                    Object child = json.getValue(fld);
-//
-//                    if (child instanceof JsonArray) {
-//                        JsonArray rawItems = (JsonArray)child;
-//                        JsonArray sanitizedItems = new JsonArray();
-//
-//                        rawItems.forEach(item -> sanitizedItems.add(sanitize0(childSchema, (JsonObject)item)));
-//                        json.put(fld, sanitizedItems);
-//                    }
-//                    else if (child instanceof JsonObject)
-//                        json.put(fld, sanitize0(childSchema, (JsonObject)child));
-//                    else
-//                        throw new IllegalStateException("Expected array or object, but found: " +
-//                            (child != null ? child.getClass().getName() : "null"));
-//                }
-//            }
-//            else
-//                json.remove(fld);
-//        }
-//
-//        return json;
-//    }
-//
-//    /**
-//     * Sanitize JSON object.
-//     *
-//     * @param cls Class of data object.
-//     * @param json JSON object to check.
-//     * @return Sanitized object.
-//     */
-//    public static JsonObject sanitize(Class cls, JsonObject json) {
-//        Properties schema = INSTANCE.schema(cls);
-//
-//        return sanitize0(schema, json);
-//    }
+    /**
+     * Sanitize raw data.
+     *
+     * @param schema Schema.
+     * @param json Data object.
+     * @return Sanitized object.
+     */
+    private static JsonObject sanitize0(Properties schema, JsonObject json) {
+        Set<String> flds = new HashSet<>(json.fieldNames());
+
+        for (String fld : flds) {
+            if (schema.hasProperty(fld)) {
+                Properties childSchema = schema.childSchema(fld);
+
+                if (childSchema != null) {
+                    Object child = json.getValue(fld);
+
+                    if (child instanceof JsonArray) {
+                        JsonArray rawItems = (JsonArray)child;
+                        JsonArray sanitizedItems = new JsonArray();
+
+                        rawItems.forEach(item -> sanitizedItems.add(sanitize0(childSchema, (JsonObject)item)));
+                        json.put(fld, sanitizedItems);
+                    }
+                    else if (child instanceof JsonObject)
+                        json.put(fld, sanitize0(childSchema, (JsonObject)child));
+                    else
+                        throw new IllegalStateException("Expected array or object, but found: " +
+                            (child != null ? child.getClass().getName() : "null"));
+                }
+            }
+            else
+                json.remove(fld);
+        }
+
+        return json;
+    }
+
+    /**
+     * Sanitize JSON object.
+     *
+     * @param cls Class of data object.
+     * @param json JSON object to check.
+     * @return Sanitized object.
+     */
+    public static JsonObject sanitize(Class cls, JsonObject json) {
+        Properties schema = INSTANCE.schema(cls);
+
+        return sanitize0(schema, json);
+    }
 }

@@ -19,7 +19,13 @@ package org.apache.ignite.console.services;
 
 import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.db.Schemas;
+import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.NotebooksRepository;
+
+import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
  * Service to handle notebooks.
@@ -55,39 +61,39 @@ public class NotebooksService extends AbstractService {
         notebooksRepo.deleteByAccount(accId);
     }
 
-//    /**
-//     * @param params Parameters in JSON format.
-//     * @return List of user notebooks.
-//     */
-//    private JsonArray load(JsonObject params) {
-//        UUID userId = getUserId(params);
-//
-//        return toJsonArray(notebooksRepo.list(userId));
-//    }
+    /**
+     * @param params Parameters in JSON format.
+     * @return List of user notebooks.
+     */
+    private JsonArray load(JsonObject params) {
+        UUID userId = getUserId(params);
 
-//    /**
-//     * @param params Parameters in JSON format.
-//     * @return Affected rows JSON object.
-//     */
-//    private JsonObject save(JsonObject params) {
-//        UUID userId = getUserId(params);
-//        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(params, "notebook")));
-//
-//        notebooksRepo.save(userId, notebook);
-//
-//        return rowsAffected(1);
-//    }
+        return toJsonArray(notebooksRepo.list(userId));
+    }
 
-//    /**
-//     * @param params Parameters in JSON format.
-//     * @return Affected rows JSON object.
-//     */
-//    private JsonObject delete(JsonObject params) {
-//        UUID userId = getUserId(params);
-//        UUID notebookId = getId(getProperty(params, "notebook"));
-//
-//        int rmvCnt = notebooksRepo.delete(userId, notebookId);
-//
-//        return rowsAffected(rmvCnt);
-//    }
+    /**
+     * @param params Parameters in JSON format.
+     * @return Affected rows JSON object.
+     */
+    private JsonObject save(JsonObject params) {
+        UUID userId = getUserId(params);
+        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(params, "notebook")));
+
+        notebooksRepo.save(userId, notebook);
+
+        return rowsAffected(1);
+    }
+
+    /**
+     * @param params Parameters in JSON format.
+     * @return Affected rows JSON object.
+     */
+    private JsonObject delete(JsonObject params) {
+        UUID userId = getUserId(params);
+        UUID notebookId = getId(getProperty(params, "notebook"));
+
+        int rmvCnt = notebooksRepo.delete(userId, notebookId);
+
+        return rowsAffected(rmvCnt);
+    }
 }

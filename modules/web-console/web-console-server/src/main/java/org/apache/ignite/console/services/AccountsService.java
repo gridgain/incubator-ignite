@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.transactions.Transaction;
 
@@ -55,8 +56,8 @@ public class AccountsService extends AbstractService {
      * @param accId Account Id.
      * @return Public fields of account as JSON.
      */
-    private Account getById(String accId) {
-        return accountsRepo.getById(UUID.fromString(accId)); // .publicView();
+    private JsonObject getById(String accId) {
+        return accountsRepo.getById(UUID.fromString(accId)).publicView();
     }
 
     /**
@@ -65,21 +66,21 @@ public class AccountsService extends AbstractService {
      * @param email Account email.
      * @return Account as JSON.
      */
-    private Account getByEmail(String email) {
-        return accountsRepo.getByEmail(email); // .toJson();
+    private JsonObject getByEmail(String email) {
+        return accountsRepo.getByEmail(email).toJson();
     }
 
-//    /**
-//     * @param params Parameters in JSON format.
-//     * @return Affected rows JSON object.
-//     */
-//    private JsonObject register(JsonObject params) {
-//        Account account = Account.fromJson(params);
-//
-//        accountsRepo.create(account);
-//
-//        return rowsAffected(1);
-//    }
+    /**
+     * @param params Parameters in JSON format.
+     * @return Affected rows JSON object.
+     */
+    private JsonObject register(JsonObject params) {
+        Account account = Account.fromJson(params);
+
+        accountsRepo.create(account);
+
+        return rowsAffected(1);
+    }
 
     /**
      * Delete account by ID.

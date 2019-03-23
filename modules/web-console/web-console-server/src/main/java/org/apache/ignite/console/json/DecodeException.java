@@ -15,18 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.json;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+/**
+ * Instances of this Exception are thrown if failed to decode a JSON string, because of invalid JSON.
+ *
+ * @author <a href="http://tfox.org">Tim Fox</a>
+ */
+public class DecodeException extends RuntimeException {
 
-/** */
-@SpringBootApplication
-public class Application {
-    /**
-     * @param args Args.
-     */
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
+  public DecodeException() {
+  }
+
+  public DecodeException(String message) {
+    super(message);
+  }
+
+  public DecodeException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

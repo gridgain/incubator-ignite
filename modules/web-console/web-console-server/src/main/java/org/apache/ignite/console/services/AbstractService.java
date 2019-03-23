@@ -17,7 +17,11 @@
 
 package org.apache.ignite.console.services;
 
+import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.internal.util.typedef.F;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for routers.
@@ -84,54 +88,54 @@ public abstract class AbstractService implements AutoCloseable {
 //        return consumer;
 //    }
 
-//    /**
-//     *
-//     * @param params Params in JSON format.
-//     * @param key Property name.
-//     * @return JSON for specified property.
-//     * @throws IllegalStateException If property not found.
-//     */
-//    protected JsonObject getProperty(JsonObject params, String key) {
-//        JsonObject prop = params.getJsonObject(key);
-//
-//        if (prop == null)
-//            throw new IllegalStateException("Message does not contain property: " + key);
-//
-//        return prop;
-//    }
+    /**
+     *
+     * @param params Params in JSON format.
+     * @param key Property name.
+     * @return JSON for specified property.
+     * @throws IllegalStateException If property not found.
+     */
+    protected JsonObject getProperty(JsonObject params, String key) {
+        JsonObject prop = params.getJsonObject(key);
 
-//    /**
-//     * @param json JSON object.
-//     * @return ID or {@code null} if object has no ID.
-//     */
-//    @Nullable protected UUID getId(JsonObject json) {
-//        String s = json.getString("_id");
-//
-//        return F.isEmpty(s) ? null : UUID.fromString(s);
-//    }
+        if (prop == null)
+            throw new IllegalStateException("Message does not contain property: " + key);
 
-//    /**
-//     * @param params Params in JSON format.
-//     * @return User ID.
-//     * @throws IllegalStateException If user ID not found.
-//     */
-//    protected UUID getUserId(JsonObject params) {
-//        JsonObject user = getProperty(params, "user");
-//
-//        UUID userId = getId(user);
-//
-//        if (userId == null)
-//            throw new IllegalStateException("User ID not found");
-//
-//        return userId;
-//    }
+        return prop;
+    }
 
-//    /**
-//     * @param rows Number of rows.
-//     * @return JSON with number of affected rows.
-//     */
-//    protected JsonObject rowsAffected(int rows) {
-//        return new JsonObject()
-//            .put("rowsAffected", rows);
-//    }
+    /**
+     * @param json JSON object.
+     * @return ID or {@code null} if object has no ID.
+     */
+    @Nullable protected UUID getId(JsonObject json) {
+        String s = json.getString("_id");
+
+        return F.isEmpty(s) ? null : UUID.fromString(s);
+    }
+
+    /**
+     * @param params Params in JSON format.
+     * @return User ID.
+     * @throws IllegalStateException If user ID not found.
+     */
+    protected UUID getUserId(JsonObject params) {
+        JsonObject user = getProperty(params, "user");
+
+        UUID userId = getId(user);
+
+        if (userId == null)
+            throw new IllegalStateException("User ID not found");
+
+        return userId;
+    }
+
+    /**
+     * @param rows Number of rows.
+     * @return JSON with number of affected rows.
+     */
+    protected JsonObject rowsAffected(int rows) {
+        return new JsonObject()
+            .put("rowsAffected", rows);
+    }
 }
