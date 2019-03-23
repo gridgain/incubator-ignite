@@ -24,7 +24,7 @@
     <bean name="web-console-config" class="org.apache.ignite.console.config.WebConsoleConfiguration">
         <property name="port" value="3000"/>
         <property name="agentFolderName" value="/path/to/agent/binaries"/>
-        <property name="agentFileName" value="ignite-web-agent-x.y.z"/>
+        <property name="agentFileName" value="ignite-web-console-agent-x.y.z"/>
         <property name="mailConfiguration">
             <bean class="org.apache.ignite.console.config.MailConfiguration">
                 <property name="greeting" value="Web Console"/>

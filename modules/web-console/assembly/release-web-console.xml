@@ -47,7 +47,7 @@
             <directory>${basedir}/web-agent/target</directory>
             <outputDirectory>/agent_dists</outputDirectory>
             <includes>
-                <include>ignite-web-agent-${project.version}.zip</include>
+                <include>ignite-web-console-agent-${project.version}.zip</include>
             </includes>
         </fileSet>
 

@@ -10,19 +10,19 @@ Build image
 
         mvn clean install -T 2C \
                           -Pall-java,all-scala,licenses,web-console \
-                          -pl :ignite-web-agent -am \
+                          -pl :ignite-web-console-agent -am \
                           -DskipTests
 
 2) Go to Apache Ignite Web Console Docker module directory and copy Apache
    Ignite Web Agent's binary archive
 
         cd docker/web-agent
-        cp -rfv ../../modules/web-console/web-agent/target/ignite-web-agent-*.zip ./
+        cp -rfv ../../modules/web-console/web-agent/target/ignite-web-console-agent-*.zip ./
 
 3) Unpack and remove Apache Ignite Web Agent's binary archive
 
-        unzip ignite-web-agent-*.zip
-        rm -rf ignite-web-agent-*.zip
+        unzip ignite-web-console-agent-*.zip
+        rm -rf ignite-web-console-agent-*.zip
 
 4) Build docker image
 
@@ -33,4 +33,4 @@ Build image
 
 5) Clean up
 
-        rm -rf ignite-web-agent*
+        rm -rf ignite-web-console-agent*

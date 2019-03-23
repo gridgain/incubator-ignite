@@ -162,7 +162,7 @@
                             </dependency>
                             <dependency>
                                 <groupId>org.apache.ignite</groupId>
-                                <artifactId>ignite-web-agent</artifactId>
+                                <artifactId>ignite-web-console-agent</artifactId>
                                 <version>${project.version}</version>
                             </dependency>
                         </dependencies>
