@@ -32,6 +32,6 @@ public class AccountsController {
     public String getUser() {
         System.out.println("getUser");
 
-        return "{\"_id\": \"1122334455\"}";
+        return "{\"_id\":\"5683a8e9824d152c044e6281\",\"email\":\"kuaw26@mail.ru\",\"firstName\":\"Alexey\",\"lastName\":\"Kuznetsov\",\"company\":\"GridGain\",\"country\":\"Russia\",\"industry\":\"Other\",\"admin\":true,\"token\":\"NEHYtRKsPHhXT5rrIOJ4\",\"registered\":\"2017-12-21T16:14:37.369Z\",\"lastLogin\":\"2019-03-24T15:07:44.215Z\",\"lastActivity\":\"2019-03-24T15:07:44.875Z\",\"lastEvent\":\"2018-05-23T12:26:29.570Z\",\"demoCreated\":true}";
     }
 }

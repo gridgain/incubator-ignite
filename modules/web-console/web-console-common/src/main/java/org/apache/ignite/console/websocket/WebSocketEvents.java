@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.agent.handlers;
+package org.apache.ignite.console.websocket;
 
 /**
  * Contains event bus addresses.
  */
-public interface Addresses {
+public interface WebSocketEvents {
     /** */
-    public static final String INFO = "info";
+    public static final String AGENT_INFO = "agent:info";
+
+    /** */
+    public static final String AGENT_RESET_TOKEN = "agent:reset:token";
+
+    /** */
+    public static final String BROWSER_INFO = "browser:info";
 
     /** */
     public static final String SCHEMA_IMPORT_DRIVERS = "schemaImport:drivers";
@@ -47,9 +53,6 @@ public interface Addresses {
 
     /** */
     public static final String CLUSTER_DISCONNECTED = "cluster:disconnected";
-
-    /** */
-    public static final String EVENT_RESET_TOKEN = "agent:reset:token";
 
     /** */
     public static final String EVENT_LOG_WARNING = "log:warn";

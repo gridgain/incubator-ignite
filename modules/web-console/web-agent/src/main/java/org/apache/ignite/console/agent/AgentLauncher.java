@@ -29,7 +29,11 @@ import java.util.List;
 import java.util.Scanner;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
+import org.apache.ignite.console.agent.handlers.ClusterHandler;
+import org.apache.ignite.console.agent.handlers.DatabaseHandler;
+import org.apache.ignite.console.agent.handlers.RestHandler;
 import org.apache.ignite.console.agent.handlers.WebSocketHandler;
+import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -190,7 +194,7 @@ public class AgentLauncher {
         AgentConfiguration cfg = parseArgs(args);
 
         if (cfg != null) {
-            try(WebSocketHandler websocket = new WebSocketHandler(cfg)) {
+            try (WebSocketHandler websocket = new WebSocketHandler(cfg)) {
                 websocket.start();
 
                 websocket.awaitClose();

@@ -136,6 +136,9 @@ class ConnectionState {
 export default class AgentManager {
     static $inject = ['$rootScope', '$q', '$transitions', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
 
+    /** Browser ID. */
+    browserId = uuidv4();
+
     /** @type {ng.IScope} */
     $root;
 
@@ -260,7 +263,17 @@ export default class AgentManager {
         // Open websocket connection to backend.
         this.ws = new Sockette(uri, {
             timeout: 5000, // Retry every 5 seconds
-            onopen: (evt) => console.log('Connected!', evt),
+            onopen: (evt) => {
+                console.log('Connected!', evt);
+
+                this._sendWebSocketEvent(
+                    uuidv4(),
+                    'browser:info',
+                    {
+                        browserId: this.browserId
+                    }
+                );
+            },
             onmessage: (evt) => {
                 console.log('[WS] Received:', evt);
 
@@ -317,6 +330,14 @@ export default class AgentManager {
         //
         //     this.connectionSbj.next(conn);
         // };
+    }
+
+    _sendWebSocketEvent(requestId, eventType, data) {
+        this.ws.json({
+            requestId,
+            eventType,
+            data: JSON.stringify(data)
+        });
     }
 
     saveToStorage(cluster = this.connectionSbj.getValue().cluster) {
@@ -393,12 +414,12 @@ export default class AgentManager {
     /**
      * Send message.
      *
-     * @param {String} address
+     * @param {String} eventType
      * @param {Object} data
      * @returns {ng.IPromise}
      * @private
      */
-    _sendToAgent(address, data = {}) {
+    _sendToAgent(eventType, data = {}) {
         if (!this.ws)
             return this.$q.reject('Failed to connect to server');
 
@@ -410,11 +431,7 @@ export default class AgentManager {
         const requestId = uuidv4();
 
         setTimeout(() => {
-            this.ws.json({
-                requestId,
-                address,
-                data
-            });
+            this._sendWebSocketEvent(requestId, eventType, data);
         });
 
         this.wsSubject

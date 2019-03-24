@@ -18,10 +18,12 @@
 package org.apache.ignite.console.agent;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -32,6 +34,9 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 public class AgentUtils {
     /** */
     private static final Logger log = Logger.getLogger(AgentUtils.class.getName());
+
+    /** */
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
      * Default constructor.
@@ -154,5 +159,9 @@ public class AgentUtils {
             sslContextFactory.setIncludeCipherSuites(ciphers.toArray(new String[] {}));
 
         return  sslContextFactory;
+    }
+
+    public static String toJson(Object v) throws IOException {
+        return MAPPER.writeValueAsString(v);
     }
 }

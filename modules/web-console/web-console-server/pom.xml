@@ -59,6 +59,12 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-web-console-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Third-party dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

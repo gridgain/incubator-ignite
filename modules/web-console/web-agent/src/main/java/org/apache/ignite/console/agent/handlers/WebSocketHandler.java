@@ -20,16 +20,14 @@ package org.apache.ignite.console.agent.handlers;
 import java.net.URI;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.console.websocket.AgentInfo;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
@@ -40,6 +38,7 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
+import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 
 /**
  * Router that listen for web socket and redirect messages to event bus.
@@ -56,19 +55,32 @@ public class WebSocketHandler implements AutoCloseable {
     private final AgentConfiguration cfg;
 
     /** */
-    private final CountDownLatch closeLatch = new CountDownLatch(1);
+    private final CountDownLatch closeLatch;
+
+    /** */
+    private final WebSocketSession webSocketSes;
+
+    /** */
+    private final ClusterHandler clusterHandler;
+
+    /** */
+    private final DatabaseHandler dbHandler;
 
     /** */
     private WebSocketClient client;
 
-    /** */
-    private Session session;
 
     /**
      * @param cfg Configuration.
+     * @throws Exception If failed to create websocket handler.
      */
-    public WebSocketHandler(AgentConfiguration cfg) {
+    public WebSocketHandler(AgentConfiguration cfg) throws Exception {
         this.cfg = cfg;
+
+        closeLatch = new CountDownLatch(1);
+        webSocketSes = new WebSocketSession();
+        clusterHandler = new ClusterHandler(cfg);
+        dbHandler = new DatabaseHandler(cfg);
     }
 
     /**
@@ -222,29 +234,22 @@ public class WebSocketHandler implements AutoCloseable {
      */
     @OnWebSocketClose
     public void onClose(int statusCode, String reason) {
-        System.out.printf("Connection closed: %d - %s%n", statusCode, reason);
-        this.session = null;
-        this.closeLatch.countDown(); // trigger latch
+        log.info("Connection closed [code=" + statusCode + ", reason=" + reason + "]");
+
+        webSocketSes.close();
     }
 
     /**
      *
-     * @param session
+     * @param ses
      */
     @OnWebSocketConnect
-    public void onConnect(Session session) {
-        System.out.printf("Got connect: %s%n", session);
-        this.session = session;
-        try {
-            Future<Void> fut = session.getRemote()
-                .sendStringByFuture("{\"id\": \"zzzz\", \"a\": 5, \"b\": 7}");
-            fut.get(2, TimeUnit.SECONDS); // wait for send to complete.
+    public void onConnect(Session ses) {
+        log.info("Connected to server: " + ses.getRemoteAddress());
 
-            session.close(StatusCode.NORMAL, "I'm done");
-        }
-        catch (Throwable t) {
-            t.printStackTrace();
-        }
+        webSocketSes.open(ses);
+
+        webSocketSes.send(AGENT_INFO, new AgentInfo(AGENT_ID, "zzzz"));
     }
 
     /**

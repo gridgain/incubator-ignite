@@ -111,10 +111,11 @@ public class ClusterHandler implements AutoCloseable {
 
     /**
      * @param cfg Web agent configuration.
+     * @throws Exception If failed to create cluster handler.
      */
-    public ClusterHandler(AgentConfiguration cfg, RestExecutor restExecutor) {
+    public ClusterHandler(AgentConfiguration cfg) throws Exception {
         this.cfg = cfg;
-        this.restExecutor = restExecutor;
+        this.restExecutor = new RestExecutor(cfg);
     }
 
     /**
