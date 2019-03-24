@@ -191,6 +191,8 @@ public class AgentLauncher {
 
         if (cfg != null) {
             try(WebSocketHandler websocket = new WebSocketHandler(cfg)) {
+                websocket.start();
+
                 websocket.awaitClose();
             }
             catch (Throwable e) {

@@ -32,6 +32,7 @@ import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
@@ -124,10 +125,14 @@ public class WebSocketHandler implements AutoCloseable {
         else
             client = new WebSocketClient();
 
+        reconnect();
+    }
+
+    private void reconnect() {
         try {
             client.start();
             ClientUpgradeRequest request = new ClientUpgradeRequest();
-            client.connect(this, new URI(cfg.serverUri()), request);
+            client.connect(this, new URI(cfg.serverUri() + "/agents"), request);
         } catch (Exception e) {
             log.error("Unable to connect to WebSocket: ", e);
         }
@@ -231,10 +236,8 @@ public class WebSocketHandler implements AutoCloseable {
         System.out.printf("Got connect: %s%n", session);
         this.session = session;
         try {
-            Future<Void> fut = session.getRemote().sendStringByFuture("Hello");
-            fut.get(2, TimeUnit.SECONDS); // wait for send to complete.
-
-            fut = session.getRemote().sendStringByFuture("Thanks for the conversation.");
+            Future<Void> fut = session.getRemote()
+                .sendStringByFuture("{\"id\": \"zzzz\", \"a\": 5, \"b\": 7}");
             fut.get(2, TimeUnit.SECONDS); // wait for send to complete.
 
             session.close(StatusCode.NORMAL, "I'm done");
@@ -251,5 +254,22 @@ public class WebSocketHandler implements AutoCloseable {
     @OnWebSocketMessage
     public void onMessage(String msg) {
         System.out.printf("Got msg: %s%n", msg);
+    }
+
+    /**
+     *
+     * @param e
+     */
+    @OnWebSocketError
+    public void onError(Throwable e) {
+        log.error("ERR on websocket", e);
+
+        try {
+            Thread.sleep(3000);
+        }
+        catch (Throwable ignore) {
+        }
+
+        reconnect();
     }
 }
