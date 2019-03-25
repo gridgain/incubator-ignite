@@ -121,7 +121,7 @@ public class WebSocketHandler implements AutoCloseable {
         boolean ssl = serverTrustAll || !F.isEmpty(cfg.serverTrustStore()) || !F.isEmpty(cfg.serverKeyStore());
 
         if (ssl) {
-            SslContextFactory sslContextFactory = sslContextFactory(
+            SslContextFactory sslCtxFactory = sslContextFactory(
                 cfg.serverKeyStore(),
                 cfg.serverKeyStorePassword(),
                 serverTrustAll,
@@ -130,7 +130,7 @@ public class WebSocketHandler implements AutoCloseable {
                 cfg.cipherSuites()
             );
 
-            HttpClient httpClient = new HttpClient(sslContextFactory);
+            HttpClient httpClient = new HttpClient(sslCtxFactory);
 
             client = new WebSocketClient(httpClient);
         }
@@ -140,6 +140,9 @@ public class WebSocketHandler implements AutoCloseable {
         reconnect();
     }
 
+    /**
+     *
+     */
     private void reconnect() {
         try {
             client.start();
@@ -224,7 +227,7 @@ public class WebSocketHandler implements AutoCloseable {
      * @throws InterruptedException
      */
     public void awaitClose() throws InterruptedException {
-        this.closeLatch.await();
+        closeLatch.await();
     }
 
     /**
@@ -258,7 +261,7 @@ public class WebSocketHandler implements AutoCloseable {
      */
     @OnWebSocketMessage
     public void onMessage(String msg) {
-        System.out.printf("Got msg: %s%n", msg);
+        log.info("Got msg: " + msg);
     }
 
     /**

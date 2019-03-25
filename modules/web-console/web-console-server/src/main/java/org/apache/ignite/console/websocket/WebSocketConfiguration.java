@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.websocket;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;

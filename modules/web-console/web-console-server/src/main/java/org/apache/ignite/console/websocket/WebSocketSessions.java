@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.websocket;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

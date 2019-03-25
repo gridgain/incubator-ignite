@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.rest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

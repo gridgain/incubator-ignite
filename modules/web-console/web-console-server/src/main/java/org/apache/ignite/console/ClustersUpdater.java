@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.websocket.WebSocketEvent;
+import org.apache.ignite.console.websocket.WebSocketSessions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,8 +61,6 @@ public class ClustersUpdater {
     /** */
     @Scheduled(fixedRate = 5000)
     public void updateClusters() {
-        log.info("Update clusters at: {}", System.currentTimeMillis());
-
         try {
             JsonObject desc = clusters.computeIfAbsent(CLUSTER_ID, key -> {
                 JsonArray top = new JsonArray();

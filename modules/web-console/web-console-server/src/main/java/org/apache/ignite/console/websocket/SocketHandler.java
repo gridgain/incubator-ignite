@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.websocket;
 
+import org.apache.ignite.console.rest.RestApiController;
 import org.apache.ignite.console.websocket.AgentInfo;
 import org.apache.ignite.console.websocket.BrowserInfo;
 import org.apache.ignite.console.websocket.WebSocketEvent;
+import org.apache.ignite.console.websocket.WebSocketSessions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
