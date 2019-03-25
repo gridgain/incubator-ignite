@@ -134,7 +134,7 @@ class ConnectionState {
 }
 
 export default class AgentManager {
-    static $inject = ['$rootScope', '$q', '$transitions', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
+    static $inject = ['$rootScope', '$q', '$transitions', '$window', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
 
     /** Browser ID. */
     browserId = uuidv4();
@@ -196,15 +196,17 @@ export default class AgentManager {
      * @param {ng.IRootScopeService} $root
      * @param {ng.IQService} $q
      * @param {import('@uirouter/angularjs').TransitionService} $transitions
+     * @param {ng.IWindowService} $window
      * @param {import('./AgentModal.service').default} agentModal
      * @param {import('app/components/user-notifications/service').default} UserNotifications
      * @param {import('app/services/Version.service').default} Version
      * @param {import('./components/cluster-login/service').default} ClusterLoginSrv
      */
-    constructor($root, $q, $transitions, agentModal, UserNotifications, Version, ClusterLoginSrv) {
+    constructor($root, $q, $transitions, $window, agentModal, UserNotifications, Version, ClusterLoginSrv) {
         this.$root = $root;
         this.$q = $q;
         this.$transitions = $transitions;
+        this.$window = $window;
         this.agentModal = agentModal;
         this.UserNotifications = UserNotifications;
         this.Version = Version;
@@ -256,9 +258,12 @@ export default class AgentManager {
         if (nonNil(this.ws))
             return;
 
+        // TODO IGNITE-5617 support demo mode.
         // const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        const uri = 'ws://localhost:9000/browsers'; // TODO !!!!
+        const {host, protocol} = this.$window.location;
+
+        const uri = `${protocol === 'https' ? 'wss' : 'ws'}://${host}/browsers`;
 
         // Open websocket connection to backend.
         this.ws = new Sockette(uri, {
@@ -277,7 +282,26 @@ export default class AgentManager {
             onmessage: (evt) => {
                 console.log('[WS] Received:', evt);
 
-                this.wsSubject.next(JSON.parse(evt.data));
+                const data = JSON.parse(evt.data);
+
+                const evtType = data.eventType;
+                const payload = JSON.parse(data.payload);
+
+                if (evtType === 'agent:status') {
+                    const {clusters, count, hasDemo} = payload;
+
+                    const conn = this.connectionSbj.getValue();
+
+                    conn.update(this.isDemoMode(), count, clusters, hasDemo);
+
+                    this.connectionSbj.next(conn);
+                }
+                else if (evtType === 'cluster:changed')
+                    this.updateCluster(payload);
+                else if (evtType === 'user:notifications')
+                    this.UserNotifications.notification = payload;
+                else
+                    this.wsSubject.next(payload);
             },
             onreconnect: (evt) => console.log('[WS] Reconnecting...', evt),
             onclose: (evt) => console.log('[WS] Closed!', evt),
@@ -336,7 +360,7 @@ export default class AgentManager {
         this.ws.json({
             requestId,
             eventType,
-            data: JSON.stringify(data)
+            payload: JSON.stringify(data)
         });
     }
 

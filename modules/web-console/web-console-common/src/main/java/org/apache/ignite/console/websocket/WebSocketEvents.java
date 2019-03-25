@@ -28,6 +28,9 @@ public interface WebSocketEvents {
     public static final String AGENT_RESET_TOKEN = "agent:reset:token";
 
     /** */
+    public static final String AGENT_STATUS = "agent:status";
+
+    /** */
     public static final String BROWSER_INFO = "browser:info";
 
     /** */

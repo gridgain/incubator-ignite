@@ -17,17 +17,19 @@
 
 package org.apache.ignite.console;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.console.websocket.AgentInfo;
 import org.apache.ignite.console.websocket.BrowserInfo;
 import org.apache.ignite.console.websocket.WebSocketEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import static org.apache.ignite.console.Utils.toAgentInfo;
+import static org.apache.ignite.console.Utils.toBrowserInfo;
+import static org.apache.ignite.console.Utils.toWsEvt;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
 
@@ -37,60 +39,62 @@ import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
 @Component
 public class SocketHandler extends TextWebSocketHandler {
     /** */
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Logger log = LoggerFactory.getLogger(RestApiController.class);
 
     /** */
-    List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+    private final WebSocketSessions wss;
+
+    /**
+     * @param wss Websockets sessions.
+     */
+    public SocketHandler(WebSocketSessions wss) {
+        this.wss = wss;
+    }
 
     /** {@inheritDoc} */
     @Override public void handleTextMessage(WebSocketSession ses, TextMessage msg) {
             try {
-                for (WebSocketSession ws : sessions) {
+                for (WebSocketSession ws : wss.sessions()) {
                     if (ws.isOpen()) {
                         String payload = msg.getPayload();
 
-                        System.out.println("WS Request:  [ses: " + ws.getId() + ", data: " + payload + "]");
+                        log.info("WS Request:  [ses: " + ws.getId() + ", data: " + payload + "]");
 
-                        WebSocketEvent evt = MAPPER.readValue(payload, WebSocketEvent.class);
+                        WebSocketEvent evt = toWsEvt(payload);
 
                         String evtType = evt.getEventType();
 
                         switch (evtType) {
                             case AGENT_INFO:
-                                AgentInfo agentInfo = MAPPER.readValue(evt.getData(), AgentInfo.class);
+                                AgentInfo agentInfo = toAgentInfo(evt.getPayload());
 
-                                System.out.println("Web Console agent connected: " + agentInfo);
+                                log.info("Web Console agent connected: " + agentInfo);
 
                                 break;
 
                             case BROWSER_INFO:
-                                BrowserInfo browserInfo = MAPPER.readValue(evt.getData(), BrowserInfo.class);
+                                BrowserInfo browserInfo = toBrowserInfo(evt.getPayload());
 
-                                System.out.println("Browser connected: " + browserInfo);
+                                log.info("Browser connected: " + browserInfo);
 
                                 break;
 
                             default:
-                                System.out.println("Unknown event: " + evt);
+                                log.info("Unknown event: " + evt);
                         }
                     }
-                    else {
-                        System.out.println("Removed closed session: " + ws.getId());
-
-                        sessions.remove(ws);
-                    }
+                    else
+                        wss.closeSession(ws);
                 }
             }
             catch (Throwable e) {
-                System.out.println("Error: " + e.getMessage());
+                log.error("Failed to process incoming message", e);
             }
     }
 
     /** {@inheritDoc} */
-    @Override public void afterConnectionEstablished(WebSocketSession ses) {
-        System.out.println("New session: " + ses.getId());
-
+    @Override public void afterConnectionEstablished(WebSocketSession ws) {
         //Messages will be sent to all users.
-        sessions.add(ses);
+        wss.openSession(ws);
     }
 }

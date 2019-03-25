@@ -24,36 +24,74 @@ import org.apache.ignite.internal.util.typedef.internal.S;
  */
 public class WebSocketEvent {
     /** */
-    private String requestId;
+    private String reqId;
 
     /** */
     private String evtType;
 
     /** */
-    private String data;
+    private String payload;
 
+    /**
+     * Default constructor for serialization.
+     */
+    public WebSocketEvent() {
+        // No-op.
+    }
+
+    /**
+     * Full constructor.
+     *
+     * @param reqId Request ID.
+     * @param evtType Event type.
+     * @param payload Payload.
+     */
+    public WebSocketEvent(String reqId, String evtType, String payload) {
+        this.reqId = reqId;
+        this.evtType = evtType;
+        this.payload = payload;
+    }
+
+    /**
+     * @return Request ID.
+     */
     public String getRequestId() {
-        return requestId;
+        return reqId;
     }
 
-    public void setRequestId(String id) {
-        this.requestId = id;
+    /**
+     * @param reqId New request ID.
+     */
+    public void setRequestId(String reqId) {
+        this.reqId = reqId;
     }
 
+    /**
+     * @return Event type.
+     */
     public String getEventType() {
         return evtType;
     }
 
-    public void setEventType(String evt) {
-        this.evtType = evt;
+    /**
+     * @param evtType New event type.
+     */
+    public void setEventType(String evtType) {
+        this.evtType = evtType;
     }
 
-    public String getData() {
-        return data;
+    /**
+     * @return Payload.
+     */
+    public String getPayload() {
+        return payload;
     }
 
-    public void setData(String data) {
-        this.data = data;
+    /**
+     * @param payload New payload.
+     */
+    public void setPayload(String payload) {
+        this.payload = payload;
     }
 
     /** {@inheritDoc} */

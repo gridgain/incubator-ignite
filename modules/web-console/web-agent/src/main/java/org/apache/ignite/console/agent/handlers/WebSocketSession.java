@@ -35,31 +35,48 @@ public class WebSocketSession {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketSession.class));
 
+    /** */
     private final AtomicReference<Session> sesRef;
 
+    /**
+     * Default constructor.
+     */
     public WebSocketSession() {
         sesRef = new AtomicReference<>();
     }
 
+    /**
+     * @param ses New session.
+     */
     public void open(Session ses) {
         sesRef.set(ses);
     }
 
+    /**
+     * Close current sesion.
+     */
     public void close() {
         sesRef.set(null);
     }
 
-    public void send(String evtType, Object data) {
+    /**
+     * Send event to websocket.
+     *
+     * @param evtType Event type.
+     * @param val Object to send as payload.
+     */
+    public void send(String evtType, Object val) {
         try {
             Session ses = sesRef.get();
 
             if (ses == null)
                 throw new IOException("No active session");
 
-            WebSocketEvent evt = new WebSocketEvent();
-            evt.setRequestId(UUID.randomUUID().toString());
-            evt.setEventType(evtType);
-            evt.setData(toJson(data));
+            WebSocketEvent evt = new WebSocketEvent(
+                UUID.randomUUID().toString(),
+                evtType,
+                toJson(val)
+            );
 
             ses.getRemote().sendString(toJson(evt));
         }
