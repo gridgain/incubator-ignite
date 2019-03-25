@@ -23,6 +23,9 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
+import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
+
 /**
  * TODO.
  */
@@ -44,6 +47,6 @@ public class WebSocketConfiguration implements WebSocketConfigurer {
 	 * @param registry Registry.
 	 */
 	@Override public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		registry.addHandler(new SocketHandler(wss), "/browsers", "/agents");
+		registry.addHandler(new WebSocketRouter(wss), AGENTS_PATH, BROWSERS_PATH);
 	}
 }

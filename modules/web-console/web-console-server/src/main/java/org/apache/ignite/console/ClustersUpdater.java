@@ -83,7 +83,7 @@ public class ClustersUpdater {
 
             // TODO IGNITE-5617  Update cluster.active if ignite.cluster().active() state changed!
 
-            wss.sendEvent(new WebSocketEvent(
+            wss.broadcastToBrowsers(new WebSocketEvent(
                 UUID.randomUUID().toString(),
                 AGENT_STATUS,
                 desc.toString()

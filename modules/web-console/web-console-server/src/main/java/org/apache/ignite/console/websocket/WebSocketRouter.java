@@ -18,10 +18,6 @@
 package org.apache.ignite.console.websocket;
 
 import org.apache.ignite.console.rest.RestApiController;
-import org.apache.ignite.console.websocket.AgentInfo;
-import org.apache.ignite.console.websocket.BrowserInfo;
-import org.apache.ignite.console.websocket.WebSocketEvent;
-import org.apache.ignite.console.websocket.WebSocketSessions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -36,10 +32,10 @@ import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
 
 /**
- * Todo
+ * Router for requests from web sockets.
  */
 @Component
-public class SocketHandler extends TextWebSocketHandler {
+public class WebSocketRouter extends TextWebSocketHandler {
     /** */
     private static final Logger log = LoggerFactory.getLogger(RestApiController.class);
 
@@ -49,44 +45,38 @@ public class SocketHandler extends TextWebSocketHandler {
     /**
      * @param wss Websockets sessions.
      */
-    public SocketHandler(WebSocketSessions wss) {
+    public WebSocketRouter(WebSocketSessions wss) {
         this.wss = wss;
     }
 
     /** {@inheritDoc} */
-    @Override public void handleTextMessage(WebSocketSession ses, TextMessage msg) {
+    @Override public void handleTextMessage(WebSocketSession ws, TextMessage msg) {
             try {
-                for (WebSocketSession ws : wss.sessions()) {
-                    if (ws.isOpen()) {
-                        String payload = msg.getPayload();
+                String payload = msg.getPayload();
 
-                        log.info("WS Request:  [ses: " + ws.getId() + ", data: " + payload + "]");
+                log.info("WS Request:  [ses: " + ws.getId() + ", data: " + payload + "]");
 
-                        WebSocketEvent evt = toWsEvt(payload);
+                WebSocketEvent evt = toWsEvt(payload);
 
-                        String evtType = evt.getEventType();
+                String evtType = evt.getEventType();
 
-                        switch (evtType) {
-                            case AGENT_INFO:
-                                AgentInfo agentInfo = toAgentInfo(evt.getPayload());
+                switch (evtType) {
+                    case AGENT_INFO:
+                        AgentInfo agentInfo = toAgentInfo(evt.getPayload());
 
-                                log.info("Web Console agent connected: " + agentInfo);
+                        log.info("Agent connected: " + agentInfo.getAgentId());
 
-                                break;
+                        break;
 
-                            case BROWSER_INFO:
-                                BrowserInfo browserInfo = toBrowserInfo(evt.getPayload());
+                    case BROWSER_INFO:
+                        BrowserInfo browserInfo = toBrowserInfo(evt.getPayload());
 
-                                log.info("Browser connected: " + browserInfo);
+                        log.info("Browser connected: " + browserInfo.getBrowserId());
 
-                                break;
+                        break;
 
-                            default:
-                                log.info("Unknown event: " + evt);
-                        }
-                    }
-                    else
-                        wss.closeSession(ws);
+                    default:
+                        log.info("Unknown event: " + evt);
                 }
             }
             catch (Throwable e) {

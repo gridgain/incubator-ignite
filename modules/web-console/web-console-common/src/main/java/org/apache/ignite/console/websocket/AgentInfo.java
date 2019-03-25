@@ -51,18 +51,30 @@ public class AgentInfo {
         toks.add(tok);
     }
 
+    /**
+     * @return Agent ID.
+     */
     public String getAgentId() {
         return agentId;
     }
 
-    public void setAgentId(String id) {
+    /**
+     * @param agentId Agent ID.
+     */
+    public void setAgentId(String agentId) {
         this.agentId = agentId;
     }
 
+    /**
+     * @return Tokens.
+     */
     public List<String> getTokens() {
         return toks;
     }
 
+    /**
+     * @param toks Tokens.
+     */
     public void setTokens(List<String> toks) {
         this.toks = toks;
     }

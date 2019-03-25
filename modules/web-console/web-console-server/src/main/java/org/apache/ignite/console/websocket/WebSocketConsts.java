@@ -17,45 +17,13 @@
 
 package org.apache.ignite.console.websocket;
 
-import org.apache.ignite.internal.util.typedef.internal.S;
-
 /**
- * Browser descriptor.
+ * Various constants for websockets.
  */
-public class BrowserInfo {
+public interface WebSocketConsts {
     /** */
-    private String browserId;
+    public static final String AGENTS_PATH = "/agents";
 
-    /**
-     * Default constructor for serialization.
-     */
-    public BrowserInfo() {
-        // No-op.
-    }
-
-    /**
-     * @param browserId Browser ID.
-     */
-    public BrowserInfo(String browserId) {
-        this.browserId = browserId;
-    }
-
-    /**
-     * @return Browser ID.
-     */
-    public String getBrowserId() {
-        return browserId;
-    }
-
-    /**
-     * @param browserId Browser ID.
-     */
-    public void setBrowserId(String browserId) {
-        this.browserId = browserId;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(BrowserInfo.class, this);
-    }
+    /** */
+    public static final String BROWSERS_PATH = "/browsers";
 }

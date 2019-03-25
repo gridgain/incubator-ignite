@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console.websocket;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -26,8 +25,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-
 import static org.apache.ignite.console.Utils.encodeJson;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
+import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 
 /**
  *
@@ -38,20 +38,23 @@ public class WebSocketSessions {
     private static final Logger log = LoggerFactory.getLogger(WebSocketSessions.class);
 
     /** */
-    private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> agents = new ConcurrentHashMap<>();
+
+    /** */
+    private final Map<String, WebSocketSession> browsers = new ConcurrentHashMap<>();
 
     /**
-     * @return Collection of current sessions.
+     * @param ws New websocket sesion.
      */
-    public Collection<WebSocketSession> sessions() {
-        return sessions.values();
-    }
+    public void openSession(WebSocketSession ws) {
+        String path = ws.getUri().getPath();
 
-    /**
-     * @param ses New sesion.
-     */
-    public void openSession(WebSocketSession ses) {
-        sessions.put(ses.getId(), ses);
+        if (AGENTS_PATH.equals(path))
+            agents.put(ws.getId(), ws);
+        else if (BROWSERS_PATH.equals(path))
+            browsers.put(ws.getId(), ws);
+        else
+            log.warn("Unknown path: " + path);
     }
 
     /**
@@ -60,28 +63,54 @@ public class WebSocketSessions {
     public void closeSession(WebSocketSession ses) {
         log.info("Removed closed session: " + ses.getId());
 
-        sessions.remove(ses.getId());
+        agents.remove(ses.getId());
+        browsers.remove(ses.getId());
     }
 
     /**
-     * @param evt Event to send.
+     * @param evt Event to broadcast.
+     * @param sockets Sockets.
+     * @throws Exception If failed to broadcast.
      */
-    public void sendEvent(WebSocketEvent evt) {
-        try {
-            for (Map.Entry<String, WebSocketSession> entry : sessions.entrySet()) {
-                WebSocketSession ws = entry.getValue();
+    private void broadcast(WebSocketEvent evt, Map<String, WebSocketSession> sockets) throws Exception {
+        for (Map.Entry<String, WebSocketSession> entry : sockets.entrySet()) {
+            WebSocketSession ws = entry.getValue();
 
-                if (ws.isOpen())
-                    ws.sendMessage(new TextMessage(encodeJson(evt)));
-                else {
-                    log.info("Removed closed session: " + ws.getId());
+            if (ws.isOpen())
+                ws.sendMessage(new TextMessage(encodeJson(evt)));
+            else {
+                log.info("Removed closed session: " + ws.getId());
 
-                    sessions.remove(entry.getKey());
-                }
+                browsers.remove(entry.getKey());
             }
         }
+    }
+
+    /**
+     * Broadcast event to all connected agents.
+     *
+     * @param evt Events to send.
+     */
+    public void broadcastToAgents(WebSocketEvent evt) {
+        try {
+            broadcast(evt, agents);
+        }
         catch (Throwable e) {
-            log.info("Error: " + e.getMessage());
+            log.error("Failed to broadcast to agents: " + evt, e);
+        }
+    }
+
+    /**
+     * Broadcast event to all connected browsers.
+     *
+     * @param evt Events to send.
+     */
+    public void broadcastToBrowsers(WebSocketEvent evt) {
+        try {
+            broadcast(evt, browsers);
+        }
+        catch (Throwable e) {
+            log.error("Failed to broadcast event to browsers: " + evt, e);
         }
     }
 }
