@@ -301,7 +301,10 @@ export default class AgentManager {
                 else if (evtType === 'user:notifications')
                     this.UserNotifications.notification = payload;
                 else
-                    this.wsSubject.next(payload);
+                    this.wsSubject.next({
+                        requestId: data.requestId,
+                        payload
+                    });
             },
             onreconnect: (evt) => console.log('[WS] Reconnecting...', evt),
             onclose: (evt) => console.log('[WS] Closed!', evt),
@@ -454,6 +457,8 @@ export default class AgentManager {
         // Publishing with acknowledgement
         const requestId = uuidv4();
 
+        console.log('Send request: ' + eventType + ', ' + requestId);
+
         setTimeout(() => {
             this._sendWebSocketEvent(requestId, eventType, data);
         });
@@ -461,14 +466,18 @@ export default class AgentManager {
         this.wsSubject
             .asObservable()
             .pipe(
-                filter((data) => data.id === id),
+                filter((data) => {
+                    console.log('data.requestId: ' + data.requestId + ', requestId: ' + requestId);
+
+                    return data.requestId === requestId;
+                }),
                 take(1)
             )
             .toPromise()
             .then((data) => {
                 console.log('Received response', data);
 
-                latch.resolve(data);
+                latch.resolve(data.payload);
             });
 
 

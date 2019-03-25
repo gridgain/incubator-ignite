@@ -125,7 +125,7 @@ public class AgentUtils {
      * @param trustStore
      * @param trustStorePwd
      * @param ciphers
-     * @return
+     * @return SSL context factory.
      */
     public static SslContextFactory sslContextFactory(
         String keyStore,
@@ -161,7 +161,24 @@ public class AgentUtils {
         return  sslContextFactory;
     }
 
+    /**
+     * @param v Value to serialize.
+     * @return JSON value.
+     * @throws IOException If failed.
+     */
     public static String toJson(Object v) throws IOException {
         return MAPPER.writeValueAsString(v);
+    }
+
+    /**
+     *
+     * @param json
+     * @param cls
+     * @param <T>
+     * @return
+     * @throws IOException
+     */
+    public static <T> T fromJson(String json, Class<T> cls) throws IOException {
+        return MAPPER.readValue(json, cls);
     }
 }

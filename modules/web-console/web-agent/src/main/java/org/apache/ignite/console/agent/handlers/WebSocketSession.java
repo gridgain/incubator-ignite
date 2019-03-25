@@ -62,23 +62,35 @@ public class WebSocketSession {
     /**
      * Send event to websocket.
      *
-     * @param evtType Event type.
-     * @param val Object to send as payload.
+     * @param evt Event.
      */
-    public void send(String evtType, Object val) {
+    public void send(WebSocketEvent evt) {
         try {
             Session ses = sesRef.get();
 
             if (ses == null)
                 throw new IOException("No active session");
 
-            WebSocketEvent evt = new WebSocketEvent(
+            ses.getRemote().sendString(toJson(evt));
+        }
+        catch (Throwable e) {
+            log.error("Failed to send event", e);
+        }
+    }
+
+    /**
+     * Send event to websocket.
+     *
+     * @param evtType Event type.
+     * @param val Object to send as payload.
+     */
+    public void send(String evtType, Object val) {
+        try {
+            send(new WebSocketEvent(
                 UUID.randomUUID().toString(),
                 evtType,
                 toJson(val)
-            );
-
-            ses.getRemote().sendString(toJson(evt));
+            ));
         }
         catch (Throwable e) {
             log.error("Failed to send event", e);

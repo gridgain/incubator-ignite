@@ -18,11 +18,14 @@
 package org.apache.ignite.console.agent.handlers;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.websocket.AgentInfo;
+import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.eclipse.jetty.client.HttpClient;
@@ -37,8 +40,13 @@ import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.ignite.console.agent.AgentUtils.fromJson;
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
+import static org.apache.ignite.console.agent.AgentUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_DRIVERS;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_METADATA;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * Router that listen for web socket and redirect messages to event bus.
@@ -232,8 +240,8 @@ public class WebSocketHandler implements AutoCloseable {
 
     /**
      *
-     * @param statusCode
-     * @param reason
+     * @param statusCode Close status code.
+     * @param reason Close reason.
      */
     @OnWebSocketClose
     public void onClose(int statusCode, String reason) {
@@ -243,8 +251,7 @@ public class WebSocketHandler implements AutoCloseable {
     }
 
     /**
-     *
-     * @param ses
+     * @param ses Session.
      */
     @OnWebSocketConnect
     public void onConnect(Session ses) {
@@ -256,17 +263,44 @@ public class WebSocketHandler implements AutoCloseable {
     }
 
     /**
-     *
-     * @param msg
+     * @param msg Message.
      */
     @OnWebSocketMessage
     public void onMessage(String msg) {
-        log.info("Got msg: " + msg);
+        try {
+            WebSocketEvent evt = fromJson(msg, WebSocketEvent.class);
+
+            String evtType = evt.getEventType();
+
+            switch (evtType) {
+                case SCHEMA_IMPORT_DRIVERS:
+                    List<Map<String, String>> drivers = dbHandler.collectJdbcDrivers();
+
+                    evt.setPayload(toJson(drivers));
+
+                    webSocketSes.send(evt);
+
+                    break;
+
+                case SCHEMA_IMPORT_SCHEMAS:
+                    log.info(SCHEMA_IMPORT_SCHEMAS);
+                    break;
+
+                case SCHEMA_IMPORT_METADATA:
+                    log.info(SCHEMA_IMPORT_METADATA);
+                    break;
+
+                default:
+                    log.warning("Unknown event: " + evt);
+            }
+        }
+        catch (Throwable e) {
+            log.error("Failed to process message: " + msg, e);
+        }
     }
 
     /**
-     *
-     * @param e
+     * @param e Error.
      */
     @OnWebSocketError
     public void onError(Throwable e) {

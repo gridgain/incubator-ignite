@@ -17,6 +17,8 @@
 
 package org.apache.ignite.console.websocket;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.console.rest.RestApiController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,11 +27,18 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import static org.apache.ignite.console.Utils.encodeJson;
 import static org.apache.ignite.console.Utils.toAgentInfo;
 import static org.apache.ignite.console.Utils.toBrowserInfo;
 import static org.apache.ignite.console.Utils.toWsEvt;
+import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
+import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_REST;
+import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_VISOR;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_DRIVERS;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_METADATA;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * Router for requests from web sockets.
@@ -42,19 +51,24 @@ public class WebSocketRouter extends TextWebSocketHandler {
     /** */
     private final WebSocketSessions wss;
 
+    /** */
+    private final Map<String, WebSocketSession> requests;
+
     /**
-     * @param wss Websockets sessions.
+     * @param wss Websocket sessions.
      */
     public WebSocketRouter(WebSocketSessions wss) {
         this.wss = wss;
+
+        requests = new ConcurrentHashMap<>();
     }
 
     /** {@inheritDoc} */
     @Override public void handleTextMessage(WebSocketSession ws, TextMessage msg) {
             try {
-                String payload = msg.getPayload();
+                boolean fromBrowser = BROWSERS_PATH.equals(ws.getUri().getPath());
 
-                log.info("WS Request:  [ses: " + ws.getId() + ", data: " + payload + "]");
+                String payload = msg.getPayload();
 
                 WebSocketEvent evt = toWsEvt(payload);
 
@@ -72,6 +86,33 @@ public class WebSocketRouter extends TextWebSocketHandler {
                         BrowserInfo browserInfo = toBrowserInfo(evt.getPayload());
 
                         log.info("Browser connected: " + browserInfo.getBrowserId());
+
+                        break;
+
+                    case SCHEMA_IMPORT_DRIVERS:
+                    case SCHEMA_IMPORT_SCHEMAS:
+                    case SCHEMA_IMPORT_METADATA:
+                    case NODE_REST:
+                    case NODE_VISOR:
+                        if (fromBrowser) {
+                            log.info("evtType: " + evtType + ", reqId: " + evt.getRequestId() + ", ws: " + ws.getId());
+
+                            requests.put(evt.getRequestId(), ws);
+
+                            // TODO IGNITE-5617: select correct agent.
+                            wss.broadcastToAgents(evt);
+                        }
+                        else {
+                            WebSocketSession browserWs = requests.remove(evt.getRequestId());
+
+                            log.info("evtType: " + evtType + ", reqId: " + evt.getRequestId() +
+                                ", ws: " + ws.getId() + ", browserWs: " + browserWs.getId());
+
+                            if (browserWs != null)
+                                browserWs.sendMessage(new TextMessage(encodeJson(evt)));
+                            else
+                                log.warn("Failed to send response: " + evt.getRequestId());
+                        }
 
                         break;
 
