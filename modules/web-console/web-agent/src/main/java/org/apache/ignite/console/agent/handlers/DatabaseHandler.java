@@ -42,9 +42,9 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.console.agent.AgentUtils.getBoolean;
-import static org.apache.ignite.console.agent.AgentUtils.getString;
-import static org.apache.ignite.console.agent.AgentUtils.paramsFromJson;
+import static org.apache.ignite.console.util.JsonUtils.getBoolean;
+import static org.apache.ignite.console.util.JsonUtils.getString;
+import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
 
 /**
