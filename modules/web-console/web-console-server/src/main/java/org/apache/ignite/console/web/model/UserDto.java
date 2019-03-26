@@ -57,6 +57,14 @@ public class UserDto {
     @NotEmpty
     private String country;
 
+    /**
+     * @param email Email.
+     * @param firstName First name.
+     * @param lastName Last name.
+     * @param phone Phone.
+     * @param company Company.
+     * @param country Country.
+     */
     public UserDto(String email, String firstName, String lastName, String phone, String company, String country) {
         this.email = email;
         this.firstName = firstName;
