@@ -246,13 +246,13 @@ public class WebConsoleServer extends AbstractVerticle {
     protected void registerServices() {
         vertx.eventBus().consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
 
-        AccountsService accountsSvc = new AccountsService(ignite).install(vertx);
-        ConfigurationsService cfgsSvc = new ConfigurationsService(ignite).install(vertx);
-        NotebooksService notebooksSvc = new NotebooksService(ignite).install(vertx);
-
-        new AdminService(ignite, accountsSvc, cfgsSvc, notebooksSvc).install(vertx);
-
-        new AgentService(ignite).install(vertx);
+//        AccountsService accountsSvc = new AccountsService(ignite).install(vertx);
+//        ConfigurationsService cfgsSvc = new ConfigurationsService(ignite).install(vertx);
+//        NotebooksService notebooksSvc = new NotebooksService(ignite).install(vertx);
+//
+//        new AdminService(ignite, accountsSvc, cfgsSvc, notebooksSvc).install(vertx);
+//
+//        new AgentService(ignite).install(vertx);
     }
 
     /**

@@ -135,14 +135,14 @@ public class IgniteAuth implements AuthProvider {
                 if (json == null)
                     throw new IgniteAuthenticationException("Failed to find registered account");
 
-                Account account = Account.fromJson(json);
+//                Account account = Account.fromJson(json);
 
-                String hash = computeHash(data.getString("password"), account.salt());
+//                String hash = computeHash(data.getString("password"), account.salt());
+//
+//                if (!account.hash().equals(hash))
+//                    throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
 
-                if (!account.hash().equals(hash))
-                    throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
-
-                authRes.handle(Future.succeededFuture(new ContextAccount(account)));
+//                authRes.handle(Future.succeededFuture(new ContextAccount(account)));
 
             }
             catch (Throwable e) {
@@ -187,10 +187,10 @@ public class IgniteAuth implements AuthProvider {
                 if (res.failed())
                     throw res.cause();
 
-                Account account = Account.fromJson(res.result().body());
+//                Account account = Account.fromJson(res.result().body());
 
-                if ("admin".equals(perm))
-                    hnd.handle(Future.succeededFuture(account.admin()));
+//                if ("admin".equals(perm))
+//                    hnd.handle(Future.succeededFuture(account.admin()));
 
                 hnd.handle(Future.succeededFuture(true));
             }

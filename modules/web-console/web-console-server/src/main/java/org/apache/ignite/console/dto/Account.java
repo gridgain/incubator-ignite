@@ -17,95 +17,63 @@
 
 package org.apache.ignite.console.dto;
 
+import java.util.Collection;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 /**
  * DTO for Account.
  */
-public class Account extends AbstractDto {
-    /** */
+public class Account extends AbstractDto implements UserDetails {
+    /** Email. */
     private String email;
 
-    /** */
+    /** Salt + hash for password. */
+    private String hashedPwd;
+
+    /** First name. */
     private String firstName;
 
-    /** */
+    /** Last name. */
     private String lastName;
 
-    /** */
+    /** Phone. */
+    private String phone;
+
+    /** Company. */
     private String company;
 
-    /** */
+    /** Country. */
     private String country;
 
-    /** */
-    private String industry;
-
-    /** */
+    /** Agent token. */
     private String tok;
 
-    /** */
+    /** Reset password token. */
     private String resetPwdTok;
 
-    /** */
+    /** Registered. */
     private String registered;
 
-    /** */
+    /** Last login. */
     private String lastLogin;
 
-    /** */
+    /** Last activity. */
     private String lastActivity;
 
-    /** */
+    /** Last event. */
     private String lastEvt;
 
-    /** */
-    private String salt;
-
-    /** */
-    private String hash;
-
-    /** */
+    /** Administration. */
     private boolean admin;
 
-    /** */
+    /** Activated. */
     private boolean activated;
 
-    /** */
+    /** Demo created. */
     private boolean demoCreated;
-
-    /**
-     * @param json JSON data.
-     * @return New instance of Account DTO.
-     */
-    public static Account fromJson(JsonObject json) {
-        String id = json.getString("_id");
-
-        if (id == null)
-            throw new IllegalStateException("Account ID not found");
-
-        return new Account(
-            UUID.fromString(id),
-            json.getString("email"),
-            json.getString("firstName"),
-            json.getString("lastName"),
-            json.getString("company"),
-            json.getString("country"),
-            json.getString("industry"),
-            json.getString("token"),
-            json.getString("resetPasswordToken"),
-            json.getString("registered"),
-            json.getString("lastLogin"),
-            json.getString("lastActivity"),
-            json.getString("lastEvent"),
-            json.getString("salt"),
-            json.getString("hash"),
-            json.getBoolean("admin", false),
-            json.getBoolean("activated", false),
-            json.getBoolean("demoCreated", false)
-        );
-    }
 
     /**
      * Default constructor for serialization.
@@ -117,68 +85,32 @@ public class Account extends AbstractDto {
     /**
      * Full constructor.
      *
-     * @param id ID.
-     * @param email E_mail.
+     * @param email Email.
+     * @param hashedPwd salt + hash for password.
      * @param firstName First name.
      * @param lastName Last name.
+     * @param phone Phone.
      * @param company Company name.
      * @param country Country name.
-     * @param industry Industry name.
-     * @param tok Web agent token.
-     * @param resetPwdTok Reset password token.
-     * @param registered Registered flag.
-     * @param lastLogin Last login date.
-     * @param lastActivity  Last activity date.
-     * @param lastEvt  Last event date.
-     * @param salt Password salt.
-     * @param hash Password hash.
-     * @param admin Admin flag.
-     * @param activated Activated flag.
-     * @param demoCreated Demo created flag.
      */
     public Account(
-        UUID id,
         String email,
+        String hashedPwd,
         String firstName,
         String lastName,
+        String phone,
         String company,
-        String country,
-        String industry,
-        String tok,
-        String resetPwdTok,
-        String registered,
-        String lastLogin,
-        String lastActivity,
-        String lastEvt,
-        String salt,
-        String hash,
-        boolean admin,
-        boolean activated,
-        boolean demoCreated
+        String country
     ) {
-        super(id);
+        super(UUID.randomUUID());
 
         this.email = email;
+        this.hashedPwd = hashedPwd;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.phone = phone;
         this.company = company;
         this.country = country;
-        this.industry = industry;
-
-        this.tok = tok;
-        this.resetPwdTok = resetPwdTok;
-
-        this.registered = registered;
-        this.lastLogin = lastLogin;
-        this.lastActivity = lastActivity;
-        this.lastEvt = lastEvt;
-
-        this.salt = salt;
-        this.hash = hash;
-
-        this.admin = admin;
-        this.activated = activated;
-        this.demoCreated = demoCreated;
     }
 
     /**
@@ -200,6 +132,13 @@ public class Account extends AbstractDto {
      */
     public String email() {
         return email;
+    }
+
+    /**
+     * @return Phone.
+     */
+    public String phone() {
+        return phone;
     }
 
     /**
@@ -252,74 +191,44 @@ public class Account extends AbstractDto {
     }
 
     /**
-     * @return Account salt.
-     */
-    public String salt() {
-        return salt;
-    }
-
-    /**
-     * @return Account hash.
-     */
-    public String hash() {
-        return hash;
-    }
-
-    /**
      * @return Reset password token.
      */
     public String resetPasswordToken() {
         return resetPwdTok;
     }
 
-    /**
-     * @return JSON object with public fields.
-     */
-    public JsonObject publicView() {
-        return new JsonObject()
-            .put("_id", id.toString())
-            .put("email", email)
-            .put("firstName", firstName)
-            .put("lastName", lastName)
-            .put("company", company)
-            .put("country", country)
-            .put("industry", industry)
-            .put("token", tok)
-            .put("registered", registered)
-            .put("lastLogin", lastLogin)
-            .put("lastActivity", lastActivity)
-            .put("lastEvent", lastEvt)
-            .put("admin", admin)
-            .put("activated", activated)
-            .put("demoCreated", demoCreated);
+    /** {@inheritDoc} */
+    @Override public Collection<? extends GrantedAuthority> getAuthorities() {
+        return null;
     }
 
-    /**
-     * @return Account as JSON object.
-     */
-    public JsonObject toJson() {
-        return new JsonObject()
-            .put("_id", id.toString())
-            .put("email", email)
-            .put("firstName", firstName)
-            .put("lastName", lastName)
-            .put("company", company)
-            .put("country", country)
-            .put("industry", industry)
+    /** {@inheritDoc} */
+    @Override public String getUsername() {
+        return email;
+    }
 
-            .put("token", tok)
-            .put("resetPasswordToken", resetPwdTok)
+    /** {@inheritDoc} */
+    @Override public String getPassword() {
+        return hashedPwd;
+    }
 
-            .put("registered", registered)
-            .put("lastLogin", lastLogin)
-            .put("lastActivity", lastActivity)
-            .put("lastEvent", lastEvt)
+    /** {@inheritDoc} */
+    @Override public boolean isAccountNonExpired() {
+        return true;
+    }
 
-            .put("salt", salt)
-            .put("hash", hash)
+    /** {@inheritDoc} */
+    @Override public boolean isAccountNonLocked() {
+        return true;
+    }
 
-            .put("admin", admin)
-            .put("activated", activated)
-            .put("demoCreated", demoCreated);
+    /** {@inheritDoc} */
+    @Override public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean isEnabled() {
+        return true;
     }
 }
