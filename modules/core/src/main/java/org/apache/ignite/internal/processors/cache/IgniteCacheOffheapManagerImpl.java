@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.cache;
 
+import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -24,6 +25,8 @@ import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CachePartitionPartialCountersMap;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionDemandMessage;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteHistoricalIterator;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteRebalanceIteratorImpl;
@@ -830,11 +833,34 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         AffinityTopologyVersion topVer) throws IgniteCheckedException {
         final GridDhtLocalPartition loc = grp.topology().localPartition(part, topVer, false);
 
-        if (loc == null || !loc.reserve())
+        if (loc == null) {
+            GridDhtPartitionDemandMessage demandMsg = GridDhtPartitionSupplyMessage.TL.get();
+            UUID uuid = GridDhtPartitionSupplyMessage.NODE_ID.get();
+
+            log.warning("^^^ Partitions " + demandMsg.partitions().fullSet() + " were demanded from node " +
+                uuid + ", topVer=" + topVer + ", but partition " + part + " is missing locally");
+
             return null;
+        }
+
+        if (!loc.reserve()) {
+            GridDhtPartitionDemandMessage demandMsg = GridDhtPartitionSupplyMessage.TL.get();
+            UUID uuid = GridDhtPartitionSupplyMessage.NODE_ID.get();
+
+            log.warning("^^^ Partitions " + demandMsg.partitions().fullSet() + " were demanded from node " +
+                uuid + ", topVer=" + topVer + ", but partition " + part + " can't be reserved, state = " + loc.state());
+
+            return null;
+        }
 
         // It is necessary to check state after reservation to avoid race conditions.
         if (loc.state() != OWNING) {
+            GridDhtPartitionDemandMessage demandMsg = GridDhtPartitionSupplyMessage.TL.get();
+            UUID uuid = GridDhtPartitionSupplyMessage.NODE_ID.get();
+
+            log.warning("^^^ Partitions " + demandMsg.partitions().fullSet() + " were demanded from node " +
+                uuid + ", topVer=" + topVer + ", but partition " + part + " is not OWNING, state = " + loc.state());
+
             loc.release();
 
             return null;
