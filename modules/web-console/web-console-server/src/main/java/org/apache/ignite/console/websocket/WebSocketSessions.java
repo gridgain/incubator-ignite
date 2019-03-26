@@ -92,7 +92,7 @@ public class WebSocketSessions {
             else {
                 log.info("Removed closed session: " + ws.getId());
 
-                browsers.remove(entry.getKey());
+                sockets.remove(entry.getKey());
             }
         }
     }

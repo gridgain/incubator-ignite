@@ -53,7 +53,7 @@ import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_
 /**
  * Router that listen for web socket and redirect messages to event bus.
  */
-@WebSocket
+@WebSocket(maxTextMessageSize = 10 * 1024 * 1024, maxBinaryMessageSize = 10 * 1024 * 1024)
 public class WebSocketRouter implements AutoCloseable {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketRouter.class));
@@ -189,6 +189,8 @@ public class WebSocketRouter implements AutoCloseable {
         log.info("Connection closed [code=" + statusCode + ", reason=" + reason + "]");
 
         wss.close();
+
+        connect();
     }
 
     /**
@@ -251,7 +253,7 @@ public class WebSocketRouter implements AutoCloseable {
      * @param frame Frame.
      */
     @OnWebSocketFrame
-    public void methodName(Session ses, Frame frame) {
+    public void onFrame(Session ses, Frame frame) {
         if (frame.getType() == Frame.Type.PING) {
             if (log.isTraceEnabled())
                 log.trace("Received ping message [socket=" + ses + ", msg=" + frame + "]");

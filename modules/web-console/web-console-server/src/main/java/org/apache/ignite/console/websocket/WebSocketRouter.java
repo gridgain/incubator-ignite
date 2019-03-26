@@ -17,25 +17,18 @@
 
 package org.apache.ignite.console.websocket;
 
-import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.rest.RestApiController;
-import org.apache.ignite.console.services.VisorTaskDescriptor;
-import org.apache.ignite.internal.util.typedef.F;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.PongMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import static org.apache.ignite.console.util.JsonUtils.getString;
-import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
 import static org.apache.ignite.console.websocket.Utils.encodeJson;
 import static org.apache.ignite.console.websocket.Utils.toAgentInfo;
 import static org.apache.ignite.console.websocket.Utils.toBrowserInfo;
@@ -59,16 +52,10 @@ public class WebSocketRouter extends TextWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(RestApiController.class);
 
     /** */
-    private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
-
-    /** */
     private final WebSocketSessions wss;
 
     /** */
     private final Map<String, WebSocketSession> requests;
-
-    /** */
-    private final Map<String, VisorTaskDescriptor> visorTasks;
 
     /**
      * @param wss Websocket sessions.
@@ -77,7 +64,6 @@ public class WebSocketRouter extends TextWebSocketHandler {
         this.wss = wss;
 
         requests = new ConcurrentHashMap<>();
-        visorTasks = new ConcurrentHashMap<>();
     }
 
     /**
@@ -117,85 +103,6 @@ public class WebSocketRouter extends TextWebSocketHandler {
     }
 
     /**
-     * @param taskId Task ID.
-     * @param taskCls Task class name.
-     * @param argCls Arguments classes names.
-     */
-    protected void registerVisorTask(String taskId, String taskCls, String... argCls) {
-        visorTasks.put(taskId, new VisorTaskDescriptor(taskCls, argCls));
-    }
-
-    /**
-     * @param shortName Class short name.
-     * @return Full class name.
-     */
-    protected String igniteVisor(String shortName) {
-        return VISOR_IGNITE + shortName;
-    }
-
-    /**
-     * Register Visor tasks.
-     */
-    protected void registerVisorTasks() {
-        registerVisorTask("querySql", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArg"));
-        registerVisorTask("querySqlV2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV2"));
-        registerVisorTask("querySqlV3", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV3"));
-        registerVisorTask("querySqlX2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryTaskArg"));
-
-        registerVisorTask("queryScanX2", igniteVisor("query.VisorScanQueryTask"), igniteVisor("query.VisorScanQueryTaskArg"));
-
-        registerVisorTask("queryFetch", igniteVisor("query.VisorQueryNextPageTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.Integer");
-        registerVisorTask("queryFetchX2", igniteVisor("query.VisorQueryNextPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
-
-        registerVisorTask("queryFetchFirstPage", igniteVisor("query.VisorQueryFetchFirstPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
-
-        registerVisorTask("queryClose", igniteVisor("query.VisorQueryCleanupTask"), "java.util.Map", "java.util.UUID", "java.util.Set");
-        registerVisorTask("queryCloseX2", igniteVisor("query.VisorQueryCleanupTask"), igniteVisor("query.VisorQueryCleanupTaskArg"));
-
-        registerVisorTask("toggleClusterState", igniteVisor("misc.VisorChangeGridActiveStateTask"), igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
-
-        registerVisorTask("cacheNamesCollectorTask", igniteVisor("cache.VisorCacheNamesCollectorTask"), "java.lang.Void");
-
-        registerVisorTask("cacheNodesTask", igniteVisor("cache.VisorCacheNodesTask"), "java.lang.String");
-        registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
-    }
-
-    private void prepareVisorTaskParams(WebSocketEvent evt) throws Exception {
-        Map<String, Object> params = paramsFromJson(evt.getPayload());
-
-        String taskId = getString(params, "taskId", "");
-
-        if (F.isEmpty(taskId))
-            throw new IllegalStateException("Task ID not found");
-
-        VisorTaskDescriptor desc = visorTasks.get(taskId);
-
-        String nids = getString(params, "nids", "");
-
-        String args = params.get("args");
-        // , params.getJsonArray("args")
-
-        JsonObject exeParams = prepareNodeVisorParams(desc, params.getString("nids"), params.getJsonArray("args"));
-
-        body.put("params", exeParams);
-
-        msg.put("body", body);
-
-        Map<String, Object> exeParams = new LinkedHashMap<String, Object>();
-
-        exeParams.put("cmd", "exe");
-        exeParams.put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask");
-        exeParams.put("p1", nids);
-        exeParams.put("p2", desc.getTaskClass());
-
-        AtomicInteger idx = new AtomicInteger(3);
-
-        Arrays.stream(desc.getArgumentsClasses()).forEach(arg ->  exeParams.put("p" + idx.getAndIncrement(), arg));
-
-        args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
-    }
-
-    /**
      * @param ws Websocket.
      * @param msg Incoming message.
      */
@@ -211,13 +118,11 @@ public class WebSocketRouter extends TextWebSocketHandler {
 
                     break;
 
-                case NODE_VISOR:
-                    prepareVisorTaskParams(evt);
-
                 case SCHEMA_IMPORT_DRIVERS:
                 case SCHEMA_IMPORT_SCHEMAS:
                 case SCHEMA_IMPORT_METADATA:
                 case NODE_REST:
+                case NODE_VISOR:
                     requests.put(evt.getRequestId(), ws);
 
                     // TODO IGNITE-5617: select correct agent.
@@ -250,7 +155,13 @@ public class WebSocketRouter extends TextWebSocketHandler {
 
     /** {@inheritDoc} */
     @Override public void afterConnectionEstablished(WebSocketSession ws) {
-        //Messages will be sent to all users.
+        ws.setTextMessageSizeLimit(10 * 1024 * 1024); // TODO IGNITE-5617 WTF!?!
+
         wss.openSession(ws);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void afterConnectionClosed(WebSocketSession ws, CloseStatus status) {
+        log.info("Session closed [socket=" + ws + ", status=" + status + "]");
     }
 }
