@@ -82,29 +82,29 @@ public class RestExecutor implements AutoCloseable {
      */
     public RestExecutor(AgentConfiguration cfg) throws Exception {
         this.cfg = cfg;
-        boolean nodeTrustAll = Boolean.getBoolean("trust.all");
+        boolean trustAll = Boolean.getBoolean("trust.all");
 
-        if (nodeTrustAll && !F.isEmpty(cfg.nodeTrustStore())) {
+        if (trustAll && !F.isEmpty(cfg.nodeTrustStore())) {
             log.warning("Options contains both '--node-trust-store' and '-Dtrust.all=true'. " +
                 "Option '-Dtrust.all=true' will be ignored on connect to cluster.");
 
-            nodeTrustAll = false;
+            trustAll = false;
         }
 
-        boolean ssl = nodeTrustAll || !F.isEmpty(cfg.nodeTrustStore()) || !F.isEmpty(cfg.nodeKeyStore());
+        boolean ssl = trustAll || !F.isEmpty(cfg.nodeTrustStore()) || !F.isEmpty(cfg.nodeKeyStore());
 
         if (ssl) {
-            SslContextFactory sslContextFactory = sslContextFactory(
+            SslContextFactory sslCtxFactory = sslContextFactory(
                 cfg.nodeKeyStore(),
                 cfg.nodeKeyStorePassword(),
-                nodeTrustAll,
+                trustAll,
                 cfg.nodeTrustStore(),
                 cfg.nodeTrustStorePassword(),
                 cfg.cipherSuites()
 
             );
 
-            httpClient = new HttpClient(sslContextFactory);
+            httpClient = new HttpClient(sslCtxFactory);
         }
         else
             httpClient = new HttpClient();
@@ -155,7 +155,8 @@ public class RestExecutor implements AutoCloseable {
     /** */
     private RestResult sendRequest(String url, Map<String, Object> params) throws Throwable {
         Request req = httpClient
-            .newRequest(url + "/ignite")
+            .newRequest(url)
+            .path("/ignite")
             .method(HttpMethod.POST);
 
         params.forEach((k, v) -> req.param(k, String.valueOf(v)));

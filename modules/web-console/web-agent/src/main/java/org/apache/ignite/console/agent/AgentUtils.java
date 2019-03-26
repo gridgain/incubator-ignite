@@ -22,8 +22,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
+import java.util.HashMap;
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -34,6 +36,9 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 public class AgentUtils {
     /** */
     private static final Logger log = Logger.getLogger(AgentUtils.class.getName());
+
+    /** */
+    public static final String[] EMPTY = {};
 
     /** */
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -119,12 +124,12 @@ public class AgentUtils {
 
     /**
      *
-     * @param keyStore
-     * @param keyStorePwd
-     * @param trustAll
-     * @param trustStore
-     * @param trustStorePwd
-     * @param ciphers
+     * @param keyStore Path to key store.
+     * @param keyStorePwd Optional key store password.
+     * @param trustAll Whether we should trust for self-signed certificate.
+     * @param trustStore Path to trust store.
+     * @param trustStorePwd Optional trust store passwo5rd.
+     * @param ciphers Optional list of enabled cipher suites.
      * @return SSL context factory.
      */
     public static SslContextFactory sslContextFactory(
@@ -135,30 +140,30 @@ public class AgentUtils {
         String trustStorePwd,
         List<String> ciphers
     ) {
-        SslContextFactory sslContextFactory = new SslContextFactory();
+        SslContextFactory sslCtxFactory = new SslContextFactory();
 
         if (!F.isEmpty(keyStore)) {
-            sslContextFactory.setKeyStorePath(keyStore);
+            sslCtxFactory.setKeyStorePath(keyStore);
 
             if (!F.isEmpty(keyStorePwd))
-                sslContextFactory.setKeyStorePassword(keyStorePwd);
+                sslCtxFactory.setKeyStorePassword(keyStorePwd);
         }
 
         if (trustAll) {
-            sslContextFactory.setTrustAll(true);
-            sslContextFactory.setHostnameVerifier((hostname, session) -> true);
+            sslCtxFactory.setTrustAll(true);
+            sslCtxFactory.setHostnameVerifier((hostname, session) -> true);
         }
         else if (!F.isEmpty(trustStore)) {
-            sslContextFactory.setTrustStorePath(trustStore);
+            sslCtxFactory.setTrustStorePath(trustStore);
 
             if (!F.isEmpty(trustStorePwd))
-                sslContextFactory.setTrustStorePassword(trustStorePwd);
+                sslCtxFactory.setTrustStorePassword(trustStorePwd);
         }
 
         if (!F.isEmpty(ciphers))
-            sslContextFactory.setIncludeCipherSuites(ciphers.toArray(new String[] {}));
+            sslCtxFactory.setIncludeCipherSuites(ciphers.toArray(EMPTY));
 
-        return  sslContextFactory;
+        return  sslCtxFactory;
     }
 
     /**
@@ -171,14 +176,75 @@ public class AgentUtils {
     }
 
     /**
-     *
-     * @param json
-     * @param cls
-     * @param <T>
-     * @return
-     * @throws IOException
+     * @param json JSON.
+     * @param cls Object class.
+     * @return Deserialized object.
+     * @throws IOException If deserialization failed.
      */
     public static <T> T fromJson(String json, Class<T> cls) throws IOException {
         return MAPPER.readValue(json, cls);
+    }
+
+    /**
+     * @param json JSON.
+     * @return Map with parameters.
+     * @throws IOException If deserialization failed.
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> paramsFromJson(String json) throws IOException {
+        return MAPPER.readValue(json, Map.class);
+    }
+
+    /**
+     * @param errMsg Error message.
+     * @param cause Exception.
+     * @return JSON.
+     * @throws IOException If serialization failed.
+     */
+    public static String errorToJson(String errMsg, Throwable cause) throws IOException {
+        Map<String, String> data = new HashMap<>();
+
+        String causeMsg = "";
+
+        if (cause != null) {
+            causeMsg = cause.getMessage();
+
+            if (F.isEmpty(causeMsg))
+                causeMsg = cause.getClass().getName();
+        }
+
+        data.put("message", errMsg + ": " + causeMsg);
+
+        return MAPPER.writeValueAsString(data);
+    }
+
+    /**
+     * @param map Map with parameters.
+     * @param key Key name.
+     * @param dflt Default value.
+     * @return Value as string.
+     */
+    public static String getString(Map<String, Object> map, String key, String dflt) {
+        Object res = map.get(key);
+
+        if (res == null)
+            return dflt;
+
+        return res.toString();
+    }
+
+    /**
+     * @param map Map with parameters.
+     * @param key Key name.
+     * @param dflt Default value.
+     * @return Value as boolean.
+     */
+    public static boolean getBoolean(Map<String, Object> map, String key, boolean dflt) {
+        Object res = map.get(key);
+
+        if (res == null)
+            return dflt;
+
+        return (Boolean)res;
     }
 }

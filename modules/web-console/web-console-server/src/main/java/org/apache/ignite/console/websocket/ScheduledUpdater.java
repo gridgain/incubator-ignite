@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.websocket;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
-import org.apache.ignite.console.websocket.WebSocketEvent;
-import org.apache.ignite.console.websocket.WebSocketSessions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,12 +32,12 @@ import org.springframework.stereotype.Component;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_STATUS;
 
 /**
- *
+ * Service that execute various tasks.
  */
 @Component
-public class ClustersUpdater {
+public class ScheduledUpdater {
     /** */
-    private static final Logger log = LoggerFactory.getLogger(ClustersUpdater.class);
+    private static final Logger log = LoggerFactory.getLogger(ScheduledUpdater.class);
 
     /** */
     private static final String CLUSTER_ID = UUID.randomUUID().toString();
@@ -54,7 +52,7 @@ public class ClustersUpdater {
      * @param wss Websocket sessions.
      */
     @Autowired
-    public ClustersUpdater(WebSocketSessions wss) {
+    public ScheduledUpdater(WebSocketSessions wss) {
         this.wss = wss;
     }
 
@@ -92,5 +90,13 @@ public class ClustersUpdater {
         catch (Throwable ignore) {
             log.info("Embedded Web Console awaits for cluster activation...");
         }
+    }
+
+    /**
+     * Periodicakky ping connected clients to keep connections alive.
+     */
+    @Scheduled(fixedRate = 5000)
+    public void pingClients() {
+        wss.ping();
     }
 }

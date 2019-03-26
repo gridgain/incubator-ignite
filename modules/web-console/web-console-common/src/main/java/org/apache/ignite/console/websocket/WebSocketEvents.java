@@ -22,6 +22,9 @@ package org.apache.ignite.console.websocket;
  */
 public interface WebSocketEvents {
     /** */
+    public static final String ERROR = "error";
+
+    /** */
     public static final String AGENT_INFO = "agent:info";
 
     /** */
@@ -47,9 +50,6 @@ public interface WebSocketEvents {
 
     /** */
     public static final String NODE_VISOR = "node:visor";
-
-    /** */
-    public static final String CLUSTER_CONNECTED = "cluster:connected";
 
     /** */
     public static final String CLUSTER_TOPOLOGY = "cluster:topology";

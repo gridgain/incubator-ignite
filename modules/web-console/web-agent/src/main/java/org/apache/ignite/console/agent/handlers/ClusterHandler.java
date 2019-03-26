@@ -39,6 +39,7 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
+import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
@@ -48,7 +49,11 @@ import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
+import static org.apache.ignite.console.agent.AgentUtils.fromJson;
+import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_DISCONNECTED;
+import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
@@ -60,7 +65,8 @@ import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresse
 /**
  * API to transfer topology from Ignite cluster to Web Console.
  */
-public class ClusterHandler implements AutoCloseable {
+@SuppressWarnings("unchecked")
+public class ClusterHandler {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterHandler.class));
 
@@ -101,6 +107,9 @@ public class ClusterHandler implements AutoCloseable {
     private final AgentConfiguration cfg;
 
     /** */
+    private final WebSocketSession wss;
+
+    /** */
     private final RestExecutor restExecutor;
 
     /** */
@@ -111,23 +120,14 @@ public class ClusterHandler implements AutoCloseable {
 
     /**
      * @param cfg Web agent configuration.
+     * @param wss Websocket session.
      * @throws Exception If failed to create cluster handler.
      */
-    public ClusterHandler(AgentConfiguration cfg) throws Exception {
+    public ClusterHandler(AgentConfiguration cfg, WebSocketSession wss) throws Exception {
         this.cfg = cfg;
-        this.restExecutor = new RestExecutor(cfg);
-    }
+        this.wss = wss;
 
-    /**
-     * Callback on cluster connect.
-     *
-     * @param nids Cluster nodes IDs.
-     */
-    private void clusterConnect(Collection<UUID> nids) {
-        log.info("Connection successfully established to cluster with nodes: " +
-            nids.stream().map(U::id8).collect(Collectors.joining(",", "[", "]")));
-
-        // websocket.send(Addresses.CLUSTER_CONNECTED, nids);
+        restExecutor = new RestExecutor(cfg);
     }
 
     /**
@@ -141,7 +141,12 @@ public class ClusterHandler implements AutoCloseable {
 
         log.info("Connection to cluster was lost");
 
-        // websocket.send(Addresses.CLUSTER_DISCONNECTED, null);
+        try {
+            wss.send(CLUSTER_DISCONNECTED, null);
+        }
+        catch (Throwable e) {
+            log.error("Failed to send 'Cluster disconnected' event to server", e);
+        }
     }
 
     /**
@@ -238,13 +243,13 @@ public class ClusterHandler implements AutoCloseable {
         params.put("mtr", false);
         params.put("caches", false);
 
-        return restCommand(null/*params*/);
+        return restCommand(params);
     }
 
     /**
      * Start watch cluster.
      */
-    public void watch() {
+    public void start() {
         refreshTask = pool.scheduleWithFixedDelay(() -> {
             try {
                 RestResult res = topology();
@@ -267,7 +272,7 @@ public class ClusterHandler implements AutoCloseable {
 
                     top = newTop;
 
-                    // websocket.send(Addresses.CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
+                    wss.send(CLUSTER_TOPOLOGY, top);
                 }
                 else {
                     LT.warn(log, res.getError());
@@ -286,8 +291,10 @@ public class ClusterHandler implements AutoCloseable {
         }, 0L, REFRESH_FREQ, TimeUnit.MILLISECONDS);
     }
 
-    /** {@inheritDoc} */
-    @Override public void close() {
+    /**
+     * Stop cluster watch.
+     */
+    public void stop() {
         refreshTask.cancel(true);
 
         pool.shutdownNow();
@@ -482,4 +489,48 @@ public class ClusterHandler implements AutoCloseable {
             return prev != null && !prev.nids.equals(nids);
         }
     }
+
+    /**
+     * @param evt Websocket event.
+     */
+    public void restRequest(WebSocketEvent evt) {
+        if (log.isDebugEnabled())
+            log.debug("Processing REST request: " + evt);
+
+        try {
+            Map<String, Object> args = fromJson(evt.getPayload(), Map.class);
+
+            Map<String, Object> params = Collections.emptyMap();
+
+            if (args.containsKey("params"))
+                params = (Map<String, Object>)args.get("params");
+
+//            if (!args.containsKey("demo"))
+//                throw new IllegalArgumentException("Missing demo flag in arguments: " + args);
+
+//            boolean demo = (boolean)args.get("demo");
+//
+//            if (F.isEmpty((String)args.get("token")))
+//                return RestResult.fail(401, "Request does not contain user token.");
+
+            RestResult res;
+
+            try {
+                res = restExecutor.sendRequest(params);
+            }
+            catch (Throwable e) {
+                res = RestResult.fail(HTTP_INTERNAL_ERROR, e.getMessage());
+            }
+
+            wss.reply(evt, res);
+        }
+        catch (Throwable e) {
+            String errMsg = "Failed to handle REST request: " + evt;
+
+            log.error(errMsg, e);
+
+            wss.fail(evt, errMsg, e);
+        }
+    }
+
 }

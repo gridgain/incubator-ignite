@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
-import org.apache.ignite.console.agent.handlers.WebSocketHandler;
+import org.apache.ignite.console.agent.handlers.WebSocketRouter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -190,7 +190,7 @@ public class AgentLauncher {
         AgentConfiguration cfg = parseArgs(args);
 
         if (cfg != null) {
-            try (WebSocketHandler websocket = new WebSocketHandler(cfg)) {
+            try (WebSocketRouter websocket = new WebSocketRouter(cfg)) {
                 websocket.start();
 
                 websocket.awaitClose();

@@ -23,17 +23,19 @@ import org.apache.ignite.console.rest.RestApiController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.PongMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import static org.apache.ignite.console.Utils.encodeJson;
-import static org.apache.ignite.console.Utils.toAgentInfo;
-import static org.apache.ignite.console.Utils.toBrowserInfo;
-import static org.apache.ignite.console.Utils.toWsEvt;
-import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
+import static org.apache.ignite.console.websocket.Utils.encodeJson;
+import static org.apache.ignite.console.websocket.Utils.toAgentInfo;
+import static org.apache.ignite.console.websocket.Utils.toBrowserInfo;
+import static org.apache.ignite.console.websocket.Utils.toWsEvt;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
+import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_REST;
 import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_VISOR;
 import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_DRIVERS;
@@ -63,66 +65,91 @@ public class WebSocketRouter extends TextWebSocketHandler {
         requests = new ConcurrentHashMap<>();
     }
 
+    /**
+     * @param ws Websocket.
+     * @param msg Incoming message.
+     */
+    private void handleAgentEvents(WebSocketSession ws, TextMessage msg) {
+        try {
+            WebSocketEvent evt = toWsEvt(msg.getPayload());
+
+            switch (evt.getEventType()) {
+                case AGENT_INFO:
+                    AgentInfo agentInfo = toAgentInfo(evt.getPayload());
+
+                    log.info("Agent connected: " + agentInfo.getAgentId());
+
+                    break;
+
+                // TODO IGNITE-5617: implement broadcasting of topology events.
+                case CLUSTER_TOPOLOGY:
+                    wss.broadcastToBrowsers(evt);
+
+                    break;
+
+                default:
+                    WebSocketSession browserWs = requests.remove(evt.getRequestId());
+
+                    if (browserWs != null)
+                        browserWs.sendMessage(new TextMessage(encodeJson(evt)));
+                    else
+                        log.warn("Failed to send event to browser: " + evt);
+            }
+        }
+        catch (Throwable e) {
+            log.error("Failed to process event from web console agent [socket=" + ws + ", msg=" + msg + "]", e);
+        }
+    }
+
+    /**
+     * @param ws Websocket.
+     * @param msg Incoming message.
+     */
+    private void handleBrowserEvents(WebSocketSession ws, TextMessage msg) {
+        try {
+            WebSocketEvent evt = toWsEvt(msg.getPayload());
+
+            switch (evt.getEventType()) {
+                case BROWSER_INFO:
+                    BrowserInfo browserInfo = toBrowserInfo(evt.getPayload());
+
+                    log.info("Browser connected: " + browserInfo.getBrowserId());
+
+                    break;
+
+                case SCHEMA_IMPORT_DRIVERS:
+                case SCHEMA_IMPORT_SCHEMAS:
+                case SCHEMA_IMPORT_METADATA:
+                case NODE_REST:
+                case NODE_VISOR:
+                    requests.put(evt.getRequestId(), ws);
+
+                    // TODO IGNITE-5617: select correct agent.
+                    wss.broadcastToAgents(evt);
+            }
+        }
+        catch (Throwable e) {
+            log.error("Failed to process event from browser [socket=" + ws + ", msg=" + msg + "]", e);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override public void handleTextMessage(WebSocketSession ws, TextMessage msg) {
-            try {
-                boolean fromBrowser = BROWSERS_PATH.equals(ws.getUri().getPath());
+        if (AGENTS_PATH.equals(ws.getUri().getPath()))
+            handleAgentEvents(ws, msg);
+        else
+            handleBrowserEvents(ws, msg);
+    }
 
-                String payload = msg.getPayload();
-
-                WebSocketEvent evt = toWsEvt(payload);
-
-                String evtType = evt.getEventType();
-
-                switch (evtType) {
-                    case AGENT_INFO:
-                        AgentInfo agentInfo = toAgentInfo(evt.getPayload());
-
-                        log.info("Agent connected: " + agentInfo.getAgentId());
-
-                        break;
-
-                    case BROWSER_INFO:
-                        BrowserInfo browserInfo = toBrowserInfo(evt.getPayload());
-
-                        log.info("Browser connected: " + browserInfo.getBrowserId());
-
-                        break;
-
-                    case SCHEMA_IMPORT_DRIVERS:
-                    case SCHEMA_IMPORT_SCHEMAS:
-                    case SCHEMA_IMPORT_METADATA:
-                    case NODE_REST:
-                    case NODE_VISOR:
-                        if (fromBrowser) {
-                            log.info("evtType: " + evtType + ", reqId: " + evt.getRequestId() + ", ws: " + ws.getId());
-
-                            requests.put(evt.getRequestId(), ws);
-
-                            // TODO IGNITE-5617: select correct agent.
-                            wss.broadcastToAgents(evt);
-                        }
-                        else {
-                            WebSocketSession browserWs = requests.remove(evt.getRequestId());
-
-                            log.info("evtType: " + evtType + ", reqId: " + evt.getRequestId() +
-                                ", ws: " + ws.getId() + ", browserWs: " + browserWs.getId());
-
-                            if (browserWs != null)
-                                browserWs.sendMessage(new TextMessage(encodeJson(evt)));
-                            else
-                                log.warn("Failed to send response: " + evt.getRequestId());
-                        }
-
-                        break;
-
-                    default:
-                        log.info("Unknown event: " + evt);
-                }
-            }
-            catch (Throwable e) {
-                log.error("Failed to process incoming message", e);
-            }
+    /** {@inheritDoc} */
+    @Override protected void handlePongMessage(WebSocketSession ws, PongMessage msg) {
+        try {
+            if (log.isTraceEnabled())
+                log.trace("Received pong message [socket=" + ws + ", msg=" + msg + "]");
+        }
+        catch (Throwable e) {
+            log.error("Failed to process pong message [socket=" + ws + ", msg=" + msg + "]", e);
+        }
     }
 
     /** {@inheritDoc} */

@@ -22,20 +22,26 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.PingMessage;
 import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import static org.apache.ignite.console.Utils.encodeJson;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.console.websocket.Utils.encodeJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 
 /**
- *
+ * Websocket sessions service.
  */
 @Component
 public class WebSocketSessions {
     /** */
     private static final Logger log = LoggerFactory.getLogger(WebSocketSessions.class);
+
+    /** */
+    private static final PingMessage PING = new PingMessage(UTF_8.encode("PING"));
 
     /** */
     private final Map<String, WebSocketSession> agents = new ConcurrentHashMap<>();
@@ -68,22 +74,35 @@ public class WebSocketSessions {
     }
 
     /**
-     * @param evt Event to broadcast.
+     * @param msg Message to broadcast.
      * @param sockets Sockets.
-     * @throws Exception If failed to broadcast.
      */
-    private void broadcast(WebSocketEvent evt, Map<String, WebSocketSession> sockets) throws Exception {
+    private void broadcast(WebSocketMessage msg, Map<String, WebSocketSession> sockets){
         for (Map.Entry<String, WebSocketSession> entry : sockets.entrySet()) {
             WebSocketSession ws = entry.getValue();
 
-            if (ws.isOpen())
-                ws.sendMessage(new TextMessage(encodeJson(evt)));
+            if (ws.isOpen()) {
+                try {
+                    ws.sendMessage(msg);
+                }
+                catch (Throwable e) {
+                    log.error("Failed to send message to socket: " + ws, e);
+                }
+            }
             else {
                 log.info("Removed closed session: " + ws.getId());
 
                 browsers.remove(entry.getKey());
             }
         }
+    }
+
+    /**
+     * @param evt Event to broadcast.
+     * @param sockets Sockets.
+     */
+    private void broadcast(WebSocketEvent evt, Map<String, WebSocketSession> sockets) throws Exception {
+        broadcast(new TextMessage(encodeJson(evt)), sockets);
     }
 
     /**
@@ -112,5 +131,13 @@ public class WebSocketSessions {
         catch (Throwable e) {
             log.error("Failed to broadcast event to browsers: " + evt, e);
         }
+    }
+
+    /**
+     * Ping connected clients.
+     */
+    public void ping() {
+        broadcast(PING, agents);
+        broadcast(PING, browsers); // TODO IGNITE-5617 Not sure if we need to ping browser, investigate later.
     }
 }

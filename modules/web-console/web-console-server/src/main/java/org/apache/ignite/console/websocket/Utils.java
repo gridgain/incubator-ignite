@@ -15,15 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
-
-import java.io.IOException;
+package org.apache.ignite.console.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.apache.ignite.console.websocket.AgentInfo;
-import org.apache.ignite.console.websocket.BrowserInfo;
-import org.apache.ignite.console.websocket.WebSocketEvent;
+import java.io.IOException;
 
 /**
  *

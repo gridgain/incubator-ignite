@@ -26,10 +26,12 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.eclipse.jetty.websocket.api.Session;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.ignite.console.agent.AgentUtils.errorToJson;
 import static org.apache.ignite.console.agent.AgentUtils.toJson;
+import static org.apache.ignite.console.websocket.WebSocketEvents.ERROR;
 
 /**
- *
+ * Wrapper for websocket.
  */
 public class WebSocketSession {
     /** */
@@ -63,37 +65,61 @@ public class WebSocketSession {
      * Send event to websocket.
      *
      * @param evt Event.
+     * @throws IOException If failed to send event.
      */
-    public void send(WebSocketEvent evt) {
-        try {
-            Session ses = sesRef.get();
+    public void send(WebSocketEvent evt) throws IOException {
+        Session ses = sesRef.get();
 
-            if (ses == null)
-                throw new IOException("No active session");
+        if (ses == null)
+            throw new IOException("No active session");
 
-            ses.getRemote().sendString(toJson(evt));
-        }
-        catch (Throwable e) {
-            log.error("Failed to send event", e);
-        }
+        ses.getRemote().sendString(toJson(evt));
     }
 
     /**
      * Send event to websocket.
      *
      * @param evtType Event type.
-     * @param val Object to send as payload.
+     * @param payload Payload.
+     * @throws IOException If failed to send event.
      */
-    public void send(String evtType, Object val) {
+    public void send(String evtType, Object payload) throws IOException {
+        send(new WebSocketEvent(
+            UUID.randomUUID().toString(),
+            evtType,
+            toJson(payload)
+        ));
+    }
+
+    /**
+     * Reply with result.
+     *
+     * @param evt Source event.
+     * @param res Result.
+     * @throws IOException If failed.
+     */
+    public void reply(WebSocketEvent evt, Object res) throws IOException {
+        evt.setPayload(toJson(res));
+
+        send(evt);
+    }
+
+    /**
+     * Reply with error message.
+     *
+     * @param evt Source event.
+     * @param errMsg Error message.
+     * @param cause Error cause.
+     */
+    public void fail(WebSocketEvent evt, String errMsg, Throwable cause) {
         try {
-            send(new WebSocketEvent(
-                UUID.randomUUID().toString(),
-                evtType,
-                toJson(val)
-            ));
+            evt.setEventType(ERROR);
+            evt.setPayload(errorToJson(errMsg, cause));
+
+            send(evt);
         }
         catch (Throwable e) {
-            log.error("Failed to send event", e);
+            log.error("Failed to send error message: [msg=" + errMsg + ", cause=" + cause + "]", e);
         }
     }
 }

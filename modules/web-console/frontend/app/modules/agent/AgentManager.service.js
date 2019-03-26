@@ -300,11 +300,13 @@ export default class AgentManager {
                     this.updateCluster(payload);
                 else if (evtType === 'user:notifications')
                     this.UserNotifications.notification = payload;
-                else
+                else {
                     this.wsSubject.next({
                         requestId: data.requestId,
+                        evtType,
                         payload
                     });
+                }
             },
             onreconnect: (evt) => console.log('[WS] Reconnecting...', evt),
             onclose: (evt) => console.log('[WS] Closed!', evt),
@@ -452,8 +454,6 @@ export default class AgentManager {
 
         const latch = this.$q.defer();
 
-        // TODO IGNITE-5617 Need handle disconnect on send.
-
         // Publishing with acknowledgement
         const requestId = uuidv4();
 
@@ -466,42 +466,19 @@ export default class AgentManager {
         this.wsSubject
             .asObservable()
             .pipe(
-                filter((data) => {
-                    console.log('data.requestId: ' + data.requestId + ', requestId: ' + requestId);
-
-                    return data.requestId === requestId;
-                }),
+                // TODO IGNITE-5617 Need handle disconnect on send: || res.eventType === 'DISCONNECTED'.
+                filter((evt) => evt.requestId === requestId),
                 take(1)
             )
             .toPromise()
-            .then((data) => {
-                console.log('Received response', data);
+            .then((evt) => {
+                console.log('Received response', evt);
 
-                latch.resolve(data.payload);
+                if (evt.eventType === 'error')
+                    latch.reject(evt.payload);
+                else
+                    latch.resolve(evt.payload);
             });
-
-
-        // this.ws.publish(address, message, {}, (err, res) => {
-        //     if (err)
-        //         latch.reject(err);
-        //
-        //     // TODO IGNITE-5617 Workaround of sending errors from web agent.
-        //     if (res) {
-        //         if (res.body) {
-        //             if (res.body.err)
-        //                 latch.reject(res.body.err);
-        //
-        //             latch.resolve(res.body);
-        //         }
-        //         else {
-        //             console.log('NO BODY: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
-        //
-        //             latch.resolve(res);
-        //         }
-        //     }
-        //     else
-        //         console.log('NO DATA: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
-        // });
 
         return latch.promise;
     }
