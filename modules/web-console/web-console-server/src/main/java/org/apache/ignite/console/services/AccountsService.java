@@ -25,67 +25,75 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.console.web.model.UserDto;
 import org.apache.ignite.transactions.Transaction;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import static org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
 
 /**
  * Service to handle accounts.
  */
-public class AccountsService extends AbstractService {
+@Service
+public class AccountsService extends AbstractService implements UserDetailsService {
+    /**  */
+    private static final int HASH_WIDTH = 512;
+
+    /** Password encoder. */
+    private PasswordEncoder encoder;
+
     /** Repository to work with accounts. */
-    private final AccountsRepository accountsRepo;
+    private AccountsRepository accountsRepo;
 
     /**
      * @param ignite Ignite.
      */
-    public AccountsService(Ignite ignite) {
+    @Autowired
+    public AccountsService(Ignite ignite, AccountsRepository accountsRepo) {
         super(ignite);
 
-        this.accountsRepo = new AccountsRepository(ignite);
+        this.encoder = encoder();
+        this.accountsRepo = accountsRepo;
     }
 
     /** {@inheritDoc} */
     @Override public AccountsService install(Vertx vertx) {
-        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_ID, this::getById);
-        addConsumer(vertx, Addresses.ACCOUNT_GET_BY_EMAIL, this::getByEmail);
-        addConsumer(vertx, Addresses.ACCOUNT_REGISTER, this::register);
-
         return this;
     }
 
-    /**
-     * Get account by ID.
-     *
-     * @param accId Account Id.
-     * @return Public fields of account as JSON.
-     */
-    private JsonObject getById(String accId) {
-        return accountsRepo.getById(UUID.fromString(accId)).publicView();
+    /** {@inheritDoc} */
+    @Override public Account loadUserByUsername(String username) throws UsernameNotFoundException {
+        return accountsRepo.getByEmail(username);
     }
 
     /**
-     * Get account by email.
-     *
-     * @param email Account email.
-     * @return Account as JSON.
+     * @param user User.
+     * @return Registered account.
      */
-    private JsonObject getByEmail(String email) {
-        return accountsRepo.getByEmail(email).toJson();
-    }
+    public Account register(UserDto user) {
+        Account account = new Account(
+            user.getEmail(),
+            encoder.encode(user.getPassword()),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getPhone(),
+            user.getCompany(),
+            user.getCountry()
+        );
 
-    /**
-     * @param params Parameters in JSON format.
-     * @return Affected rows JSON object.
-     */
-    private JsonObject register(JsonObject params) {
-        Account account = Account.fromJson(params);
-
-        accountsRepo.create(account);
-
-        return rowsAffected(1);
+        return accountsRepo.create(account);
     }
 
     /**
      * Delete account by ID.
+     *
      * @return All registered accounts.
      */
     List<Account> list() {
@@ -120,5 +128,18 @@ public class AccountsService extends AbstractService {
                 tx.commit();
             }
         }
+    }
+
+    /**
+     * @return Service for encoding user passwords.
+     */
+    @Bean
+    public PasswordEncoder encoder() {
+        Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH);
+
+        encoder.setAlgorithm(PBKDF2WithHmacSHA256);
+        encoder.setEncodeHashAsBase64(true);
+
+        return encoder;
     }
 }
