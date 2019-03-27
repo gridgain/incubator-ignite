@@ -55,7 +55,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private static final String LOGOUT_ROUTE = "/api/v1/logout";
 
     /** Public routes. */
-    private static final String[] PUBLIC_ROUTES = new String[]{SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE};
+    private static final String[] PUBLIC_ROUTES = new String[]{SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE, "/agents"};
 
     /** */
     private final AccountsService accountsSrvc;

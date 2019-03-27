@@ -17,9 +17,14 @@
 
 package org.apache.ignite.console;
 
+import java.io.File;
+import java.util.Collections;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +48,18 @@ public class Application {
      */
     @Bean
     public IgniteEx authProvider() {
-        return (IgniteEx)Ignition.start(new IgniteConfiguration().setClientMode(true).setPeerClassLoadingEnabled(true));
+        IgniteConfiguration cfg = new IgniteConfiguration()
+            .setClientMode(true)
+            .setIgniteInstanceName("Web Console backend application")
+            .setMetricsLogFrequency(0)
+            .setLocalHost("127.0.0.1")
+            .setWorkDirectory(new File(U.getIgniteHome(), "work-web-console").getAbsolutePath())
+            .setDiscoverySpi(new TcpDiscoverySpi()
+                .setLocalPort(60800)
+                .setIpFinder(new TcpDiscoveryVmIpFinder()
+                    .setAddresses(Collections.singletonList("127.0.0.1:60800"))))
+            .setConnectorConfiguration(null);
+
+        return (IgniteEx)Ignition.start(cfg);
     }
 }

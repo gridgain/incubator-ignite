@@ -17,7 +17,7 @@
 
 package org.apache.ignite.console;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Collections;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
@@ -38,53 +38,39 @@ public class WebConsoleLauncher {
      * @param args Arguments.
      */
     public static void main(String... args) {
+        String workDir = Paths.get(U.getIgniteHome(), "work-web-console").toString();
+
         System.out.println("Starting Ignite Web Console Server...");
 
-        Ignite ignite = startIgnite();
+        System.setProperty("IGNITE_LOG_DIR", Paths.get(workDir, "log").toString());
+
+        Ignite ignite = startIgnite(workDir);
+
+        ignite.cluster().active(true);
     }
 
     /**
      * Start Ignite.
      *
      * @return Ignite instance.
+     * @param workDir Work directory.
      */
-    private static Ignite startIgnite() {
-        IgniteConfiguration cfg = new IgniteConfiguration();
+    private static Ignite startIgnite(String workDir) {
+        IgniteConfiguration cfg = new IgniteConfiguration()
+            .setIgniteInstanceName("Web Console backend")
+            .setConsistentId("web-console-backend")
+            .setMetricsLogFrequency(0)
+            .setLocalHost("127.0.0.1")
+            .setWorkDirectory(workDir)
+            .setDiscoverySpi(new TcpDiscoverySpi()
+            .setLocalPort(60800)
+            .setIpFinder(new TcpDiscoveryVmIpFinder()
+                .setAddresses(Collections.singletonList("127.0.0.1:60800"))))
+            .setDataStorageConfiguration(new DataStorageConfiguration()
+            .setDefaultDataRegionConfiguration(new DataRegionConfiguration()
+                .setPersistenceEnabled(true)))
+            .setConnectorConfiguration(null);
 
-        cfg.setIgniteInstanceName("Web Console backend");
-        cfg.setConsistentId("web-console-backend");
-        cfg.setMetricsLogFrequency(0);
-        cfg.setLocalHost("127.0.0.1");
-
-        cfg.setWorkDirectory(new File(U.getIgniteHome(), "work-web-console").getAbsolutePath());
-
-        TcpDiscoverySpi discovery = new TcpDiscoverySpi();
-
-        TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
-
-        ipFinder.setAddresses(Collections.singletonList("127.0.0.1:60800"));
-
-        discovery.setLocalPort(60800);
-        discovery.setIpFinder(ipFinder);
-
-        cfg.setDiscoverySpi(discovery);
-
-        DataStorageConfiguration dataStorageCfg = new DataStorageConfiguration();
-
-        DataRegionConfiguration dataRegionCfg = new DataRegionConfiguration();
-
-        dataRegionCfg.setPersistenceEnabled(true);
-
-        dataStorageCfg.setDefaultDataRegionConfiguration(dataRegionCfg);
-
-        cfg.setDataStorageConfiguration(dataStorageCfg);
-
-        cfg.setConnectorConfiguration(null);
-
-        Ignite ignite = Ignition.getOrStart(cfg);
-
-        ignite.cluster().active(true);
-
-        return ignite;
+        return Ignition.getOrStart(cfg);
     }
 }

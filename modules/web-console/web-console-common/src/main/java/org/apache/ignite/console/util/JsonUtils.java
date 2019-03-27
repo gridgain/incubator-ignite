@@ -19,6 +19,7 @@ package org.apache.ignite.console.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.util.typedef.F;
@@ -54,6 +55,16 @@ public class JsonUtils {
      */
     public static <T> T fromJson(String json, Class<T> cls) throws IOException {
         return MAPPER.readValue(json, cls);
+    }
+
+    /**
+     * @param src source of JSON.
+     * @param cls Object class.
+     * @return Deserialized object.
+     * @throws IOException If deserialization failed.
+     */
+    public static <T> T fromJson(Reader src, Class<T> cls) throws IOException {
+        return MAPPER.readValue(src, cls);
     }
 
     /**

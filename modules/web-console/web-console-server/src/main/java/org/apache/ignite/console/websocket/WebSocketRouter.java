@@ -19,7 +19,6 @@ package org.apache.ignite.console.websocket;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.console.rest.RestApiController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -49,7 +48,7 @@ import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_
 @Component
 public class WebSocketRouter extends TextWebSocketHandler {
     /** */
-    private static final Logger log = LoggerFactory.getLogger(RestApiController.class);
+    private static final Logger log = LoggerFactory.getLogger(WebSocketRouter.class);
 
     /** */
     private final WebSocketSessions wss;
