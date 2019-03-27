@@ -40,9 +40,7 @@ public class AccountsRepository extends AbstractRepository {
     /** Special key to check that first user should be granted admin rights. */
     private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("039d28e2-133d-4eae-ae2b-29d6db6d4974");
 
-    /**
-     *
-     */
+    /** */
     private final Table<Account> accountsTbl;
 
     /**

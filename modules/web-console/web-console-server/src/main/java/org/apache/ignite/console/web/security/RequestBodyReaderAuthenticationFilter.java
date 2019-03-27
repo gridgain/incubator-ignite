@@ -17,8 +17,8 @@
 
 package org.apache.ignite.console.web.security;
 
-import java.io.IOException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.ignite.console.web.model.SignInRequest;
@@ -29,14 +29,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedCredentialsNotFoundException;
 
 /**
- * 
+ * TODO IGNITE-5617 javadocs.
  */
 public class RequestBodyReaderAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
     /** Object mapper. */
-    private final ObjectMapper objMapper = new ObjectMapper();
+    private final ObjectMapper objMapper = new ObjectMapper(); // TODO IGNITE-5617 move all JSON stuff to some JsonUtility class.
 
     /** {@inheritDoc} */
-    @Override public Authentication attemptAuthentication(HttpServletRequest req, HttpServletResponse res) throws AuthenticationException {
+    @Override public Authentication attemptAuthentication(HttpServletRequest req,
+        HttpServletResponse res) throws AuthenticationException {
         try {
             SignInRequest params = objMapper.readValue(req.getReader(), SignInRequest.class);
 
@@ -47,7 +48,8 @@ public class RequestBodyReaderAuthenticationFilter extends UsernamePasswordAuthe
             setDetails(req, tok);
 
             return this.getAuthenticationManager().authenticate(tok);
-        } catch(IOException e) {
+        }
+        catch (IOException e) {
             throw new PreAuthenticatedCredentialsNotFoundException("Something went wrong while parsing signin request body", e);
         }
     }

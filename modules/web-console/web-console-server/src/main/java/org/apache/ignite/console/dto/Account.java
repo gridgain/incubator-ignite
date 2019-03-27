@@ -199,7 +199,7 @@ public class Account extends AbstractDto implements UserDetails {
 
     /** {@inheritDoc} */
     @Override public Collection<? extends GrantedAuthority> getAuthorities() {
-        return null;
+        return null; // TODO IGNITE-5617 Implement or may be return empty collection.
     }
 
     /** {@inheritDoc} */

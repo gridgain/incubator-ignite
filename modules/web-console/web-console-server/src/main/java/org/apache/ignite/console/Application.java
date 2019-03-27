@@ -20,7 +20,11 @@ public class Application {
         SpringApplication.run(Application.class, args);
     }
 
-    /** */
+    /**
+     *  TODO IGNITE-5617 javadocs.
+     *
+     *  Do we really need this bean here? not in some configuration?
+     */
     @Bean
     public IgniteEx authProvider() {
         return (IgniteEx)Ignition.start(new IgniteConfiguration().setClientMode(true).setPeerClassLoadingEnabled(true));

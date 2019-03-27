@@ -17,6 +17,8 @@
 
 package org.apache.ignite.console.web.model;
 
+import org.apache.ignite.internal.util.typedef.internal.S;
+
 /**
  * Web model of the user credentials.
  */
@@ -70,5 +72,10 @@ public class SignInRequest {
      */
     public void setActivationToken(String activationTok) {
         this.activationTok = activationTok;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(SignInRequest.class, this);
     }
 }

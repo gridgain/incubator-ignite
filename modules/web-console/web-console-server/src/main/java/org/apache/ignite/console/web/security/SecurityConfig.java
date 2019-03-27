@@ -40,11 +40,20 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 /**
- * 
+ * TODO IGNITE-5617 javadocs.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    /** */
+    private static final String SIGN_IN_ROUT = "/api/v1/signin";
+
+    /** */
+    private static final String SIGN_UP_ROUT = "/api/v1/signup";
+
+    /** */
+    private static final String LOGOUT_ROUT = "/api/v1/logout";
+
     /** */
     private final AccountsService accountsSrvc;
     
@@ -67,17 +76,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             .and()
             .authorizeRequests()
-            .antMatchers("/api/v1/signin", "/api/v1/signup", "/api/v1/logout").permitAll()
+            .antMatchers(SIGN_IN_ROUT, SIGN_UP_ROUT, LOGOUT_ROUT).permitAll()
             .anyRequest().authenticated()
             .and()
             .addFilterBefore(authenticationFilter(), UsernamePasswordAuthenticationFilter.class)
             .logout()
-            .logoutUrl("/api/v1/logout")
+            .logoutUrl(LOGOUT_ROUT)
             .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.OK));
     }
 
     /** {@inheritDoc} */
-    @Override protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    @Override protected void configure(AuthenticationManagerBuilder auth) {
         final DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
 
         authProvider.setUserDetailsService(accountsSrvc);
@@ -102,19 +111,19 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         res.getWriter().flush();
     }
 
-    /** */
+    /** TODO IGNITE-5617 javadocs. */
     @Bean
     public RequestBodyReaderAuthenticationFilter authenticationFilter() throws Exception {
         RequestBodyReaderAuthenticationFilter authenticationFilter = new RequestBodyReaderAuthenticationFilter();
 
         authenticationFilter.setAuthenticationManager(authenticationManagerBean());
-        authenticationFilter.setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher("/api/v1/signin", "POST"));
+        authenticationFilter.setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher(SIGN_IN_ROUT, "POST"));
         authenticationFilter.setAuthenticationSuccessHandler(this::loginSuccessHandler);
 
         return authenticationFilter;
     }
 
-    /**  */
+    /** TODO IGNITE-5617 javadocs. */
     @Bean
     public SessionRegistry sessionRegistry() {
         return new SessionRegistryImpl();

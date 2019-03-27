@@ -131,7 +131,7 @@ public class AccountsService extends AbstractService implements UserDetailsServi
     }
 
     /**
-     *
+     * TODO IGNITE-5617 javadocs.
      */
     @Bean
     public PasswordEncoder encoder() {

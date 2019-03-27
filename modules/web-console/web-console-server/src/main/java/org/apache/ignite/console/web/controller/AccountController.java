@@ -35,23 +35,25 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** */
+/**
+ * TODO IGNITE-5617 javadocs.
+ */
 @RestController
 @RequestMapping("/api/v1")
 public class AccountController {
     /** Authentication manager. */
-    private AuthenticationManager authenticationMgr;
+    private AuthenticationManager authMgr;
 
     /** Accounts service. */
     private AccountsService accountsSrvc;
 
     /**
-     * @param authenticationMgr Authentication manager.
+     * @param authMgr Authentication manager.
      * @param accountsSrvc Accounts service.
      */
     @Autowired
-    public AccountController(AuthenticationManager authenticationMgr,  AccountsService accountsSrvc) {
-        this.authenticationMgr = authenticationMgr;
+    public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc) {
+        this.authMgr = authMgr;
         this.accountsSrvc = accountsSrvc;
     }
 
@@ -76,11 +78,11 @@ public class AccountController {
      * @param user User.
      */
     @PostMapping(path = "/signup")
-    public ResponseEntity<Void> register(@Valid @RequestBody UserDto user) {
+    public ResponseEntity<Void> signup(@Valid @RequestBody UserDto user) {
         Account account = accountsSrvc.register(user);
 
         if (account.isEnabled()) {
-            Authentication authentication = authenticationMgr.authenticate(
+            Authentication authentication = authMgr.authenticate(
                 new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
