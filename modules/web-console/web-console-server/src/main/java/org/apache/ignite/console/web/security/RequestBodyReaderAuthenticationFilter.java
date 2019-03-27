@@ -29,7 +29,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedCredentialsNotFoundException;
 
 /**
- * TODO IGNITE-5617 javadocs.
+ * Custom filter for retrieve credentials from body and authenticate user. Default implementation use path parameters.
  */
 public class RequestBodyReaderAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
     /** Object mapper. */

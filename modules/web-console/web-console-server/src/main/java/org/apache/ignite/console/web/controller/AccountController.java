@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * TODO IGNITE-5617 javadocs.
+ * Controller with account API.
  */
 @RestController
 @RequestMapping("/api/v1")

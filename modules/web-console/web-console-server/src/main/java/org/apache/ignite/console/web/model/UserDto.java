@@ -18,6 +18,7 @@
 package org.apache.ignite.console.web.model;
 
 import javax.validation.constraints.NotNull;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
 
 /**
@@ -56,6 +57,12 @@ public class UserDto {
     @NotNull
     @NotEmpty
     private String country;
+
+    /**
+     * Default constructor.
+     */
+    public UserDto() {
+    }
 
     /**
      * @param email Email.
@@ -170,5 +177,10 @@ public class UserDto {
      */
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(UserDto.class, this);
     }
 }

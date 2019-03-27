@@ -40,19 +40,22 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 /**
- * TODO IGNITE-5617 javadocs.
+ * Security settings provider.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
-    /** */
-    private static final String SIGN_IN_ROUT = "/api/v1/signin";
+    /** Sign in route. */
+    private static final String SIGN_IN_ROUTE = "/api/v1/signin";
 
-    /** */
-    private static final String SIGN_UP_ROUT = "/api/v1/signup";
+    /** Sign up route. */
+    private static final String SIGN_UP_ROUTE = "/api/v1/signup";
 
-    /** */
-    private static final String LOGOUT_ROUT = "/api/v1/logout";
+    /** Logout route. */
+    private static final String LOGOUT_ROUTE = "/api/v1/logout";
+
+    /** Public routes. */
+    private static final String[] PUBLIC_ROUTES = new String[]{SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE};
 
     /** */
     private final AccountsService accountsSrvc;
@@ -61,6 +64,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private final PasswordEncoder encoder;
 
     /**
+     * @param encoder Service for encoding user passwords.
      * @param accountsSrvc User details service.
      */
     @Autowired
@@ -76,12 +80,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             .and()
             .authorizeRequests()
-            .antMatchers(SIGN_IN_ROUT, SIGN_UP_ROUT, LOGOUT_ROUT).permitAll()
+            .antMatchers(PUBLIC_ROUTES).permitAll()
             .anyRequest().authenticated()
             .and()
             .addFilterBefore(authenticationFilter(), UsernamePasswordAuthenticationFilter.class)
             .logout()
-            .logoutUrl(LOGOUT_ROUT)
+            .logoutUrl(LOGOUT_ROUTE)
             .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.OK));
     }
 
@@ -111,13 +115,15 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         res.getWriter().flush();
     }
 
-    /** TODO IGNITE-5617 javadocs. */
+    /**
+     * Custom filter for retrieve credentials.
+     */
     @Bean
     public RequestBodyReaderAuthenticationFilter authenticationFilter() throws Exception {
         RequestBodyReaderAuthenticationFilter authenticationFilter = new RequestBodyReaderAuthenticationFilter();
 
         authenticationFilter.setAuthenticationManager(authenticationManagerBean());
-        authenticationFilter.setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher(SIGN_IN_ROUT, "POST"));
+        authenticationFilter.setRequiresAuthenticationRequestMatcher(new AntPathRequestMatcher(SIGN_IN_ROUTE, "POST"));
         authenticationFilter.setAuthenticationSuccessHandler(this::loginSuccessHandler);
 
         return authenticationFilter;
