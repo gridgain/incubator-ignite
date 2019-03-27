@@ -86,7 +86,7 @@ public class AdminService extends AbstractService {
                 .put("firstName", account.firstName())
                 .put("lastName", account.lastName())
                 .put("admin", account.admin())
-                .put("email", account.email())
+                .put("email", account.getUsername())
                 .put("company", account.company())
                 .put("country", account.country())
                 .put("lastLogin", account.lastLogin())

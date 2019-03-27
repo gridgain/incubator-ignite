@@ -26,11 +26,6 @@ import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.json.Json;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.routes.RestApiRouter;
-import org.apache.ignite.console.services.AccountsService;
-import org.apache.ignite.console.services.AdminService;
-import org.apache.ignite.console.services.AgentService;
-import org.apache.ignite.console.services.ConfigurationsService;
-import org.apache.ignite.console.services.NotebooksService;
 
 /**
  * Web Console server.
@@ -202,13 +197,13 @@ public class WebConsoleServer {
     protected void registerServices() {
         // vertx.eventBus().consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
 
-        AccountsService accountsSvc = new AccountsService(ignite).install();
-        ConfigurationsService cfgsSvc = new ConfigurationsService(ignite).install();
-        NotebooksService notebooksSvc = new NotebooksService(ignite).install();
-
-        new AdminService(ignite, accountsSvc, cfgsSvc, notebooksSvc).install();
-
-        new AgentService(ignite).install();
+//        AccountsService accountsSvc = new AccountsService(ignite).install();
+//        ConfigurationsService cfgsSvc = new ConfigurationsService(ignite).install();
+//        NotebooksService notebooksSvc = new NotebooksService(ignite).install();
+//
+//        new AdminService(ignite, accountsSvc, cfgsSvc, notebooksSvc).install();
+//
+//        new AgentService(ignite).install();
     }
 
 //    /**

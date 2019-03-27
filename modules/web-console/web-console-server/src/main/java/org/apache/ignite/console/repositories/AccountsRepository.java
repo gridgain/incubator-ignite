@@ -28,25 +28,30 @@ import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.transactions.Transaction;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Repository;
 
 /**
  * Repository to work with accounts.
  */
+@Repository
 public class AccountsRepository extends AbstractRepository {
     /** Special key to check that first user should be granted admin rights. */
     private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("039d28e2-133d-4eae-ae2b-29d6db6d4974");
 
-    /** */
+    /** Accounts collection. */
     private final Table<Account> accountsTbl;
 
     /**
      * @param ignite Ignite.
      */
+    @Autowired
     public AccountsRepository(Ignite ignite) {
         super(ignite);
 
         accountsTbl = new Table<Account>(ignite, "accounts")
-            .addUniqueIndex(Account::email, (acc) -> "Account with email '" + acc.email() + "' already registered");
+            .addUniqueIndex(Account::getUsername, (acc) -> "Account with email '" + acc.getUsername() + "' already registered");
     }
 
     /** {@inheritDoc} */
@@ -61,7 +66,7 @@ public class AccountsRepository extends AbstractRepository {
      * @return Account.
      */
     public Account getById(UUID accId) {
-        try(Transaction ignored = txStart()) {
+        try (Transaction ignored = txStart()) {
             Account account = accountsTbl.load(accId);
 
             if (account == null)
@@ -78,11 +83,39 @@ public class AccountsRepository extends AbstractRepository {
      * @return Account.
      */
     public Account getByEmail(String email) {
-        try(Transaction ignored = txStart()) {
+        try (Transaction ignored = txStart()) {
             Account account = accountsTbl.getByIndex(email);
 
             if (account == null)
-                throw new IllegalStateException("Account not found with email: " + email);
+                throw new UsernameNotFoundException(email);
+
+            return account;
+        }
+        catch (IgniteException e) {
+            throw new UsernameNotFoundException(email, e);
+        }
+    }
+
+    /**
+     * Save account.
+     *
+     * @param account Account to save.
+     */
+    @SuppressWarnings("unchecked")
+    public Account create(Account account) {
+        try (Transaction tx = txStart()) {
+            IgniteCache cache = accountsTbl.cache();
+
+            if (accountsTbl.getByIndex(account.getUsername()) != null)
+                throw new IgniteException("Account with email already exists: " + account.getUsername());
+
+            Object firstUserMarker = cache.getAndPutIfAbsent(FIRST_USER_MARKER_KEY, account.id());
+
+            account.admin(firstUserMarker == null);
+
+            save(account);
+
+            tx.commit();
 
             return account;
         }
@@ -93,36 +126,8 @@ public class AccountsRepository extends AbstractRepository {
      *
      * @param account Account to save.
      */
-    @SuppressWarnings("unchecked")
-    public void create(Account account) {
-        try (Transaction tx = txStart()) {
-            IgniteCache cache = accountsTbl.cache();
-
-            if (accountsTbl.getByIndex(account.id()) != null)
-                throw new IgniteException("Account with email already exists: " + account.email());
-
-            Object firstUserMarker = cache.get(FIRST_USER_MARKER_KEY);
-
-            boolean admin = firstUserMarker == null;
-
-            if (admin)
-                cache.put(FIRST_USER_MARKER_KEY, FIRST_USER_MARKER_KEY);
-
-            account.admin(admin);
-
-            save(account);
-
-            tx.commit();
-        }
-    }
-
-    /**
-     * Save account.
-     *
-     * @param account Account to save.
-     */
     public void save(Account account) {
-        try(Transaction tx = txStart()) {
+        try (Transaction tx = txStart()) {
             accountsTbl.save(account);
 
             tx.commit();

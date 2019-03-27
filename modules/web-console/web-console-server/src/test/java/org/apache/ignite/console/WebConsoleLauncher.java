@@ -41,24 +41,6 @@ public class WebConsoleLauncher {
         System.out.println("Starting Ignite Web Console Server...");
 
         Ignite ignite = startIgnite();
-
-//        VertxOptions options = new VertxOptions()
-//            .setBlockedThreadCheckInterval(1000L * 60L * 60L) // TODO IGNITE-5617 Only for debug!
-//            .setClusterManager(new IgniteClusterManager(ignite));
-//
-//        Vertx.clusteredVertx(options, asyncVertx -> {
-//            if (asyncVertx.succeeded()) {
-//                Vertx vertx = asyncVertx.result();
-//
-//                DeploymentOptions depOpts = new DeploymentOptions()
-//                    .setConfig(new JsonObject()
-//                        .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
-//
-//                vertx.deployVerticle(new WebConsoleServer(), depOpts);
-//            }
-//            else
-//               U.error(ignite.log(), "Failed to start Web Console", asyncVertx.cause());
-//        });
     }
 
     /**
