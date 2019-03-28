@@ -28,10 +28,10 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import static org.apache.ignite.console.websocket.Utils.encodeJson;
-import static org.apache.ignite.console.websocket.Utils.toAgentInfo;
-import static org.apache.ignite.console.websocket.Utils.toBrowserInfo;
-import static org.apache.ignite.console.websocket.Utils.toWsEvt;
+import static org.apache.ignite.console.util.JsonUtils.encodeJson;
+import static org.apache.ignite.console.util.JsonUtils.toAgentInfo;
+import static org.apache.ignite.console.util.JsonUtils.toBrowserInfo;
+import static org.apache.ignite.console.util.JsonUtils.toWsEvt;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;

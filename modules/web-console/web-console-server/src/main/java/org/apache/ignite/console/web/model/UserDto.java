@@ -59,12 +59,15 @@ public class UserDto {
     private String country;
 
     /**
-     * Default constructor.
+     * Default constructor for serialization.
      */
     public UserDto() {
+        // No-op.
     }
 
     /**
+     * Full constructor.
+     *
      * @param email Email.
      * @param firstName First name.
      * @param lastName Last name.

@@ -22,6 +22,9 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.ignite.console.websocket.AgentInfo;
+import org.apache.ignite.console.websocket.BrowserInfo;
+import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**
@@ -128,5 +131,42 @@ public class JsonUtils {
             return dflt;
 
         return (Boolean)res;
+    }
+
+    /**
+     * @param json JSON.
+     * @return Web socket event from JSON.
+     * @throws IOException If failed.
+     */
+    public static WebSocketEvent toWsEvt(String json) throws IOException {
+        return MAPPER.readValue(json, WebSocketEvent.class);
+    }
+
+    /**
+     *
+     * @param json JSON.
+     * @return Agent info from JSON.
+     * @throws IOException If failed.
+     */
+    public static AgentInfo toAgentInfo(String json) throws IOException {
+        return MAPPER.readValue(json, AgentInfo.class);
+    }
+
+    /**
+     * @param json JSON.
+     * @return Browser info from JSON.
+     * @throws IOException If failed.
+     */
+    public static BrowserInfo toBrowserInfo(String json) throws IOException {
+        return MAPPER.readValue(json, BrowserInfo.class);
+    }
+
+    /**
+     * @param val Object to serialize to JSON.
+     * @return JSON.
+     * @throws IOException If failed.
+     */
+    public static String encodeJson(Object val) throws IOException {
+        return MAPPER.writeValueAsString(val);
     }
 }

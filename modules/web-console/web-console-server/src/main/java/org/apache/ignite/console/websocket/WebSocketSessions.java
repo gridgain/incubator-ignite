@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.websocket;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -28,7 +29,7 @@ import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.console.websocket.Utils.encodeJson;
+import static org.apache.ignite.console.util.JsonUtils.encodeJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 
@@ -100,8 +101,9 @@ public class WebSocketSessions {
     /**
      * @param evt Event to broadcast.
      * @param sockets Sockets.
+     * @throws IOException If failed.
      */
-    private void broadcast(WebSocketEvent evt, Map<String, WebSocketSession> sockets) throws Exception {
+    private void broadcast(WebSocketEvent evt, Map<String, WebSocketSession> sockets) throws IOException {
         broadcast(new TextMessage(encodeJson(evt)), sockets);
     }
 
