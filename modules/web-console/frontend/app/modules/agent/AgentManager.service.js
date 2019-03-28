@@ -134,7 +134,7 @@ class ConnectionState {
 }
 
 export default class AgentManager {
-    static $inject = ['$rootScope', '$q', '$transitions', '$window', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
+    static $inject = ['$rootScope', '$q', '$transitions', '$location', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
 
     /** Browser ID. */
     browserId = uuidv4();
@@ -198,17 +198,17 @@ export default class AgentManager {
      * @param {ng.IRootScopeService} $root
      * @param {ng.IQService} $q
      * @param {import('@uirouter/angularjs').TransitionService} $transitions
-     * @param {ng.IWindowService} $window
+     * @param {ng.ILocationService} $location
      * @param {import('./AgentModal.service').default} agentModal
      * @param {import('app/components/user-notifications/service').default} UserNotifications
      * @param {import('app/services/Version.service').default} Version
      * @param {import('./components/cluster-login/service').default} ClusterLoginSrv
      */
-    constructor($root, $q, $transitions, $window, agentModal, UserNotifications, Version, ClusterLoginSrv) {
+    constructor($root, $q, $transitions, $location, agentModal, UserNotifications, Version, ClusterLoginSrv) {
         this.$root = $root;
         this.$q = $q;
         this.$transitions = $transitions;
-        this.$window = $window;
+        this.$location = $location;
         this.agentModal = agentModal;
         this.UserNotifications = UserNotifications;
         this.Version = Version;
@@ -296,9 +296,11 @@ export default class AgentManager {
         // TODO IGNITE-5617 support demo mode.
         // const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        const {host, protocol} = this.$window.location;
+        const protocol = this.$location.protocol();
+        const host = this.$location.host();
+        const port = this.$location.port();
 
-        const uri = `${protocol === 'https' ? 'wss' : 'ws'}://${host}/browsers`;
+        const uri = `${protocol === 'https' ? 'wss' : 'ws'}://${host}:${port}/browsers`;
 
         // Open websocket connection to backend.
         this.ws = new Sockette(uri, {
