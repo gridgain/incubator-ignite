@@ -321,10 +321,10 @@ export default class AgentManager {
 
                 const evt = JSON.parse(msg.data);
 
-                const evtType = evt.eventType;
+                const eventType = evt.eventType;
                 const payload = JSON.parse(evt.payload);
 
-                if (evtType === 'agent:status') {
+                if (eventType === 'agent:status') {
                     const {clusters, count, hasDemo} = payload;
 
                     const conn = this.connectionSbj.getValue();
@@ -333,14 +333,14 @@ export default class AgentManager {
 
                     this.connectionSbj.next(conn);
                 }
-                else if (evtType === 'cluster:changed')
+                else if (eventType === 'cluster:changed')
                     this.updateCluster(payload);
-                else if (evtType === 'user:notifications')
+                else if (eventType === 'user:notifications')
                     this.UserNotifications.notification = payload;
                 else {
                     this.wsSubject.next({
                         requestId: evt.requestId,
-                        evtType,
+                        eventType,
                         payload
                     });
                 }
