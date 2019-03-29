@@ -30,6 +30,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.db.DbMetadataReader;
@@ -55,6 +57,12 @@ public class DatabaseHandler {
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(DatabaseHandler.class));
 
     /** */
+    private static final String IMPLEMENTATION_VERSION = "Implementation-Version";
+
+    /** */
+    private static final String BUNDLE_VERSION = "Bundle-Version";
+
+    /** */
     private final WebSocketSession wss;
 
     /** */
@@ -78,13 +86,19 @@ public class DatabaseHandler {
     /**
      * @param jdbcDriverJar File name of driver jar file.
      * @param jdbcDriverCls Optional JDBC driver class name.
+     * @param jdbcDriverImplVer Optional JDBC driver version.
      * @return JSON for driver info.
      */
-    private Map<String, String> driver(String jdbcDriverJar, String jdbcDriverCls) {
+    private Map<String, String> driver(
+        String jdbcDriverJar,
+        String jdbcDriverCls,
+        String jdbcDriverImplVer
+    ) {
         Map<String, String> map = new LinkedHashMap<>();
 
         map.put("jdbcDriverJar", jdbcDriverJar);
         map.put("jdbcDriverClass", jdbcDriverCls);
+        map.put("jdbcDriverImplVersion", jdbcDriverImplVer);
 
         return map;
     }
@@ -111,16 +125,25 @@ public class DatabaseHandler {
                             URL url = new URL("jar", null,
                                 "file:" + (win ? "/" : "") + file.getPath() + "!/META-INF/services/java.sql.Driver");
 
-                            try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8))) {
+                            try (
+                                BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8));
+                                JarFile jar = new JarFile(file.getPath())
+                            ) {
+                                Manifest m = jar.getManifest();
+                                Object ver = m.getMainAttributes().getValue(IMPLEMENTATION_VERSION);
+
+                                if (ver == null)
+                                    ver = m.getMainAttributes().getValue(BUNDLE_VERSION);
+
                                 String jdbcDriverCls = reader.readLine();
 
-                                drivers.add(driver(file.getName(), jdbcDriverCls));
+                                drivers.add(driver(file.getName(), jdbcDriverCls, ver != null ? ver.toString() : null));
 
                                 log.info("Found: [driver=" + file + ", class=" + jdbcDriverCls + "]");
                             }
                         }
                         catch (IOException e) {
-                            drivers.add(driver(file.getName(), null));
+                            drivers.add(driver(file.getName(), null, null));
 
                             log.info("Found: [driver=" + file + "]");
                             log.error("Failed to detect driver class: " + e.getMessage());

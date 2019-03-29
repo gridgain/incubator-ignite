@@ -17,9 +17,12 @@
 
 package org.apache.ignite.console;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Collections;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -48,18 +51,30 @@ public class Application {
      */
     @Bean
     public IgniteEx authProvider() {
+        String workDir = Paths.get(U.getIgniteHome(), "work-web-console").toString();
+
+        System.setProperty("IGNITE_LOG_DIR", Paths.get(workDir, "log").toString());
+
         IgniteConfiguration cfg = new IgniteConfiguration()
-            .setClientMode(true)
-            .setIgniteInstanceName("Web Console backend application")
+            //.setClientMode(true) TODO WC-1006 for quick test from IDE
+            // .setConnectorConfiguration(null); TODO WC-1006 for quick test from IDE
+            .setIgniteInstanceName("Web Console backend")
+            .setConsistentId("web-console-backend")
             .setMetricsLogFrequency(0)
             .setLocalHost("127.0.0.1")
-            .setWorkDirectory(new File(U.getIgniteHome(), "work-web-console").getAbsolutePath())
+            .setWorkDirectory(workDir)
             .setDiscoverySpi(new TcpDiscoverySpi()
                 .setLocalPort(60800)
                 .setIpFinder(new TcpDiscoveryVmIpFinder()
                     .setAddresses(Collections.singletonList("127.0.0.1:60800"))))
-            .setConnectorConfiguration(null);
+            .setDataStorageConfiguration(new DataStorageConfiguration()
+                .setDefaultDataRegionConfiguration(new DataRegionConfiguration()
+                    .setPersistenceEnabled(true)));
 
-        return (IgniteEx)Ignition.start(cfg);
+        Ignite ignite = Ignition.start(cfg);
+
+        ignite.cluster().active(true);
+
+        return (IgniteEx)ignite;
     }
 }
