@@ -17,12 +17,8 @@
 
 package org.apache.ignite.console.agent.handlers;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.ConnectException;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,33 +28,28 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
+import org.apache.ignite.console.websocket.TopologySnapshot;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
-import static org.apache.ignite.console.util.JsonUtils.fromJson;
+import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
 import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_DISCONNECTED;
 import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_TOPOLOGY;
-import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
-import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
-import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
 import static org.apache.ignite.internal.processors.rest.client.message.GridClientResponse.STATUS_FAILED;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.sortAddresses;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresses;
 
 /**
  * API to transfer topology from Ignite cluster to Web Console.
@@ -75,9 +66,6 @@ public class ClusterHandler {
 
     /** */
     private static final IgniteProductVersion IGNITE_2_3 = IgniteProductVersion.fromString("2.3.0");
-
-    /** Optional Ignite cluster ID. */
-    public static final String IGNITE_CLUSTER_ID = "IGNITE_CLUSTER_ID";
 
     /** Unique Visor key to get events last order. */
     private static final String EVT_LAST_ORDER_KEY = "WEB_AGENT_" + UUID.randomUUID().toString();
@@ -297,196 +285,6 @@ public class ClusterHandler {
         pool.shutdownNow();
     }
 
-    /** */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    private static class TopologySnapshot {
-        /** */
-        private String clusterId;
-
-        /** */
-        private String clusterName;
-
-        /** */
-        private Collection<UUID> nids;
-
-        /** */
-        private Map<UUID, String> addrs;
-
-        /** */
-        private Map<UUID, Boolean> clients;
-
-        /** */
-        private String clusterVerStr;
-
-        /** */
-        private IgniteProductVersion clusterVer;
-
-        /** */
-        private boolean active;
-
-        /** */
-        private boolean secured;
-
-        /**
-         * Helper method to get attribute.
-         *
-         * @param attrs Map with attributes.
-         * @param name Attribute name.
-         * @return Attribute value.
-         */
-        private static <T> T attribute(Map<String, Object> attrs, String name) {
-            return (T)attrs.get(name);
-        }
-
-        /**
-         * @param nodes Nodes.
-         */
-        TopologySnapshot(Collection<GridClientNodeBean> nodes) {
-            int sz = nodes.size();
-
-            nids = new ArrayList<>(sz);
-            addrs = U.newHashMap(sz);
-            clients = U.newHashMap(sz);
-            active = false;
-            secured = false;
-
-            for (GridClientNodeBean node : nodes) {
-                UUID nid = node.getNodeId();
-
-                nids.add(nid);
-
-                Map<String, Object> attrs = node.getAttributes();
-
-                if (F.isEmpty(clusterId))
-                    clusterId = attribute(attrs, IGNITE_CLUSTER_ID);
-
-                if (F.isEmpty(clusterName))
-                    clusterName = attribute(attrs, IGNITE_CLUSTER_NAME);
-
-                Boolean client = attribute(attrs, ATTR_CLIENT_MODE);
-
-                clients.put(nid, client);
-
-                Collection<String> nodeAddrs = client
-                    ? splitAddresses(attribute(attrs, ATTR_IPS))
-                    : node.getTcpAddresses();
-
-                String firstIP = F.first(sortAddresses(nodeAddrs));
-
-                addrs.put(nid, firstIP);
-
-                String nodeVerStr = attribute(attrs, ATTR_BUILD_VER);
-
-                IgniteProductVersion nodeVer = IgniteProductVersion.fromString(nodeVerStr);
-
-                if (clusterVer == null || clusterVer.compareTo(nodeVer) > 0) {
-                    clusterVer = nodeVer;
-                    clusterVerStr = nodeVerStr;
-                }
-            }
-        }
-
-        /**
-         * @return Cluster id.
-         */
-        public String getClusterId() {
-            return clusterId;
-        }
-
-        /**
-         * @return Cluster name.
-         */
-        public String getClusterName() {
-            return clusterName;
-        }
-
-        /**
-         * @return Cluster version.
-         */
-        public String getClusterVersion() {
-            return clusterVerStr;
-        }
-
-        /**
-         * @return Cluster active flag.
-         */
-        public boolean isActive() {
-            return active;
-        }
-
-        /**
-         * @param active New cluster active state.
-         */
-        public void setActive(boolean active) {
-            this.active = active;
-        }
-
-        /**
-         * @return {@code true} If cluster has configured security.
-         */
-        public boolean isSecured() {
-            return secured;
-        }
-
-        /**
-         * @param secured Configured security flag.
-         */
-        public void setSecured(boolean secured) {
-            this.secured = secured;
-        }
-
-        /**
-         * @return Cluster nodes IDs.
-         */
-        public Collection<UUID> getNids() {
-            return nids;
-        }
-
-        /**
-         * @return Cluster nodes with IPs.
-         */
-        public Map<UUID, String> getAddresses() {
-            return addrs;
-        }
-
-        /**
-         * @return Cluster nodes with client mode flag.
-         */
-        public Map<UUID, Boolean> getClients() {
-            return clients;
-        }
-
-        /**
-         * @return Cluster version.
-         */
-        public IgniteProductVersion clusterVersion() {
-            return clusterVer;
-        }
-
-        /**
-         * @return String with short node UUIDs.
-         */
-        String nid8() {
-            return nids.stream().map(nid -> U.id8(nid).toUpperCase()).collect(Collectors.joining(",", "[", "]"));
-        }
-
-        /**
-         * @param prev Previous topology.
-         * @return {@code true} in case if current topology is a new cluster.
-         */
-        boolean differentCluster(TopologySnapshot prev) {
-            return prev == null || F.isEmpty(prev.nids) || Collections.disjoint(nids, prev.nids);
-        }
-
-        /**
-         * @param prev Previous topology.
-         * @return {@code true} in case if current topology is the same cluster, but topology changed.
-         */
-        boolean topologyChanged(TopologySnapshot prev) {
-            return prev != null && !prev.nids.equals(nids);
-        }
-    }
-
     /**
      * @param evt Websocket event.
      */
@@ -495,13 +293,14 @@ public class ClusterHandler {
             log.debug("Processing REST request: " + evt);
 
         try {
-            Map<String, Object> args = fromJson(evt.getPayload(), Map.class);
+            Map<String, Object> args = paramsFromJson(evt.getPayload());
 
             Map<String, Object> params = Collections.emptyMap();
 
             if (args.containsKey("params"))
                 params = (Map<String, Object>)args.get("params");
 
+            // TODO IGNITE-5617 Restore demo mode.
 //            if (!args.containsKey("demo"))
 //                throw new IllegalArgumentException("Missing demo flag in arguments: " + args);
 

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.console.agent;
 
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.ParameterException;
 import java.io.File;
 import java.io.IOException;
 import java.net.Authenticator;
@@ -29,6 +27,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.ParameterException;
 import org.apache.ignite.console.agent.handlers.WebSocketRouter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

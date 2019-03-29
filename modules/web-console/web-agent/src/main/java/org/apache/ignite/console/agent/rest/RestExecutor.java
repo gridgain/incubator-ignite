@@ -181,7 +181,7 @@ public class RestExecutor implements AutoCloseable {
         int urlsCnt = nodeURIs.size();
 
         for (int i = 0;  i < urlsCnt; i++) {
-            Integer currIdx = (startIdx + i) % urlsCnt;
+            int currIdx = (startIdx + i) % urlsCnt;
 
             String nodeUrl = nodeURIs.get(currIdx);
 

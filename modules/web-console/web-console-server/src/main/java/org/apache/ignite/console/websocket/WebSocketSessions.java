@@ -18,7 +18,10 @@
 package org.apache.ignite.console.websocket;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +33,11 @@ import org.springframework.web.socket.WebSocketSession;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.util.JsonUtils.encodeJson;
+import static org.apache.ignite.console.util.JsonUtils.fromJson;
+import static org.apache.ignite.console.util.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
+import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_STATUS;
 
 /**
  * Websocket sessions service.
@@ -45,10 +51,26 @@ public class WebSocketSessions {
     private static final PingMessage PING = new PingMessage(UTF_8.encode("PING"));
 
     /** */
-    private final Map<String, WebSocketSession> agents = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> agentsSessions;
 
     /** */
-    private final Map<String, WebSocketSession> browsers = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> browsersSessions;
+
+    /** */
+    private final Map<String, AgentInfo> agents;
+
+    /** */
+    private final Map<String, TopologySnapshot> clusters;
+
+    /**
+     * Default constructor.
+     */
+    public WebSocketSessions() {
+        agentsSessions = new ConcurrentHashMap<>();
+        browsersSessions = new ConcurrentHashMap<>();
+        agents = new ConcurrentHashMap<>();
+        clusters = new ConcurrentHashMap<>();
+    }
 
     /**
      * @param ws New websocket sesion.
@@ -57,9 +79,9 @@ public class WebSocketSessions {
         String path = ws.getUri().getPath();
 
         if (AGENTS_PATH.equals(path))
-            agents.put(ws.getId(), ws);
+            agentsSessions.put(ws.getId(), ws);
         else if (BROWSERS_PATH.equals(path))
-            browsers.put(ws.getId(), ws);
+            browsersSessions.put(ws.getId(), ws);
         else
             log.warn("Unknown path: " + path);
     }
@@ -70,8 +92,8 @@ public class WebSocketSessions {
     public void closeSession(WebSocketSession ses) {
         log.info("Removed closed session: " + ses.getId());
 
-        agents.remove(ses.getId());
-        browsers.remove(ses.getId());
+        agentsSessions.remove(ses.getId());
+        browsersSessions.remove(ses.getId());
     }
 
     /**
@@ -114,7 +136,7 @@ public class WebSocketSessions {
      */
     public void broadcastToAgents(WebSocketEvent evt) {
         try {
-            broadcast(evt, agents);
+            broadcast(evt, agentsSessions);
         }
         catch (Throwable e) {
             log.error("Failed to broadcast to agents: " + evt, e);
@@ -128,7 +150,7 @@ public class WebSocketSessions {
      */
     public void broadcastToBrowsers(WebSocketEvent evt) {
         try {
-            broadcast(evt, browsers);
+            broadcast(evt, browsersSessions);
         }
         catch (Throwable e) {
             log.error("Failed to broadcast event to browsers: " + evt, e);
@@ -139,7 +161,54 @@ public class WebSocketSessions {
      * Ping connected clients.
      */
     public void ping() {
-        broadcast(PING, agents);
-        broadcast(PING, browsers); // TODO IGNITE-5617 Not sure if we need to ping browser, investigate later.
+        broadcast(PING, agentsSessions);
+        broadcast(PING, browsersSessions);
+    }
+
+    /**
+     * @param evt Event to process.
+     * @throws IOException If failed to process.
+     */
+    public void registerAgent(WebSocketEvent evt) throws IOException {
+        AgentInfo agentInfo = fromJson(evt.getPayload(), AgentInfo.class);
+
+        log.info("Agent connected: " + agentInfo.getAgentId());
+
+        agents.put(agentInfo.getAgentId(), agentInfo);
+    }
+
+    /**
+     *
+     * @param evt Event to process.
+     * @throws IOException If failed to update cluster.
+     */
+    public void registerCluster(WebSocketEvent evt) throws IOException {
+        TopologySnapshot top = fromJson(evt.getPayload(), TopologySnapshot.class);
+
+        clusters.put(top.getClusterId(), top);
+    }
+
+    /**
+     * Notify browsers with current clusters.
+     */
+    public void updateClusters() {
+        try {
+            Collection<TopologySnapshot> curClusters = clusters.values();
+
+            Map<String, Object> res = new LinkedHashMap<>();
+
+            res.put("count", curClusters.size());
+            res.put("hasDemo", false);
+            res.put("clusters", curClusters);
+
+            broadcastToBrowsers(new WebSocketEvent(
+                UUID.randomUUID().toString(),
+                AGENT_STATUS,
+                toJson(res)
+            ));
+        }
+        catch (Throwable e) {
+            log.error("Failed to send information about clusters to browsers", e);
+        }
     }
 }

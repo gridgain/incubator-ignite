@@ -29,9 +29,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import static org.apache.ignite.console.util.JsonUtils.encodeJson;
-import static org.apache.ignite.console.util.JsonUtils.toAgentInfo;
-import static org.apache.ignite.console.util.JsonUtils.toBrowserInfo;
-import static org.apache.ignite.console.util.JsonUtils.toWsEvt;
+import static org.apache.ignite.console.util.JsonUtils.fromJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
@@ -71,19 +69,16 @@ public class WebSocketRouter extends TextWebSocketHandler {
      */
     private void handleAgentEvents(WebSocketSession ws, TextMessage msg) {
         try {
-            WebSocketEvent evt = toWsEvt(msg.getPayload());
+            WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
             switch (evt.getEventType()) {
                 case AGENT_INFO:
-                    AgentInfo agentInfo = toAgentInfo(evt.getPayload());
-
-                    log.info("Agent connected: " + agentInfo.getAgentId());
+                    wss.registerAgent(evt);
 
                     break;
 
-                // TODO IGNITE-5617: implement broadcasting of topology events.
                 case CLUSTER_TOPOLOGY:
-                    wss.broadcastToBrowsers(evt);
+                    wss.registerCluster(evt);
 
                     break;
 
@@ -107,11 +102,11 @@ public class WebSocketRouter extends TextWebSocketHandler {
      */
     private void handleBrowserEvents(WebSocketSession ws, TextMessage msg) {
         try {
-            WebSocketEvent evt = toWsEvt(msg.getPayload());
+            WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
             switch (evt.getEventType()) {
                 case BROWSER_INFO:
-                    BrowserInfo browserInfo = toBrowserInfo(evt.getPayload());
+                    BrowserInfo browserInfo = fromJson(evt.getPayload(), BrowserInfo.class);
 
                     log.info("Browser connected: " + browserInfo.getBrowserId());
 
