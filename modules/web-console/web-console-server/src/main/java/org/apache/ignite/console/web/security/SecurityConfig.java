@@ -20,6 +20,9 @@ package org.apache.ignite.console.web.security;
 import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.services.AccountsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -38,12 +41,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.session.ExpiringSession;
+import org.springframework.session.SessionRepository;
+import org.springframework.session.config.annotation.web.http.EnableSpringHttpSession;
 
 /**
  * Security settings provider.
  */
 @Configuration
 @EnableWebSecurity
+@EnableSpringHttpSession
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
     /** Sign in route. */
     private static final String SIGN_IN_ROUTE = "/api/v1/signin";
@@ -86,6 +93,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .addFilterBefore(authenticationFilter(), UsernamePasswordAuthenticationFilter.class)
             .logout()
             .logoutUrl(LOGOUT_ROUTE)
+            .deleteCookies("JSESSIONID")
             .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.OK));
     }
 
@@ -116,6 +124,18 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     /**
+     * @param ignite Ignite.
+     */
+    @Bean
+    public SessionRepository<ExpiringSession> sessionRepository(Ignite ignite) {
+        CacheConfiguration cfg = new CacheConfiguration()
+            .setName("sessions")
+            .setCacheMode(CacheMode.REPLICATED);
+
+        return new IgniteSessionRepository(ignite.getOrCreateCache(cfg));
+    }
+
+    /**
      * Custom filter for retrieve credentials.
      */
     @Bean
@@ -127,11 +147,5 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         authenticationFilter.setAuthenticationSuccessHandler(this::loginSuccessHandler);
 
         return authenticationFilter;
-    }
-
-    /** TODO IGNITE-5617 javadocs. */
-    @Bean
-    public SessionRegistry sessionRegistry() {
-        return new SessionRegistryImpl();
     }
 }
