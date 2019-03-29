@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import get from 'lodash/get';
 import omit from 'lodash/fp/omit';
 import uuidv4 from 'uuid/v4';
 
@@ -22,7 +23,7 @@ import {CacheModes, AtomicityModes, ShortCache} from '../types';
 import {Menu} from 'app/types';
 
 export default class Caches {
-    static $inject = ['$http'];
+    static $inject = ['$http', 'JDBC_LINKS'];
 
     cacheModes: Menu<CacheModes> = [
         {value: 'LOCAL', label: 'LOCAL'},
@@ -36,7 +37,7 @@ export default class Caches {
         {value: 'TRANSACTIONAL_SNAPSHOT', label: 'TRANSACTIONAL_SNAPSHOT'}
     ];
 
-    constructor(private $http: ng.IHttpService) {}
+    constructor(private $http: ng.IHttpService, private JDBC_LINKS) {}
 
     getCache(cacheID: string) {
         return this.$http.get(`/api/v1/configuration/caches/${cacheID}`);
@@ -215,5 +216,13 @@ export default class Caches {
 
     shouldShowCacheBackupsCount(cache: ShortCache) {
         return cache && cache.cacheMode === 'PARTITIONED';
+    }
+
+    requiresProprietaryDrivers(storeFactory) {
+        return ['Oracle', 'DB2', 'SQLServer'].includes(get(storeFactory, 'dialect'));
+    }
+
+    JDBCDriverURL(storeFactory) {
+        return this.JDBC_LINKS[get(storeFactory, 'dialect')];
     }
 }

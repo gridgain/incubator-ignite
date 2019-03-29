@@ -370,6 +370,12 @@ export class ModalImportModels {
             },
             {
                 db: 'MySQL',
+                jdbcDriverClass: 'com.mysql.cj.jdbc.Driver',
+                jdbcUrl: 'jdbc:mysql://[host]:[port]/[database]',
+                user: 'root'
+            },
+            {
+                db: 'MySQL',
                 jdbcDriverClass: 'org.mariadb.jdbc.Driver',
                 jdbcUrl: 'jdbc:mariadb://[host]:[port]/[database]',
                 user: 'root'
@@ -447,6 +453,7 @@ export class ModalImportModels {
 
             result.jdbcDriverJar = selectedJdbcJar.jdbcDriverJar;
             result.jdbcDriverClass = selectedJdbcJar.jdbcDriverClass;
+            result.jdbcDriverImplementationVersion = selectedJdbcJar.jdbcDriverImplementationVersion;
 
             return result;
         }
@@ -813,7 +820,8 @@ export class ModalImportModels {
                             kind: 'CacheJdbcPojoStoreFactory',
                             CacheJdbcPojoStoreFactory: {
                                 dataSourceBean: 'ds' + dialect + '_' + catalog,
-                                dialect
+                                dialect,
+                                implementationVersion: $scope.selectedPreset.jdbcDriverImplementationVersion
                             },
                             CacheJdbcBlobStoreFactory: { connectVia: 'DataSource' }
                         };
@@ -1035,7 +1043,8 @@ export class ModalImportModels {
                                         label: drv.jdbcDriverJar,
                                         value: {
                                             jdbcDriverJar: drv.jdbcDriverJar,
-                                            jdbcDriverClass: drv.jdbcDriverClass
+                                            jdbcDriverClass: drv.jdbcDriverClass,
+                                            jdbcDriverImplementationVersion: drv.jdbcDriverImplVersion
                                         }
                                     });
                                 });
@@ -1089,6 +1098,7 @@ export class ModalImportModels {
                 selectedPreset.db = foundPreset.db;
                 selectedPreset.jdbcDriverJar = foundPreset.jdbcDriverJar;
                 selectedPreset.jdbcDriverClass = foundPreset.jdbcDriverClass;
+                selectedPreset.jdbcDriverImplementationVersion = foundPreset.jdbcDriverImplementationVersion;
                 selectedPreset.jdbcUrl = foundPreset.jdbcUrl;
                 selectedPreset.user = foundPreset.user;
             }
