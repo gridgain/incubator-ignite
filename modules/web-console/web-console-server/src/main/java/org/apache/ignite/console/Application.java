@@ -27,6 +27,6 @@ public class Application {
      */
     @Bean
     public IgniteEx authProvider() {
-        return (IgniteEx)Ignition.start(new IgniteConfiguration().setClientMode(true).setPeerClassLoadingEnabled(true));
+        return (IgniteEx)Ignition.start(new IgniteConfiguration().setPeerClassLoadingEnabled(true));
     }
 }
