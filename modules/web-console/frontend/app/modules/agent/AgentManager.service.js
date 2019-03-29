@@ -346,56 +346,17 @@ export default class AgentManager {
                 }
             },
             onreconnect: (evt) => console.log('[WS] Reconnecting...', evt),
-            onclose: (evt) => console.log('[WS] Closed!', evt),
+            onclose: (evt) => {
+                console.log('[WS] Closed!', evt);
+
+                this.wsSubject.next({
+                    requestId: 'any',
+                    eventType: 'disconnected',
+                    payload: 'none'
+                });
+            },
             onerror: (evt) => console.log('[WS] Error:', evt)
         });
-
-        // this.ws.onConnect = (frame) => {
-        //     console.log('(re)connected ');
-        //
-        //     this.ws.subscribe('/topic/agents/stat', (msg) => {
-        //         const {clusters, count, hasDemo} = JSON.parse(msg.body);
-        //
-        //         const conn = this.connectionSbj.getValue();
-        //
-        //         conn.update(this.isDemoMode(), count, clusters, hasDemo);
-        //
-        //         this.connectionSbj.next(conn);
-        //     });
-        //
-        //     this.ws.subscribe('/topic/cluster/changed', (msg) => {
-        //         const cluster = JSON.parse(msg.body);
-        //
-        //         this.updateCluster(cluster);
-        //     });
-        //
-        //     this.ws.subscribe('/topic/user/notifications', (msg) => {
-        //         const notification = JSON.parse(msg.body);
-        //
-        //         this.UserNotifications.notification = notification;
-        //     });
-        // };
-
-
-        // // Open the connection
-        // this.sockJS.onopen = () => {
-        // };
-
-        // this.sockJS.onmessage = (e) => {
-        //     const msg = JSON.parse(e.data);
-        //
-        //     console.log('Message: ' + msg);
-        // };
-
-        // this.sockJS.onclose = () => {
-        //     console.log('Disconnected from server.');
-        //
-        //     const conn = this.connectionSbj.getValue();
-        //
-        //     conn.disconnect();
-        //
-        //     this.connectionSbj.next(conn);
-        // };
     }
 
     _sendWebSocketEvent(requestId, eventType, data) {
@@ -491,20 +452,15 @@ export default class AgentManager {
 
         const latch = this.$q.defer();
 
-        // Publishing with acknowledgement
+        // Generate unique request ID in order to process response.
         const requestId = uuidv4();
 
-        console.log('Send request: ' + eventType + ', ' + requestId);
-
-        setTimeout(() => {
-            this._sendWebSocketEvent(requestId, eventType, data);
-        });
+        // console.log('Send request: ' + eventType + ', ' + requestId);
 
         this.wsSubject
             .asObservable()
             .pipe(
-                // TODO IGNITE-5617 Need handle disconnect on send: || res.eventType === 'DISCONNECTED'.
-                filter((evt) => evt.requestId === requestId),
+                filter((evt) => evt.requestId === requestId || evt.eventType === 'disconnected'),
                 take(1)
             )
             .toPromise()
@@ -513,9 +469,13 @@ export default class AgentManager {
 
                 if (evt.eventType === 'error')
                     latch.reject(evt.payload);
+                else if (evt.eventType === 'disconnected')
+                    latch.reject({message: 'Connection to web server was lost'});
                 else
                     latch.resolve(evt.payload);
             });
+
+        this._sendWebSocketEvent(requestId, eventType, data);
 
         return latch.promise;
     }
@@ -566,9 +526,8 @@ export default class AgentManager {
 
                         const useBigIntJson = taskId.startsWith('query');
 
-                        // TODO IGNITE-5617 WTF!!!
                         return this.pool.postMessage({payload: res.data, useBigIntJson})
-                            .then((res) => res.result ? res.result : res);
+                            .then((data) => data.result ? data.result : data);
 
                     case SuccessStatus.STATUS_FAILED:
                         if (res.error.startsWith('Failed to handle request - unknown session token (maybe expired session)')) {
@@ -784,7 +743,7 @@ export default class AgentManager {
         const desc = this._visorTasks.get(taskId);
 
         if (_.isNil(desc))
-            return Promise.reject(`Failed to find Visor task for id: ${taskId}`);
+            return Promise.reject(`Failed to find Visor task for ID: ${taskId}`);
 
         args = _.map(args, (arg) => maskNull(arg));
 
