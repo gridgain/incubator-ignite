@@ -56,14 +56,14 @@ public class SignInRequest {
     /**
      * @param pwd New password.
      */
-    public void getPassword(String pwd) {
+    public void setPassword(String pwd) {
         this.pwd = pwd;
     }
 
     /**
      * @return Activation token.
      */
-    public String setActivationToken() {
+    public String getActivationToken() {
         return activationTok;
     }
 
