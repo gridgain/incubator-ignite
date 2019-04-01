@@ -110,6 +110,8 @@ public class Account extends AbstractDto implements UserDetails {
         this.phone = phone;
         this.company = company;
         this.country = country;
+
+        this.tok = UUID.randomUUID().toString();
     }
 
     /**
@@ -152,6 +154,13 @@ public class Account extends AbstractDto implements UserDetails {
      */
     public String country() {
         return country;
+    }
+
+    /**
+     * @return Token.
+     */
+    public String token() {
+        return tok;
     }
 
     /**

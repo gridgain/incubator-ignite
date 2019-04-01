@@ -91,7 +91,7 @@ public class WebSocketRouter implements AutoCloseable {
         this.cfg = cfg;
 
         closeLatch = new CountDownLatch(1);
-        wss = new WebSocketSession();
+        wss = new WebSocketSession(AGENT_ID);
         clusterHnd = new ClusterHandler(cfg, wss);
         dbHnd = new DatabaseHandler(cfg, wss);
     }
@@ -203,7 +203,7 @@ public class WebSocketRouter implements AutoCloseable {
         wss.open(ses);
 
         try {
-            wss.send(AGENT_INFO, new AgentInfo(AGENT_ID, "zzzz"));
+            wss.send(AGENT_INFO, new AgentInfo(AGENT_ID, cfg.tokens()));
         }
         catch (Throwable e) {
             log.error("Failed to send agent info to server", e);

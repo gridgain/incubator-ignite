@@ -17,10 +17,13 @@
 
 package org.apache.ignite.console.websocket;
 
+import java.security.Principal;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.console.dto.Account;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.PongMessage;
@@ -73,7 +76,7 @@ public class WebSocketRouter extends TextWebSocketHandler {
 
             switch (evt.getEventType()) {
                 case AGENT_INFO:
-                    wss.registerAgent(evt);
+                    wss.registerAgent(evt, ws);
 
                     break;
 
@@ -106,6 +109,7 @@ public class WebSocketRouter extends TextWebSocketHandler {
 
             switch (evt.getEventType()) {
                 case BROWSER_INFO:
+                    wss.registerBrowser(evt, ws);
                     BrowserInfo browserInfo = fromJson(evt.getPayload(), BrowserInfo.class);
 
                     log.info("Browser connected: " + browserInfo.getBrowserId());
@@ -119,8 +123,18 @@ public class WebSocketRouter extends TextWebSocketHandler {
                 case NODE_VISOR:
                     requests.put(evt.getRequestId(), ws);
 
-                    // TODO IGNITE-5617: select correct agent.
-                    wss.broadcastToAgents(evt);
+                    Principal p = ws.getPrincipal();
+
+                    if (p instanceof UsernamePasswordAuthenticationToken) {
+                        UsernamePasswordAuthenticationToken t = (UsernamePasswordAuthenticationToken)p;
+
+                        Account acc = (Account)t.getPrincipal();
+
+                        // TODO IGNITE-5617: select correct agent.
+                        // wss.broadcastToAgents(acc.token(), evt);
+                    }
+                    else
+                        log.warn("Principal not found [socket=" + ws + ", msg=" + msg + "]");
             }
         }
         catch (Throwable e) {
@@ -149,9 +163,9 @@ public class WebSocketRouter extends TextWebSocketHandler {
 
     /** {@inheritDoc} */
     @Override public void afterConnectionEstablished(WebSocketSession ws) {
-        ws.setTextMessageSizeLimit(10 * 1024 * 1024); // TODO IGNITE-5617 WTF!?!
+        log.info("Session opened [socket=" + ws + "]");
 
-        wss.openSession(ws);
+        ws.setTextMessageSizeLimit(10 * 1024 * 1024); // TODO IGNITE-5617 how to configure in more correct way
     }
 
     /** {@inheritDoc} */

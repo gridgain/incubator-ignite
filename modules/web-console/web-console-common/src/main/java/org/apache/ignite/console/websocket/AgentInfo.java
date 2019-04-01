@@ -17,8 +17,9 @@
 
 package org.apache.ignite.console.websocket;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
@@ -29,7 +30,7 @@ public class AgentInfo {
     private String agentId;
 
     /** */
-    private List<String> toks;
+    private Set<String> toks;
 
     /**
      * Default constructor for serialization.
@@ -42,13 +43,13 @@ public class AgentInfo {
      * Full constructor.
      *
      * @param agentId Agent ID.
-     * @param tok Token.
+     * @param toks Tokens.
      */
-    public AgentInfo(String agentId, String tok) {
+    public AgentInfo(String agentId, List<String> toks) {
         this.agentId = agentId;
 
-        toks = new ArrayList<>();
-        toks.add(tok);
+        this.toks = new HashSet<>();
+        this.toks.addAll(toks);
     }
 
     /**
@@ -68,14 +69,14 @@ public class AgentInfo {
     /**
      * @return Tokens.
      */
-    public List<String> getTokens() {
+    public Set<String> getTokens() {
         return toks;
     }
 
     /**
      * @param toks Tokens.
      */
-    public void setTokens(List<String> toks) {
+    public void setTokens(Set<String> toks) {
         this.toks = toks;
     }
 
