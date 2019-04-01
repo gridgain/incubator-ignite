@@ -25,10 +25,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteProductVersion;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
+import static org.apache.ignite.console.util.JsonUtils.attribute;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
@@ -43,10 +45,10 @@ public class TopologySnapshot {
     private static final String IGNITE_CLUSTER_ID = "IGNITE_CLUSTER_ID";
 
     /** */
-    private String clusterId;
+    private String id;
 
     /** */
-    private String clusterName;
+    private String name;
 
     /** */
     private Collection<UUID> nids;
@@ -70,17 +72,6 @@ public class TopologySnapshot {
     private boolean secured;
 
     /**
-     * Helper method to get attribute.
-     *
-     * @param attrs Map with attributes.
-     * @param name Attribute name.
-     * @return Attribute value.
-     */
-    private static <T> T attribute(Map<String, Object> attrs, String name) {
-        return (T)attrs.get(name);
-    }
-
-    /**
      * Default constructor for serialization.
      */
     public TopologySnapshot() {
@@ -88,6 +79,8 @@ public class TopologySnapshot {
     }
 
     /**
+     * Constructor from list of nodes.
+     *
      * @param nodes Nodes.
      */
     public TopologySnapshot(Collection<GridClientNodeBean> nodes) {
@@ -106,11 +99,11 @@ public class TopologySnapshot {
 
             Map<String, Object> attrs = node.getAttributes();
 
-            if (F.isEmpty(clusterId))
-                clusterId = attribute(attrs, IGNITE_CLUSTER_ID);
+            if (F.isEmpty(id))
+                id = attribute(attrs, IGNITE_CLUSTER_ID);
 
-            if (F.isEmpty(clusterName))
-                clusterName = attribute(attrs, IGNITE_CLUSTER_NAME);
+            if (F.isEmpty(name))
+                name = attribute(attrs, IGNITE_CLUSTER_NAME);
 
             Boolean client = attribute(attrs, ATTR_CLIENT_MODE);
 
@@ -135,38 +128,38 @@ public class TopologySnapshot {
         }
 
         // TODO WC-1006 How to fix?
-        if (F.isEmpty(clusterId)) {
-            clusterId = "NO_CLUSTER_ID";
-            clusterName = "NO_CLUSTER_NAME";
+        if (F.isEmpty(id)) {
+            id = "NO_CLUSTER_ID";
+            name = "NO_CLUSTER_NAME";
         }
     }
 
     /**
      * @return Cluster id.
      */
-    public String getClusterId() {
-        return clusterId;
+    public String getId() {
+        return id;
     }
 
     /**
-     * @param clusterId Cluster id.
+     * @param id Cluster id.
      */
-    public void setClusterId(String clusterId) {
-        this.clusterId = clusterId;
+    public void setClusterId(String id) {
+        this.id = id;
     }
 
     /**
      * @return Cluster name.
      */
-    public String getClusterName() {
-        return clusterName;
+    public String getName() {
+        return name;
     }
 
     /**
-     * @param clusterName Cluster name.
+     * @param name Cluster name.
      */
-    public void setClusterName(String clusterName) {
-        this.clusterName = clusterName;
+    public void setClusterName(String name) {
+        this.name = name;
     }
 
     /**
@@ -281,5 +274,10 @@ public class TopologySnapshot {
      */
     public boolean topologyChanged(TopologySnapshot prev) {
         return prev != null && !prev.nids.equals(nids);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(TopologySnapshot.class, this);
     }
 }

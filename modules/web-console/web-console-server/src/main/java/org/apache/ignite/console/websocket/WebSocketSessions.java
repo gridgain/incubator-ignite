@@ -185,7 +185,7 @@ public class WebSocketSessions {
     public void registerCluster(WebSocketEvent evt) throws IOException {
         TopologySnapshot top = fromJson(evt.getPayload(), TopologySnapshot.class);
 
-        clusters.put(top.getClusterId(), top);
+        clusters.put(top.getId(), top);
     }
 
     /**

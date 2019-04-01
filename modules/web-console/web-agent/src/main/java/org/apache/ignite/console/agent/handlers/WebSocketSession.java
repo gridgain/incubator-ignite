@@ -65,15 +65,15 @@ public class WebSocketSession {
      * Send event to websocket.
      *
      * @param evt Event.
-     * @throws IOException If failed to send event.
+     * @throws Exception If failed to send event.
      */
-    public void send(WebSocketEvent evt) throws IOException {
+    public void send(WebSocketEvent evt) throws Exception {
         Session ses = sesRef.get();
 
         if (ses == null)
             throw new IOException("No active session");
 
-        ses.getRemote().sendString(toJson(evt));
+        ses.getRemote().sendStringByFuture(toJson(evt)).get();
     }
 
     /**
@@ -81,9 +81,9 @@ public class WebSocketSession {
      *
      * @param evtType Event type.
      * @param payload Payload.
-     * @throws IOException If failed to send event.
+     * @throws Exception If failed to send event.
      */
-    public void send(String evtType, Object payload) throws IOException {
+    public void send(String evtType, Object payload) throws Exception {
         send(new WebSocketEvent(
             UUID.randomUUID().toString(),
             evtType,
@@ -96,9 +96,9 @@ public class WebSocketSession {
      *
      * @param evt Source event.
      * @param res Result.
-     * @throws IOException If failed.
+     * @throws Exception If failed.
      */
-    public void reply(WebSocketEvent evt, Object res) throws IOException {
+    public void reply(WebSocketEvent evt, Object res) throws Exception {
         evt.setPayload(toJson(res));
 
         send(evt);

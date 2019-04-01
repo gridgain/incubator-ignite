@@ -101,6 +101,15 @@ public class JsonUtils {
     }
 
     /**
+     * @param val Object to serialize to JSON.
+     * @return JSON.
+     * @throws IOException If failed.
+     */
+    public static String encodeJson(Object val) throws IOException {
+        return MAPPER.writeValueAsString(val);
+    }
+
+    /**
      * @param map Map with parameters.
      * @param key Key name.
      * @param dflt Default value.
@@ -131,11 +140,13 @@ public class JsonUtils {
     }
 
     /**
-     * @param val Object to serialize to JSON.
-     * @return JSON.
-     * @throws IOException If failed.
+     * Helper method to get attribute.
+     *
+     * @param attrs Map with attributes.
+     * @param name Attribute name.
+     * @return Attribute value.
      */
-    public static String encodeJson(Object val) throws IOException {
-        return MAPPER.writeValueAsString(val);
+    public static <T> T attribute(Map<String, Object> attrs, String name) {
+        return (T)attrs.get(name);
     }
 }
