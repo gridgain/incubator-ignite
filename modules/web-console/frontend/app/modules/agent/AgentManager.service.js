@@ -363,6 +363,7 @@ export default class AgentManager {
         this.ws.json({
             requestId,
             eventType,
+            sourceId: this.browserId,
             payload: JSON.stringify(data)
         });
     }

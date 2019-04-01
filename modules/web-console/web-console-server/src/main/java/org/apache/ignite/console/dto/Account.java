@@ -19,7 +19,6 @@ package org.apache.ignite.console.dto;
 
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.console.json.JsonObject;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
