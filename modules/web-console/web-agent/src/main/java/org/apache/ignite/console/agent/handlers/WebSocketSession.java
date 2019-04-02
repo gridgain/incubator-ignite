@@ -38,9 +38,6 @@ public class WebSocketSession {
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketSession.class));
 
     /** */
-    private final String agentId;
-
-    /** */
     private final AtomicReference<Session> sesRef;
 
     /**
@@ -49,8 +46,6 @@ public class WebSocketSession {
      * @param agentId Agent ID.
      */
     public WebSocketSession(String agentId) {
-        this.agentId = agentId;
-
         sesRef = new AtomicReference<>();
     }
 
@@ -62,7 +57,7 @@ public class WebSocketSession {
     }
 
     /**
-     * Close current sesion.
+     * Close current session.
      */
     public void close() {
         sesRef.set(null);
@@ -93,7 +88,6 @@ public class WebSocketSession {
     public void send(String evtType, Object payload) throws Exception {
         send(new WebSocketEvent(
             UUID.randomUUID().toString(),
-            agentId,
             evtType,
             toJson(payload)
         ));
@@ -107,7 +101,6 @@ public class WebSocketSession {
      * @throws Exception If failed.
      */
     public void reply(WebSocketEvent evt, Object res) throws Exception {
-        evt.setSourceId(agentId);
         evt.setPayload(toJson(res));
 
         send(evt);
@@ -122,7 +115,6 @@ public class WebSocketSession {
      */
     public void fail(WebSocketEvent evt, String errMsg, Throwable cause) {
         try {
-            evt.setSourceId(agentId);
             evt.setEventType(ERROR);
             evt.setPayload(errorToJson(errMsg, cause));
 

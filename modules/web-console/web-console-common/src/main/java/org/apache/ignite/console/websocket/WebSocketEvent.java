@@ -27,9 +27,6 @@ public class WebSocketEvent {
     private String reqId;
 
     /** */
-    private String srcId;
-
-    /** */
     private String evtType;
 
     /** */
@@ -46,13 +43,11 @@ public class WebSocketEvent {
      * Full constructor.
      *
      * @param reqId Request ID.
-     * @param srcId Source ID.
      * @param evtType Event type.
      * @param payload Payload.
      */
-    public WebSocketEvent(String reqId, String srcId, String evtType, String payload) {
+    public WebSocketEvent(String reqId, String evtType, String payload) {
         this.reqId = reqId;
-        this.srcId = srcId;
         this.evtType = evtType;
         this.payload = payload;
     }
@@ -69,20 +64,6 @@ public class WebSocketEvent {
      */
     public void setRequestId(String reqId) {
         this.reqId = reqId;
-    }
-
-    /**
-     * @return Source ID.
-     */
-    public String getSourceId() {
-        return srcId;
-    }
-
-    /**
-     * @param srcId New source ID.
-     */
-    public void setSourceId(String srcId) {
-        this.srcId = srcId;
     }
 
     /**

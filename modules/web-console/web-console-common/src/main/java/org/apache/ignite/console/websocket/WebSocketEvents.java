@@ -34,9 +34,6 @@ public interface WebSocketEvents {
     public static final String AGENT_STATUS = "agent:status";
 
     /** */
-    public static final String BROWSER_INFO = "browser:info";
-
-    /** */
     public static final String SCHEMA_IMPORT_DRIVERS = "schemaImport:drivers";
 
     /** */

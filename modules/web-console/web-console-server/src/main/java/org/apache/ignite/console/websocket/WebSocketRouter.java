@@ -17,9 +17,6 @@
 
 package org.apache.ignite.console.websocket;
 
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -29,17 +26,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import static org.apache.ignite.console.util.JsonUtils.fromJson;
-import static org.apache.ignite.console.util.JsonUtils.toJson;
-import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
-import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
-import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
-import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_TOPOLOGY;
-import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_REST;
-import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_VISOR;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_DRIVERS;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_METADATA;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_SCHEMAS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 
 /**
  * Router for requests from web sockets.
@@ -52,82 +39,20 @@ public class WebSocketRouter extends TextWebSocketHandler {
     /** */
     private final WebSocketSessions wss;
 
-    /** */
-    private final Map<String, WebSocketSession> requests;
-
     /**
      * @param wss Websocket sessions.
      */
     public WebSocketRouter(WebSocketSessions wss) {
         this.wss = wss;
-
-        requests = new ConcurrentHashMap<>();
-    }
-
-    /**
-     * @param ws Websocket.
-     * @param msg Incoming message.
-     * @throws IOException If failed to handle event.
-     */
-    private void handleAgentEvents(WebSocketSession ws, TextMessage msg) throws IOException {
-        WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
-
-        switch (evt.getEventType()) {
-            case AGENT_INFO:
-                wss.registerAgent(evt, ws);
-
-                break;
-
-            case CLUSTER_TOPOLOGY:
-                wss.updateAgentStatus(evt);
-
-                break;
-
-            default:
-                WebSocketSession browserWs = requests.remove(evt.getRequestId());
-
-                if (browserWs != null)
-                    browserWs.sendMessage(new TextMessage(toJson(evt)));
-                else
-                    log.warn("Failed to send event to browser: " + evt);
-        }
-    }
-
-    /**
-     * @param ws Websocket.
-     * @param msg Incoming message.
-     * @throws IOException If failed to handle event.
-     */
-    private void handleBrowserEvents(WebSocketSession ws, TextMessage msg) throws IOException {
-        WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
-
-        switch (evt.getEventType()) {
-            case BROWSER_INFO:
-                wss.registerBrowser(evt, ws);
-
-                break;
-
-            case SCHEMA_IMPORT_DRIVERS:
-            case SCHEMA_IMPORT_SCHEMAS:
-            case SCHEMA_IMPORT_METADATA:
-            case NODE_REST:
-            case NODE_VISOR:
-                requests.put(evt.getRequestId(), ws);
-
-                wss.sendToAgent(ws, evt);
-
-            default:
-                log.warn("Unknown event: " + evt);
-        }
     }
 
     /** {@inheritDoc} */
     @Override public void handleTextMessage(WebSocketSession ws, TextMessage msg) {
         try {
-            if (AGENTS_PATH.equals(ws.getUri().getPath()))
-                handleAgentEvents(ws, msg);
+            if (BROWSERS_PATH.equals(ws.getUri().getPath()))
+                wss.handleBrowserEvents(ws, msg);
             else
-                handleBrowserEvents(ws, msg);
+                wss.handleAgentEvents(ws, msg);
         }
         catch (Throwable e) {
             log.error("Failed to process websocket message [session=" + ws + ", msg=" + msg + "]", e);
@@ -150,10 +75,15 @@ public class WebSocketRouter extends TextWebSocketHandler {
         log.info("Session opened [socket=" + ws + "]");
 
         ws.setTextMessageSizeLimit(10 * 1024 * 1024); // TODO IGNITE-5617 how to configure in more correct way
+
+        if (BROWSERS_PATH.equals(ws.getUri().getPath()))
+            wss.registerBrowser(ws);
     }
 
     /** {@inheritDoc} */
     @Override public void afterConnectionClosed(WebSocketSession ws, CloseStatus status) {
         log.info("Session closed [socket=" + ws + ", status=" + status + "]");
+
+        wss.closeSession(ws);
     }
 }

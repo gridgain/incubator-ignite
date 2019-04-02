@@ -261,19 +261,19 @@ public class TopologySnapshot {
     }
 
     /**
-     * @param prev Previous topology.
-     * @return {@code true} in case if current topology is a new cluster.
+     * @param other Other topology.
+     * @return {@code true} in case if current topology is a different cluster.
      */
-    public boolean differentCluster(TopologySnapshot prev) {
-        return prev == null || F.isEmpty(prev.nids) || Collections.disjoint(nids, prev.nids);
+    public boolean differentCluster(TopologySnapshot other) {
+        return other == null || F.isEmpty(other.nids) || Collections.disjoint(nids, other.nids);
     }
 
     /**
-     * @param prev Previous topology.
+     * @param other Other topology.
      * @return {@code true} in case if current topology is the same cluster, but topology changed.
      */
-    public boolean topologyChanged(TopologySnapshot prev) {
-        return prev != null && !prev.nids.equals(nids);
+    public boolean topologyChanged(TopologySnapshot other) {
+        return other != null && !other.nids.equals(nids);
     }
 
     /** {@inheritDoc} */

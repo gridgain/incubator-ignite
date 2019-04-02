@@ -35,6 +35,8 @@ import {CancellationError} from 'app/errors/CancellationError';
 import {ClusterSecretsManager} from './types/ClusterSecretsManager';
 import ClusterLoginService from './components/cluster-login/service';
 
+const __dbg = false;
+
 const State = {
     INIT: 'INIT',
     AGENT_DISCONNECTED: 'AGENT_DISCONNECTED',
@@ -306,18 +308,11 @@ export default class AgentManager {
         this.ws = new Sockette(uri, {
             timeout: 5000, // Retry every 5 seconds
             onopen: (evt) => {
-                console.log('Connected!', evt);
-
-                this._sendWebSocketEvent(
-                    uuidv4(),
-                    'browser:info',
-                    {
-                        browserId: this.browserId
-                    }
-                );
+                console.log('[WS] Connected to server: ', evt);
             },
             onmessage: (msg) => {
-                console.log('[WS] Received:', msg);
+                if (__dbg)
+                    console.log('[WS] Received: ', msg);
 
                 const evt = JSON.parse(msg.data);
 
@@ -347,7 +342,13 @@ export default class AgentManager {
             },
             onreconnect: (evt) => console.log('[WS] Reconnecting...', evt),
             onclose: (evt) => {
-                console.log('[WS] Closed!', evt);
+                console.log('[WS] Disconnected from server: ', evt);
+
+                const conn = this.connectionSbj.getValue();
+
+                conn.disconnect();
+
+                this.connectionSbj.next(conn);
 
                 this.wsSubject.next({
                     requestId: 'any',
@@ -355,7 +356,7 @@ export default class AgentManager {
                     payload: 'none'
                 });
             },
-            onerror: (evt) => console.log('[WS] Error:', evt)
+            onerror: (evt) => console.log('[WS] Error on sending message to server: ', evt)
         });
     }
 
@@ -363,7 +364,6 @@ export default class AgentManager {
         this.ws.json({
             requestId,
             eventType,
-            sourceId: this.browserId,
             payload: JSON.stringify(data)
         });
     }
@@ -456,7 +456,8 @@ export default class AgentManager {
         // Generate unique request ID in order to process response.
         const requestId = uuidv4();
 
-        // console.log('Send request: ' + eventType + ', ' + requestId);
+        if (__dbg)
+            console.log(`Sending request: ${eventType}, ${requestId}`);
 
         this.wsSubject
             .asObservable()
@@ -466,7 +467,8 @@ export default class AgentManager {
             )
             .toPromise()
             .then((evt) => {
-                console.log('Received response', evt);
+                if (__dbg)
+                    console.log('Received response: ', evt);
 
                 if (evt.eventType === 'error')
                     latch.reject(evt.payload);
