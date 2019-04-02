@@ -1838,8 +1838,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
         try {
             if (msg.exchangeId() == null) {
-                if (log.isTraceEnabled())
-                    log.trace("Received local partition update [nodeId=" + node.id() + ", parts=" +
+                if (log.isInfoEnabled())
+                    log.info("DBG: Received local partition update [nodeId=" + node.id() + ", parts=" +
                         msg + ']');
 
                 boolean updated = false;
@@ -1868,8 +1868,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 }
 
                 if (updated) {
-                    if (log.isDebugEnabled())
-                        log.debug("Partitions have been scheduled to resend [reason=Single update from " + node.id() + "]");
+                    if (log.isInfoEnabled())
+                        log.info("DBG: Partitions have been scheduled to resend [reason=Single update from " + node.id() + "]");
 
                     scheduleResendPartitions();
                 }
@@ -1877,8 +1877,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             else {
                 GridDhtPartitionsExchangeFuture exchFut = exchangeFuture(msg.exchangeId());
 
-                if (log.isTraceEnabled())
-                    log.trace("Notifying exchange future about single message: " + exchFut);
+                if (log.isInfoEnabled())
+                    log.info("DBG: Notifying exchange future about single message: " + exchFut);
 
                 if (msg.client()) {
                     AffinityTopologyVersion initVer = exchFut.initialVersion();

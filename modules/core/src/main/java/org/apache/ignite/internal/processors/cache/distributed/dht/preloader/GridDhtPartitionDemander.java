@@ -667,13 +667,19 @@ public class GridDhtPartitionDemander {
             return;
         }
 
+        boolean f1 = topologyChanged(fut);
+        boolean f2 = !fut.isActual(supplyMsg.rebalanceId());
+
         // Topology already changed (for the future that supply message based on).
-        if (topologyChanged(fut) || !fut.isActual(supplyMsg.rebalanceId())) {
+        if (f1 || f2) {
             if (log.isDebugEnabled())
                 log.debug("Supply message ignored (topology changed) [" + demandRoutineInfo(topicId, nodeId, supplyMsg) + "]");
 
             return;
         }
+
+        log.info(">>>>> HandleSupplyMessage: [" + demandRoutineInfo(topicId, nodeId, supplyMsg) +
+            ", f1=" + f1 + ", f2=" + f2 + ']');
 
         if (log.isDebugEnabled())
             log.debug("Received supply message [" + demandRoutineInfo(topicId, nodeId, supplyMsg) + "]");
