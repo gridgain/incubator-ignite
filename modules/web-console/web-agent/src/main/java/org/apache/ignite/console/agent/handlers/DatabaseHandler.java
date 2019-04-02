@@ -159,9 +159,11 @@ public class DatabaseHandler {
             wss.reply(evt, drivers);
         }
         catch (Throwable e) {
-            wss.fail(evt, "Failed to collect list of JDBC drivers", e);
+            String errMsg = "Failed to collect list of JDBC drivers";
 
-            log.error("Failed to collect list of JDBC drivers", e);
+            log.error(errMsg, e);
+
+            wss.fail(evt, errMsg, e);
         }
     }
 

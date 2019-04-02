@@ -84,29 +84,15 @@ public class JsonUtils {
      * @throws IOException If serialization failed.
      */
     public static String errorToJson(String errMsg, Throwable cause) throws IOException {
-        Map<String, String> data = new HashMap<>();
-
         String causeMsg = "";
 
-        if (cause != null) {
-            causeMsg = cause.getMessage();
+        if (cause != null)
+            causeMsg = ": " + (F.isEmpty(cause.getMessage()) ? cause.getClass().getName() : cause.getMessage());
 
-            if (F.isEmpty(causeMsg))
-                causeMsg = cause.getClass().getName();
-        }
-
-        data.put("message", errMsg + ": " + causeMsg);
+        Map<String, String> data = new HashMap<>();
+        data.put("message", errMsg + causeMsg);
 
         return MAPPER.writeValueAsString(data);
-    }
-
-    /**
-     * @param val Object to serialize to JSON.
-     * @return JSON.
-     * @throws IOException If failed.
-     */
-    public static String encodeJson(Object val) throws IOException {
-        return MAPPER.writeValueAsString(val);
     }
 
     /**

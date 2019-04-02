@@ -18,7 +18,6 @@
 package org.apache.ignite.console.routes;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.auth.IgniteAuth;
 
 /**
  * Router to handle REST API for configurations.
@@ -30,8 +29,8 @@ public class AccountRouter extends AbstractRouter {
     /** */
     private static final String E_FAILED_TO_GET_USER = "Failed to get user";
 
-    /** */
-    private final IgniteAuth authProvider;
+//    /** */
+//    private final IgniteAuth authProvider;
 
     /**
      * @param ignite Ignite.
@@ -39,7 +38,7 @@ public class AccountRouter extends AbstractRouter {
     public AccountRouter(Ignite ignite) {
         super(ignite);
 
-        authProvider = new IgniteAuth(ignite);
+//        authProvider = new IgniteAuth(ignite);
     }
 
 //    /** {@inheritDoc} */

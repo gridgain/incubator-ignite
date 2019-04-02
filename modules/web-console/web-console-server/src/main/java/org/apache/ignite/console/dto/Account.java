@@ -112,6 +112,7 @@ public class Account extends AbstractDto implements UserDetails {
         this.country = country;
 
         this.tok = UUID.randomUUID().toString();
+        this.resetPwdTok = UUID.randomUUID().toString();
     }
 
     /**

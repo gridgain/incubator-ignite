@@ -17,13 +17,11 @@
 
 package org.apache.ignite.console.websocket;
 
-import java.security.Principal;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.console.dto.Account;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.PongMessage;
@@ -31,8 +29,8 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import static org.apache.ignite.console.util.JsonUtils.encodeJson;
 import static org.apache.ignite.console.util.JsonUtils.fromJson;
+import static org.apache.ignite.console.util.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketEvents.BROWSER_INFO;
@@ -69,85 +67,71 @@ public class WebSocketRouter extends TextWebSocketHandler {
     /**
      * @param ws Websocket.
      * @param msg Incoming message.
+     * @throws IOException If failed to handle event.
      */
-    private void handleAgentEvents(WebSocketSession ws, TextMessage msg) {
-        try {
-            WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
+    private void handleAgentEvents(WebSocketSession ws, TextMessage msg) throws IOException {
+        WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
-            switch (evt.getEventType()) {
-                case AGENT_INFO:
-                    wss.registerAgent(evt, ws);
+        switch (evt.getEventType()) {
+            case AGENT_INFO:
+                wss.registerAgent(evt, ws);
 
-                    break;
+                break;
 
-                case CLUSTER_TOPOLOGY:
-                    wss.registerCluster(evt);
+            case CLUSTER_TOPOLOGY:
+                wss.updateAgentStatus(evt);
 
-                    break;
+                break;
 
-                default:
-                    WebSocketSession browserWs = requests.remove(evt.getRequestId());
+            default:
+                WebSocketSession browserWs = requests.remove(evt.getRequestId());
 
-                    if (browserWs != null)
-                        browserWs.sendMessage(new TextMessage(encodeJson(evt)));
-                    else
-                        log.warn("Failed to send event to browser: " + evt);
-            }
-        }
-        catch (Throwable e) {
-            log.error("Failed to process event from web console agent [socket=" + ws + ", msg=" + msg + "]", e);
+                if (browserWs != null)
+                    browserWs.sendMessage(new TextMessage(toJson(evt)));
+                else
+                    log.warn("Failed to send event to browser: " + evt);
         }
     }
 
     /**
      * @param ws Websocket.
      * @param msg Incoming message.
+     * @throws IOException If failed to handle event.
      */
-    private void handleBrowserEvents(WebSocketSession ws, TextMessage msg) {
-        try {
-            WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
+    private void handleBrowserEvents(WebSocketSession ws, TextMessage msg) throws IOException {
+        WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
-            switch (evt.getEventType()) {
-                case BROWSER_INFO:
-                    wss.registerBrowser(evt, ws);
-                    BrowserInfo browserInfo = fromJson(evt.getPayload(), BrowserInfo.class);
+        switch (evt.getEventType()) {
+            case BROWSER_INFO:
+                wss.registerBrowser(evt, ws);
 
-                    log.info("Browser connected: " + browserInfo.getBrowserId());
+                break;
 
-                    break;
+            case SCHEMA_IMPORT_DRIVERS:
+            case SCHEMA_IMPORT_SCHEMAS:
+            case SCHEMA_IMPORT_METADATA:
+            case NODE_REST:
+            case NODE_VISOR:
+                requests.put(evt.getRequestId(), ws);
 
-                case SCHEMA_IMPORT_DRIVERS:
-                case SCHEMA_IMPORT_SCHEMAS:
-                case SCHEMA_IMPORT_METADATA:
-                case NODE_REST:
-                case NODE_VISOR:
-                    requests.put(evt.getRequestId(), ws);
+                wss.sendToAgent(ws, evt);
 
-                    Principal p = ws.getPrincipal();
-
-                    if (p instanceof UsernamePasswordAuthenticationToken) {
-                        UsernamePasswordAuthenticationToken t = (UsernamePasswordAuthenticationToken)p;
-
-                        Account acc = (Account)t.getPrincipal();
-
-                        // TODO IGNITE-5617: select correct agent.
-                        // wss.broadcastToAgents(acc.token(), evt);
-                    }
-                    else
-                        log.warn("Principal not found [socket=" + ws + ", msg=" + msg + "]");
-            }
-        }
-        catch (Throwable e) {
-            log.error("Failed to process event from browser [socket=" + ws + ", msg=" + msg + "]", e);
+            default:
+                log.warn("Unknown event: " + evt);
         }
     }
 
     /** {@inheritDoc} */
     @Override public void handleTextMessage(WebSocketSession ws, TextMessage msg) {
-        if (AGENTS_PATH.equals(ws.getUri().getPath()))
-            handleAgentEvents(ws, msg);
-        else
-            handleBrowserEvents(ws, msg);
+        try {
+            if (AGENTS_PATH.equals(ws.getUri().getPath()))
+                handleAgentEvents(ws, msg);
+            else
+                handleBrowserEvents(ws, msg);
+        }
+        catch (Throwable e) {
+            log.error("Failed to process websocket message [session=" + ws + ", msg=" + msg + "]", e);
+        }
     }
 
     /** {@inheritDoc} */

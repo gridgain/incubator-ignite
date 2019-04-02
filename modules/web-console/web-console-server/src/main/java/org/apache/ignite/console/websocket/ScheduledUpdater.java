@@ -37,14 +37,8 @@ public class ScheduledUpdater {
         this.wss = wss;
     }
 
-    /** */
-    @Scheduled(fixedRate = 5000)
-    public void updateClusters() {
-        wss.updateClusters();
-    }
-
     /**
-     * Periodicakky ping connected clients to keep connections alive.
+     * Periodically ping connected clients to keep connections alive.
      */
     @Scheduled(fixedRate = 5000)
     public void pingClients() {
