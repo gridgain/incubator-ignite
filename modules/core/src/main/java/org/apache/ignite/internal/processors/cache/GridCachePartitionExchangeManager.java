@@ -1089,8 +1089,10 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         if (timeout == null || timeout.started()) {
             ResendTimeoutObject update = new ResendTimeoutObject();
 
-            if (pendingResend.compareAndSet(timeout, update))
+            if (pendingResend.compareAndSet(timeout, update)) {
+                U.dumpStack(log, ">>>>> scheduleResendPartitions instanceName=" + cctx.igniteInstanceName());
                 cctx.time().addTimeoutObject(update);
+            }
         }
     }
 
@@ -1117,6 +1119,59 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      */
     public List<PartitionsExchangeAware> exchangeAwareComponents() {
         return U.sealList(exchangeAwareComps);
+    }
+
+    public GridDhtPartitionsFullMessage refreshPartitions2() {
+        ClusterNode oldest = cctx.discovery().oldestAliveServerNode(NONE);
+
+        if (oldest == null) {
+            if (log.isDebugEnabled())
+                log.debug("Skip partitions refresh, there are no server nodes [loc=" + cctx.localNodeId() + ']');
+
+            return null;
+        }
+
+//        if (log.isDebugEnabled()) {
+//            log.debug("Refreshing partitions [oldest=" + oldest.id() + ", loc=" + cctx.localNodeId() +
+//                ", cacheGroups= " + grps + ']');
+//        }
+
+        // If this is the oldest node.
+        if (oldest.id().equals(cctx.localNodeId())) {
+            // Check rebalance state & send CacheAffinityChangeMessage if need.
+            for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
+                if (!grp.isLocal()) {
+                    GridDhtPartitionTopology top = grp.topology();
+
+                    if (top != null)
+                        cctx.affinity().checkRebalanceState(top, grp.groupId());
+                }
+            }
+
+            GridDhtPartitionsExchangeFuture lastFut = lastInitializedFut;
+
+            // No need to send to nodes which did not finish their first exchange.
+            AffinityTopologyVersion rmtTopVer =
+                lastFut != null ?
+                    (lastFut.isDone() ? lastFut.topologyVersion() : lastFut.initialVersion())
+                    : AffinityTopologyVersion.NONE;
+
+            Collection<ClusterNode> rmts = cctx.discovery().remoteAliveNodesWithCaches(rmtTopVer);
+
+            if (log.isDebugEnabled())
+                log.debug("Refreshing partitions from oldest node: " + cctx.localNodeId());
+
+            Collection<CacheGroupContext> grps = cctx.cache().cacheGroups();
+
+            sendAllPartitions(rmts, rmtTopVer, grps);
+
+            GridDhtPartitionsFullMessage m = createPartitionsFullMessage(true, false, null,
+                rmtTopVer, null, null, null, grps);
+
+            return m;
+        }
+
+        return null;
     }
 
     /**
@@ -3233,7 +3288,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
          *
          */
         private ResendTimeoutObject() {
-            this.log = cctx.logger(getClass());
+            log = cctx.logger(getClass());
         }
 
         /** {@inheritDoc} */
@@ -3255,8 +3310,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                     try {
                         if (started.compareAndSet(false, true)) {
-                            if (log.isDebugEnabled())
-                                log.debug("Refresh partitions due to scheduled timeout");
+                            if (log.isInfoEnabled())
+                                log.info("Refresh partitions due to scheduled timeout");
 
                             refreshPartitions();
                         }

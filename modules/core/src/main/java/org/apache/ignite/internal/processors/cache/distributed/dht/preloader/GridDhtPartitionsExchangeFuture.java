@@ -1808,6 +1808,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             U.warn(log, "Stop waiting for partitions release latch: " + e.getMessage());
         }
 
+//        log.error(">>>>> Trying to creates fullMasg=" + cctx.exchange().refreshPartitions2());
+//
         timeBag.finishGlobalStage("Wait partitions release latch");
     }
 
@@ -2214,6 +2216,15 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             for (PartitionsExchangeAware comp : cctx.exchange().exchangeAwareComponents())
                 comp.onDoneBeforeTopologyUnlock(this);
+
+            if (stateChangeExchange() && exchActions.deactivate()) {
+//                StateChangeRequest req = exchActions.stateChangeRequest();
+//
+//                if (req.activeChanged() && !req.activate()) {
+                    // deactivate cluster.
+//                    Thread.sleep(10_000);
+//                }
+            }
 
             // Create and destory caches and cache proxies.
             cctx.cache().onExchangeDone(initialVersion(), exchActions, err);

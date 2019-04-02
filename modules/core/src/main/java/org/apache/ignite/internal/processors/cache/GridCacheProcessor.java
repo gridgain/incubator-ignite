@@ -3186,6 +3186,13 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
         if (grp != null)
             stopCacheGroup(grp);
+//
+//        try {
+//            Thread.sleep(2500);
+//        }
+//        catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
     }
 
     /**
