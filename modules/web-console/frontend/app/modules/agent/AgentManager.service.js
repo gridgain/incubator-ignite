@@ -308,7 +308,8 @@ export default class AgentManager {
         this.ws = new Sockette(uri, {
             timeout: 5000, // Retry every 5 seconds
             onopen: (evt) => {
-                console.log('[WS] Connected to server: ', evt);
+                if (__dbg)
+                    console.log('[WS] Connected to server: ', evt);
             },
             onmessage: (msg) => {
                 if (__dbg)
@@ -340,9 +341,13 @@ export default class AgentManager {
                     });
                 }
             },
-            onreconnect: (evt) => console.log('[WS] Reconnecting...', evt),
+            onreconnect: (evt) => {
+                if (__dbg)
+                    console.log('[WS] Reconnecting...', evt);
+            },
             onclose: (evt) => {
-                console.log('[WS] Disconnected from server: ', evt);
+                if (__dbg)
+                    console.log('[WS] Disconnected from server: ', evt);
 
                 const conn = this.connectionSbj.getValue();
 
@@ -356,7 +361,10 @@ export default class AgentManager {
                     payload: 'none'
                 });
             },
-            onerror: (evt) => console.log('[WS] Error on sending message to server: ', evt)
+            onerror: (evt) => {
+                if (__dbg)
+                    console.log('[WS] Error on sending message to server: ', evt);
+            }
         });
     }
 

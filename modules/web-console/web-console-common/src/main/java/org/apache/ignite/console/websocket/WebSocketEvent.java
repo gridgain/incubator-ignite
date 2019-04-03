@@ -20,7 +20,7 @@ package org.apache.ignite.console.websocket;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * TODO Move to ignite-web-console-common module?
+ * Data transfer object for websocket event.
  */
 public class WebSocketEvent {
     /** */
