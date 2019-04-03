@@ -773,6 +773,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             timeBag.finishGlobalStage("Exchange parameters initialization");
 
+            cctx.exchange().blockSchedulingResendPartitions();
+
             ExchangeType exchange;
 
             if (firstDiscoEvt.type() == EVT_DISCOVERY_CUSTOM_EVT) {
@@ -2265,6 +2267,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 t.addSuppressed(err);
 
             err = t;
+        }
+        finally {
+            cctx.exchange().stopBlockSchedulingResendPartitions();
         }
 
         final Throwable err0 = err;

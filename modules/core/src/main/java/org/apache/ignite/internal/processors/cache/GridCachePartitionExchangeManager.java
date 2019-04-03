@@ -1080,10 +1080,18 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         return exchWorker.deferStopCachesOnClientReconnect(caches);
     }
 
+    private AtomicBoolean blockRefreshParts = new AtomicBoolean();
+    private volatile boolean needRefreshPartsAfterBlocking;
+
     /**
      * Schedules next full partitions update.
      */
     public void scheduleResendPartitions() {
+        if (blockRefreshParts.get()) {
+            needRefreshPartsAfterBlocking = true;
+            return;
+        }
+
         ResendTimeoutObject timeout = pendingResend.get();
 
         if (timeout == null || timeout.started()) {
@@ -1092,6 +1100,47 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             if (pendingResend.compareAndSet(timeout, update)) {
                 U.dumpStack(log, ">>>>> scheduleResendPartitions instanceName=" + cctx.igniteInstanceName());
                 cctx.time().addTimeoutObject(update);
+            }
+        }
+    }
+
+    public void blockSchedulingResendPartitions() {
+        if (blockRefreshParts.compareAndSet(false, true)) {
+            ResendTimeoutObject poison = new ResendTimeoutObject() {
+                @Override public boolean started() {
+                    return false;
+                }
+
+                @Override public void onTimeout() {
+                }
+
+                @Override public long endTime() {
+                    return Long.MAX_VALUE;
+                }
+            };
+
+            while (true) {
+                if (pendingResend.compareAndSet(null, poison)) {
+                    break;
+                }
+            }
+        }
+    }
+
+    public void stopBlockSchedulingResendPartitions() {
+        ResendTimeoutObject timeout = pendingResend.get();
+
+        assert timeout != null && timeout.endTime() == Long.MAX_VALUE: timeout;
+
+        if (pendingResend.compareAndSet(timeout, null)) {
+            cctx.time().removeTimeoutObject(timeout);
+            boolean needRefreshPartsAfterBlocking0 = needRefreshPartsAfterBlocking;
+            needRefreshPartsAfterBlocking = false;
+
+            if (blockRefreshParts.compareAndSet(true, false)) {
+                if (needRefreshPartsAfterBlocking0) {
+                    scheduleResendPartitions();
+                }
             }
         }
     }
