@@ -87,7 +87,7 @@ public final class AffinityCache {
      * @param sqlQry Plain sql query.
      * @return Partition result descriptor or null.
      */
-    JdbcThinPartitionResultDescriptor partitionResult(String sqlQry) {
+    public JdbcThinPartitionResultDescriptor partitionResult(String sqlQry) {
         return sqlCache.get(sqlQry);
     }
 
