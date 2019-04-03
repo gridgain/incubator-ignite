@@ -30,20 +30,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GridConfiguration {
     /**
-     * Grid configuration.
-     */
-    @Bean
-    public IgniteConfiguration configurationProvider() {
-        return new IgniteConfiguration()
-            .setClientMode(true);
-    }
-
-
-    /**
      * @param cfg Grid configuration.
      */
     @Bean
-    public IgniteEx igniteProvider(@Autowired IgniteConfiguration cfg) {
+    public IgniteEx igniteInstance(@Autowired IgniteConfiguration cfg) {
         return (IgniteEx)Ignition.start(cfg);
     }
 }
