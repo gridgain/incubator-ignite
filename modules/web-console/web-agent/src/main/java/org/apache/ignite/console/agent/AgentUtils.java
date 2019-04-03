@@ -144,7 +144,7 @@ public class AgentUtils {
 
         if (trustAll) {
             sslCtxFactory.setTrustAll(true);
-            sslCtxFactory.setHostnameVerifier((hostname, session) -> true);
+            // Available in Jetty >= 9.4.15.xxxx sslCtxFactory.setHostnameVerifier((hostname, session) -> true);
         }
         else if (!F.isEmpty(trustStore)) {
             sslCtxFactory.setTrustStorePath(trustStore);

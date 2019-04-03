@@ -198,8 +198,11 @@ public class RestExecutor implements AutoCloseable {
 
                 return res;
             }
-            catch (Throwable ignored) {
-                LT.warn(log, "Failed connect to cluster [url=" + nodeUrl + "]");
+            catch (Throwable e) {
+                if (log.isDebugEnabled())
+                    log.error("Failed connect to cluster [url=" + nodeUrl + "]", e);
+                else
+                    LT.warn(log, "Failed connect to cluster [url=" + nodeUrl + "]");
             }
         }
 

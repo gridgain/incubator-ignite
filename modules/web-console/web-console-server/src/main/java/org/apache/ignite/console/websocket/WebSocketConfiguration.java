@@ -27,7 +27,7 @@ import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 
 /**
- * TODO.
+ * Websocket configuration.
  */
 @Configuration
 @EnableWebSocket
