@@ -18,6 +18,7 @@
 package org.apache.ignite.console.websocket;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -35,6 +36,10 @@ public class WebSocketConfiguration implements WebSocketConfigurer {
 	/** */
 	private final WebSocketSessions wss;
 
+	/** */
+	@Value("${websocket.allowed.origin}")
+	private String allowedOrigin;
+
 	/**
 	 * @param wss Websocket sessions.
 	 */
@@ -47,6 +52,8 @@ public class WebSocketConfiguration implements WebSocketConfigurer {
 	 * @param registry Registry.
 	 */
 	@Override public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		registry.addHandler(new WebSocketRouter(wss), AGENTS_PATH, BROWSERS_PATH);
+		registry
+            .addHandler(new WebSocketRouter(wss), AGENTS_PATH, BROWSERS_PATH)
+			.setAllowedOrigins(allowedOrigin);
 	}
 }
