@@ -27,7 +27,6 @@ import org.apache.ignite.console.websocket.AgentInfo;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
-import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
@@ -97,7 +96,7 @@ public class WebSocketRouter implements AutoCloseable {
     }
 
     /**
-     *
+     * Start websocket client.
      */
     public void start() {
         log.info("Web Agent ID: " + AGENT_ID);
@@ -150,9 +149,7 @@ public class WebSocketRouter implements AutoCloseable {
                 cfg.cipherSuites()
             );
 
-            HttpClient httpClient = new HttpClient(sslCtxFactory);
-
-            client = new WebSocketClient(httpClient);
+            client = new WebSocketClient(sslCtxFactory);
         }
         else
             client = new WebSocketClient();
@@ -167,7 +164,8 @@ public class WebSocketRouter implements AutoCloseable {
         try {
             client.start();
             client.connect(this, new URI(cfg.serverUri() + "/agents"));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error("Unable to connect to WebSocket: ", e);
         }
     }

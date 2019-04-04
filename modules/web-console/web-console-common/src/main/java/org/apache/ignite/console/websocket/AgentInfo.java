@@ -23,7 +23,7 @@ import java.util.Set;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * TODO Move to ignite-web-console-common module?
+ * Agent descriptor POJO.
  */
 public class AgentInfo {
     /** */

@@ -20,7 +20,7 @@ package org.apache.ignite.console.websocket;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * Data transfer object for websocket event.
+ * Websocket event POJO.
  */
 public class WebSocketEvent {
     /** */

@@ -32,7 +32,7 @@ public class JsonUtils {
     private static final GridJettyObjectMapper MAPPER = new GridJettyObjectMapper();
 
     /**
-     * Default constructor.
+     * Private constructor for utility class.
      */
     private JsonUtils() {
         // No-op.

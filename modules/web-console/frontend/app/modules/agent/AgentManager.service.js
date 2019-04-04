@@ -138,9 +138,6 @@ class ConnectionState {
 export default class AgentManager {
     static $inject = ['$rootScope', '$q', '$transitions', '$location', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
 
-    /** Browser ID. */
-    browserId = uuidv4();
-
     /** @type {ng.IScope} */
     $root;
 
