@@ -17,6 +17,8 @@
 
 package org.apache.ignite.examples.ml.selection.cv;
 
+import java.util.Arrays;
+import java.util.Random;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
@@ -34,9 +36,6 @@ import org.apache.ignite.ml.selection.scoring.metric.classification.BinaryClassi
 import org.apache.ignite.ml.structures.LabeledVector;
 import org.apache.ignite.ml.tree.DecisionTreeClassificationTrainer;
 import org.apache.ignite.ml.tree.DecisionTreeNode;
-
-import java.util.Arrays;
-import java.util.Random;
 
 /**
  * Run <a href="https://en.wikipedia.org/wiki/Decision_tree">decision tree</a> classification with
@@ -80,7 +79,7 @@ public class CrossValidationExample {
                 DecisionTreeClassificationTrainer trainer = new DecisionTreeClassificationTrainer(4, 0);
 
                 LabeledDummyVectorizer<Integer, Double> vectorizer = new LabeledDummyVectorizer<>();
-                CrossValidation<DecisionTreeNode, Double, Integer, LabeledVector<Double>> scoreCalculator
+                CrossValidation<DecisionTreeNode, Double, Integer, LabeledVector<Double>, Integer> scoreCalculator
                     = new CrossValidation<>();
 
                 IgniteBiFunction<Integer, LabeledVector<Double>, Vector> featureExtractor = CompositionUtils.asFeatureExtractor(vectorizer);
@@ -90,8 +89,7 @@ public class CrossValidationExample {
                     new Accuracy<>(),
                     ignite,
                     trainingSet,
-                    featureExtractor,
-                    lbExtractor,
+                    vectorizer,
                     4
                 );
 
@@ -107,8 +105,7 @@ public class CrossValidationExample {
                     metrics,
                     ignite,
                     trainingSet,
-                    featureExtractor,
-                    lbExtractor,
+                    vectorizer,
                     4
                 );
 

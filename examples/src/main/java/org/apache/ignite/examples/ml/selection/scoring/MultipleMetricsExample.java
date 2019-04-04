@@ -17,6 +17,8 @@
 
 package org.apache.ignite.examples.ml.selection.scoring;
 
+import java.io.FileNotFoundException;
+import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
@@ -31,9 +33,6 @@ import org.apache.ignite.ml.svm.SVMLinearClassificationModel;
 import org.apache.ignite.ml.svm.SVMLinearClassificationTrainer;
 import org.apache.ignite.ml.util.MLSandboxDatasets;
 import org.apache.ignite.ml.util.SandboxMLCache;
-
-import java.io.FileNotFoundException;
-import java.util.Map;
 
 /**
  * Run kNN multi-class classification trainer ({@link KNNClassificationTrainer}) over distributed dataset.
@@ -72,8 +71,7 @@ public class MultipleMetricsExample {
                 Map<String, Double> scores = Evaluator.evaluate(
                     dataCache,
                     mdl,
-                    featureExtractor,
-                    lbExtractor
+                    vectorizer
                 ).toMap();
 
                 scores.forEach(

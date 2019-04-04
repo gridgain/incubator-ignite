@@ -17,6 +17,7 @@
 
 package org.apache.ignite.ml.preprocessing.encoding;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.NotNull;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Object[], Vector> {
+public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Vector, Vector> {
     /** Indices of features which should be encoded. */
     private Set<Integer> handledIndices = new HashSet<>();
 
@@ -57,7 +58,7 @@ public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Object[]
     @Override public EncoderPreprocessor<K, V> fit(
         LearningEnvironmentBuilder envBuilder,
         DatasetBuilder<K, V> datasetBuilder,
-        IgniteBiFunction<K, V, Object[]> basePreprocessor) {
+        IgniteBiFunction<K, V, Vector> basePreprocessor) {
         if (handledIndices.isEmpty())
             throw new RuntimeException("Add indices of handled features");
 
@@ -70,7 +71,7 @@ public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Object[]
 
                 while (upstream.hasNext()) {
                     UpstreamEntry<K, V> entity = upstream.next();
-                    Object[] row = basePreprocessor.apply(entity.getKey(), entity.getValue());
+                    Vector row = basePreprocessor.apply(entity.getKey(), entity.getValue());
                     categoryFrequencies = calculateFrequencies(row, categoryFrequencies);
                 }
                 return new EncoderPartitionData()
@@ -166,21 +167,21 @@ public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Object[]
      * @param categoryFrequencies Holds the frequencies of categories by values and features.
      * @return Updated frequencies by values and features.
      */
-    private Map<String, Integer>[] calculateFrequencies(Object[] row, Map<String, Integer>[] categoryFrequencies) {
+    private Map<String, Integer>[] calculateFrequencies(Vector row, Map<String, Integer>[] categoryFrequencies) {
         if (categoryFrequencies == null)
             categoryFrequencies = initializeCategoryFrequencies(row);
         else
-            assert categoryFrequencies.length == row.length : "Base preprocessor must return exactly "
+            assert categoryFrequencies.length == row.size() : "Base preprocessor must return exactly "
                 + categoryFrequencies.length + " features";
 
         for (int i = 0; i < categoryFrequencies.length; i++) {
             if (handledIndices.contains(i)) {
                 String strVal;
-                Object featureVal = row[i];
+                Serializable featureVal = row.getRaw(i);
 
                 if (featureVal.equals(Double.NaN)) {
                     strVal = "";
-                    row[i] = strVal;
+                    row.setRaw(i, strVal);
                 } else if (featureVal instanceof String)
                     strVal = (String) featureVal;
                 else if (featureVal instanceof Double)
@@ -205,8 +206,8 @@ public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Object[]
      * @param row Feature vector.
      * @return The array contains not null values for handled indices.
      */
-    @NotNull private Map<String, Integer>[] initializeCategoryFrequencies(Object[] row) {
-        Map<String, Integer>[] categoryFrequencies = new HashMap[row.length];
+    @NotNull private Map<String, Integer>[] initializeCategoryFrequencies(Vector row) {
+        Map<String, Integer>[] categoryFrequencies = new HashMap[row.size()];
 
         for (int i = 0; i < categoryFrequencies.length; i++)
             if (handledIndices.contains(i))

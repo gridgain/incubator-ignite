@@ -38,11 +38,12 @@ public class Evaluator {
     /**
      * Computes the given metric on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param mdl       The model.
-     * @param metric    The binary classification metric.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param mdl        The model.
+     * @param metric     The binary classification metric.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <L, K, V, C extends Serializable> double evaluate(IgniteCache<K, V> dataCache,
@@ -55,11 +56,12 @@ public class Evaluator {
     /**
      * Computes the given metric on the given cache.
      *
-     * @param dataCache The given local data.
-     * @param mdl       The model.
-     * @param metric    The binary classification metric.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given local data.
+     * @param mdl        The model.
+     * @param metric     The binary classification metric.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <L, K, V, C extends Serializable> double evaluate(Map<K, V> dataCache,
@@ -72,13 +74,14 @@ public class Evaluator {
     /**
      * Computes the given metric on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param mdl       The model.
-     * @param metric    The binary classification metric.
-     * @param <L>       The type of label.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param metric     The binary classification metric.
+     * @param vectorizer The vectorizer.
+     * @param <L>        The type of label.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <L, K, V, C extends Serializable> double evaluate(IgniteCache<K, V> dataCache, IgniteBiPredicate<K, V> filter,
@@ -91,13 +94,14 @@ public class Evaluator {
     /**
      * Computes the given metric on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param mdl       The model.
-     * @param metric    The binary classification metric.
-     * @param <L>       The type of label.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param metric     The binary classification metric.
+     * @param <L>        The type of label.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <L, K, V, C extends Serializable> double evaluate(Map<K, V> dataCache, IgniteBiPredicate<K, V> filter,
@@ -110,10 +114,11 @@ public class Evaluator {
     /**
      * Computes the given metrics on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param mdl       The model.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <K, V> BinaryClassificationMetricValues evaluate(IgniteCache<K, V> dataCache,
@@ -124,10 +129,11 @@ public class Evaluator {
     /**
      * Computes the given metrics on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param mdl       The model.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <K, V> BinaryClassificationMetricValues evaluate(Map<K, V> dataCache,
@@ -139,11 +145,12 @@ public class Evaluator {
     /**
      * Computes the given metrics on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param mdl       The model.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <K, V> BinaryClassificationMetricValues evaluate(IgniteCache<K, V> dataCache,
@@ -156,11 +163,12 @@ public class Evaluator {
     /**
      * Computes the given metrics on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param mdl       The model.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     public static <K, V> BinaryClassificationMetricValues evaluate(Map<K, V> dataCache, IgniteBiPredicate<K, V> filter,
@@ -172,11 +180,12 @@ public class Evaluator {
     /**
      * Computes the given metrics on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param mdl       The model.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     private static <K, V> BinaryClassificationMetricValues calcMetricValues(IgniteCache<K, V> dataCache,
@@ -202,11 +211,12 @@ public class Evaluator {
     /**
      * Computes the given metrics on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param mdl       The model.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     private static <K, V> BinaryClassificationMetricValues calcMetricValues(Map<K, V> dataCache,
@@ -233,12 +243,14 @@ public class Evaluator {
     /**
      * Computes the given metric on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param metric    The binary classification metric.
-     * @param <L>       The type of label.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param metric     The binary classification metric.
+     * @param <L>        The type of label.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     private static <L, K, V, C extends Serializable> double calculateMetric(IgniteCache<K, V> dataCache, IgniteBiPredicate<K, V> filter,
@@ -264,13 +276,14 @@ public class Evaluator {
     /**
      * Computes the given metric on the given cache.
      *
-     * @param dataCache The given cache.
-     * @param filter    The given filter.
-     * @param mdl       The model.
-     * @param metric    The binary classification metric.
-     * @param <L>       The type of label.
-     * @param <K>       The type of cache entry key.
-     * @param <V>       The type of cache entry value.
+     * @param dataCache  The given cache.
+     * @param filter     The given filter.
+     * @param mdl        The model.
+     * @param vectorizer The vectorizer.
+     * @param metric     The binary classification metric.
+     * @param <L>        The type of label.
+     * @param <K>        The type of cache entry key.
+     * @param <V>        The type of cache entry value.
      * @return Computed metric.
      */
     private static <L, K, V, C extends Serializable> double calculateMetric(Map<K, V> dataCache,

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.ml.math.primitives.vector.impl;
 
+import java.io.Serializable;
 import java.util.Map;
 import org.apache.ignite.ml.math.exceptions.UnsupportedOperationException;
 import org.apache.ignite.ml.math.primitives.matrix.Matrix;
@@ -64,6 +65,11 @@ public class DenseVector extends AbstractVector {
             setStorage(mkStorage((double[])args.get("arr"), (boolean)args.get("copy")));
         else
             throw new UnsupportedOperationException("Invalid constructor argument(s).");
+    }
+
+    public DenseVector(Serializable[] data) {
+        assert data != null;
+        setStorage(new DenseVectorStorage(data));
     }
 
     /** */

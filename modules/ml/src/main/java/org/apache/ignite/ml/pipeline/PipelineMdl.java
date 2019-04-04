@@ -17,8 +17,9 @@
 
 package org.apache.ignite.ml.pipeline;
 
+import java.io.Serializable;
 import org.apache.ignite.ml.IgniteModel;
-import org.apache.ignite.ml.math.functions.IgniteBiFunction;
+import org.apache.ignite.ml.dataset.feature.extractor.Vectorizer;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 
 /**
@@ -27,29 +28,16 @@ import org.apache.ignite.ml.math.primitives.vector.Vector;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class PipelineMdl<K, V> implements IgniteModel<Vector, Double> {
+public class PipelineMdl<K, V, C extends Serializable> implements IgniteModel<Vector, Double> {
     /** Internal model produced by {@link Pipeline}. */
     private IgniteModel<Vector, Double> internalMdl;
 
-    /** Feature extractor. */
-    private IgniteBiFunction<K, V, Vector> featureExtractor;
-
-    /** Label extractor. */
-    private IgniteBiFunction<K, V, Double> lbExtractor;
+    /** Vectorizer. */
+    Vectorizer<K, V, C, Double> vectorizer;
 
     /** */
     @Override public Double predict(Vector vector) {
         return internalMdl.predict(vector);
-    }
-
-    /** */
-    public IgniteBiFunction<K, V, Vector> getFeatureExtractor() {
-        return featureExtractor;
-    }
-
-    /** */
-    public IgniteBiFunction<K, V, Double> getLabelExtractor() {
-        return lbExtractor;
     }
 
     /** */
@@ -58,20 +46,23 @@ public class PipelineMdl<K, V> implements IgniteModel<Vector, Double> {
     }
 
     /** */
-    public PipelineMdl<K, V> withInternalMdl(IgniteModel<Vector, Double> internalMdl) {
+    public Vectorizer<K, V, C, Double> getVectorizer() {
+        return vectorizer;
+    }
+
+    /**
+     *
+     */
+    public PipelineMdl<K, V, C> withInternalMdl(IgniteModel<Vector, Double> internalMdl) {
         this.internalMdl = internalMdl;
         return this;
     }
 
-    /** */
-    public PipelineMdl<K, V> withFeatureExtractor(IgniteBiFunction featureExtractor) {
-        this.featureExtractor = featureExtractor;
-        return this;
-    }
-
-    /** */
-    public PipelineMdl<K, V> withLabelExtractor(IgniteBiFunction<K, V, Double> lbExtractor) {
-        this.lbExtractor = lbExtractor;
+    /**
+     *
+     */
+    public PipelineMdl<K, V, C> withVectorizer(Vectorizer<K, V, C, Double> vectorizer) {
+        this.vectorizer = vectorizer;
         return this;
     }
 

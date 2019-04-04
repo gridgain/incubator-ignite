@@ -18,13 +18,11 @@
 package org.apache.ignite.ml.trainers;
 
 import java.io.Serializable;
-import java.util.Objects;
-import org.apache.ignite.ml.math.functions.IgniteFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.structures.LabeledVector;
 
 /**
- * Class fro extracting features and vectors from upstream.
+ * Class for extracting features and vectors from upstream.
  *
  * @param <K> Type of keys.
  * @param <V> Type of values.
@@ -41,10 +39,10 @@ public interface FeatureLabelExtractor<K, V, L> extends Serializable {
     public LabeledVector<L> extract(K k, V v);
 
     /** */
-    public default <L1> FeatureLabelExtractor<K, V, L1> andThen(IgniteFunction<? super LabeledVector<L>, ? extends LabeledVector<L1>> after) {
+/*    public default <L1> FeatureLabelExtractor<K, V, L1> andThen(IgniteFunction<? super LabeledVector<L>, ? extends LabeledVector<L1>> after) {
         Objects.requireNonNull(after);
         return (K k, V v) -> after.apply(extract(k, v));
-    }
+    }*/
 
     /**
      * Extract features from key and value.

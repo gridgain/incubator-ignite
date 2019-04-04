@@ -25,6 +25,12 @@ import org.junit.Test;
  * Tests for {@link Dataset} basic features.
  */
 public class DatasetStructureTest {
+    /** Dataset rows. */
+    public static final DatasetRow[] DATASET_ROWS = {};
+
+    /** Meta. */
+    public static final FeatureMetadata[] META = {};
+
     /**
      * Basic test
      */
@@ -34,8 +40,8 @@ public class DatasetStructureTest {
         Assert.assertNull("Feature names constructor", new Dataset<DatasetRow<Vector>>(1, 1,
             new String[] {"tests"}, false).data());
 
-        Dataset<DatasetRow<Vector>> dataset = new Dataset<DatasetRow<Vector>>(new DatasetRow[] {},
-            new FeatureMetadata[] {});
+        Dataset<DatasetRow<Vector>> dataset = new Dataset<DatasetRow<Vector>>(DATASET_ROWS,
+            META);
 
         Assert.assertEquals("Expect empty data", 0, dataset.data().length);
         Assert.assertEquals("Expect empty meta", 0, dataset.data().length);

@@ -38,7 +38,7 @@ public abstract class EncoderPreprocessor<K, V> implements IgniteBiFunction<K, V
     protected final Map<String, Integer>[] encodingValues;
 
     /** Base preprocessor. */
-    protected final IgniteBiFunction<K, V, Object[]> basePreprocessor;
+    protected final IgniteBiFunction<K, V, Vector> basePreprocessor;
 
     /** Feature indices to apply encoder. */
     protected final Set<Integer> handledIndices;
@@ -50,7 +50,7 @@ public abstract class EncoderPreprocessor<K, V> implements IgniteBiFunction<K, V
      * @param handledIndices   Handled indices.
      */
     public EncoderPreprocessor(Map<String, Integer>[] encodingValues,
-                               IgniteBiFunction<K, V, Object[]> basePreprocessor, Set<Integer> handledIndices) {
+                               IgniteBiFunction<K, V, Vector> basePreprocessor, Set<Integer> handledIndices) {
         this.handledIndices = handledIndices;
         this.encodingValues = encodingValues;
         this.basePreprocessor = basePreprocessor;

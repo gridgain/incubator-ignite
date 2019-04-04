@@ -17,6 +17,8 @@
 
 package org.apache.ignite.ml.knn;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.ignite.ml.common.TrainerTest;
 import org.apache.ignite.ml.dataset.feature.extractor.Vectorizer;
 import org.apache.ignite.ml.dataset.feature.extractor.impl.ArraysVectorizer;
@@ -29,9 +31,6 @@ import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.impl.DenseVector;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
@@ -141,7 +140,7 @@ public class KNNRegressionTest extends TrainerTest {
         );
 
         KNNRegressionModel updatedOnEmptyDataset = trainer.update(originalMdl,
-            new HashMap<Integer, double[]>(), parts,
+            new HashMap<>(), parts,
             new ArraysVectorizer<Integer>().labeled(Vectorizer.LabelCoordinate.LAST)
         );
 

@@ -17,18 +17,17 @@
 
 package org.apache.ignite.ml.pipeline;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.ml.IgniteModel;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
 import org.apache.ignite.ml.dataset.impl.cache.CacheBasedDatasetBuilder;
 import org.apache.ignite.ml.dataset.impl.local.LocalDatasetBuilder;
 import org.apache.ignite.ml.environment.LearningEnvironmentBuilder;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
-import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.preprocessing.PreprocessingTrainer;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
 
@@ -41,7 +40,7 @@ import org.apache.ignite.ml.trainers.DatasetTrainer;
  * @param <V> Type of a value in {@code upstream} data.
  * @param <R> Type of a result in {@code upstream} feature extractor.
  */
-public class Pipeline<K, V, R> {
+public class Pipeline<K, V, R, C extends Serializable> {
     /** Feature extractor. */
     private IgniteBiFunction<K, V, R> featureExtractor;
 
@@ -66,7 +65,7 @@ public class Pipeline<K, V, R> {
      * @param featureExtractor The parameter value.
      * @return The updated Pipeline.
      */
-    public Pipeline<K, V, R> addFeatureExtractor(IgniteBiFunction<K, V, R> featureExtractor) {
+    public Pipeline<K, V, R, C> addFeatureExtractor(IgniteBiFunction<K, V, R> featureExtractor) {
         this.featureExtractor = featureExtractor;
         return this;
     }
@@ -77,7 +76,7 @@ public class Pipeline<K, V, R> {
      * @param lbExtractor The parameter value.
      * @return The updated Pipeline.
      */
-    public Pipeline<K, V, R> addLabelExtractor(IgniteBiFunction<K, V, Double> lbExtractor) {
+    public Pipeline<K, V, R, C> addLabelExtractor(IgniteBiFunction<K, V, Double> lbExtractor) {
         this.lbExtractor = lbExtractor;
         return this;
     }
@@ -88,7 +87,7 @@ public class Pipeline<K, V, R> {
      * @param preprocessingTrainer The parameter value.
      * @return The updated Pipeline.
      */
-    public Pipeline<K, V, R> addPreprocessingTrainer(PreprocessingTrainer preprocessingTrainer) {
+    public Pipeline<K, V, R, C> addPreprocessingTrainer(PreprocessingTrainer preprocessingTrainer) {
         preprocessingTrainers.add(preprocessingTrainer);
         return this;
     }
@@ -99,7 +98,7 @@ public class Pipeline<K, V, R> {
      * @param trainer The parameter value.
      * @return The updated Pipeline.
      */
-    public Pipeline<K, V, R> addTrainer(DatasetTrainer trainer) {
+    public Pipeline<K, V, R, C> addTrainer(DatasetTrainer trainer) {
         this.finalStage = trainer;
         return this;
     }
@@ -118,7 +117,7 @@ public class Pipeline<K, V, R> {
      * @param cache Ignite cache with {@code upstream} data.
      * @return The fitted model based on chain of preprocessors and final trainer.
      */
-    public PipelineMdl<K, V> fit(Ignite ignite, IgniteCache<K, V> cache) {
+    public PipelineMdl<K, V, C> fit(Ignite ignite, IgniteCache<K, V> cache) {
         DatasetBuilder datasetBuilder = new CacheBasedDatasetBuilder<>(ignite, cache);
         return fit(datasetBuilder);
     }
@@ -139,14 +138,16 @@ public class Pipeline<K, V, R> {
      * @param parts Number of partitions.
      * @return The fitted model based on chain of preprocessors and final trainer.
      */
-    public PipelineMdl<K, V> fit(Map<K, V> data, int parts) {
+    public PipelineMdl<K, V, C> fit(Map<K, V> data, int parts) {
         DatasetBuilder datasetBuilder = new LocalDatasetBuilder<>(data, parts);
         return fit(datasetBuilder);
     }
 
     /** Fits the pipeline to the input dataset builder. */
-    public PipelineMdl<K, V> fit(DatasetBuilder datasetBuilder) {
-        assert lbExtractor != null;
+    public PipelineMdl<K, V, C> fit(DatasetBuilder datasetBuilder) {
+
+        // TODO: Vectorize it
+/*        assert lbExtractor != null;
         assert featureExtractor != null;
 
         if (finalStage == null)
@@ -172,9 +173,11 @@ public class Pipeline<K, V, R> {
                 lbExtractor
             );
 
-        return new PipelineMdl<K, V>()
+        return new PipelineMdl<K, V, C>()
             .withFeatureExtractor(finalFeatureExtractor)
             .withLabelExtractor(lbExtractor)
-            .withInternalMdl(internalMdl);
+            .withInternalMdl(internalMdl);*/
+
+        return null;
     }
 }

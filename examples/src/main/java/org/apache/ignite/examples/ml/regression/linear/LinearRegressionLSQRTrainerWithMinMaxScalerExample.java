@@ -17,6 +17,7 @@
 
 package org.apache.ignite.examples.ml.regression.linear;
 
+import java.io.FileNotFoundException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
@@ -31,8 +32,6 @@ import org.apache.ignite.ml.selection.scoring.evaluator.Evaluator;
 import org.apache.ignite.ml.selection.scoring.metric.regression.RegressionMetrics;
 import org.apache.ignite.ml.util.MLSandboxDatasets;
 import org.apache.ignite.ml.util.SandboxMLCache;
-
-import java.io.FileNotFoundException;
 
 /**
  * Run linear regression model based on <a href="http://web.stanford.edu/group/SOL/software/lsqr/">LSQR algorithm</a>
@@ -78,17 +77,18 @@ public class LinearRegressionLSQRTrainerWithMinMaxScalerExample {
 
                 System.out.println(">>> Perform the training to get the model.");
 
+
                 final IgniteBiFunction<Integer, Vector, Double> lbExtractor = (k, v) -> v.get(0);
 
                 LinearRegressionModel mdl = trainer.fit(ignite, dataCache, FeatureLabelExtractorWrapper.wrap(preprocessor, lbExtractor)); //TODO: IGNITE-11581
 
                 System.out.println(">>> Linear regression model: " + mdl);
 
+                // TODO: Vectorize it
                 double rmse = Evaluator.evaluate(
                     dataCache,
                     mdl,
-                    preprocessor,
-                    lbExtractor,
+                    FeatureLabelExtractorWrapper.wrap(preprocessor, lbExtractor),
                     new RegressionMetrics()
                 );
 

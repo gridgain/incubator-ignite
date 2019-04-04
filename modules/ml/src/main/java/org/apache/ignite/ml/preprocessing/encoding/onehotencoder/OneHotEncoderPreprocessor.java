@@ -17,6 +17,7 @@
 
 package org.apache.ignite.ml.preprocessing.encoding.onehotencoder;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.ml.math.exceptions.preprocessing.UnknownCategorialFeatureValue;
@@ -57,7 +58,7 @@ public class OneHotEncoderPreprocessor<K, V> extends EncoderPreprocessor<K, V> {
      * @param handledIndices   Handled indices.
      */
     public OneHotEncoderPreprocessor(Map<String, Integer>[] encodingValues,
-                                     IgniteBiFunction<K, V, Object[]> basePreprocessor, Set<Integer> handledIndices) {
+                                     IgniteBiFunction<K, V, Vector> basePreprocessor, Set<Integer> handledIndices) {
         super(encodingValues, basePreprocessor, handledIndices);
     }
 
@@ -69,16 +70,16 @@ public class OneHotEncoderPreprocessor<K, V> extends EncoderPreprocessor<K, V> {
      * @return Preprocessed row.
      */
     @Override public Vector apply(K k, V v) {
-        Object[] tmp = basePreprocessor.apply(k, v);
+        Vector tmp = basePreprocessor.apply(k, v);
         int amountOfCategorialFeatures = handledIndices.size();
 
-        double[] res = new double[tmp.length - amountOfCategorialFeatures + getAdditionalSize(encodingValues)];
+        double[] res = new double[tmp.size() - amountOfCategorialFeatures + getAdditionalSize(encodingValues)];
 
         int categorialFeatureCntr = 0;
         int resIdx = 0;
 
-        for (int i = 0; i < tmp.length; i++) {
-            Object tmpObj = tmp[i];
+        for (int i = 0; i < tmp.size(); i++) {
+            Serializable tmpObj = tmp.getRaw(i);
 
             if (handledIndices.contains(i)) {
                 categorialFeatureCntr++;
@@ -86,14 +87,14 @@ public class OneHotEncoderPreprocessor<K, V> extends EncoderPreprocessor<K, V> {
                 if (tmpObj.equals(Double.NaN) && encodingValues[i].containsKey(KEY_FOR_NULL_VALUES)) {
                     final Integer indexedVal = encodingValues[i].get(KEY_FOR_NULL_VALUES);
 
-                    res[tmp.length - amountOfCategorialFeatures + getIdxOffset(categorialFeatureCntr, indexedVal, encodingValues)] = 1.0;
+                    res[tmp.size() - amountOfCategorialFeatures + getIdxOffset(categorialFeatureCntr, indexedVal, encodingValues)] = 1.0;
                 } else {
                     final String key = String.valueOf(tmpObj);
 
                     if (encodingValues[i].containsKey(key)) {
                         final Integer indexedVal = encodingValues[i].get(key);
 
-                        res[tmp.length - amountOfCategorialFeatures + getIdxOffset(categorialFeatureCntr, indexedVal, encodingValues)] = 1.0;
+                        res[tmp.size() - amountOfCategorialFeatures + getIdxOffset(categorialFeatureCntr, indexedVal, encodingValues)] = 1.0;
 
                     } else
                         throw new UnknownCategorialFeatureValue(tmpObj.toString());

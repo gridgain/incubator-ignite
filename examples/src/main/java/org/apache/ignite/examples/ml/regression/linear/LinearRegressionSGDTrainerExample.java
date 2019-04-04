@@ -17,6 +17,7 @@
 
 package org.apache.ignite.examples.ml.regression.linear;
 
+import java.io.FileNotFoundException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
@@ -34,8 +35,6 @@ import org.apache.ignite.ml.selection.scoring.evaluator.Evaluator;
 import org.apache.ignite.ml.selection.scoring.metric.regression.RegressionMetrics;
 import org.apache.ignite.ml.util.MLSandboxDatasets;
 import org.apache.ignite.ml.util.SandboxMLCache;
-
-import java.io.FileNotFoundException;
 
 /**
  * Run linear regression model based on  based on
@@ -86,8 +85,7 @@ public class LinearRegressionSGDTrainerExample {
                 double rmse = Evaluator.evaluate(
                     dataCache,
                     mdl,
-                    featureExtractor,
-                    lbExtractor,
+                    vectorizer,
                     new RegressionMetrics()
                 );
 

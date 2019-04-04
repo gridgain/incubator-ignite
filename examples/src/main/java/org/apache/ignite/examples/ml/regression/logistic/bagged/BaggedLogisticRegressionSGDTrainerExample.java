@@ -17,10 +17,11 @@
 
 package org.apache.ignite.examples.ml.regression.logistic.bagged;
 
+import java.io.FileNotFoundException;
+import java.util.Arrays;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
-import org.apache.ignite.ml.composition.CompositionUtils;
 import org.apache.ignite.ml.composition.bagging.BaggedModel;
 import org.apache.ignite.ml.composition.bagging.BaggedTrainer;
 import org.apache.ignite.ml.composition.predictionsaggregator.OnMajorityPredictionsAggregator;
@@ -37,9 +38,6 @@ import org.apache.ignite.ml.selection.scoring.metric.classification.Accuracy;
 import org.apache.ignite.ml.trainers.TrainerTransformers;
 import org.apache.ignite.ml.util.MLSandboxDatasets;
 import org.apache.ignite.ml.util.SandboxMLCache;
-
-import java.io.FileNotFoundException;
-import java.util.Arrays;
 
 /**
  * This example shows how bagging technique may be applied to arbitrary trainer.
@@ -95,13 +93,12 @@ public class BaggedLogisticRegressionSGDTrainerExample {
                 Vectorizer<Integer, Vector, Integer, Double> vectorizer = new DummyVectorizer<Integer>()
                     .labeled(Vectorizer.LabelCoordinate.FIRST);
 
-                double[] score = new CrossValidation<BaggedModel, Double, Integer, Vector>().score(
+                double[] score = new CrossValidation<BaggedModel, Double, Integer, Vector, Integer>().score(
                     baggedTrainer,
                     new Accuracy<>(),
                     ignite,
                     dataCache,
-                    CompositionUtils.asFeatureExtractor(vectorizer),
-                    CompositionUtils.asLabelExtractor(vectorizer),
+                    vectorizer,
                     3
                 );
 

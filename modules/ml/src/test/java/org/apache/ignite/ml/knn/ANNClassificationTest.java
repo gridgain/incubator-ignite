@@ -17,6 +17,8 @@
 
 package org.apache.ignite.ml.knn;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.ignite.ml.TestUtils;
 import org.apache.ignite.ml.common.TrainerTest;
 import org.apache.ignite.ml.dataset.feature.extractor.Vectorizer;
@@ -27,9 +29,6 @@ import org.apache.ignite.ml.knn.classification.NNStrategy;
 import org.apache.ignite.ml.math.distances.EuclideanDistance;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /** Tests behaviour of ANNClassificationTest. */
 public class ANNClassificationTest extends TrainerTest {
@@ -97,7 +96,7 @@ public class ANNClassificationTest extends TrainerTest {
             .withStrategy(NNStrategy.SIMPLE);
 
         ANNClassificationModel updatedOnEmptyDataset = (ANNClassificationModel) trainer.update(originalMdl,
-            new HashMap<Integer, double[]>(), parts,
+            new HashMap<>(), parts,
             new ArraysVectorizer<Integer>().labeled(Vectorizer.LabelCoordinate.LAST)
         ).withK(3)
             .withDistanceMeasure(new EuclideanDistance())

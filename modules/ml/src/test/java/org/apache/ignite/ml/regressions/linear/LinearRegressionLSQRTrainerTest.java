@@ -17,14 +17,13 @@
 
 package org.apache.ignite.ml.regressions.linear;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 import org.apache.ignite.ml.common.TrainerTest;
 import org.apache.ignite.ml.dataset.feature.extractor.Vectorizer;
 import org.apache.ignite.ml.dataset.feature.extractor.impl.ArraysVectorizer;
 import org.junit.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -138,7 +137,7 @@ public class LinearRegressionLSQRTrainerTest extends TrainerTest {
 
         LinearRegressionModel updatedOnEmptyDS = trainer.update(
             originalMdl,
-            new HashMap<Integer, double[]>(),
+            new HashMap<>(),
             parts,
             vectorizer
         );

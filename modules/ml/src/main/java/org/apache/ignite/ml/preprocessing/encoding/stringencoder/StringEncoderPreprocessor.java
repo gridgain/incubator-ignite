@@ -17,6 +17,7 @@
 
 package org.apache.ignite.ml.preprocessing.encoding.stringencoder;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.ml.math.exceptions.preprocessing.UnknownCategorialFeatureValue;
@@ -56,7 +57,7 @@ public class StringEncoderPreprocessor<K, V> extends EncoderPreprocessor<K, V> {
      * @param handledIndices   Handled indices.
      */
     public StringEncoderPreprocessor(Map<String, Integer>[] encodingValues,
-                                     IgniteBiFunction<K, V, Object[]> basePreprocessor, Set<Integer> handledIndices) {
+                                     IgniteBiFunction<K, V, Vector> basePreprocessor, Set<Integer> handledIndices) {
         super(encodingValues, basePreprocessor, handledIndices);
     }
 
@@ -68,11 +69,11 @@ public class StringEncoderPreprocessor<K, V> extends EncoderPreprocessor<K, V> {
      * @return Preprocessed row.
      */
     @Override public Vector apply(K k, V v) {
-        Object[] tmp = basePreprocessor.apply(k, v);
-        double[] res = new double[tmp.length];
+        Vector tmp = basePreprocessor.apply(k, v);
+        double[] res = new double[tmp.size()];
 
         for (int i = 0; i < res.length; i++) {
-            Object tmpObj = tmp[i];
+            Serializable tmpObj = tmp.getRaw(i);
             if (handledIndices.contains(i)) {
                 if (tmpObj.equals(Double.NaN) && encodingValues[i].containsKey(KEY_FOR_NULL_VALUES))
                     res[i] = encodingValues[i].get(KEY_FOR_NULL_VALUES);
