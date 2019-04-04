@@ -250,6 +250,7 @@ export default class AgentManager {
         }
     }
 
+    // TODO WC-1030: Move to backend.
     registerVisorTask(taskId, taskCls, ...argCls) {
         this._visorTasks.set(taskId, {
             taskCls,
@@ -257,6 +258,7 @@ export default class AgentManager {
         });
     }
 
+    // TODO WC-1030: Move to backend.
     registerVisorTasks() {
         const internalVisor = (postfix) => `org.apache.ignite.internal.visor.${postfix}`;
 
@@ -468,7 +470,6 @@ export default class AgentManager {
             console.log(`Sending request: ${eventType}, ${requestId}`);
 
         this.wsSubject
-            .asObservable()
             .pipe(
                 filter((evt) => evt.requestId === requestId || evt.eventType === 'disconnected'),
                 take(1)
