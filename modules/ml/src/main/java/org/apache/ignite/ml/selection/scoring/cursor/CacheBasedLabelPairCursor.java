@@ -17,6 +17,7 @@
 
 package org.apache.ignite.ml.selection.scoring.cursor;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import javax.cache.Cache;
 import org.apache.ignite.IgniteCache;
@@ -24,9 +25,10 @@ import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.ml.IgniteModel;
-import org.apache.ignite.ml.math.functions.IgniteBiFunction;
+import org.apache.ignite.ml.dataset.feature.extractor.Vectorizer;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.selection.scoring.LabelPair;
+import org.apache.ignite.ml.structures.LabeledVector;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -36,15 +38,12 @@ import org.jetbrains.annotations.NotNull;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class CacheBasedLabelPairCursor<L, K, V> implements LabelPairCursor<L> {
+public class CacheBasedLabelPairCursor<L, K, V, C extends Serializable> implements LabelPairCursor<L> {
     /** Query cursor. */
     private final QueryCursor<Cache.Entry<K, V>> cursor;
 
-    /** Feature extractor. */
-    private final IgniteBiFunction<K, V, Vector> featureExtractor;
-
-    /** Label extractor. */
-    private final IgniteBiFunction<K, V, L> lbExtractor;
+    /** Vectorizer. */
+    Vectorizer<K, V, C, L> vectorizer;
 
     /** Model for inference. */
     private final IgniteModel<Vector, L> mdl;
@@ -54,16 +53,14 @@ public class CacheBasedLabelPairCursor<L, K, V> implements LabelPairCursor<L> {
      *
      * @param upstreamCache Ignite cache with {@code upstream} data.
      * @param filter Filter for {@code upstream} data.
-     * @param featureExtractor Feature extractor.
-     * @param lbExtractor Label extractor.
+     * @param vectorizer Vectorizer.
      * @param mdl Model for inference.
      */
     public CacheBasedLabelPairCursor(IgniteCache<K, V> upstreamCache, IgniteBiPredicate<K, V> filter,
-                                     IgniteBiFunction<K, V, Vector> featureExtractor, IgniteBiFunction<K, V, L> lbExtractor,
+                                     Vectorizer<K, V, C, L> vectorizer,
                                      IgniteModel<Vector, L> mdl) {
         this.cursor = query(upstreamCache, filter);
-        this.featureExtractor = featureExtractor;
-        this.lbExtractor = lbExtractor;
+        this.vectorizer = vectorizer;
         this.mdl = mdl;
     }
 
@@ -71,16 +68,14 @@ public class CacheBasedLabelPairCursor<L, K, V> implements LabelPairCursor<L> {
      * Constructs a new instance of cache based truth with prediction cursor.
      *
      * @param upstreamCache Ignite cache with {@code upstream} data.
-     * @param featureExtractor Feature extractor.
-     * @param lbExtractor Label extractor.
+     * @param vectorizer Vectorizer.
      * @param mdl Model for inference.
      */
     public CacheBasedLabelPairCursor(IgniteCache<K, V> upstreamCache,
-        IgniteBiFunction<K, V, Vector> featureExtractor, IgniteBiFunction<K, V, L> lbExtractor,
-        IgniteModel<Vector, L> mdl) {
+                                     Vectorizer<K, V, C, L> vectorizer,
+                                     IgniteModel<Vector, L> mdl) {
         this.cursor = query(upstreamCache);
-        this.featureExtractor = featureExtractor;
-        this.lbExtractor = lbExtractor;
+        this.vectorizer = vectorizer;
         this.mdl = mdl;
     }
 
@@ -147,10 +142,9 @@ public class CacheBasedLabelPairCursor<L, K, V> implements LabelPairCursor<L> {
         @Override public LabelPair<L> next() {
             Cache.Entry<K, V> entry = iter.next();
 
-            Vector features = featureExtractor.apply(entry.getKey(), entry.getValue());
-            L lb = lbExtractor.apply(entry.getKey(), entry.getValue());
+            LabeledVector<L> labeledVector = vectorizer.apply(entry.getKey(), entry.getValue());
 
-            return new LabelPair<>(lb, mdl.predict(features));
+            return new LabelPair<>(labeledVector.label(), mdl.predict(labeledVector.features()));
         }
     }
 }
