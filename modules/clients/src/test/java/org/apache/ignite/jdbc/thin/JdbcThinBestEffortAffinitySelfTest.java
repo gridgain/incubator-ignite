@@ -38,6 +38,7 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.jdbc.thin.AffinityCache;
+import org.apache.ignite.internal.jdbc.thin.QualifiedSQLQuery;
 import org.apache.ignite.internal.processors.query.QueryHistoryMetrics;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.sql.optimizer.affinity.PartitionResult;
@@ -205,14 +206,26 @@ public class JdbcThinBestEffortAffinitySelfTest extends JdbcThinAbstractSelfTest
 
     /**
      * Check that request/response functionality works fine if server response lacks partition result,
-     * i.e. partitionResult is null.
+     * i.e. partitionResult is null. AllNode tes.
      *
      * @throws Exception If failed.
      */
     @org.junit.Test
-    public void testQueryWithNullPartitionResponse() throws Exception {
+    public void testQueryWithNullPartitionResponseBasedOnAllNode() throws Exception {
         verifyPartitionResultIsNull("select * from Person where age > 15", 85);
     }
+
+    /**
+     * Check that request/response functionality works fine if server response lacks partition result,
+     * i.e. partitionResult is null. NoneNode tes.
+     *
+     * @throws Exception If failed.
+     */
+    @org.junit.Test
+    public void testQueryWithNullPartitionResponseBasedOnNondeNode() throws Exception {
+        verifyPartitionResultIsNull("select * from Person where _key = 1 and _key = 2", 0);
+    }
+
 
     /**
      * Check that in case of non-rendezvous affinity function, client side best effort affinity is skipped.
@@ -411,7 +424,8 @@ public class JdbcThinBestEffortAffinitySelfTest extends JdbcThinAbstractSelfTest
 
         AffinityCache affinityCache = GridTestUtils.getFieldValue(conn, "affinityCache");
 
-        PartitionResult gotPartRes =  affinityCache.partitionResult(sqlQry).partitionResult();
+        PartitionResult gotPartRes = affinityCache.partitionResult(
+            new QualifiedSQLQuery("default", sqlQry)).partitionResult();
 
         assertNull("Partition result descriptor is not null.", gotPartRes);
     }
