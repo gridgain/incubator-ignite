@@ -19,6 +19,7 @@ package org.apache.ignite.ml.preprocessing.maxabsscaling;
 
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
+import org.apache.ignite.ml.preprocessing.Preprocessor;
 
 /**
  * The preprocessing function that makes maxabsscaling, transforms features to the scale {@code [-1,+1]}. From
@@ -31,7 +32,7 @@ import org.apache.ignite.ml.math.primitives.vector.Vector;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class MaxAbsScalerPreprocessor<K, V> implements IgniteBiFunction<K, V, Vector> {
+public class MaxAbsScalerPreprocessor<K, V>  extends Preprocessor<K, V> {
     /** */
     private static final long serialVersionUID = 1L;
 

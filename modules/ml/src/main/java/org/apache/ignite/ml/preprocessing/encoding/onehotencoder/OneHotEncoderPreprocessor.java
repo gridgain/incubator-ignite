@@ -24,7 +24,7 @@ import org.apache.ignite.ml.math.exceptions.preprocessing.UnknownCategorialFeatu
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
-import org.apache.ignite.ml.preprocessing.encoding.EncoderPreprocessor;
+import org.apache.ignite.ml.preprocessing.Preprocessor;
 import org.apache.ignite.ml.preprocessing.encoding.EncoderTrainer;
 
 /**
@@ -47,7 +47,7 @@ import org.apache.ignite.ml.preprocessing.encoding.EncoderTrainer;
  *
  * NOTE: the index value associated with NULL will located in binary vector according the frequency of NULL values.
  */
-public class OneHotEncoderPreprocessor<K, V> extends EncoderPreprocessor<K, V> {
+public class OneHotEncoderPreprocessor<K, V> extends Preprocessor<K, V> {
     /** */
     private static final long serialVersionUID = 6237812226552623469L;
 

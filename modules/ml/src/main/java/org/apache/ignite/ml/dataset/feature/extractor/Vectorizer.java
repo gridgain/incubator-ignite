@@ -40,7 +40,7 @@ import org.apache.ignite.ml.trainers.FeatureLabelExtractor;
  * @param <C> Type of "coordinate" - index of feature value in upstream object.
  * @param <L> Type of label for resulting vectors.
  */
-public abstract class Vectorizer<K, V, C extends Serializable, L> implements FeatureLabelExtractor<K, V, L>, Serializable {
+public abstract class Vectorizer<K, V, C extends Serializable, L> implements FeatureLabelExtractor<K, V, L> {
     /** Label coordinate shortcut. */
     private LabelCoordinate lbCoordinateShortcut = null;
 
@@ -54,7 +54,7 @@ public abstract class Vectorizer<K, V, C extends Serializable, L> implements Fea
     private List<C> extractionCoordinates;
 
     /** Label coordinate. */
-    private C labelCoord;
+    private C lbCoord;
 
     /**
      * Extracts labeled vector from upstream object.
@@ -63,21 +63,21 @@ public abstract class Vectorizer<K, V, C extends Serializable, L> implements Fea
      * @param value Value.
      * @return vector.
      */
-    @Override public LabeledVector<L> apply(K key, V value) {
+    public LabeledVector<L> apply(K key, V value) {
         L lbl = isLabeled() ? label(labelCoord(key, value), key, value) : zero();
 
         List<C> allCoords = null;
         if (useAllValues) {
             allCoords = allCoords(key, value).stream()
-                .filter(coord -> !coord.equals(labelCoord) && !excludedCoords.contains(coord))
+                .filter(coord -> !coord.equals(lbCoord) && !excludedCoords.contains(coord))
                 .collect(Collectors.toList());
         }
 
-        int vectorLength = useAllValues ? allCoords.size() : extractionCoordinates.size();
-        A.ensure(vectorLength >= 0, "vectorLength >= 0");
+        int vectorLen = useAllValues ? allCoords.size() : extractionCoordinates.size();
+        A.ensure(vectorLen >= 0, "vectorLength >= 0");
 
         List<C> coordinatesForExtraction = useAllValues ? allCoords : extractionCoordinates;
-        Vector vector = createVector(vectorLength);
+        Vector vector = createVector(vectorLen);
         for (int i = 0; i < coordinatesForExtraction.size(); i++) {
             Double feature = feature(coordinatesForExtraction.get(i), key, value);
             if (feature != null)
@@ -104,7 +104,7 @@ public abstract class Vectorizer<K, V, C extends Serializable, L> implements Fea
      * @return true if label in vector is valid.
      */
     private boolean isLabeled() {
-        return labelCoord != null || lbCoordinateShortcut != null;
+        return lbCoord != null || lbCoordinateShortcut != null;
     }
 
     /**
@@ -116,35 +116,35 @@ public abstract class Vectorizer<K, V, C extends Serializable, L> implements Fea
      */
     private C labelCoord(K key, V value) {
         A.ensure(isLabeled(), "isLabeled");
-        if (labelCoord != null)
-            return labelCoord;
+        if (lbCoord != null)
+            return lbCoord;
         else {
             List<C> allCoords = allCoords(key, value);
             A.ensure(!allCoords.isEmpty(), "!allCoords.isEmpty()");
 
             switch (lbCoordinateShortcut) {
                 case FIRST:
-                    labelCoord = allCoords.get(0);
+                    lbCoord = allCoords.get(0);
                     break;
                 case LAST:
-                    labelCoord = allCoords.get(allCoords.size() - 1);
+                    lbCoord = allCoords.get(allCoords.size() - 1);
                     break;
                 default:
                     throw new IllegalArgumentException();
             }
 
-            return labelCoord;
+            return lbCoord;
         }
     }
 
     /**
      * Sets label coordinate for Vectorizer. By default it equals null and zero() will be used as label value.
      *
-     * @param labelCoord Label coordinate.
+     * @param lbCoord Label coordinate.
      * @return this.
      */
-    public Vectorizer<K, V, C, L> labeled(C labelCoord) {
-        this.labelCoord = labelCoord;
+    public Vectorizer<K, V, C, L> labeled(C lbCoord) {
+        this.lbCoord = lbCoord;
         this.lbCoordinateShortcut = null;
         return this;
     }
@@ -152,12 +152,12 @@ public abstract class Vectorizer<K, V, C extends Serializable, L> implements Fea
     /**
      * Sets label coordinate for Vectorizer. By default it equals null and zero() will be used as label value.
      *
-     * @param labelCoord Label coordinate.
+     * @param lbCoord Label coordinate.
      * @return this.
      */
-    public Vectorizer<K, V, C, L> labeled(LabelCoordinate labelCoord) {
-        this.lbCoordinateShortcut = labelCoord;
-        this.labelCoord = null;
+    public Vectorizer<K, V, C, L> labeled(LabelCoordinate lbCoord) {
+        this.lbCoordinateShortcut = lbCoord;
+        this.lbCoord = null;
         return this;
     }
 

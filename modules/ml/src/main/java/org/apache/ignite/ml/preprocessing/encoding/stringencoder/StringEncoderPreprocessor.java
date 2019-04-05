@@ -24,7 +24,7 @@ import org.apache.ignite.ml.math.exceptions.preprocessing.UnknownCategorialFeatu
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
-import org.apache.ignite.ml.preprocessing.encoding.EncoderPreprocessor;
+import org.apache.ignite.ml.preprocessing.Preprocessor;
 
 /**
  * Preprocessing function that makes String encoding.
@@ -46,7 +46,7 @@ import org.apache.ignite.ml.preprocessing.encoding.EncoderPreprocessor;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class StringEncoderPreprocessor<K, V> extends EncoderPreprocessor<K, V> {
+public class StringEncoderPreprocessor<K, V> extends Preprocessor<K, V> {
     /** */
     protected static final long serialVersionUID = 6237712226382623488L;
 

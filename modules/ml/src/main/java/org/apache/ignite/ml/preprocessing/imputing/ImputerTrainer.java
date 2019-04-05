@@ -27,10 +27,11 @@ import org.apache.ignite.ml.dataset.PartitionContextBuilder;
 import org.apache.ignite.ml.dataset.UpstreamEntry;
 import org.apache.ignite.ml.dataset.primitive.context.EmptyContext;
 import org.apache.ignite.ml.environment.LearningEnvironmentBuilder;
-import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 import org.apache.ignite.ml.preprocessing.PreprocessingTrainer;
+import org.apache.ignite.ml.preprocessing.Preprocessor;
+import org.apache.ignite.ml.structures.LabeledVector;
 
 /**
  * Trainer of the imputing preprocessor.
@@ -40,13 +41,13 @@ import org.apache.ignite.ml.preprocessing.PreprocessingTrainer;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class ImputerTrainer<K, V> implements PreprocessingTrainer<K, V, Vector, Vector> {
+public class ImputerTrainer<K, V> implements PreprocessingTrainer<K, V> {
     /** The imputing strategy. */
     private ImputingStrategy imputingStgy = ImputingStrategy.MEAN;
 
     /** {@inheritDoc} */
     @Override public ImputerPreprocessor<K, V> fit(LearningEnvironmentBuilder envBuilder, DatasetBuilder<K, V> datasetBuilder,
-        IgniteBiFunction<K, V, Vector> basePreprocessor) {
+        Preprocessor<K, V> basePreprocessor) {
         PartitionContextBuilder<K, V, EmptyContext> builder = (env, upstream, upstreamSize) -> new EmptyContext();
         try (Dataset<EmptyContext, ImputerPartitionData> dataset = datasetBuilder.build(
             envBuilder,
@@ -58,15 +59,15 @@ public class ImputerTrainer<K, V> implements PreprocessingTrainer<K, V, Vector, 
 
                 while (upstream.hasNext()) {
                     UpstreamEntry<K, V> entity = upstream.next();
-                    Vector row = basePreprocessor.apply(entity.getKey(), entity.getValue());
+                    LabeledVector row = basePreprocessor.apply(entity.getKey(), entity.getValue());
 
                     switch (imputingStgy) {
                         case MEAN:
-                            sums = calculateTheSums(row, sums);
-                            counts = calculateTheCounts(row, counts);
+                            sums = calculateTheSums(row.features(), sums);
+                            counts = calculateTheCounts(row.features(), counts);
                             break;
                         case MOST_FREQUENT:
-                            valuesByFreq = calculateFrequencies(row, valuesByFreq);
+                            valuesByFreq = calculateFrequencies(row.features(), valuesByFreq);
                             break;
                         default: throw new UnsupportedOperationException("The chosen strategy is not supported");
                     }

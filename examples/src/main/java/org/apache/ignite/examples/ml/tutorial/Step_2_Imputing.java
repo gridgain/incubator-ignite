@@ -60,7 +60,7 @@ public class Step_2_Imputing {
                 IgniteBiFunction<Integer, Vector, Vector> imputingPreprocessor = new ImputerTrainer<Integer, Vector>()
                     .fit(ignite,
                         dataCache,
-                        CompositionUtils.asFeatureExtractor(vectorizer) // "pclass", "sibsp", "parch"
+                        vectorizer // "pclass", "sibsp", "parch"
                     );
 
                 DecisionTreeClassificationTrainer trainer = new DecisionTreeClassificationTrainer(5, 0);

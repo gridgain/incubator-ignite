@@ -32,7 +32,7 @@ import org.apache.ignite.ml.preprocessing.PreprocessingTrainer;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class StandardScalerTrainer<K, V> implements PreprocessingTrainer<K, V, Vector, Vector> {
+public class StandardScalerTrainer<K, V> implements PreprocessingTrainer<K, V> {
     /** {@inheritDoc} */
     @Override public StandardScalerPreprocessor<K, V> fit(LearningEnvironmentBuilder envBuilder,
         DatasetBuilder<K, V> datasetBuilder,

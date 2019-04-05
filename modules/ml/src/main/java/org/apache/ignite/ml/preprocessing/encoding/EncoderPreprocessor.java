@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
+import org.apache.ignite.ml.preprocessing.Preprocessor;
 
 /**
  * Preprocessing function that makes encoding.
@@ -30,7 +31,7 @@ import org.apache.ignite.ml.math.primitives.vector.Vector;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public abstract class EncoderPreprocessor<K, V> implements IgniteBiFunction<K, V, Vector> {
+public abstract class EncoderPreprocessor<K, V> extends Preprocessor<K, V> {
     /** */
     protected static final String KEY_FOR_NULL_VALUES = "";
 

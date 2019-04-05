@@ -21,20 +21,18 @@ import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
+import org.apache.ignite.ml.dataset.feature.extractor.Vectorizer;
 import org.apache.ignite.ml.dataset.impl.cache.CacheBasedDatasetBuilder;
 import org.apache.ignite.ml.dataset.impl.local.LocalDatasetBuilder;
 import org.apache.ignite.ml.environment.LearningEnvironmentBuilder;
-import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 
 /**
  * Trainer for preprocessor.
  *
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
- * @param <T> Type of a value returned by base preprocessor.
- * @param <R> Type of a value returned by preprocessor fitted by this trainer.
  */
-public interface PreprocessingTrainer<K, V, T, R> {
+public interface PreprocessingTrainer<K, V> {
     /**
      * Fits preprocessor.
      *
@@ -43,10 +41,24 @@ public interface PreprocessingTrainer<K, V, T, R> {
      * @param basePreprocessor Base preprocessor.
      * @return Preprocessor.
      */
-    public IgniteBiFunction<K, V, R> fit(
+    public Preprocessor fit(
         LearningEnvironmentBuilder envBuilder,
         DatasetBuilder<K, V> datasetBuilder,
-        IgniteBiFunction<K, V, T> basePreprocessor);
+        Preprocessor basePreprocessor);
+
+
+    /**
+     * Fits preprocessor.
+     *
+     * @param envBuilder Learning environment builder.
+     * @param datasetBuilder Dataset builder.
+     * @param basePreprocessor Base preprocessor.
+     * @return Preprocessor.
+     */
+    public Preprocessor fit(
+        LearningEnvironmentBuilder envBuilder,
+        DatasetBuilder<K, V> datasetBuilder,
+        Vectorizer<K, V, Integer, Double> basePreprocessor);
 
     /**
      * Fits preprocessor.
@@ -55,9 +67,23 @@ public interface PreprocessingTrainer<K, V, T, R> {
      * @param basePreprocessor Base preprocessor.
      * @return Preprocessor.
      */
-    public default IgniteBiFunction<K, V, R> fit(
+    public default Preprocessor fit(
         DatasetBuilder<K, V> datasetBuilder,
-        IgniteBiFunction<K, V, T> basePreprocessor) {
+        Preprocessor basePreprocessor) {
+        return fit(LearningEnvironmentBuilder.defaultBuilder(), datasetBuilder, basePreprocessor);
+    }
+
+
+    /**
+     * Fits preprocessor.
+     *
+     * @param datasetBuilder Dataset builder.
+     * @param basePreprocessor Base preprocessor.
+     * @return Preprocessor.
+     */
+    public default Preprocessor fit(
+        DatasetBuilder<K, V> datasetBuilder,
+        Vectorizer<K, V, Integer, Double> basePreprocessor) {
         return fit(LearningEnvironmentBuilder.defaultBuilder(), datasetBuilder, basePreprocessor);
     }
 
@@ -69,9 +95,9 @@ public interface PreprocessingTrainer<K, V, T, R> {
      * @param basePreprocessor Base preprocessor.
      * @return Preprocessor.
      */
-    public default IgniteBiFunction<K, V, R> fit(
+    public default  Preprocessor fit(
         Ignite ignite, IgniteCache<K, V> cache,
-        IgniteBiFunction<K, V, T> basePreprocessor) {
+        Preprocessor basePreprocessor) {
         return fit(
             new CacheBasedDatasetBuilder<>(ignite, cache),
             basePreprocessor
@@ -87,10 +113,10 @@ public interface PreprocessingTrainer<K, V, T, R> {
      * @param basePreprocessor Base preprocessor.
      * @return Preprocessor.
      */
-    public default IgniteBiFunction<K, V, R> fit(
+    public default Preprocessor fit(
         LearningEnvironmentBuilder envBuilder,
         Ignite ignite, IgniteCache<K, V> cache,
-        IgniteBiFunction<K, V, T> basePreprocessor) {
+        Preprocessor basePreprocessor) {
         return fit(
             envBuilder,
             new CacheBasedDatasetBuilder<>(ignite, cache),
@@ -106,11 +132,11 @@ public interface PreprocessingTrainer<K, V, T, R> {
      * @param basePreprocessor Base preprocessor.
      * @return Preprocessor.
      */
-    public default IgniteBiFunction<K, V, R> fit(
+    public default Preprocessor fit(
         LearningEnvironmentBuilder envBuilder,
         Map<K, V> data,
         int parts,
-        IgniteBiFunction<K, V, T> basePreprocessor) {
+        Preprocessor basePreprocessor) {
         return fit(
             envBuilder,
             new LocalDatasetBuilder<>(data, parts),
@@ -126,13 +152,21 @@ public interface PreprocessingTrainer<K, V, T, R> {
      * @param basePreprocessor Base preprocessor.
      * @return Preprocessor.
      */
-    public default IgniteBiFunction<K, V, R> fit(
+    public default Preprocessor fit(
         Map<K, V> data,
         int parts,
-        IgniteBiFunction<K, V, T> basePreprocessor) {
+        Preprocessor basePreprocessor) {
         return fit(
             new LocalDatasetBuilder<>(data, parts),
             basePreprocessor
         );
     }
+
+    public default  Preprocessor fit(Ignite ignite, IgniteCache<K, V> cache,
+        Vectorizer<K, V, Integer, Double> vectorizer) {
+        return fit(
+            new CacheBasedDatasetBuilder<>(ignite, cache),
+            vectorizer
+        );
+    };
 }

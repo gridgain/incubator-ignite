@@ -29,13 +29,15 @@ import java.util.stream.Collectors;
 import org.apache.ignite.ml.dataset.Dataset;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
 import org.apache.ignite.ml.dataset.UpstreamEntry;
+import org.apache.ignite.ml.dataset.feature.extractor.Vectorizer;
 import org.apache.ignite.ml.dataset.primitive.context.EmptyContext;
 import org.apache.ignite.ml.environment.LearningEnvironmentBuilder;
-import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.preprocessing.PreprocessingTrainer;
+import org.apache.ignite.ml.preprocessing.Preprocessor;
 import org.apache.ignite.ml.preprocessing.encoding.onehotencoder.OneHotEncoderPreprocessor;
 import org.apache.ignite.ml.preprocessing.encoding.stringencoder.StringEncoderPreprocessor;
+import org.apache.ignite.ml.structures.LabeledVector;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -44,7 +46,7 @@ import org.jetbrains.annotations.NotNull;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Vector, Vector> {
+public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V> {
     /** Indices of features which should be encoded. */
     private Set<Integer> handledIndices = new HashSet<>();
 
@@ -54,11 +56,11 @@ public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Vector, 
     /** Encoder sorting strategy. */
     private EncoderSortingStrategy encoderSortingStgy = EncoderSortingStrategy.FREQUENCY_DESC;
 
-    /** {@inheritDoc} */
     @Override public EncoderPreprocessor<K, V> fit(
         LearningEnvironmentBuilder envBuilder,
         DatasetBuilder<K, V> datasetBuilder,
-        IgniteBiFunction<K, V, Vector> basePreprocessor) {
+        Vectorizer<K, V, Integer, Double> basePreprocessor) {
+
         if (handledIndices.isEmpty())
             throw new RuntimeException("Add indices of handled features");
 
@@ -71,8 +73,50 @@ public class EncoderTrainer<K, V> implements PreprocessingTrainer<K, V, Vector, 
 
                 while (upstream.hasNext()) {
                     UpstreamEntry<K, V> entity = upstream.next();
-                    Vector row = basePreprocessor.apply(entity.getKey(), entity.getValue());
-                    categoryFrequencies = calculateFrequencies(row, categoryFrequencies);
+                    LabeledVector row = basePreprocessor.apply(entity.getKey(), entity.getValue());
+                    categoryFrequencies = calculateFrequencies(row.features(), categoryFrequencies);
+                }
+                return new EncoderPartitionData()
+                    .withCategoryFrequencies(categoryFrequencies);
+            }
+        )) {
+            Map<String, Integer>[] encodingValues = calculateEncodingValuesByFrequencies(dataset);
+
+            switch (encoderType) {
+                case ONE_HOT_ENCODER:
+                    return new OneHotEncoderPreprocessor<>(encodingValues, basePreprocessor, handledIndices);
+                case STRING_ENCODER:
+                    return new StringEncoderPreprocessor<>(encodingValues, basePreprocessor, handledIndices);
+                default:
+                    throw new IllegalStateException("Define the type of the resulting prerocessor.");
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+
+    /** {@inheritDoc} */
+    @Override public EncoderPreprocessor<K, V> fit(
+        LearningEnvironmentBuilder envBuilder,
+        DatasetBuilder<K, V> datasetBuilder,
+        Preprocessor basePreprocessor) {
+        if (handledIndices.isEmpty())
+            throw new RuntimeException("Add indices of handled features");
+
+        try (Dataset<EmptyContext, EncoderPartitionData> dataset = datasetBuilder.build(
+            envBuilder,
+            (env, upstream, upstreamSize) -> new EmptyContext(),
+            (env, upstream, upstreamSize, ctx) -> {
+                // This array will contain not null values for handled indices
+                Map<String, Integer>[] categoryFrequencies = null;
+
+                while (upstream.hasNext()) {
+                    UpstreamEntry<K, V> entity = upstream.next();
+                    LabeledVector row = basePreprocessor.apply(entity.getKey(), entity.getValue());
+                    categoryFrequencies = calculateFrequencies(row.features(), categoryFrequencies);
                 }
                 return new EncoderPartitionData()
                     .withCategoryFrequencies(categoryFrequencies);

@@ -19,6 +19,7 @@ package org.apache.ignite.ml.preprocessing.binarization;
 
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
+import org.apache.ignite.ml.preprocessing.Preprocessor;
 
 /**
  * Preprocessing function that makes binarization.
@@ -29,7 +30,7 @@ import org.apache.ignite.ml.math.primitives.vector.Vector;
  * @param <K> Type of a key in {@code upstream} data.
  * @param <V> Type of a value in {@code upstream} data.
  */
-public class BinarizationPreprocessor<K, V> implements IgniteBiFunction<K, V, Vector> {
+public class BinarizationPreprocessor<K, V> extends Preprocessor<K, V> {
     /** */
     private static final long serialVersionUID = 6877811577892621239L;
 
