@@ -44,7 +44,7 @@
                 <!-- Import dependency management from Spring Boot -->
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <version>1.5.19.RELEASE</version>
+                <version>1.5.20.RELEASE</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -123,27 +123,6 @@
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-web-console-common</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <!-- TODO WC-1006 for quick test from IDE -->
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-rest-http</artifactId>
-            <version>${project.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <!-- Test dependencies -->

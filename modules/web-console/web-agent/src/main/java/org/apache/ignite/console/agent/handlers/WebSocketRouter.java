@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.agent.handlers;
 
+import java.net.ConnectException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.UUID;
@@ -26,6 +27,7 @@ import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.websocket.AgentInfo;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.Session;
@@ -81,6 +83,8 @@ public class WebSocketRouter implements AutoCloseable {
     /** */
     private WebSocketClient client;
 
+    /** */
+    private int reconnectCnt;
 
     /**
      * @param cfg Configuration.
@@ -164,6 +168,8 @@ public class WebSocketRouter implements AutoCloseable {
         try {
             client.start();
             client.connect(this, new URI(cfg.serverUri() + "/agents"));
+
+            reconnectCnt = 0;
         }
         catch (Exception e) {
             log.error("Unable to connect to WebSocket: ", e);
@@ -201,7 +207,7 @@ public class WebSocketRouter implements AutoCloseable {
         wss.open(ses);
 
         try {
-            wss.send(AGENT_INFO, new AgentInfo(AGENT_ID, cfg.tokens()));
+            wss.send(AGENT_INFO, new AgentInfo(cfg.tokens()));
         }
         catch (Throwable e) {
             log.error("Failed to send agent info to server", e);
@@ -270,14 +276,21 @@ public class WebSocketRouter implements AutoCloseable {
      */
     @OnWebSocketError
     public void onError(Throwable e) {
-        log.error("ERR on websocket", e);
+        // Reconnect only in case of ConnectException.
+        if (e instanceof ConnectException) {
+            LT.error(log, e, "Failed connect to server");
 
-        try {
-            Thread.sleep(3000);
-        }
-        catch (Throwable ignore) {
-        }
+            if (reconnectCnt < 10)
+                reconnectCnt++;
 
-        reconnect();
+            try {
+                Thread.sleep(reconnectCnt * 1000);
+            }
+            catch (Throwable ignore) {
+                // No-op.
+            }
+
+            reconnect();
+        }
     }
 }

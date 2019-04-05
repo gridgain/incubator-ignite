@@ -27,9 +27,6 @@ import org.apache.ignite.internal.util.typedef.internal.S;
  */
 public class AgentInfo {
     /** */
-    private String agentId;
-
-    /** */
     private Set<String> toks;
 
     /**
@@ -42,28 +39,11 @@ public class AgentInfo {
     /**
      * Full constructor.
      *
-     * @param agentId Agent ID.
      * @param toks Tokens.
      */
-    public AgentInfo(String agentId, List<String> toks) {
-        this.agentId = agentId;
-
+    public AgentInfo(List<String> toks) {
         this.toks = new HashSet<>();
         this.toks.addAll(toks);
-    }
-
-    /**
-     * @return Agent ID.
-     */
-    public String getAgentId() {
-        return agentId;
-    }
-
-    /**
-     * @param agentId Agent ID.
-     */
-    public void setAgentId(String agentId) {
-        this.agentId = agentId;
     }
 
     /**
