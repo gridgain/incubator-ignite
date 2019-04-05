@@ -62,7 +62,8 @@ export default class Caches {
             writeBehindCoalescing: true,
             nearConfiguration: {},
             sqlFunctionClasses: [],
-            domains: []
+            domains: [],
+            eagerTtl: true
         };
     }
 
