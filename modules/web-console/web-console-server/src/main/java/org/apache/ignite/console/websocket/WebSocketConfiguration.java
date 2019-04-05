@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistration;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
@@ -35,6 +36,10 @@ import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 public class WebSocketConfiguration implements WebSocketConfigurer {
 	/** */
 	private final WebSocketSessions wss;
+
+	/** */
+	@Value("${websocket.ssl.enabled}")
+	private boolean sslEnabled;
 
 	/** */
 	@Value("${websocket.allowed.origin}")
@@ -52,8 +57,9 @@ public class WebSocketConfiguration implements WebSocketConfigurer {
 	 * @param registry Registry.
 	 */
 	@Override public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		registry
-            .addHandler(new WebSocketRouter(wss), AGENTS_PATH, BROWSERS_PATH)
-			.setAllowedOrigins(allowedOrigin);
+		WebSocketHandlerRegistration reg = registry.addHandler(new WebSocketRouter(wss), AGENTS_PATH, BROWSERS_PATH);
+
+		if (sslEnabled)
+			reg.setAllowedOrigins(allowedOrigin);
 	}
 }
