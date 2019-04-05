@@ -31,12 +31,17 @@
     </parent>
 
     <artifactId>ignite-web-console-agent</artifactId>
-    <packaging>jar</packaging>
     <version>2.8.0-SNAPSHOT</version>
     <url>http://ignite.apache.org</url>
 
     <dependencies>
         <!-- Ignite dependencies -->
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-web-console-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
@@ -83,15 +88,21 @@
 
         <!-- Third-party dependencies -->
         <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-core</artifactId>
-            <version>${vertx.version}</version>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-client</artifactId>
+            <version>${jetty.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-web-client</artifactId>
-            <version>${vertx.version}</version>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>websocket-client</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-util</artifactId>
+            <version>${jetty.version}</version>
         </dependency>
 
         <dependency>
@@ -103,7 +114,7 @@
         <dependency>
             <groupId>com.beust</groupId>
             <artifactId>jcommander</artifactId>
-            <version>1.58</version>
+            <version>1.72</version>
         </dependency>
 
         <dependency>
@@ -114,7 +125,7 @@
     </dependencies>
 
     <build>
-        <finalName>ignite-web-agent-${project.version}</finalName>
+        <finalName>ignite-web-console-agent-${project.version}</finalName>
 
         <testResources>
             <testResource>
@@ -164,7 +175,7 @@
                             <descriptors>
                                 <descriptor>../assembly/release-web-console-agent.xml</descriptor>
                             </descriptors>
-                            <finalName>ignite-web-agent-${project.version}</finalName>
+                            <finalName>ignite-web-console-agent-${project.version}</finalName>
                             <outputDirectory>target</outputDirectory>
                             <appendAssemblyId>false</appendAssemblyId>
                         </configuration>

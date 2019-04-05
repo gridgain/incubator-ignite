@@ -19,7 +19,6 @@ package org.apache.ignite.console.dto;
 
 import java.util.Collection;
 import java.util.UUID;
-import io.vertx.core.json.JsonObject;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -111,6 +110,9 @@ public class Account extends AbstractDto implements UserDetails {
         this.phone = phone;
         this.company = company;
         this.country = country;
+
+        this.tok = UUID.randomUUID().toString();
+        this.resetPwdTok = UUID.randomUUID().toString();
     }
 
     /**
@@ -153,6 +155,13 @@ public class Account extends AbstractDto implements UserDetails {
      */
     public String country() {
         return country;
+    }
+
+    /**
+     * @return Token.
+     */
+    public String token() {
+        return tok;
     }
 
     /**

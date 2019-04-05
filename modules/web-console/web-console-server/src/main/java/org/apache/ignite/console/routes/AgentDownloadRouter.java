@@ -22,20 +22,11 @@ import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpHeaders;
-import io.vertx.ext.auth.User;
-import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
-
-import static io.vertx.core.http.HttpMethod.GET;
-import static org.apache.ignite.console.common.Utils.origin;
 
 /**
  * Router to handle REST API to download Web Agent.
@@ -52,27 +43,23 @@ public class AgentDownloadRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
-     * @param vertx Vertx.
      * @param cfg Web Console configuration.
      */
-    public AgentDownloadRouter(Ignite ignite, Vertx vertx, WebConsoleConfiguration cfg) {
-        super(ignite, vertx);
+    public AgentDownloadRouter(Ignite ignite, WebConsoleConfiguration cfg) {
+        super(ignite);
 
         this.agentFileName = cfg.getAgentFileName();
 
         pathToAgentZip = Paths.get(cfg.getAgentFolderName(), agentFileName + ".zip");
     }
 
-    /** {@inheritDoc} */
-    @Override public void install(Router router) {
-        authenticatedRoute(router, GET, "/api/v1/downloads/agent", this::load);
-    }
+//    /** {@inheritDoc} */
+//    @Override public void install(Router router) {
+//        authenticatedRoute(router, GET, "/api/v1/downloads/agent", this::load);
+//    }
 
-    /**
-     * @param ctx Context.
-     */
-    private void load(RoutingContext ctx) {
-        User user = getContextAccount(ctx);
+    private void load() {
+        // User user = getContextAccount(ctx);
 
         try {
             if (!Files.exists(pathToAgentZip))
@@ -91,8 +78,8 @@ public class AgentDownloadRouter extends AbstractRouter {
             zos.putArchiveEntry(new ZipArchiveEntry(agentFileName + "/default.properties"));
 
             String content = String.join("\n",
-                "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
-                "server-uri=" + origin(ctx.request()),
+                // "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
+                // "server-uri=" + origin(ctx.request()),
                 "#Uncomment following options if needed:",
                 "#node-uri=http://localhost:8080",
                 "#node-login=ignite",
@@ -116,17 +103,17 @@ public class AgentDownloadRouter extends AbstractRouter {
 
             byte[] data = baos.toByteArray();
 
-            ctx.response()
-                .setChunked(true)
-                .putHeader(HttpHeaders.CONTENT_TYPE, "application/zip")
-                .putHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + agentFileName + ".zip\"")
-                .putHeader(HttpHeaders.TRANSFER_ENCODING, HttpHeaders.CHUNKED)
-                .putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(data.length))
-                .write(Buffer.buffer(data))
-                .end();
+//            ctx.response()
+//                .setChunked(true)
+//                .putHeader(HttpHeaders.CONTENT_TYPE, "application/zip")
+//                .putHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + agentFileName + ".zip\"")
+//                .putHeader(HttpHeaders.TRANSFER_ENCODING, HttpHeaders.CHUNKED)
+//                .putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(data.length))
+//                .write(Buffer.buffer(data))
+//                .end();
         }
         catch (Throwable e) {
-            replyWithError(ctx, "Failed to prepare Web Agent archive for download", e);
+            // replyWithError(ctx, "Failed to prepare Web Agent archive for download", e);
         }
     }
 }

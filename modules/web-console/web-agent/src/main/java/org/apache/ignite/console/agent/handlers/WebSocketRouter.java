@@ -17,32 +17,45 @@
 
 package org.apache.ignite.console.agent.handlers;
 
+import java.net.ConnectException;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.util.UUID;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.eventbus.MessageConsumer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.RequestOptions;
-import io.vertx.core.http.WebSocket;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.JksOptions;
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.console.websocket.AgentInfo;
+import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketFrame;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
+import org.eclipse.jetty.websocket.api.annotations.WebSocket;
+import org.eclipse.jetty.websocket.api.extensions.Frame;
+import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.LoggerFactory;
 
-import static io.vertx.core.buffer.Buffer.buffer;
-import static org.apache.ignite.console.agent.AgentUtils.jksOptions;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
+import static org.apache.ignite.console.util.JsonUtils.fromJson;
+import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_REST;
+import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_VISOR;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_DRIVERS;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_METADATA;
+import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * Router that listen for web socket and redirect messages to event bus.
  */
-@SuppressWarnings("JavaAbbreviationUsage")
-public class WebSocketRouter extends AbstractVerticle {
+@WebSocket(maxTextMessageSize = 10 * 1024 * 1024, maxBinaryMessageSize = 10 * 1024 * 1024)
+public class WebSocketRouter implements AutoCloseable {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketRouter.class));
 
@@ -50,206 +63,234 @@ public class WebSocketRouter extends AbstractVerticle {
     private static final String AGENT_ID = UUID.randomUUID().toString();
 
     /** */
-    private static final Buffer PING = new JsonObject()
-        .put("address", Addresses.INFO)
-        .put("type", "ping")
-        .put("body", "ping")
-        .toBuffer();
+    private static final ByteBuffer PONG_MSG = UTF_8.encode("PONG");
 
     /** */
     private final AgentConfiguration cfg;
 
     /** */
-    private HttpClient client;
+    private final CountDownLatch closeLatch;
 
     /** */
-    private volatile long curTimer;
+    private final WebSocketSession wss;
 
     /** */
-    private RequestOptions conOpts;
+    private final ClusterHandler clusterHnd;
+
+    /** */
+    private final DatabaseHandler dbHnd;
+
+    /** */
+    private WebSocketClient client;
+
+    /** */
+    private int reconnectCnt;
 
     /**
      * @param cfg Configuration.
+     * @throws Exception If failed to create websocket handler.
      */
-    public WebSocketRouter(AgentConfiguration cfg) {
+    public WebSocketRouter(AgentConfiguration cfg) throws Exception {
         this.cfg = cfg;
+
+        closeLatch = new CountDownLatch(1);
+        wss = new WebSocketSession(AGENT_ID);
+        clusterHnd = new ClusterHandler(cfg, wss);
+        dbHnd = new DatabaseHandler(cfg, wss);
     }
 
-
-    /** {@inheritDoc} */
-    @Override public void start() throws Exception {
+    /**
+     * Start websocket client.
+     */
+    public void start() {
         log.info("Web Agent ID: " + AGENT_ID);
         log.info("Connecting to: " + cfg.serverUri());
 
-        boolean serverTrustAll = Boolean.getBoolean("trust.all");
+        connect();
 
-        if (serverTrustAll && !F.isEmpty(cfg.serverTrustStore())) {
-            log.warning("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
-                "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
-
-            serverTrustAll = false;
-        }
-
-        HttpClientOptions httpOptions = new HttpClientOptions()
-            .setTryUseCompression(true)
-            .setTryUsePerMessageWebsocketCompression(true);
-
-        boolean ssl = serverTrustAll || !F.isEmpty(cfg.serverKeyStore()) || !F.isEmpty(cfg.serverTrustStore());
-
-        if (ssl) {
-            httpOptions.setSsl(true);
-
-            JksOptions jks = jksOptions(cfg.serverKeyStore(), cfg.serverKeyStorePassword());
-
-            if (jks != null)
-                httpOptions.setKeyStoreOptions(jks);
-
-            if (serverTrustAll) {
-                httpOptions
-                    .setTrustAll(true)
-                    .setVerifyHost(false);
-            }
-            else {
-                jks = jksOptions(cfg.serverTrustStore(), cfg.serverTrustStorePassword());
-
-                if (jks != null)
-                    httpOptions.setTrustStoreOptions(jks);
-            }
-
-            if (!F.isEmpty(cfg.cipherSuites()))
-                cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
-        }
-
-        client = vertx.createHttpClient(httpOptions);
-
-        URI uri = new URI(cfg.serverUri());
-
-        conOpts = new RequestOptions()
-            .setHost(uri.getHost())
-            .setPort(uri.getPort())
-            .setSsl(ssl)
-            .setURI("/eventbus/websocket");
-
-        curTimer = vertx.setTimer(1, this::connect);
+        clusterHnd.start();
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
-        vertx.cancelTimer(curTimer);
-
-        client.close();
-    }
-
-    /**
-     * Write data to web socket.
-     * @param ws Web socket.
-     * @param data Data to send over socket.
-     */
-    private void write(WebSocket ws, Buffer data) {
-        ws.writeBinaryMessage(data);
-    }
-
-    /**
-     * Register consumer on event bus.
-     *
-     * @param ws Web socket.
-     * @param addr Consumer address on event bus.
-     */
-    private void register(WebSocket ws, String addr) {
-        JsonObject json = new JsonObject()
-            .put("type", "register")
-            .put("address", addr)
-            .put("headers", "{}");
-
-        write(ws, buffer(json.encode()));
-    }
-
-    /**
-     * Send message to event bus.
-     *
-     * @param ws Web socket.
-     * @param addr Address on event bus.
-     * @param data Data to send.
-     */
-    private void send(WebSocket ws, String addr, Object data) {
+    @Override public void close() {
         try {
-            JsonObject json = new JsonObject()
-                .put("address", addr)
-                .put("type", "send")
-                .put("body", data);
-
-            write(ws, buffer(json.encode()));
+            client.stop();
         }
         catch (Throwable e) {
-            log.error("Failed to send message to address: " + addr, e);
+            log.error("Failed to close websocket", e);
+        }
+
+        try {
+            clusterHnd.stop();
+        }
+        catch (Throwable e) {
+            log.error("Failed to stop cluster handler", e);
         }
     }
 
     /**
-     * Connect to server.
-     *
-     * @param tid Timer ID.
+     * Connect to websocket.
      */
-    @SuppressWarnings("unused")
-    private void connect(long tid) {
-        client.websocket(conOpts,
-            ws -> {
-                log.info("Connected to server: " + ws.remoteAddress());
+    private void connect() {
+        boolean trustAll = Boolean.getBoolean("trust.all");
 
-                register(ws, Addresses.SCHEMA_IMPORT_DRIVERS);
-                register(ws, Addresses.SCHEMA_IMPORT_SCHEMAS);
-                register(ws, Addresses.SCHEMA_IMPORT_METADATA);
-                register(ws, Addresses.NODE_REST);
-                register(ws, Addresses.NODE_VISOR);
+        if (trustAll && !F.isEmpty(cfg.serverTrustStore())) {
+            log.warning("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
+                "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
 
-                MessageConsumer c1 = vertx.eventBus().consumer(Addresses.CLUSTER_TOPOLOGY, msg -> {
-                    JsonObject json = new JsonObject()
-                        .put("agentId", AGENT_ID)
-                        .put("top", msg.body());
+            trustAll = false;
+        }
 
-                    send(ws, Addresses.CLUSTER_TOPOLOGY, json);
-                });
+        boolean ssl = trustAll || !F.isEmpty(cfg.serverTrustStore()) || !F.isEmpty(cfg.serverKeyStore());
 
-                ws.handler(data -> {
-                    JsonObject json = data.toJsonObject();
+        if (ssl) {
+            SslContextFactory sslCtxFactory = sslContextFactory(
+                cfg.serverKeyStore(),
+                cfg.serverKeyStorePassword(),
+                trustAll,
+                cfg.serverTrustStore(),
+                cfg.serverTrustStorePassword(),
+                cfg.cipherSuites()
+            );
 
-                    String addr = json.getString("address");
+            client = new WebSocketClient(sslCtxFactory);
+        }
+        else
+            client = new WebSocketClient();
 
-                    if (F.isEmpty(addr))
-                        log.error("Unexpected request: " + json);
-                    else
-                        vertx.eventBus().send(
-                            addr,
-                            json.getJsonObject("body"),
-                            asyncRes -> {
-                                Object body = asyncRes.succeeded()
-                                    ? asyncRes.result().body()
-                                    : new JsonObject().put("err", asyncRes.cause().getMessage());
+        reconnect();
+    }
 
-                                send(ws, json.getString("replyAddress"), body);
-                            });
+    /**
+     * Reconnect to backend.
+     */
+    private void reconnect() {
+        try {
+            client.start();
+            client.connect(this, new URI(cfg.serverUri() + "/agents"));
 
-                    // log.info("Received data " + data.toString());
-                });
+            reconnectCnt = 0;
+        }
+        catch (Exception e) {
+            log.error("Unable to connect to WebSocket: ", e);
+        }
+    }
 
-                long pingTimer = vertx.setPeriodic(3000, v -> write(ws, PING));
+    /**
+     * @throws InterruptedException If await failed.
+     */
+    public void awaitClose() throws InterruptedException {
+        closeLatch.await();
+    }
 
-                ws.closeHandler(p -> {
-                    log.warning("Connection closed: " + ws.remoteAddress());
+    /**
+     *
+     * @param statusCode Close status code.
+     * @param reason Close reason.
+     */
+    @OnWebSocketClose
+    public void onClose(int statusCode, String reason) {
+        log.info("Connection closed [code=" + statusCode + ", reason=" + reason + "]");
 
-                    vertx.cancelTimer(pingTimer);
-                    c1.unregister();
+        wss.close();
 
-                    curTimer = vertx.setTimer(1, this::connect);
-                });
+        connect();
+    }
 
-                ws.exceptionHandler(e -> log.error("EXCEPTION ON SOCKET", e));
-                // send(ws, "agent:id", AGENT_ID);
-            },
-            e -> {
-                LT.warn(log, e.getMessage());
+    /**
+     * @param ses Session.
+     */
+    @OnWebSocketConnect
+    public void onConnect(Session ses) {
+        log.info("Connected to server: " + ses.getRemoteAddress());
 
-                curTimer = vertx.setTimer(3000, this::connect);
-            });
+        wss.open(ses);
+
+        try {
+            wss.send(AGENT_INFO, new AgentInfo(cfg.tokens()));
+        }
+        catch (Throwable e) {
+            log.error("Failed to send agent info to server", e);
+        }
+    }
+
+    /**
+     * @param msg Message.
+     */
+    @OnWebSocketMessage
+    public void onMessage(String msg) {
+        try {
+            WebSocketEvent evt = fromJson(msg, WebSocketEvent.class);
+
+            String evtType = evt.getEventType();
+
+            switch (evtType) {
+                case SCHEMA_IMPORT_DRIVERS:
+                    dbHnd.collectJdbcDrivers(evt);
+
+                    break;
+
+                case SCHEMA_IMPORT_SCHEMAS:
+                    dbHnd.collectDbSchemas(evt);
+                    break;
+
+                case SCHEMA_IMPORT_METADATA:
+                    dbHnd.collectDbMetadata(evt);
+                    break;
+
+                case NODE_REST:
+                case NODE_VISOR:
+                    clusterHnd.restRequest(evt);
+                    break;
+
+                default:
+                    log.warning("Unknown event: " + evt);
+            }
+        }
+        catch (Throwable e) {
+            log.error("Failed to process message: " + msg, e);
+        }
+    }
+
+    /**
+     * @param ses Session.
+     * @param frame Frame.
+     */
+    @OnWebSocketFrame
+    public void onFrame(Session ses, Frame frame) {
+        if (frame.getType() == Frame.Type.PING) {
+            if (log.isTraceEnabled())
+                log.trace("Received ping message [socket=" + ses + ", msg=" + frame + "]");
+
+            try {
+                ses.getRemote().sendPong(PONG_MSG);
+            }
+            catch (Throwable e) {
+                log.error("Failed to send pong to: " + ses, e);
+            }
+        }
+    }
+
+    /**
+     * @param e Error.
+     */
+    @OnWebSocketError
+    public void onError(Throwable e) {
+        // Reconnect only in case of ConnectException.
+        if (e instanceof ConnectException) {
+            LT.error(log, e, "Failed connect to server");
+
+            if (reconnectCnt < 10)
+                reconnectCnt++;
+
+            try {
+                Thread.sleep(reconnectCnt * 1000);
+            }
+            catch (Throwable ignore) {
+                // No-op.
+            }
+
+            reconnect();
+        }
     }
 }

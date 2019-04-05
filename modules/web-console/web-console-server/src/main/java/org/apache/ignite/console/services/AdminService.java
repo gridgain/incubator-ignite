@@ -19,12 +19,10 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.transactions.Transaction;
 
 import static org.apache.ignite.console.common.Utils.boolParam;
@@ -65,11 +63,11 @@ public class AdminService extends AbstractService {
     }
 
     /** {@inheritDoc} */
-    @Override public AdminService install(Vertx vertx) {
-        addConsumer(vertx, Addresses.ADMIN_LOAD_ACCOUNTS, this::list);
-        addConsumer(vertx, Addresses.ADMIN_DELETE_ACCOUNT, this::delete);
-        addConsumer(vertx, Addresses.ADMIN_CHANGE_ADMIN_STATUS, this::toggle);
-
+    @Override public AdminService install() {
+//        addConsumer(vertx, Addresses.ADMIN_LOAD_ACCOUNTS, this::list);
+//        addConsumer(vertx, Addresses.ADMIN_DELETE_ACCOUNT, this::delete);
+//        addConsumer(vertx, Addresses.ADMIN_CHANGE_ADMIN_STATUS, this::toggle);
+//
         return this;
     }
 

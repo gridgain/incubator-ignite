@@ -24,36 +24,46 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.Message;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.db.DbMetadataReader;
 import org.apache.ignite.console.agent.db.DbSchema;
 import org.apache.ignite.console.agent.db.DbTable;
 import org.apache.ignite.console.demo.AgentMetadataDemo;
+import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.console.util.JsonUtils.getBoolean;
+import static org.apache.ignite.console.util.JsonUtils.getString;
+import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
 
 /**
  * Handler extract database metadata for "Metadata import" dialog on Web Console.
  */
-@SuppressWarnings("JavaAbbreviationUsage")
-public class DatabaseHandler extends AbstractVerticle {
+public class DatabaseHandler {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(DatabaseHandler.class));
+
+    /** */
+    private static final String IMPLEMENTATION_VERSION = "Implementation-Version";
+
+    /** */
+    private static final String BUNDLE_VERSION = "Bundle-Version";
+
+    /** */
+    private final WebSocketSession wss;
 
     /** */
     private final File driversFolder;
@@ -63,39 +73,44 @@ public class DatabaseHandler extends AbstractVerticle {
 
     /**
      * @param cfg Config.
+     * @param wss Websocket session.
      */
-    public DatabaseHandler(AgentConfiguration cfg) {
+    public DatabaseHandler(AgentConfiguration cfg, WebSocketSession wss) {
+        this.wss = wss;
+
         driversFolder = resolvePath(F.isEmpty(cfg.driversFolder()) ? "jdbc-drivers" : cfg.driversFolder());
 
         dbMetaReader = new DbMetadataReader();
     }
 
-    /** {@inheritDoc} */
-    @Override public void start() {
-        EventBus eventBus = vertx.eventBus();
-
-        eventBus.consumer(Addresses.SCHEMA_IMPORT_DRIVERS, this::driversHandler);
-        eventBus.consumer(Addresses.SCHEMA_IMPORT_SCHEMAS, this::schemasHandler);
-        eventBus.consumer(Addresses.SCHEMA_IMPORT_METADATA, this::metadataHandler);
-    }
-
     /**
      * @param jdbcDriverJar File name of driver jar file.
      * @param jdbcDriverCls Optional JDBC driver class name.
+     * @param jdbcDriverImplVer Optional JDBC driver version.
      * @return JSON for driver info.
      */
-    private JsonObject driver(String jdbcDriverJar, String jdbcDriverCls) {
-        return new JsonObject()
-            .put("jdbcDriverJar", jdbcDriverJar)
-            .put("jdbcDriverClass", jdbcDriverCls);
+    private Map<String, String> driver(
+        String jdbcDriverJar,
+        String jdbcDriverCls,
+        String jdbcDriverImplVer
+    ) {
+        Map<String, String> map = new LinkedHashMap<>();
+
+        map.put("jdbcDriverJar", jdbcDriverJar);
+        map.put("jdbcDriverClass", jdbcDriverCls);
+        map.put("jdbcDriverImplVersion", jdbcDriverImplVer);
+
+        return map;
     }
 
     /**
-     * @param msg Message.
+     * Collect list of JDBC drivers.
+     *
+     * @param evt Websocket event.
      */
-    private void driversHandler(Message<Void> msg) {
+    public void collectJdbcDrivers(WebSocketEvent evt) {
         try {
-            JsonArray drivers = new JsonArray();
+            List<Map<String, String>> drivers = new ArrayList<>();
 
             if (driversFolder != null) {
                 log.info("Collecting JDBC drivers in folder: " + driversFolder.getPath());
@@ -110,16 +125,25 @@ public class DatabaseHandler extends AbstractVerticle {
                             URL url = new URL("jar", null,
                                 "file:" + (win ? "/" : "") + file.getPath() + "!/META-INF/services/java.sql.Driver");
 
-                            try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8))) {
+                            try (
+                                BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8));
+                                JarFile jar = new JarFile(file.getPath())
+                            ) {
+                                Manifest m = jar.getManifest();
+                                Object ver = m.getMainAttributes().getValue(IMPLEMENTATION_VERSION);
+
+                                if (ver == null)
+                                    ver = m.getMainAttributes().getValue(BUNDLE_VERSION);
+
                                 String jdbcDriverCls = reader.readLine();
 
-                                drivers.add(driver(file.getName(), jdbcDriverCls));
+                                drivers.add(driver(file.getName(), jdbcDriverCls, ver != null ? ver.toString() : null));
 
                                 log.info("Found: [driver=" + file + ", class=" + jdbcDriverCls + "]");
                             }
                         }
                         catch (IOException e) {
-                            drivers.add(driver(file.getName(), null));
+                            drivers.add(driver(file.getName(), null, null));
 
                             log.info("Found: [driver=" + file + "]");
                             log.error("Failed to detect driver class: " + e.getMessage());
@@ -127,32 +151,38 @@ public class DatabaseHandler extends AbstractVerticle {
                     }
                 }
                 else
-                    log.info("JDBC drivers folder has no files, returning empty list");
+                    throw new IllegalStateException("JDBC drivers folder has no files");
             }
             else
-                log.info("JDBC drivers folder not specified, returning empty list");
+                throw new IllegalStateException("JDBC drivers folder not specified");
 
-            msg.reply(drivers);
+            wss.reply(evt, drivers);
         }
         catch (Throwable e) {
-            msg.fail(HTTP_INTERNAL_ERROR, e.getMessage());
+            String errMsg = "Failed to collect list of JDBC drivers";
+
+            log.error(errMsg, e);
+
+            wss.fail(evt, errMsg, e);
         }
     }
 
     /**
-     * @param msg Message.
+     * Collect DB schemas.
+     *
+     * @param evt Websocket event.
      */
-    private void schemasHandler(Message<JsonObject> msg) {
-        try {
-            JsonObject args = msg.body();
+    public void collectDbSchemas(WebSocketEvent evt) {
+        log.info("Collecting database schemas...");
 
-            log.info("Collecting database schemas...");
+        try {
+            Map<String, Object> args = paramsFromJson(evt.getPayload());
 
             try (Connection conn = connect(args)) {
                 String catalog = conn.getCatalog();
 
                 if (catalog == null) {
-                    String jdbcUrl = args.getString("jdbcUrl");
+                    String jdbcUrl = getString(args, "jdbcUrl", "");
 
                     String[] parts = jdbcUrl.split("[/:=]");
 
@@ -163,44 +193,54 @@ public class DatabaseHandler extends AbstractVerticle {
 
                 log.info("Collected database schemas:" + schemas.size());
 
-                msg.reply(JsonObject.mapFrom(new DbSchema(catalog, schemas)));
+                wss.reply(evt, new DbSchema(catalog, schemas));
             }
         }
         catch (Throwable e) {
-            msg.fail(HTTP_INTERNAL_ERROR, "Failed to collect DB schemas");
+            String errMsg = "Failed to collect database schemas";
+
+            log.error(errMsg, e);
+
+            wss.fail(evt, errMsg, e);
         }
     }
 
     /**
-     * @param msg Message.
+     * Collect DB metadata.
+     *
+     * @param evt Websocket event.
      */
     @SuppressWarnings("unchecked")
-    private void metadataHandler(Message<JsonObject> msg) {
+    public void collectDbMetadata(WebSocketEvent evt) {
+        log.info("Collecting database metadata...");
+
         try {
-            JsonObject args = msg.body();
+            Map<String, Object> args = paramsFromJson(evt.getPayload());
 
             if (!args.containsKey("schemas"))
                 throw new IllegalArgumentException("Missing schemas in arguments: " + args);
 
-            List schemas = args.getJsonArray("schemas").getList();
+            List<String> schemas = (List)args.get("schemas");
 
             if (!args.containsKey("tablesOnly"))
                 throw new IllegalArgumentException("Missing tablesOnly in arguments: " + args);
 
-            boolean tblsOnly = args.getBoolean("tablesOnly", true);
-
-            log.info("Collecting database metadata...");
+            boolean tblsOnly = getBoolean(args, "tablesOnly", false);
 
             try (Connection conn = connect(args)) {
                 Collection<DbTable> metadata = dbMetaReader.metadata(conn, schemas, tblsOnly);
 
                 log.info("Collected database metadata: " + metadata.size());
 
-                msg.reply(new JsonArray(metadata.stream().map(JsonObject::mapFrom).collect(Collectors.toList())));
+                wss.reply(evt, metadata);
             }
         }
         catch (Throwable e) {
-            msg.fail(HTTP_INTERNAL_ERROR, "Failed to collect DB metadata: " + e.getMessage());
+            String errMsg = "Failed to collect database metadata";
+
+            log.error(errMsg, e);
+
+            wss.fail(evt, errMsg, e);
         }
     }
 
@@ -209,28 +249,28 @@ public class DatabaseHandler extends AbstractVerticle {
      * @return Connection to database.
      * @throws SQLException If failed to connect.
      */
-    private Connection connect(JsonObject args) throws SQLException {
-        String jdbcDriverJarPath = null;
+    private Connection connect(Map<String, Object> args) throws SQLException {
+        String jdbcDriverJarPath =  getString(args, "jdbcDriverJar", "");
 
-        if (args.containsKey("jdbcDriverJar"))
-            jdbcDriverJarPath = args.getString("jdbcDriverJar");
+        if (F.isEmpty(jdbcDriverJarPath))
+            throw new IllegalArgumentException("Path to JDBC driver not found in arguments");
 
-        if (!args.containsKey("jdbcDriverClass"))
-            throw new IllegalArgumentException("Missing driverClass in arguments: " + args);
+        String jdbcDriverCls = getString(args, "jdbcDriverClass", "");
 
-        String jdbcDriverCls = args.getString("jdbcDriverClass");
+        if (F.isEmpty(jdbcDriverCls))
+            throw new IllegalArgumentException("JDBC driver class not found in arguments");
 
-        if (!args.containsKey("jdbcUrl"))
-            throw new IllegalArgumentException("Missing url in arguments: " + args);
+        String jdbcUrl = getString(args, "jdbcUrl", "");
 
-        String jdbcUrl = args.getString("jdbcUrl");
+        if (F.isEmpty(jdbcUrl))
+            throw new IllegalArgumentException("JDBC URL not found in arguments");
 
         if (!args.containsKey("info"))
-            throw new IllegalArgumentException("Missing info in arguments: " + args);
+            throw new IllegalArgumentException("Connection parameters not found in arguments");
 
         Properties jdbcInfo = new Properties();
 
-        jdbcInfo.putAll(args.getJsonObject("info").getMap());
+        jdbcInfo.putAll((Map)args.get("info"));
 
         if (AgentMetadataDemo.isTestDriveUrl(jdbcUrl))
             return AgentMetadataDemo.testDrive();

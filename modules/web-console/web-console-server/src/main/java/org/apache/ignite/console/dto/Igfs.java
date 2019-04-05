@@ -18,7 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import io.vertx.core.json.JsonObject;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.igfs.IgfsMode;
 
 import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
@@ -91,7 +91,6 @@ public class Igfs extends DataObject {
     public int affinityGroupSize() {
         return affGrpSz;
     }
-
 
     /** {@inheritDoc} */
     @Override public JsonObject shortView() {

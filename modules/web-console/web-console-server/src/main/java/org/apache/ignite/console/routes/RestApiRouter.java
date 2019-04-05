@@ -17,16 +17,14 @@
 
 package org.apache.ignite.console.routes;
 
-import io.vertx.ext.web.Router;
-
 /**
  * REST API router.
  */
 public interface RestApiRouter {
-    /**
-     * Install handlers on router.
-     *
-     * @param router Router.
-     */
-    public void install(Router router);
+//    /**
+//     * Install handlers on router.
+//     *
+//     * @param router Router.
+//     */
+//    public void install(Router router);
 }

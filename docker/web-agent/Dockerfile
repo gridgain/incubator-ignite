@@ -31,7 +31,7 @@ ENV TOKENS=$DEFAULT_TOKENS
 
 # Settings
 USER root
-ENV AGENT_HOME /opt/ignite/ignite-web-agent
+ENV AGENT_HOME /opt/ignite/ignite-web-console-agent
 WORKDIR ${AGENT_HOME} 
 
 # Add missing software
@@ -39,8 +39,8 @@ RUN apk --no-cache \
     add bash
 
 # Copy main binary archive
-COPY ignite-web-agent*/* ./
+COPY ignite-web-console-agent*/* ./
 
 # Entrypoint
-CMD ./ignite-web-agent.sh -d ${DRIVER_FOLDER} -n ${NODE_URI} -s ${SERVER_URI} -t ${TOKENS}
+CMD ./ignite-web-console-agent.sh -d ${DRIVER_FOLDER} -n ${NODE_URI} -s ${SERVER_URI} -t ${TOKENS}
 

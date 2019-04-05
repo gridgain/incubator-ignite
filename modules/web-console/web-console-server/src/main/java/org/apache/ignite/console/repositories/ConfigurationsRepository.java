@@ -22,8 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
@@ -32,6 +30,8 @@ import org.apache.ignite.console.dto.Cluster;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Igfs;
 import org.apache.ignite.console.dto.Model;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 

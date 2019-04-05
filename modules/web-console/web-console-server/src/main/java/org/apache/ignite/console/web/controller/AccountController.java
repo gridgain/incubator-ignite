@@ -90,4 +90,16 @@ public class AccountController {
 
         return ResponseEntity.ok().build();
     }
+
+    /** */
+    @GetMapping(path = "/configuration/clusters")
+    public String getClusters() {
+        return "[{\"_id\":\"5c6813aeb1a0ab3e22b9c17c\",\"name\":\"Cluster\",\"discovery\":\"Multicast\",\"cachesCount\":1,\"modelsCount\":0,\"igfsCount\":1,\"gridgainInfo\":{\"gridgainEnabled\":true,\"rollingUpdatesEnabled\":false,\"securityEnabled\":false,\"dataReplicationReceiverEnabled\":false,\"dataReplicationSenderEnabled\":false,\"snapshotsEnabled\":true}}]";
+    }
+
+    /** */
+    @PostMapping(path = "/activities/page")
+    public String activitiesPage() {
+        return "{}";
+    }
 }

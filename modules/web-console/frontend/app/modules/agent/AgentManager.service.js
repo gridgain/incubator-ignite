@@ -18,10 +18,12 @@
 import _ from 'lodash';
 import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 
-import {timer, BehaviorSubject, of, from} from 'rxjs';
-import {exhaustMap, first, pluck, tap, distinctUntilChanged, map, filter, expand, takeWhile, last} from 'rxjs/operators';
+import Sockette from 'sockette';
 
-import EventBus from 'vertx3-eventbus-client';
+import {BehaviorSubject, Subject} from 'rxjs';
+import {distinctUntilChanged, filter, first, map, pluck, take, tap} from 'rxjs/operators';
+
+import uuidv4 from 'uuid/v4';
 
 import AgentModal from './AgentModal.service';
 // @ts-ignore
@@ -32,6 +34,8 @@ import maskNull from 'app/core/utils/maskNull';
 import {CancellationError} from 'app/errors/CancellationError';
 import {ClusterSecretsManager} from './types/ClusterSecretsManager';
 import ClusterLoginService from './components/cluster-login/service';
+
+const __dbg = false;
 
 const State = {
     INIT: 'INIT',
@@ -132,7 +136,7 @@ class ConnectionState {
 }
 
 export default class AgentManager {
-    static $inject = ['$rootScope', '$q', '$transitions', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
+    static $inject = ['$rootScope', '$q', '$transitions', '$location', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
 
     /** @type {ng.IScope} */
     $root;
@@ -159,7 +163,12 @@ export default class AgentManager {
     /** @type {Set<ng.IPromise<unknown>>} */
     promises = new Set();
 
-    eventBus = null;
+    /** Websocket */
+    ws = null;
+
+    wsSubject = new Subject();
+
+    _visorTasks = new Map();
 
     /** @type {Set<() => Promise>} */
     switchClusterListeners = new Set();
@@ -188,15 +197,17 @@ export default class AgentManager {
      * @param {ng.IRootScopeService} $root
      * @param {ng.IQService} $q
      * @param {import('@uirouter/angularjs').TransitionService} $transitions
+     * @param {ng.ILocationService} $location
      * @param {import('./AgentModal.service').default} agentModal
      * @param {import('app/components/user-notifications/service').default} UserNotifications
      * @param {import('app/services/Version.service').default} Version
      * @param {import('./components/cluster-login/service').default} ClusterLoginSrv
      */
-    constructor($root, $q, $transitions, agentModal, UserNotifications, Version, ClusterLoginSrv) {
+    constructor($root, $q, $transitions, $location, agentModal, UserNotifications, Version, ClusterLoginSrv) {
         this.$root = $root;
         this.$q = $q;
         this.$transitions = $transitions;
+        this.$location = $location;
         this.agentModal = agentModal;
         this.UserNotifications = UserNotifications;
         this.Version = Version;
@@ -236,6 +247,41 @@ export default class AgentManager {
         }
     }
 
+    // TODO WC-1030: Move to backend.
+    registerVisorTask(taskId, taskCls, ...argCls) {
+        this._visorTasks.set(taskId, {
+            taskCls,
+            argCls
+        });
+    }
+
+    // TODO WC-1030: Move to backend.
+    registerVisorTasks() {
+        const internalVisor = (postfix) => `org.apache.ignite.internal.visor.${postfix}`;
+
+        this.registerVisorTask('querySql', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryArg'));
+        this.registerVisorTask('querySqlV2', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryArgV2'));
+        this.registerVisorTask('querySqlV3', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryArgV3'));
+        this.registerVisorTask('querySqlX2', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryTaskArg'));
+
+        this.registerVisorTask('queryScanX2', internalVisor('query.VisorScanQueryTask'), internalVisor('query.VisorScanQueryTaskArg'));
+
+        this.registerVisorTask('queryFetch', internalVisor('query.VisorQueryNextPageTask'), 'org.apache.ignite.lang.IgniteBiTuple', 'java.lang.String', 'java.lang.Integer');
+        this.registerVisorTask('queryFetchX2', internalVisor('query.VisorQueryNextPageTask'), internalVisor('query.VisorQueryNextPageTaskArg'));
+
+        this.registerVisorTask('queryFetchFirstPage', internalVisor('query.VisorQueryFetchFirstPageTask'), internalVisor('query.VisorQueryNextPageTaskArg'));
+
+        this.registerVisorTask('queryClose', internalVisor('query.VisorQueryCleanupTask'), 'java.util.Map', 'java.util.UUID', 'java.util.Set');
+        this.registerVisorTask('queryCloseX2', internalVisor('query.VisorQueryCleanupTask'), internalVisor('query.VisorQueryCleanupTaskArg'));
+
+        this.registerVisorTask('toggleClusterState', internalVisor('misc.VisorChangeGridActiveStateTask'), internalVisor('misc.VisorChangeGridActiveStateTaskArg'));
+
+        this.registerVisorTask('cacheNamesCollectorTask', internalVisor('cache.VisorCacheNamesCollectorTask'), 'java.lang.Void');
+
+        this.registerVisorTask('cacheNodesTask', internalVisor('cache.VisorCacheNodesTask'), 'java.lang.String');
+        this.registerVisorTask('cacheNodesTaskX2', internalVisor('cache.VisorCacheNodesTask'), internalVisor('cache.VisorCacheNodesTaskArg'));
+    }
+
     isDemoMode() {
         return this.$root.IgniteDemoMode;
     }
@@ -245,41 +291,88 @@ export default class AgentManager {
     }
 
     connect() {
-        if (nonNil(this.eventBus))
+        if (nonNil(this.ws))
             return;
 
-        const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
+        // TODO IGNITE-5617 support demo mode.
+        // const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        // Create a connection to backend.
-        this.eventBus = new EventBus('/eventbus');
-        this.eventBus.enableReconnect(true);
+        const protocol = this.$location.protocol();
+        const host = this.$location.host();
+        const port = this.$location.port();
 
-        // Open the connection
-        this.eventBus.onopen = () => {
-            this.eventBus.registerHandler('agents:stat', (err, msg) => {
-                const {clusters, count, hasDemo} = msg.body;
+        const uri = `${protocol === 'https' ? 'wss' : 'ws'}://${host}:${port}/browsers`;
+
+        // Open websocket connection to backend.
+        this.ws = new Sockette(uri, {
+            timeout: 5000, // Retry every 5 seconds
+            onopen: (evt) => {
+                if (__dbg)
+                    console.log('[WS] Connected to server: ', evt);
+            },
+            onmessage: (msg) => {
+                if (__dbg)
+                    console.log('[WS] Received: ', msg);
+
+                const evt = JSON.parse(msg.data);
+
+                const eventType = evt.eventType;
+                const payload = JSON.parse(evt.payload);
+
+                if (eventType === 'agent:status') {
+                    const {clusters, count, hasDemo} = payload;
+
+                    const conn = this.connectionSbj.getValue();
+
+                    conn.update(this.isDemoMode(), count, clusters, hasDemo);
+
+                    this.connectionSbj.next(conn);
+                }
+                else if (eventType === 'cluster:changed')
+                    this.updateCluster(payload);
+                else if (eventType === 'user:notifications')
+                    this.UserNotifications.notification = payload;
+                else {
+                    this.wsSubject.next({
+                        requestId: evt.requestId,
+                        eventType,
+                        payload
+                    });
+                }
+            },
+            onreconnect: (evt) => {
+                if (__dbg)
+                    console.log('[WS] Reconnecting...', evt);
+            },
+            onclose: (evt) => {
+                if (__dbg)
+                    console.log('[WS] Disconnected from server: ', evt);
 
                 const conn = this.connectionSbj.getValue();
 
-                conn.update(this.isDemoMode(), count, clusters, hasDemo);
+                conn.disconnect();
 
                 this.connectionSbj.next(conn);
-            });
 
-            this.eventBus.registerHandler('cluster:changed', (err, cluster) => this.updateCluster(cluster));
+                this.wsSubject.next({
+                    requestId: 'any',
+                    eventType: 'disconnected',
+                    payload: 'none'
+                });
+            },
+            onerror: (evt) => {
+                if (__dbg)
+                    console.log('[WS] Error on sending message to server: ', evt);
+            }
+        });
+    }
 
-            this.eventBus.registerHandler('user:notifications', (err, notification) => this.UserNotifications.notification = notification);
-        };
-
-        this.eventBus.onclose = () => {
-            console.log('Disconnected from server.');
-
-            const conn = this.connectionSbj.getValue();
-
-            conn.disconnect();
-
-            this.connectionSbj.next(conn);
-        };
+    _sendWebSocketEvent(requestId, eventType, data) {
+        this.ws.json({
+            requestId,
+            eventType,
+            payload: JSON.stringify(data)
+        });
     }
 
     saveToStorage(cluster = this.connectionSbj.getValue().cluster) {
@@ -356,40 +449,42 @@ export default class AgentManager {
     /**
      * Send message.
      *
-     * @param {String} address
-     * @param {Object} message
+     * @param {String} eventType
+     * @param {Object} data
      * @returns {ng.IPromise}
      * @private
      */
-    _sendToAgent(address, message = {}) {
-        if (!this.eventBus)
+    _sendToAgent(eventType, data = {}) {
+        if (!this.ws)
             return this.$q.reject('Failed to connect to server');
 
         const latch = this.$q.defer();
 
-        // TODO IGNITE-5617 Need handle disconnect on send.
+        // Generate unique request ID in order to process response.
+        const requestId = uuidv4();
 
-        this.eventBus.send(address, message, {}, (err, res) => {
-            if (err)
-                latch.reject(err);
+        if (__dbg)
+            console.log(`Sending request: ${eventType}, ${requestId}`);
 
-            // TODO IGNITE-5617 Workaround of sending errors from web agent.
-            if (res) {
-                if (res.body) {
-                    if (res.body.err)
-                        latch.reject(res.body.err);
+        this.wsSubject
+            .pipe(
+                filter((evt) => evt.requestId === requestId || evt.eventType === 'disconnected'),
+                take(1)
+            )
+            .toPromise()
+            .then((evt) => {
+                if (__dbg)
+                    console.log('Received response: ', evt);
 
-                    latch.resolve(res.body);
-                }
-                else {
-                    console.log('NO BODY: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
+                if (evt.eventType === 'error')
+                    latch.reject(evt.payload);
+                else if (evt.eventType === 'disconnected')
+                    latch.reject({message: 'Connection to web server was lost'});
+                else
+                    latch.resolve(evt.payload);
+            });
 
-                    latch.resolve(res);
-                }
-            }
-            else
-                console.log('NO DATA: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
-        });
+        this._sendWebSocketEvent(requestId, eventType, data);
 
         return latch.promise;
     }
@@ -440,7 +535,8 @@ export default class AgentManager {
 
                         const useBigIntJson = taskId.startsWith('query');
 
-                        return this.pool.postMessage({payload: res.data, useBigIntJson});
+                        return this.pool.postMessage({payload: res.data, useBigIntJson})
+                            .then((data) => data.result ? data.result : data);
 
                     case SuccessStatus.STATUS_FAILED:
                         if (res.error.startsWith('Failed to handle request - unknown session token (maybe expired session)')) {
@@ -650,11 +746,30 @@ export default class AgentManager {
      * @param {Array.<Object>} args
      */
     visorTask(taskId, nids, ...args) {
+        if (_.isEmpty(this._visorTasks))
+            this.registerVisorTasks();
+
+        const desc = this._visorTasks.get(taskId);
+
+        if (_.isNil(desc))
+            return Promise.reject(`Failed to find Visor task for ID: ${taskId}`);
+
         args = _.map(args, (arg) => maskNull(arg));
 
         nids = _.isArray(nids) ? nids.join(';') : maskNull(nids);
 
-        return this._executeOnCluster('node:visor', {taskId, nids, args});
+        const exeParams = {
+            taskId,
+            nids,
+            cmd: 'exe',
+            name: 'org.apache.ignite.internal.visor.compute.VisorGatewayTask',
+            p1: nids,
+            p2: desc.taskCls
+        };
+
+        _.forEach(_.concat(desc.argCls, args), (param, idx) => { exeParams[`p${idx + 3}`] = param; });
+
+        return this._executeOnCluster('node:visor', exeParams);
     }
 
     /**

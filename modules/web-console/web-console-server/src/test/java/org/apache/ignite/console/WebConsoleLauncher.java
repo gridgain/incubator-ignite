@@ -17,13 +17,8 @@
 
 package org.apache.ignite.console;
 
-import java.io.File;
+import java.nio.file.Paths;
 import java.util.Collections;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
-import io.vertx.core.json.JsonObject;
-import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -43,71 +38,39 @@ public class WebConsoleLauncher {
      * @param args Arguments.
      */
     public static void main(String... args) {
-        System.out.println("Starting Ignite Web Console Server...");
+        String workDir = Paths.get(U.getIgniteHome(), "work-web-console").toString();
 
-        Ignite ignite = startIgnite();
+        System.out.println("Starting persistence node for Ignite Web Console Server...");
 
-        VertxOptions options = new VertxOptions()
-            .setBlockedThreadCheckInterval(1000L * 60L * 60L) // TODO IGNITE-5617 Only for debug!
-            .setClusterManager(new IgniteClusterManager(ignite));
+        System.setProperty("IGNITE_LOG_DIR", Paths.get(workDir, "log").toString());
 
-        Vertx.clusteredVertx(options, asyncVertx -> {
-            if (asyncVertx.succeeded()) {
-                Vertx vertx = asyncVertx.result();
+        Ignite ignite = startIgnite(workDir);
 
-                DeploymentOptions depOpts = new DeploymentOptions()
-                    .setConfig(new JsonObject()
-                        .put("configPath", "modules/web-console/src/main/resources/web-console.properties"));
-
-                vertx.deployVerticle(new WebConsoleServer(), depOpts);
-            }
-            else
-               U.error(ignite.log(), "Failed to start Web Console", asyncVertx.cause());
-        });
+        ignite.cluster().active(true);
     }
 
     /**
      * Start Ignite.
      *
      * @return Ignite instance.
+     * @param workDir Work directory.
      */
-    private static Ignite startIgnite() {
-        IgniteConfiguration cfg = new IgniteConfiguration();
+    private static Ignite startIgnite(String workDir) {
+        IgniteConfiguration cfg = new IgniteConfiguration()
+            .setIgniteInstanceName("Web Console backend")
+            .setConsistentId("web-console-backend")
+            .setMetricsLogFrequency(0)
+            .setLocalHost("127.0.0.1")
+            .setWorkDirectory(workDir)
+            .setDiscoverySpi(new TcpDiscoverySpi()
+            .setLocalPort(60800)
+            .setIpFinder(new TcpDiscoveryVmIpFinder()
+                .setAddresses(Collections.singletonList("127.0.0.1:60800"))))
+            .setDataStorageConfiguration(new DataStorageConfiguration()
+            .setDefaultDataRegionConfiguration(new DataRegionConfiguration()
+                .setPersistenceEnabled(true)))
+            .setConnectorConfiguration(null);
 
-        cfg.setIgniteInstanceName("Web Console backend");
-        cfg.setConsistentId("web-console-backend");
-        cfg.setMetricsLogFrequency(0);
-        cfg.setLocalHost("127.0.0.1");
-
-        cfg.setWorkDirectory(new File(U.getIgniteHome(), "work-web-console").getAbsolutePath());
-
-        TcpDiscoverySpi discovery = new TcpDiscoverySpi();
-
-        TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
-
-        ipFinder.setAddresses(Collections.singletonList("127.0.0.1:60800"));
-
-        discovery.setLocalPort(60800);
-        discovery.setIpFinder(ipFinder);
-
-        cfg.setDiscoverySpi(discovery);
-
-        DataStorageConfiguration dataStorageCfg = new DataStorageConfiguration();
-
-        DataRegionConfiguration dataRegionCfg = new DataRegionConfiguration();
-
-        dataRegionCfg.setPersistenceEnabled(true);
-
-        dataStorageCfg.setDefaultDataRegionConfiguration(dataRegionCfg);
-
-        cfg.setDataStorageConfiguration(dataStorageCfg);
-
-        cfg.setConnectorConfiguration(null);
-
-        Ignite ignite = Ignition.getOrStart(cfg);
-
-        ignite.cluster().active(true);
-
-        return ignite;
+        return Ignition.getOrStart(cfg);
     }
 }

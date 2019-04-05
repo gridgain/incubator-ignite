@@ -17,20 +17,11 @@
 
 package org.apache.ignite.console.services;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
-import io.vertx.core.Vertx;
-import io.vertx.core.eventbus.Message;
-import io.vertx.core.eventbus.MessageConsumer;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.jetbrains.annotations.Nullable;
-
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static org.apache.ignite.console.common.Utils.errorMessage;
 
 /**
  * Base class for routers.
@@ -39,8 +30,8 @@ public abstract class AbstractService implements AutoCloseable {
     /** */
     protected final Ignite ignite;
 
-    /** */
-    private final Set<MessageConsumer<?>> consumers = new HashSet<>();
+//    /** */
+//    private final Set<MessageConsumer<?>> consumers = new HashSet<>();
 
     /**
      * @param ignite Ignite.
@@ -50,52 +41,52 @@ public abstract class AbstractService implements AutoCloseable {
     }
 
     /**
-     * Initialize event bus.
+     * Initialize service.
      */
-    public abstract AbstractService install(Vertx vertx);
+    public abstract AbstractService install();
 
     /** {@inheritDoc} */
     @Override public void close() {
-        consumers.forEach(MessageConsumer::unregister);
+//        consumers.forEach(MessageConsumer::unregister);
 
         ignite.log().info("Service stopped: " + getClass().getSimpleName());
     }
 
-    /**
-     * @param addr Address.
-     * @param supplier Data supplier.
-     */
-    protected <T, R> MessageConsumer<T> addConsumer(Vertx vertx, String addr, Function<T, R> supplier) {
-        MessageConsumer<T> consumer = vertx
-            .eventBus()
-            .consumer(addr, (Message<T> msg) -> {
-                T params = msg.body();
-
-                ignite.log().info("Received message [from=" + msg.address() + ", params=" + params + "]");
-
-                vertx.executeBlocking(
-                    fut -> {
-                        try {
-                            fut.complete(supplier.apply(params));
-                        }
-                        catch (Throwable e) {
-                            fut.fail(e);
-                        }
-                    },
-                    asyncRes -> {
-                        if (asyncRes.succeeded())
-                            msg.reply(asyncRes.result());
-                        else
-                            msg.fail(HTTP_INTERNAL_ERROR, errorMessage(asyncRes.cause()));
-                    }
-                );
-
-            });
-
-        consumers.add(consumer);
-
-        return consumer;
-    }
+//    /**
+//     * @param addr Address.
+//     * @param supplier Data supplier.
+//     */
+//    protected <T, R> MessageConsumer<T> addConsumer(Vertx vertx, String addr, Function<T, R> supplier) {
+//        MessageConsumer<T> consumer = vertx
+//            .eventBus()
+//            .consumer(addr, (Message<T> msg) -> {
+//                T params = msg.body();
+//
+//                ignite.log().info("Received message [from=" + msg.address() + ", params=" + params + "]");
+//
+//                vertx.executeBlocking(
+//                    fut -> {
+//                        try {
+//                            fut.complete(supplier.apply(params));
+//                        }
+//                        catch (Throwable e) {
+//                            fut.fail(e);
+//                        }
+//                    },
+//                    asyncRes -> {
+//                        if (asyncRes.succeeded())
+//                            msg.reply(asyncRes.result());
+//                        else
+//                            msg.fail(HTTP_INTERNAL_ERROR, errorMessage(asyncRes.cause()));
+//                    }
+//                );
+//
+//            });
+//
+//        consumers.add(consumer);
+//
+//        return consumer;
+//    }
 
     /**
      *
