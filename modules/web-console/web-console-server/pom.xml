@@ -36,7 +36,7 @@
 
     <properties>
         <commons.compress.version>1.18</commons.compress.version>
-        <spring.boot.version>1.5.19.RELEASE</spring.boot.version>
+        <spring.boot.version>1.5.20.RELEASE</spring.boot.version>
     </properties>
 
     <dependencyManagement>
