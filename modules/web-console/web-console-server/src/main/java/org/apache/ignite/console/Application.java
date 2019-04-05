@@ -20,7 +20,9 @@ package org.apache.ignite.console;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-/** */
+/**
+ * Web console launcher.
+ */
 @SpringBootApplication
 public class Application {
     /**

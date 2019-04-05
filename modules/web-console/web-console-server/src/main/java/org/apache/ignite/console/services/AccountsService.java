@@ -130,6 +130,8 @@ public class AccountsService extends AbstractService implements UserDetailsServi
      */
     @Bean
     public PasswordEncoder encoder() {
+// Pbkdf2PasswordEncoder is comaptible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
+// We can return to Pbkdf2PasswordEncoder if we decided to import old users.
 //        Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH);
 //
 //        encoder.setAlgorithm(PBKDF2WithHmacSHA256);
