@@ -17,12 +17,12 @@ Build image
    Ignite Web Agent's binary archive
 
         cd docker/web-agent
-        cp -rfv ../../modules/web-console/web-agent/target/ignite-web-agent-*.zip ./
+        cp -rfv ../../modules/web-console/web-agent/target/ignite-web-console-agent-*.zip ./
 
 3) Unpack and remove Apache Ignite Web Agent's binary archive
 
-        unzip ignite-web-agent-*.zip
-        rm -rf ignite-web-agent-*.zip
+        unzip ignite-web-console-agent-*.zip
+        rm -rf ignite-web-console-agent-*.zip
 
 4) Build docker image
 
@@ -33,4 +33,4 @@ Build image
 
 5) Clean up
 
-        rm -rf ignite-web-agent*
+        rm -rf ignite-web-console-agent*

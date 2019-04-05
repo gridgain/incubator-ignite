@@ -21,14 +21,12 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.ConfigurationsRepository;
 
 import static org.apache.ignite.console.common.Utils.idsFromJson;
@@ -51,23 +49,23 @@ public class ConfigurationsService extends AbstractService {
     }
 
     /** {@inheritDoc} */
-    @Override public ConfigurationsService install(Vertx vertx) {
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD, this::loadConfiguration);
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, this::loadClusters);
-
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_CLUSTER, this::loadCluster);
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_CACHE, this::loadCache);
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_MODEL, this::loadModel);
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_IGFS, this::loadIgfs);
-
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_CACHES, this::loadShortCaches);
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_MODELS, this::loadShortModels);
-        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, this::loadShortIgfss);
-
-        addConsumer(vertx, Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, this::saveAdvancedCluster);
-        addConsumer(vertx, Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, this::saveBasicCluster);
-        addConsumer(vertx, Addresses.CONFIGURATION_DELETE_CLUSTER, this::deleteClusters);
-
+    @Override public ConfigurationsService install() {
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD, this::loadConfiguration);
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, this::loadClusters);
+//
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_CLUSTER, this::loadCluster);
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_CACHE, this::loadCache);
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_MODEL, this::loadModel);
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_IGFS, this::loadIgfs);
+//
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_CACHES, this::loadShortCaches);
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_MODELS, this::loadShortModels);
+//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, this::loadShortIgfss);
+//
+//        addConsumer(vertx, Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, this::saveAdvancedCluster);
+//        addConsumer(vertx, Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, this::saveBasicCluster);
+//        addConsumer(vertx, Addresses.CONFIGURATION_DELETE_CLUSTER, this::deleteClusters);
+//
         return this;
     }
 

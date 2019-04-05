@@ -52,6 +52,9 @@ import org.springframework.session.config.annotation.web.http.EnableSpringHttpSe
 @EnableWebSecurity
 @EnableSpringHttpSession
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    /** Agents route. */
+    private static final String AGENT_ROUTE = "/agents";
+
     /** Sign in route. */
     private static final String SIGN_IN_ROUTE = "/api/v1/signin";
 
@@ -62,7 +65,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private static final String LOGOUT_ROUTE = "/api/v1/logout";
 
     /** Public routes. */
-    private static final String[] PUBLIC_ROUTES = new String[]{SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE};
+    private static final String[] PUBLIC_ROUTES = new String[]{AGENT_ROUTE, SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE};
 
     /** */
     private final AccountsService accountsSrvc;

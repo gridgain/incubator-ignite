@@ -126,7 +126,6 @@ public class AccountsRepository extends AbstractRepository {
      *
      * @param account Account to save.
      */
-    @SuppressWarnings("unchecked")
     public void save(Account account) {
         try (Transaction tx = txStart()) {
             accountsTbl.save(account);

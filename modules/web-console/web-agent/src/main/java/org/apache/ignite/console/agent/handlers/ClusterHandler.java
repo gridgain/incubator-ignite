@@ -19,45 +19,42 @@ package org.apache.ignite.console.agent.handlers;
 
 import java.io.IOException;
 import java.net.ConnectException;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
-
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
+import org.apache.ignite.console.websocket.TopologySnapshot;
+import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
-import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
-import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
-import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
+import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_DISCONNECTED;
+import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
 import static org.apache.ignite.internal.processors.rest.client.message.GridClientResponse.STATUS_FAILED;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.sortAddresses;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresses;
 
 /**
  * API to transfer topology from Ignite cluster to Web Console.
  */
-public class ClusterHandler extends AbstractVerticle {
+public class ClusterHandler {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterHandler.class));
 
@@ -69,9 +66,6 @@ public class ClusterHandler extends AbstractVerticle {
 
     /** */
     private static final IgniteProductVersion IGNITE_2_3 = IgniteProductVersion.fromString("2.3.0");
-
-    /** Optional Ignite cluster ID. */
-    public static final String IGNITE_CLUSTER_ID = "IGNITE_CLUSTER_ID";
 
     /** Unique Visor key to get events last order. */
     private static final String EVT_LAST_ORDER_KEY = "WEB_AGENT_" + UUID.randomUUID().toString();
@@ -98,39 +92,27 @@ public class ClusterHandler extends AbstractVerticle {
     private final AgentConfiguration cfg;
 
     /** */
+    private final WebSocketSession wss;
+
+    /** */
     private final RestExecutor restExecutor;
 
     /** */
-    private volatile long curTimer;
+    private static final ScheduledExecutorService pool = Executors.newScheduledThreadPool(1);
+
+    /** */
+    private ScheduledFuture<?> refreshTask;
 
     /**
      * @param cfg Web agent configuration.
+     * @param wss Websocket session.
+     * @throws Exception If failed to create cluster handler.
      */
-    public ClusterHandler(AgentConfiguration cfg, RestExecutor restExecutor) {
+    public ClusterHandler(AgentConfiguration cfg, WebSocketSession wss) throws Exception {
         this.cfg = cfg;
-        this.restExecutor = restExecutor;
-    }
+        this.wss = wss;
 
-    /** {@inheritDoc} */
-    @Override public void start() {
-        curTimer = vertx.setTimer(1, this::watch);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void stop() {
-        vertx.cancelTimer(curTimer);
-    }
-
-    /**
-     * Callback on cluster connect.
-     *
-     * @param nids Cluster nodes IDs.
-     */
-    private void clusterConnect(Collection<UUID> nids) {
-        log.info("Connection successfully established to cluster with nodes: " +
-            nids.stream().map(U::id8).collect(Collectors.joining(",", "[", "]")));
-
-        vertx.eventBus().send(Addresses.CLUSTER_CONNECTED, nids);
+        restExecutor = new RestExecutor(cfg);
     }
 
     /**
@@ -144,7 +126,12 @@ public class ClusterHandler extends AbstractVerticle {
 
         log.info("Connection to cluster was lost");
 
-        vertx.eventBus().publish(Addresses.CLUSTER_DISCONNECTED, null);
+        try {
+            wss.send(CLUSTER_DISCONNECTED, null);
+        }
+        catch (Throwable e) {
+            log.error("Failed to send 'Cluster disconnected' event to server", e);
+        }
     }
 
     /**
@@ -154,7 +141,7 @@ public class ClusterHandler extends AbstractVerticle {
      * @return Command result.
      * @throws IOException If failed to execute.
      */
-    private RestResult restCommand(JsonObject params) throws IOException {
+    private RestResult restCommand(Map<String, Object> params) throws IOException {
         if (!F.isEmpty(sesTok))
             params.put("sessionToken", sesTok);
         else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
@@ -195,7 +182,7 @@ public class ClusterHandler extends AbstractVerticle {
         if (ver.compareTo(IGNITE_2_0) < 0)
             return true;
 
-        JsonObject params = new JsonObject();
+        Map<String, Object> params = new LinkedHashMap<>();
 
         boolean v23 = ver.compareTo(IGNITE_2_3) >= 0;
 
@@ -234,7 +221,7 @@ public class ClusterHandler extends AbstractVerticle {
      * @throws IOException If failed to collect cluster topology.
      */
     private RestResult topology() throws IOException {
-        JsonObject params = new JsonObject();
+        Map<String, Object> params = new LinkedHashMap<>();
 
         params.put("cmd", "top");
         params.put("attr", true);
@@ -246,239 +233,100 @@ public class ClusterHandler extends AbstractVerticle {
 
     /**
      * Start watch cluster.
-     *
-     * @param tid Timer ID.
      */
-    public void watch(long tid) {
-        try {
-            RestResult res = topology();
+    public void start() {
+        refreshTask = pool.scheduleWithFixedDelay(() -> {
+            try {
+                RestResult res = topology();
 
-            if (res.getStatus() == STATUS_SUCCESS) {
-                List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
-                    new TypeReference<List<GridClientNodeBean>>() {});
+                if (res.getStatus() == STATUS_SUCCESS) {
+                    List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
+                        new TypeReference<List<GridClientNodeBean>>() {});
 
-                TopologySnapshot newTop = new TopologySnapshot(nodes);
+                    TopologySnapshot newTop = new TopologySnapshot(nodes);
 
-                if (newTop.differentCluster(top))
-                    log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
-                else if (newTop.topologyChanged(top))
-                    log.info("Cluster topology changed, new topology: " + newTop.nid8());
+                    if (newTop.differentCluster(top))
+                        log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
+                    else if (newTop.topologyChanged(top))
+                        log.info("Cluster topology changed, new topology: " + newTop.nid8());
 
-                boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
+                    boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
 
-                newTop.setActive(active);
-                newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+                    newTop.setActive(active);
+                    newTop.setSecured(!F.isEmpty(res.getSessionToken()));
 
-                top = newTop;
+                    top = newTop;
 
-                vertx.eventBus().send(Addresses.CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
+                    wss.send(CLUSTER_TOPOLOGY, top);
+                }
+                else {
+                    LT.warn(log, res.getError());
+
+                    clusterDisconnect();
+                }
             }
-            else {
-                LT.warn(log, res.getError());
+            catch (ConnectException ignored) {
+                clusterDisconnect();
+            }
+            catch (Throwable e) {
+                log.error("WatchTask failed", e);
 
                 clusterDisconnect();
             }
-        }
-        catch (ConnectException ignored) {
-            clusterDisconnect();
+        }, 0L, REFRESH_FREQ, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Stop cluster watch.
+     */
+    public void stop() {
+        refreshTask.cancel(true);
+
+        pool.shutdownNow();
+    }
+
+    /**
+     * @param evt Websocket event.
+     */
+    public void restRequest(WebSocketEvent evt) {
+        if (log.isDebugEnabled())
+            log.debug("Processing REST request: " + evt);
+
+        try {
+            Map<String, Object> args = paramsFromJson(evt.getPayload());
+
+            Map<String, Object> params = Collections.emptyMap();
+
+            if (args.containsKey("params"))
+                params = (Map<String, Object>)args.get("params");
+
+            // TODO IGNITE-5617 Restore demo mode.
+//            if (!args.containsKey("demo"))
+//                throw new IllegalArgumentException("Missing demo flag in arguments: " + args);
+
+//            boolean demo = (boolean)args.get("demo");
+//
+//            if (F.isEmpty((String)args.get("token")))
+//                return RestResult.fail(401, "Request does not contain user token.");
+
+            RestResult res;
+
+            try {
+                res = restExecutor.sendRequest(params);
+            }
+            catch (Throwable e) {
+                res = RestResult.fail(HTTP_INTERNAL_ERROR, e.getMessage());
+            }
+
+            wss.reply(evt, res);
         }
         catch (Throwable e) {
-            log.error("WatchTask failed", e);
+            String errMsg = "Failed to handle REST request: " + evt;
 
-            clusterDisconnect();
-        }
-        finally {
-            curTimer = vertx.setTimer(REFRESH_FREQ, this::watch);
-        }
-    }
+            log.error(errMsg, e);
 
-    /** */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    private static class TopologySnapshot {
-        /** */
-        private String clusterId;
-
-        /** */
-        private String clusterName;
-
-        /** */
-        private Collection<UUID> nids;
-
-        /** */
-        private Map<UUID, String> addrs;
-
-        /** */
-        private Map<UUID, Boolean> clients;
-
-        /** */
-        private String clusterVerStr;
-
-        /** */
-        private IgniteProductVersion clusterVer;
-
-        /** */
-        private boolean active;
-
-        /** */
-        private boolean secured;
-
-        /**
-         * Helper method to get attribute.
-         *
-         * @param attrs Map with attributes.
-         * @param name Attribute name.
-         * @return Attribute value.
-         */
-        private static <T> T attribute(Map<String, Object> attrs, String name) {
-            return (T)attrs.get(name);
-        }
-
-        /**
-         * @param nodes Nodes.
-         */
-        TopologySnapshot(Collection<GridClientNodeBean> nodes) {
-            int sz = nodes.size();
-
-            nids = new ArrayList<>(sz);
-            addrs = U.newHashMap(sz);
-            clients = U.newHashMap(sz);
-            active = false;
-            secured = false;
-
-            for (GridClientNodeBean node : nodes) {
-                UUID nid = node.getNodeId();
-
-                nids.add(nid);
-
-                Map<String, Object> attrs = node.getAttributes();
-
-                if (F.isEmpty(clusterId))
-                    clusterId = attribute(attrs, IGNITE_CLUSTER_ID);
-
-                if (F.isEmpty(clusterName))
-                    clusterName = attribute(attrs, IGNITE_CLUSTER_NAME);
-
-                Boolean client = attribute(attrs, ATTR_CLIENT_MODE);
-
-                clients.put(nid, client);
-
-                Collection<String> nodeAddrs = client
-                    ? splitAddresses(attribute(attrs, ATTR_IPS))
-                    : node.getTcpAddresses();
-
-                String firstIP = F.first(sortAddresses(nodeAddrs));
-
-                addrs.put(nid, firstIP);
-
-                String nodeVerStr = attribute(attrs, ATTR_BUILD_VER);
-
-                IgniteProductVersion nodeVer = IgniteProductVersion.fromString(nodeVerStr);
-
-                if (clusterVer == null || clusterVer.compareTo(nodeVer) > 0) {
-                    clusterVer = nodeVer;
-                    clusterVerStr = nodeVerStr;
-                }
-            }
-        }
-
-        /**
-         * @return Cluster id.
-         */
-        public String getClusterId() {
-            return clusterId;
-        }
-
-        /**
-         * @return Cluster name.
-         */
-        public String getClusterName() {
-            return clusterName;
-        }
-
-        /**
-         * @return Cluster version.
-         */
-        public String getClusterVersion() {
-            return clusterVerStr;
-        }
-
-        /**
-         * @return Cluster active flag.
-         */
-        public boolean isActive() {
-            return active;
-        }
-
-        /**
-         * @param active New cluster active state.
-         */
-        public void setActive(boolean active) {
-            this.active = active;
-        }
-
-        /**
-         * @return {@code true} If cluster has configured security.
-         */
-        public boolean isSecured() {
-            return secured;
-        }
-
-        /**
-         * @param secured Configured security flag.
-         */
-        public void setSecured(boolean secured) {
-            this.secured = secured;
-        }
-
-        /**
-         * @return Cluster nodes IDs.
-         */
-        public Collection<UUID> getNids() {
-            return nids;
-        }
-
-        /**
-         * @return Cluster nodes with IPs.
-         */
-        public Map<UUID, String> getAddresses() {
-            return addrs;
-        }
-
-        /**
-         * @return Cluster nodes with client mode flag.
-         */
-        public Map<UUID, Boolean> getClients() {
-            return clients;
-        }
-
-        /**
-         * @return Cluster version.
-         */
-        public IgniteProductVersion clusterVersion() {
-            return clusterVer;
-        }
-
-        /**
-         * @return String with short node UUIDs.
-         */
-        String nid8() {
-            return nids.stream().map(nid -> U.id8(nid).toUpperCase()).collect(Collectors.joining(",", "[", "]"));
-        }
-
-        /**
-         * @param prev Previous topology.
-         * @return {@code true} in case if current topology is a new cluster.
-         */
-        boolean differentCluster(TopologySnapshot prev) {
-            return prev == null || F.isEmpty(prev.nids) || Collections.disjoint(nids, prev.nids);
-        }
-
-        /**
-         * @param prev Previous topology.
-         * @return {@code true} in case if current topology is the same cluster, but topology changed.
-         */
-        boolean topologyChanged(TopologySnapshot prev) {
-            return prev != null && !prev.nids.equals(nids);
+            wss.fail(evt, errMsg, e);
         }
     }
+
 }

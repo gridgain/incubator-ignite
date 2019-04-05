@@ -17,29 +17,15 @@
 
 package org.apache.ignite.console.common;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpHeaderValues;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.JksOptions;
-import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.console.dto.DataObject;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T2;
-import org.apache.ignite.internal.util.typedef.internal.U;
-import org.jetbrains.annotations.Nullable;
-
-import static java.net.HttpURLConnection.HTTP_OK;
 
 /**
  * Utilities.
@@ -48,11 +34,11 @@ public class Utils {
     /** */
     private static final JsonObject EMPTY_OBJ = new JsonObject();
 
-    /** */
-    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
-        HttpHeaderValues.NO_CACHE,
-        HttpHeaderValues.NO_STORE,
-        HttpHeaderValues.MUST_REVALIDATE);
+//    /** */
+//    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
+//        HttpHeaderValues.NO_CACHE,
+//        HttpHeaderValues.NO_STORE,
+//        HttpHeaderValues.MUST_REVALIDATE);
 
     /**
      * @param cause Error.
@@ -157,88 +143,88 @@ public class Utils {
         return data.stream().reduce(new JsonArray(), (a, b) -> a.add(new JsonObject(b.json())), JsonArray::addAll);
     }
 
-    /**
-     * @param path Path to JKS file.
-     * @param pwd Optional password.
-     * @return Java key store options or {@code null}.
-     * @throws FileNotFoundException if failed to resolve path to JKS.
-     */
-    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
-        if (F.isEmpty(path))
-            return null;
+//    /**
+//     * @param path Path to JKS file.
+//     * @param pwd Optional password.
+//     * @return Java key store options or {@code null}.
+//     * @throws FileNotFoundException if failed to resolve path to JKS.
+//     */
+//    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
+//        if (F.isEmpty(path))
+//            return null;
+//
+//        File file = U.resolveIgnitePath(path);
+//
+//        if (file == null)
+//            throw new FileNotFoundException("Failed to resolve path: " + path);
+//
+//        JksOptions jks = new JksOptions().setPath(file.getPath());
+//
+//        if (!F.isEmpty(pwd))
+//            jks.setPassword(pwd);
+//
+//        return jks;
+//    }
 
-        File file = U.resolveIgnitePath(path);
+//    /**
+//     * @param req Request.
+//     * @return Request origin.
+//     */
+//    public static String origin(HttpServerRequest req) {
+//        String proto = req.getHeader("x-forwarded-proto");
+//
+//        if (F.isEmpty(proto))
+//            proto = req.isSSL() ? "https" : "http";
+//
+//        String host = req.getHeader("x-forwarded-host");
+//
+//        if (F.isEmpty(host))
+//            host = req.host();
+//
+//        return proto + "://" + host;
+//    }
 
-        if (file == null)
-            throw new FileNotFoundException("Failed to resolve path: " + path);
+//    /**
+//     * @param ctx Context.
+//     * @param errCode Error code.
+//     * @param errPrefix Error message prefix.
+//     * @param e Error to send.
+//     */
+//    public static void sendError(RoutingContext ctx, int errCode, String errPrefix, Throwable e) {
+//        String err = errorMessage(e);
+//
+//        if (!F.isEmpty(errPrefix))
+//            err = errPrefix + ": " + err;
+//
+//        ctx
+//            .response()
+//            .setStatusCode(errCode)
+//            .end(err);
+//    }
 
-        JksOptions jks = new JksOptions().setPath(file.getPath());
-
-        if (!F.isEmpty(pwd))
-            jks.setPassword(pwd);
-
-        return jks;
-    }
-
-    /**
-     * @param req Request.
-     * @return Request origin.
-     */
-    public static String origin(HttpServerRequest req) {
-        String proto = req.getHeader("x-forwarded-proto");
-
-        if (F.isEmpty(proto))
-            proto = req.isSSL() ? "https" : "http";
-
-        String host = req.getHeader("x-forwarded-host");
-
-        if (F.isEmpty(host))
-            host = req.host();
-
-        return proto + "://" + host;
-    }
-
-    /**
-     * @param ctx Context.
-     * @param errCode Error code.
-     * @param errPrefix Error message prefix.
-     * @param e Error to send.
-     */
-    public static void sendError(RoutingContext ctx, int errCode, String errPrefix, Throwable e) {
-        String err = errorMessage(e);
-
-        if (!F.isEmpty(errPrefix))
-            err = errPrefix + ": " + err;
-
-        ctx
-            .response()
-            .setStatusCode(errCode)
-            .end(err);
-    }
-
-    /**
-     * @param ctx Context.
-     * @param data Data to send.
-     */
-    public static void sendResult(RoutingContext ctx, Object data) {
-        Buffer buf;
-
-        if (data instanceof JsonObject)
-            buf = ((JsonObject)data).toBuffer();
-        else if (data instanceof JsonArray)
-            buf = ((JsonArray)data).toBuffer();
-        else
-            buf = Buffer.buffer(String.valueOf(data));
-
-        ctx
-            .response()
-            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
-            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
-            .putHeader(HttpHeaderNames.EXPIRES, "0")
-            .setStatusCode(HTTP_OK)
-            .end(buf);
-    }
+//    /**
+//     * @param ctx Context.
+//     * @param data Data to send.
+//     */
+//    public static void sendResult(RoutingContext ctx, Object data) {
+//        Buffer buf;
+//
+//        if (data instanceof JsonObject)
+//            buf = ((JsonObject)data).toBuffer();
+//        else if (data instanceof JsonArray)
+//            buf = ((JsonArray)data).toBuffer();
+//        else
+//            buf = Buffer.buffer(String.valueOf(data));
+//
+//        ctx
+//            .response()
+//            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+//            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
+//            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
+//            .putHeader(HttpHeaderNames.EXPIRES, "0")
+//            .setStatusCode(HTTP_OK)
+//            .end(buf);
+//    }
 
     /**
      * Return missing parameter error message.
@@ -250,25 +236,25 @@ public class Utils {
         return "Failed to find mandatory parameter in request: " + param;
     }
 
-    /**
-     * @param ctx Context.
-     * @param paramName Parameter name.
-     * @return Parameter value
-     */
-    public static String pathParam(RoutingContext ctx, String paramName) {
-        String param = ctx.request().getParam(paramName);
+//    /**
+//     * @param ctx Context.
+//     * @param paramName Parameter name.
+//     * @return Parameter value
+//     */
+//    public static String pathParam(RoutingContext ctx, String paramName) {
+//        String param = ctx.request().getParam(paramName);
+//
+//        if (F.isEmpty(param))
+//            throw new IllegalArgumentException(missingParameter(paramName));
+//
+//        return param;
+//    }
 
-        if (F.isEmpty(param))
-            throw new IllegalArgumentException(missingParameter(paramName));
-
-        return param;
-    }
-
-    /**
-     * @param ctx Context.
-     * @param status Status to send.
-     */
-    public static void sendStatus(RoutingContext ctx, int status) {
-        ctx.response().setStatusCode(status).end();
-    }
+//    /**
+//     * @param ctx Context.
+//     * @param status Status to send.
+//     */
+//    public static void sendStatus(RoutingContext ctx, int status) {
+//        ctx.response().setStatusCode(status).end();
+//    }
 }

@@ -21,10 +21,9 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 
 /**
  * Service to handle requests to Visor tasks.
@@ -44,7 +43,7 @@ public class AgentService extends AbstractService {
     }
 
     /** {@inheritDoc} */
-    @Override public AgentService install(Vertx vertx) {
+    @Override public AgentService install() {
         registerVisorTasks();
 
         return this;

@@ -18,13 +18,11 @@
 package org.apache.ignite.console.services;
 
 import java.util.UUID;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.db.Schemas;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.NotebooksRepository;
 
 import static org.apache.ignite.console.common.Utils.toJsonArray;
@@ -46,10 +44,10 @@ public class NotebooksService extends AbstractService {
     }
 
     /** {@inheritDoc} */
-    @Override public NotebooksService install(Vertx vertx) {
-        addConsumer(vertx, Addresses.NOTEBOOK_LIST, this::load);
-        addConsumer(vertx, Addresses.NOTEBOOK_SAVE, this::save);
-        addConsumer(vertx, Addresses.NOTEBOOK_DELETE, this::delete);
+    @Override public NotebooksService install() {
+//        addConsumer(vertx, Addresses.NOTEBOOK_LIST, this::load);
+//        addConsumer(vertx, Addresses.NOTEBOOK_SAVE, this::save);
+//        addConsumer(vertx, Addresses.NOTEBOOK_DELETE, this::delete);
 
         return this;
     }

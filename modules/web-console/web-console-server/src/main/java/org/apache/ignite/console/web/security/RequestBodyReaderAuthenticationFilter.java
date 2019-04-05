@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console.web.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -28,18 +27,17 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedCredentialsNotFoundException;
 
+import static org.apache.ignite.console.util.JsonUtils.fromJson;
+
 /**
  * Custom filter for retrieve credentials from body and authenticate user. Default implementation use path parameters.
  */
 public class RequestBodyReaderAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
-    /** Object mapper. */
-    private final ObjectMapper objMapper = new ObjectMapper(); // TODO IGNITE-5617 move all JSON stuff to some JsonUtility class.
-
     /** {@inheritDoc} */
     @Override public Authentication attemptAuthentication(HttpServletRequest req,
         HttpServletResponse res) throws AuthenticationException {
         try {
-            SignInRequest params = objMapper.readValue(req.getReader(), SignInRequest.class);
+            SignInRequest params = fromJson(req.getReader(), SignInRequest.class);
 
             UsernamePasswordAuthenticationToken tok =
                 new UsernamePasswordAuthenticationToken(params.getEmail(), params.getPassword());
@@ -47,10 +45,10 @@ public class RequestBodyReaderAuthenticationFilter extends UsernamePasswordAuthe
             // Allow subclasses to set the "details" property
             setDetails(req, tok);
 
-            return this.getAuthenticationManager().authenticate(tok);
+            return getAuthenticationManager().authenticate(tok);
         }
         catch (IOException e) {
-            throw new PreAuthenticatedCredentialsNotFoundException("Something went wrong while parsing signin request body", e);
+            throw new PreAuthenticatedCredentialsNotFoundException("Failed to parse signin request", e);
         }
     }
 }

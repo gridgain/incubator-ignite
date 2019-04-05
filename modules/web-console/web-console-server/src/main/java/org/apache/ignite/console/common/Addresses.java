@@ -22,9 +22,6 @@ package org.apache.ignite.console.common;
  */
 public interface Addresses {
     /** */
-    public static final String AGENTS_STATUS = "agents:stat";
-
-    /** */
     public static final String NODE_REST = "node:rest";
 
     /** */

@@ -182,10 +182,11 @@ public class RestExecutorSelfTest {
             AgentConfiguration cfg = new AgentConfiguration();
 
             cfg
+                .nodeURIs(Collections.singletonList(uri))
                 .nodeKeyStore(keyStore)
                 .nodeKeyStorePassword(keyStorePwd)
-                .nodeTrustStore(keyStore)
-                .nodeTrustStorePassword(keyStorePwd)
+                .nodeTrustStore(trustStore)
+                .nodeTrustStorePassword(trustStorePwd)
                 .cipherSuites(cipherSuites);
 
             RestExecutor exec = new RestExecutor(cfg);
@@ -196,7 +197,7 @@ public class RestExecutorSelfTest {
             params.put("mtr", false);
             params.put("caches", false);
 
-            RestResult res = null; // exec.sendRequest(Collections.singletonList(uri), params, null);
+            RestResult res = exec.sendRequest(params);
 
             JsonNode json = toJson(res);
 

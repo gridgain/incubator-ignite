@@ -17,18 +17,7 @@
 
 package org.apache.ignite.console.routes;
 
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.User;
-import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.auth.ContextAccount;
-import org.apache.ignite.console.common.Addresses;
-
-import static io.vertx.core.http.HttpMethod.GET;
-import static io.vertx.core.http.HttpMethod.POST;
-import static io.vertx.core.http.HttpMethod.PUT;
 
 /**
  * Router to handle REST API for configurations.
@@ -69,184 +58,183 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
-     * @param vertx Vertx.
      */
-    public ConfigurationsRouter(Ignite ignite, Vertx vertx) {
-        super(ignite, vertx);
+    public ConfigurationsRouter(Ignite ignite) {
+        super(ignite);
     }
 
-    /** {@inheritDoc} */
-    @Override public void install(Router router) {
-        authenticatedRoute(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
-        authenticatedRoute(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
-        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
-        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
-        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
-        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
+//    /** {@inheritDoc} */
+//    @Override public void install(Router router) {
+//        authenticatedRoute(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
+//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
+//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
+//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
+//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
+//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
+//
+//        authenticatedRoute(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
+//        authenticatedRoute(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
+//        authenticatedRoute(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
+//
+//        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
+//        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
+//        authenticatedRoute(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
+//    }
 
-        authenticatedRoute(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
-        authenticatedRoute(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
-        authenticatedRoute(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
-
-        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
-        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
-        authenticatedRoute(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadConfiguration(RoutingContext ctx) {
-        User user = getContextAccount(ctx);
-
-        if (user != null)
-            send(Addresses.CONFIGURATION_LOAD, requestParams(ctx), ctx, E_FAILED_TO_LOAD_CONFIGURATION);
-    }
-
-    /**
-     * Load clusters short list.
-     *
-     * @param ctx Context.
-     */
-    private void loadClustersShortList(RoutingContext ctx) {
-        ContextAccount acc = getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("user", acc.principal());
-
-        send(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, msg, ctx, E_FAILED_TO_LOAD_CLUSTERS);
-    }
-
-    /**
-     * @param ctx Cluster.
-     */
-    private void loadCluster(RoutingContext ctx) {
-        getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("cluster", requestParams(ctx));
-
-        send(Addresses.CONFIGURATION_LOAD_CLUSTER, msg, ctx, E_FAILED_TO_LOAD_CLUSTER);
-    }
-
-    /**
-     * Load cluster caches short list.
-     *
-     * @param ctx Context.
-     */
-    private void loadCachesShortList(RoutingContext ctx) {
-        getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("cluster", requestParams(ctx));
-
-        send(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_CACHES);
-    }
-
-    /**
-     * Load cluster models short list.
-     *
-     * @param ctx Context.
-     */
-    private void loadModelsShortList(RoutingContext ctx) {
-        getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("cluster", requestParams(ctx));
-
-        send(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_MODELS);
-    }
-
-    /**
-     * Get cluster IGFSs short list.
-     *
-     * @param ctx Context.
-     */
-    private void loadIgfssShortList(RoutingContext ctx) {
-        getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("cluster", requestParams(ctx));
-
-        send(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_IGFSS);
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadCache(RoutingContext ctx) {
-        getContextAccount(ctx);
-
-        JsonObject msg = requestParams(ctx);
-
-        send(Addresses.CONFIGURATION_LOAD_CACHE, msg, ctx, E_FAILED_TO_LOAD_CACHE);
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadModel(RoutingContext ctx) {
-        getContextAccount(ctx);
-
-        JsonObject msg = requestParams(ctx);
-
-        send(Addresses.CONFIGURATION_LOAD_MODEL, msg, ctx, E_FAILED_TO_LOAD_MODEL);
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void loadIgfs(RoutingContext ctx) {
-        getContextAccount(ctx);
-
-        JsonObject msg = requestParams(ctx);
-
-        send(Addresses.CONFIGURATION_LOAD_IGFS, msg, ctx, E_FAILED_TO_LOAD_IGFS);
-    }
-
-    /**
-     * Save cluster.
-     *
-     * @param ctx Context.
-     */
-    private void saveAdvancedCluster(RoutingContext ctx) {
-        User user = getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("user", user.principal())
-            .put("cluster", ctx.getBodyAsJson());
-
-        send(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
-    }
-
-    /**
-     * Save basic cluster.
-     *
-     * @param ctx Context.
-     */
-    private void saveBasicCluster(RoutingContext ctx) {
-        User user = getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("user", user.principal())
-            .put("cluster", ctx.getBodyAsJson());
-
-        send(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
-    }
-
-    /**
-     * Delete clusters.
-     *
-     * @param ctx Context.
-     */
-    private void deleteClusters(RoutingContext ctx) {
-        User user = getContextAccount(ctx);
-
-        JsonObject msg = new JsonObject()
-            .put("user", user.principal())
-            .put("cluster", ctx.getBodyAsJson());
-
-        send(Addresses.CONFIGURATION_DELETE_CLUSTER, msg, ctx, E_FAILED_TO_DELETE_CLUSTER);
-    }
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void loadConfiguration(RoutingContext ctx) {
+//        User user = getContextAccount(ctx);
+//
+//        if (user != null)
+//            send(Addresses.CONFIGURATION_LOAD, requestParams(ctx), ctx, E_FAILED_TO_LOAD_CONFIGURATION);
+//    }
+//
+//    /**
+//     * Load clusters short list.
+//     *
+//     * @param ctx Context.
+//     */
+//    private void loadClustersShortList(RoutingContext ctx) {
+//        ContextAccount acc = getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("user", acc.principal());
+//
+//        send(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, msg, ctx, E_FAILED_TO_LOAD_CLUSTERS);
+//    }
+//
+//    /**
+//     * @param ctx Cluster.
+//     */
+//    private void loadCluster(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("cluster", requestParams(ctx));
+//
+//        send(Addresses.CONFIGURATION_LOAD_CLUSTER, msg, ctx, E_FAILED_TO_LOAD_CLUSTER);
+//    }
+//
+//    /**
+//     * Load cluster caches short list.
+//     *
+//     * @param ctx Context.
+//     */
+//    private void loadCachesShortList(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("cluster", requestParams(ctx));
+//
+//        send(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_CACHES);
+//    }
+//
+//    /**
+//     * Load cluster models short list.
+//     *
+//     * @param ctx Context.
+//     */
+//    private void loadModelsShortList(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("cluster", requestParams(ctx));
+//
+//        send(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_MODELS);
+//    }
+//
+//    /**
+//     * Get cluster IGFSs short list.
+//     *
+//     * @param ctx Context.
+//     */
+//    private void loadIgfssShortList(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("cluster", requestParams(ctx));
+//
+//        send(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_IGFSS);
+//    }
+//
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void loadCache(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = requestParams(ctx);
+//
+//        send(Addresses.CONFIGURATION_LOAD_CACHE, msg, ctx, E_FAILED_TO_LOAD_CACHE);
+//    }
+//
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void loadModel(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = requestParams(ctx);
+//
+//        send(Addresses.CONFIGURATION_LOAD_MODEL, msg, ctx, E_FAILED_TO_LOAD_MODEL);
+//    }
+//
+//    /**
+//     * @param ctx Context.
+//     */
+//    private void loadIgfs(RoutingContext ctx) {
+//        getContextAccount(ctx);
+//
+//        JsonObject msg = requestParams(ctx);
+//
+//        send(Addresses.CONFIGURATION_LOAD_IGFS, msg, ctx, E_FAILED_TO_LOAD_IGFS);
+//    }
+//
+//    /**
+//     * Save cluster.
+//     *
+//     * @param ctx Context.
+//     */
+//    private void saveAdvancedCluster(RoutingContext ctx) {
+//        User user = getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("user", user.principal())
+//            .put("cluster", ctx.getBodyAsJson());
+//
+//        send(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
+//    }
+//
+//    /**
+//     * Save basic cluster.
+//     *
+//     * @param ctx Context.
+//     */
+//    private void saveBasicCluster(RoutingContext ctx) {
+//        User user = getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("user", user.principal())
+//            .put("cluster", ctx.getBodyAsJson());
+//
+//        send(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
+//    }
+//
+//    /**
+//     * Delete clusters.
+//     *
+//     * @param ctx Context.
+//     */
+//    private void deleteClusters(RoutingContext ctx) {
+//        User user = getContextAccount(ctx);
+//
+//        JsonObject msg = new JsonObject()
+//            .put("user", user.principal())
+//            .put("cluster", ctx.getBodyAsJson());
+//
+//        send(Addresses.CONFIGURATION_DELETE_CLUSTER, msg, ctx, E_FAILED_TO_DELETE_CLUSTER);
+//    }
 }
 

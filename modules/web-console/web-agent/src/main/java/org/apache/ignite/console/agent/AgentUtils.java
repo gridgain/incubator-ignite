@@ -18,15 +18,13 @@
 package org.apache.ignite.console.agent;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
-import io.vertx.core.net.JksOptions;
+import java.util.List;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.log4j.Logger;
-import org.jetbrains.annotations.Nullable;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 /**
  * Utility methods.
@@ -34,6 +32,9 @@ import org.jetbrains.annotations.Nullable;
 public class AgentUtils {
     /** */
     private static final Logger log = Logger.getLogger(AgentUtils.class.getName());
+
+    /** */
+    public static final String[] EMPTY = {};
 
     /**
      * Default constructor.
@@ -115,25 +116,46 @@ public class AgentUtils {
     }
 
     /**
-     * @param path Path to JKS file.
-     * @param pwd Optional password.
-     * @return Java key store options or {@code null}.
-     * @throws FileNotFoundException if failed to resolve path to JKS.
+     *
+     * @param keyStore Path to key store.
+     * @param keyStorePwd Optional key store password.
+     * @param trustAll Whether we should trust for self-signed certificate.
+     * @param trustStore Path to trust store.
+     * @param trustStorePwd Optional trust store passwo5rd.
+     * @param ciphers Optional list of enabled cipher suites.
+     * @return SSL context factory.
      */
-    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
-        if (F.isEmpty(path))
-            return null;
+    public static SslContextFactory sslContextFactory(
+        String keyStore,
+        String keyStorePwd,
+        boolean trustAll,
+        String trustStore,
+        String trustStorePwd,
+        List<String> ciphers
+    ) {
+        SslContextFactory sslCtxFactory = new SslContextFactory();
 
-        File file = U.resolveIgnitePath(path);
+        if (!F.isEmpty(keyStore)) {
+            sslCtxFactory.setKeyStorePath(keyStore);
 
-        if (file == null)
-            throw new FileNotFoundException("Failed to resolve path: " + path);
+            if (!F.isEmpty(keyStorePwd))
+                sslCtxFactory.setKeyStorePassword(keyStorePwd);
+        }
 
-        JksOptions jks = new JksOptions().setPath(file.getPath());
+        if (trustAll) {
+            sslCtxFactory.setTrustAll(true);
+            // Available in Jetty >= 9.4.15.xxxx sslCtxFactory.setHostnameVerifier((hostname, session) -> true);
+        }
+        else if (!F.isEmpty(trustStore)) {
+            sslCtxFactory.setTrustStorePath(trustStore);
 
-        if (!F.isEmpty(pwd))
-            jks.setPassword(pwd);
+            if (!F.isEmpty(trustStorePwd))
+                sslCtxFactory.setTrustStorePassword(trustStorePwd);
+        }
 
-        return jks;
+        if (!F.isEmpty(ciphers))
+            sslCtxFactory.setIncludeCipherSuites(ciphers.toArray(EMPTY));
+
+        return  sslCtxFactory;
     }
 }

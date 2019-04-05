@@ -19,11 +19,9 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.web.model.UserDto;
 import org.apache.ignite.transactions.Transaction;
@@ -64,7 +62,7 @@ public class AccountsService extends AbstractService implements UserDetailsServi
     }
 
     /** {@inheritDoc} */
-    @Override public AccountsService install(Vertx vertx) {
+    @Override public AccountsService install() {
         return this;
     }
 
