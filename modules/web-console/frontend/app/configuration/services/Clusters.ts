@@ -16,6 +16,7 @@
  */
 
 import get from 'lodash/get';
+import find from 'lodash/find';
 import omit from 'lodash/fp/omit';
 import uuidv4 from 'uuid/v4';
 
@@ -185,7 +186,8 @@ export default class Clusters {
             igfss: [],
             models: [],
             checkpointSpi: [],
-            loadBalancingSpi: []
+            loadBalancingSpi: [],
+            autoActivationEnabled: true
         };
     }
 
@@ -322,6 +324,7 @@ export default class Clusters {
                 const maxSize = memoryPolicy.maxSize;
                 const pageSize = cluster.memoryConfiguration.pageSize || this.memoryConfiguration.pageSize.default;
                 const maxPoolSize = Math.floor(maxSize / pageSize / perThreadLimit);
+
                 return maxPoolSize;
             }
         }
@@ -452,6 +455,11 @@ export default class Clusters {
         }
     };
 
+    persistenceEnabled(dataStorage) {
+        return !!(get(dataStorage, 'defaultDataRegionConfiguration.persistenceEnabled')
+            || find(get(dataStorage, 'dataRegionConfigurations'), (storeCfg) => storeCfg.persistenceEnabled));
+    }
+
     swapSpaceSpi = {
         readStripesNumber: {
             default: 'availableProcessors',
@@ -571,6 +579,17 @@ export default class Clusters {
         const item = {_id: uuidv4()};
 
         cluster.binaryConfiguration.typeConfigurations.push(item);
+
+        return item;
+    }
+
+    addLocalEventListener(cluster) {
+        if (!cluster.localEventListeners)
+            cluster.localEventListeners = [];
+
+        const item = {_id: uuidv4()};
+
+        cluster.localEventListeners.push(item);
 
         return item;
     }
