@@ -164,6 +164,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     /** Atomic reference for pending partition resend timeout object. */
     private AtomicReference<ResendTimeoutObject> pendingResend = new AtomicReference<>();
 
+    /** */
+    private volatile boolean blockResendingPartitionStates;
+
+    /** */
+    private volatile boolean resendPartitionStatesAfterBlocking;
+
     /** Partition resend timeout after eviction. */
     private final long partResendTimeout = getLong(IGNITE_PRELOAD_RESEND_TIMEOUT, DFLT_PRELOAD_RESEND_TIMEOUT);
 
@@ -1080,15 +1086,13 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         return exchWorker.deferStopCachesOnClientReconnect(caches);
     }
 
-    private AtomicBoolean blockRefreshParts = new AtomicBoolean();
-    private volatile boolean needRefreshPartsAfterBlocking;
-
     /**
      * Schedules next full partitions update.
      */
     public void scheduleResendPartitions() {
-        if (blockRefreshParts.get()) {
-            needRefreshPartsAfterBlocking = true;
+        if (blockResendingPartitionStates) {
+            resendPartitionStatesAfterBlocking = true;
+
             return;
         }
 
@@ -1104,44 +1108,49 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         }
     }
 
+    /**
+     * Blocks sending partition states update when PME is in progress.
+     */
     public void blockSchedulingResendPartitions() {
-        if (blockRefreshParts.compareAndSet(false, true)) {
-            ResendTimeoutObject poison = new ResendTimeoutObject() {
-                @Override public boolean started() {
-                    return false;
-                }
+        if (!blockResendingPartitionStates) {
+            blockResendingPartitionStates = true;
 
-                @Override public void onTimeout() {
-                }
-
+            ResendTimeoutObject block = new ResendTimeoutObject() {
                 @Override public long endTime() {
                     return Long.MAX_VALUE;
                 }
             };
 
-            while (true) {
-                if (pendingResend.compareAndSet(null, poison)) {
-                    break;
+            ResendTimeoutObject timeout = pendingResend.getAndSet(block);
+
+            if (timeout != null) {
+                cctx.time().removeTimeoutObject(timeout);
+
+                if (timeout.started()) {
+                    for (;;) {
+                        if (timeout.ended())
+                            break;
+                    }
                 }
             }
         }
     }
 
-    public void stopBlockSchedulingResendPartitions() {
-        ResendTimeoutObject timeout = pendingResend.get();
+    /**
+     * Unblocks sending partition states update when PME is completed.
+     */
+    public void stopBlockingResendPartitions() {
+        ResendTimeoutObject timeout = pendingResend.getAndSet(null);
 
-        assert timeout != null && timeout.endTime() == Long.MAX_VALUE: timeout;
-
-        if (pendingResend.compareAndSet(timeout, null)) {
+        if (timeout != null)
             cctx.time().removeTimeoutObject(timeout);
-            boolean needRefreshPartsAfterBlocking0 = needRefreshPartsAfterBlocking;
-            needRefreshPartsAfterBlocking = false;
 
-            if (blockRefreshParts.compareAndSet(true, false)) {
-                if (needRefreshPartsAfterBlocking0) {
-                    scheduleResendPartitions();
-                }
-            }
+        blockResendingPartitionStates = false;
+
+        if (resendPartitionStatesAfterBlocking) {
+            resendPartitionStatesAfterBlocking = false;
+
+            scheduleResendPartitions();
         }
     }
 
@@ -3333,6 +3342,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         /** Started flag. */
         private AtomicBoolean started = new AtomicBoolean();
 
+        /** Ended flag. */
+        private volatile boolean ended;
+
         /**
          *
          */
@@ -3363,6 +3375,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                                 log.info("Refresh partitions due to scheduled timeout");
 
                             refreshPartitions();
+
+                            ended = true;
                         }
                     }
                     finally {
@@ -3381,6 +3395,13 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
          */
         public boolean started() {
             return started.get();
+        }
+
+        /**
+         * @return {@code True} if timeout object is completed.
+         */
+        public boolean ended() {
+            return ended;
         }
     }
 

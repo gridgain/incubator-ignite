@@ -2094,6 +2094,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         done.set(true);
 
+        cctx.exchange().stopBlockingResendPartitions();
+
         super.onDone(resVer, null);
     }
 
@@ -2177,7 +2179,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                     }
 
-                    if (!grpToRefresh.isEmpty() && !crd.isLocal()) {
+                    if (!grpToRefresh.isEmpty() && (crd != null && !crd.isLocal())) {
                         if (log.isDebugEnabled())
                             log.debug("Refresh partitions due to partitions initialized when affinity ready [" +
                                 grpToRefresh.stream().map(CacheGroupContext::name).collect(Collectors.toList()) + ']');
@@ -2269,7 +2271,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             err = t;
         }
         finally {
-            cctx.exchange().stopBlockSchedulingResendPartitions();
+            cctx.exchange().stopBlockingResendPartitions();
         }
 
         final Throwable err0 = err;
