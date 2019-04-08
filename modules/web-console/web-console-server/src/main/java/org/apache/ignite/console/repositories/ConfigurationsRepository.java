@@ -127,7 +127,7 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @return Short view of cluster DTO as JSON object.
      */
     protected JsonObject shortCluster(Cluster cluster) {
-        UUID clusterId = cluster.id();
+        UUID clusterId = cluster.getId();
 
         int cachesCnt = cachesIdx.load(clusterId).size();
         int modelsCnt = modelsIdx.load(clusterId).size();
@@ -269,7 +269,7 @@ public class ConfigurationsRepository extends AbstractRepository {
 
         Cluster newCluster = Cluster.fromJson(jsonCluster);
 
-        UUID clusterId = newCluster.id();
+        UUID clusterId = newCluster.getId();
 
         Cluster oldCluster = clustersTbl.load(clusterId);
 
@@ -306,14 +306,14 @@ public class ConfigurationsRepository extends AbstractRepository {
         for (int i = 0; i < sz; i++) {
             Cache cache = Cache.fromJson(jsonCaches.getJsonObject(i));
 
-            caches.put(cache.id(), cache);
+            caches.put(cache.getId(), cache);
         }
 
         if (basic) {
             Collection<Cache> oldCaches = cachesTbl.loadAll(new TreeSet<>(caches.keySet()));
 
             oldCaches.forEach(oldCache -> {
-                Cache newCache = caches.get(oldCache.id());
+                Cache newCache = caches.get(oldCache.getId());
 
                 if (newCache != null) {
                     JsonObject oldJson = new JsonObject(oldCache.json());
@@ -324,7 +324,7 @@ public class ConfigurationsRepository extends AbstractRepository {
             });
         }
 
-        cachesIdx.addAll(cluster.id(), caches.keySet());
+        cachesIdx.addAll(cluster.getId(), caches.keySet());
 
         cachesTbl.saveAll(caches);
     }
@@ -346,10 +346,10 @@ public class ConfigurationsRepository extends AbstractRepository {
         for (int i = 0; i < sz; i++) {
             Model mdl = Model.fromJson(jsonModels.getJsonObject(i));
 
-            mdls.put(mdl.id(), mdl);
+            mdls.put(mdl.getId(), mdl);
         }
 
-        modelsIdx.addAll(cluster.id(), mdls.keySet());
+        modelsIdx.addAll(cluster.getId(), mdls.keySet());
 
         modelsTbl.saveAll(mdls);
     }
@@ -371,10 +371,10 @@ public class ConfigurationsRepository extends AbstractRepository {
         for (int i = 0; i < sz; i++) {
             Igfs igfs = Igfs.fromJson(jsonIgfss.getJsonObject(i));
 
-            igfss.put(igfs.id(), igfs);
+            igfss.put(igfs.getId(), igfs);
         }
 
-        igfssIdx.addAll(cluster.id(), igfss.keySet());
+        igfssIdx.addAll(cluster.getId(), igfss.keySet());
 
         igfssTbl.saveAll(igfss);
     }

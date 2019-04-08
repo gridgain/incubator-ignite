@@ -44,18 +44,6 @@ public class WebConsoleLauncher {
 
         System.setProperty("IGNITE_LOG_DIR", Paths.get(workDir, "log").toString());
 
-        Ignite ignite = startIgnite(workDir);
-
-        ignite.cluster().active(true);
-    }
-
-    /**
-     * Start Ignite.
-     *
-     * @return Ignite instance.
-     * @param workDir Work directory.
-     */
-    private static Ignite startIgnite(String workDir) {
         IgniteConfiguration cfg = new IgniteConfiguration()
             .setIgniteInstanceName("Web Console backend")
             .setConsistentId("web-console-backend")
@@ -63,14 +51,16 @@ public class WebConsoleLauncher {
             .setLocalHost("127.0.0.1")
             .setWorkDirectory(workDir)
             .setDiscoverySpi(new TcpDiscoverySpi()
-            .setLocalPort(60800)
-            .setIpFinder(new TcpDiscoveryVmIpFinder()
-                .setAddresses(Collections.singletonList("127.0.0.1:60800"))))
+                .setLocalPort(60800)
+                .setIpFinder(new TcpDiscoveryVmIpFinder()
+                    .setAddresses(Collections.singletonList("127.0.0.1:60800"))))
             .setDataStorageConfiguration(new DataStorageConfiguration()
-            .setDefaultDataRegionConfiguration(new DataRegionConfiguration()
-                .setPersistenceEnabled(true)))
+                .setDefaultDataRegionConfiguration(new DataRegionConfiguration()
+                    .setPersistenceEnabled(true)))
             .setConnectorConfiguration(null);
 
-        return Ignition.getOrStart(cfg);
+        Ignite ignite = Ignition.getOrStart(cfg);
+
+        ignite.cluster().active(true);
     }
 }

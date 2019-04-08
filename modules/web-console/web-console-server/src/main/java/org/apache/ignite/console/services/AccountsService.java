@@ -21,13 +21,11 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
-import org.apache.ignite.console.web.model.UserDto;
+import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -62,28 +60,23 @@ public class AccountsService extends AbstractService implements UserDetailsServi
     }
 
     /** {@inheritDoc} */
-    @Override public AccountsService install() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Account loadUserByUsername(String username) throws UsernameNotFoundException {
-        return accountsRepo.getByEmail(username);
+    @Override public Account loadUserByUsername(String email) throws UsernameNotFoundException {
+        return accountsRepo.getByEmail(email);
     }
 
     /**
-     * @param user User.
+     * @param params SignUp params.
      * @return Registered account.
      */
-    public Account register(UserDto user) {
+    public Account register(SignUpRequest params) {
         Account account = new Account(
-            user.getEmail(),
-            encoder.encode(user.getPassword()),
-            user.getFirstName(),
-            user.getLastName(),
-            user.getPhone(),
-            user.getCompany(),
-            user.getCountry()
+            params.getEmail(),
+            encoder.encode(params.getPassword()),
+            params.getFirstName(),
+            params.getLastName(),
+            params.getPhone(),
+            params.getCompany(),
+            params.getCountry()
         );
 
         return accountsRepo.create(account);

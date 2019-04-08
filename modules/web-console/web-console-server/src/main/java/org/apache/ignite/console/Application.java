@@ -56,20 +56,15 @@ public class Application {
         System.setProperty("IGNITE_LOG_DIR", Paths.get(workDir, "log").toString());
 
         IgniteConfiguration cfg = new IgniteConfiguration()
-            //.setClientMode(true) TODO WC-1006 for quick test from IDE
-            // .setConnectorConfiguration(null); TODO WC-1006 for quick test from IDE
-            .setIgniteInstanceName("Web Console backend")
-            .setConsistentId("web-console-backend")
+            .setClientMode(true)
+            .setConnectorConfiguration(null)
             .setMetricsLogFrequency(0)
             .setLocalHost("127.0.0.1")
             .setWorkDirectory(workDir)
             .setDiscoverySpi(new TcpDiscoverySpi()
                 .setLocalPort(60800)
                 .setIpFinder(new TcpDiscoveryVmIpFinder()
-                    .setAddresses(Collections.singletonList("127.0.0.1:60800"))))
-            .setDataStorageConfiguration(new DataStorageConfiguration()
-                .setDefaultDataRegionConfiguration(new DataRegionConfiguration()
-                    .setPersistenceEnabled(true)));
+                    .setAddresses(Collections.singletonList("127.0.0.1:60800"))));
 
         Ignite ignite = Ignition.start(cfg);
 

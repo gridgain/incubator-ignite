@@ -25,7 +25,7 @@ import org.apache.ignite.IgniteTransactions;
 import org.apache.ignite.console.db.NestedTransaction;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.DataObject;
+import org.apache.ignite.console.dto.AbstractDto;
 import org.apache.ignite.transactions.Transaction;
 
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
@@ -34,7 +34,7 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
 /**
  * Repository to work with notebooks.
  */
-public abstract class AbstractRepository {
+public abstract class AbstractRepository<T extends AbstractDto>  {
     /** */
     protected final Ignite ignite;
 
@@ -82,7 +82,7 @@ public abstract class AbstractRepository {
      * @param ownerIdx Index with DTOs IDs.
      * @param tbl Table with DTOs.
      */
-    protected <T extends DataObject> Collection<T> loadList(
+    protected Collection<T> loadList(
         UUID ownerId,
         OneToManyIndex ownerIdx,
         Table<T> tbl

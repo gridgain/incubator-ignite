@@ -109,7 +109,7 @@ public class AccountsRepository extends AbstractRepository {
             if (accountsTbl.getByIndex(account.getUsername()) != null)
                 throw new IgniteException("Account with email already exists: " + account.getUsername());
 
-            Object firstUserMarker = cache.getAndPutIfAbsent(FIRST_USER_MARKER_KEY, account.id());
+            Object firstUserMarker = cache.getAndPutIfAbsent(FIRST_USER_MARKER_KEY, account.getId());
 
             account.admin(firstUserMarker == null);
 

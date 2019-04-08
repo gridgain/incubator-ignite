@@ -42,13 +42,6 @@ public class AgentService extends AbstractService {
         super(ignite);
     }
 
-    /** {@inheritDoc} */
-    @Override public AgentService install() {
-        registerVisorTasks();
-
-        return this;
-    }
-
     /**
      * @param taskId Task ID.
      * @param taskCls Task class name.

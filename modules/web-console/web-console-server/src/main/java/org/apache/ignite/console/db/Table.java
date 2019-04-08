@@ -105,9 +105,9 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      */
     private void putToUniqueIndexes(T val) {
         for (UniqueIndex<T> idx : uniqueIndexes) {
-            UUID prevId = indexCache().getAndPutIfAbsent(idx.key(val), val.id());
+            UUID prevId = indexCache().getAndPutIfAbsent(idx.key(val), val.getId());
 
-            if (prevId != null && !val.id().equals(prevId))
+            if (prevId != null && !val.getId().equals(prevId))
                 throw new IgniteException(idx.message(val));
         }
     }
@@ -119,7 +119,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     public T save(T val) throws IgniteException {
         putToUniqueIndexes(val);
 
-        cache().put(val.id(), val);
+        cache().put(val.getId(), val);
 
         return val;
     }

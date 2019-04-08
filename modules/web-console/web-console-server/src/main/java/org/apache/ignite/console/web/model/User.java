@@ -24,16 +24,11 @@ import org.hibernate.validator.constraints.NotEmpty;
 /**
  * Web model of the user.
  */
-public class UserDto {
+public class User {
     /** Email. */
     @NotNull
     @NotEmpty
     private String email;
-
-    /** Password. */
-    @NotNull
-    @NotEmpty
-    private String pwd;
 
     /** First name. */
     @NotNull
@@ -58,10 +53,13 @@ public class UserDto {
     @NotEmpty
     private String country;
 
+    /** Agent token. */
+    private String tok;
+
     /**
      * Default constructor for serialization.
      */
-    public UserDto() {
+    public User() {
         // No-op.
     }
 
@@ -74,14 +72,16 @@ public class UserDto {
      * @param phone Phone.
      * @param company Company.
      * @param country Country.
+     * @param tok Agent token..
      */
-    public UserDto(String email, String firstName, String lastName, String phone, String company, String country) {
+    public User(String email, String firstName, String lastName, String phone, String company, String country, String tok) {
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
         this.phone = phone;
         this.company = company;
         this.country = country;
+        this.tok = tok;
     }
 
     /**
@@ -96,20 +96,6 @@ public class UserDto {
      */
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    /**
-     * @return Password.
-     */
-    public String getPassword() {
-        return pwd;
-    }
-
-    /**
-     * @param pwd New password.
-     */
-    public void setPassword(String pwd) {
-        this.pwd = pwd;
     }
 
     /**
@@ -182,8 +168,22 @@ public class UserDto {
         this.phone = phone;
     }
 
+    /**
+     * @return Agent token.
+     */
+    public String getToken() {
+        return tok;
+    }
+
+    /**
+     * @param tok New agent token.
+     */
+    public void setToken(String tok) {
+        this.tok = tok;
+    }
+
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(UserDto.class, this);
+        return S.toString(User.class, this);
     }
 }

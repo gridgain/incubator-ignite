@@ -17,39 +17,33 @@
 
 package org.apache.ignite.console.services;
 
+import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.Schemas;
-import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.json.JsonArray;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.NotebooksRepository;
-
-import static org.apache.ignite.console.common.Utils.toJsonArray;
+import org.apache.ignite.console.dto.Notebook;
+import org.springframework.stereotype.Service;
 
 /**
  * Service to handle notebooks.
  */
+@Service
 public class NotebooksService extends AbstractService {
     /** Repository to work with notebooks. */
     private final NotebooksRepository notebooksRepo;
 
+    /** Accounts service. */
+    private AccountsService accountsSrvc;
+
     /**
      * @param ignite Ignite.
      */
-    public NotebooksService(Ignite ignite) {
+    public NotebooksService(Ignite ignite, AccountsService accountsSrvc) {
         super(ignite);
 
         this.notebooksRepo = new NotebooksRepository(ignite);
-    }
-
-    /** {@inheritDoc} */
-    @Override public NotebooksService install() {
-//        addConsumer(vertx, Addresses.NOTEBOOK_LIST, this::load);
-//        addConsumer(vertx, Addresses.NOTEBOOK_SAVE, this::save);
-//        addConsumer(vertx, Addresses.NOTEBOOK_DELETE, this::delete);
-
-        return this;
+        this.accountsSrvc = accountsSrvc;
     }
 
     /**
@@ -62,38 +56,32 @@ public class NotebooksService extends AbstractService {
     }
 
     /**
-     * @param params Parameters in JSON format.
+     * @param email Account email.
      * @return List of user notebooks.
      */
-    private JsonArray load(JsonObject params) {
-        UUID userId = getUserId(params);
+    public Collection<Notebook> load(String email) {
+        Account acc = accountsSrvc.loadUserByUsername(email);
 
-        return toJsonArray(notebooksRepo.list(userId));
+        return notebooksRepo.list(acc.getId());
     }
 
     /**
-     * @param params Parameters in JSON format.
-     * @return Affected rows JSON object.
+     * @param email Account email.
+     * @param notebook Notebook.
      */
-    private JsonObject save(JsonObject params) {
-        UUID userId = getUserId(params);
-        Notebook notebook = Notebook.fromJson(Schemas.sanitize(Notebook.class, getProperty(params, "notebook")));
+    public void save(String email, Notebook notebook) {
+        Account acc = accountsSrvc.loadUserByUsername(email);
 
-        notebooksRepo.save(userId, notebook);
-
-        return rowsAffected(1);
+        notebooksRepo.save(acc.getId(), notebook);
     }
 
     /**
-     * @param params Parameters in JSON format.
-     * @return Affected rows JSON object.
+     * @param email Account email.
+     * @param notebookId Notebook id.
      */
-    private JsonObject delete(JsonObject params) {
-        UUID userId = getUserId(params);
-        UUID notebookId = getId(getProperty(params, "notebook"));
+    public void delete(String email, UUID notebookId) {
+        Account acc = accountsSrvc.loadUserByUsername(email);
 
-        int rmvCnt = notebooksRepo.delete(userId, notebookId);
-
-        return rowsAffected(rmvCnt);
+        notebooksRepo.delete(acc.getId(), notebookId);
     }
 }

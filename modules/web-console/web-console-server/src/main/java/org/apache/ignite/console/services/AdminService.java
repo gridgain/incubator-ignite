@@ -62,15 +62,6 @@ public class AdminService extends AbstractService {
         this.notebooksSvc = notebooksSvc;
     }
 
-    /** {@inheritDoc} */
-    @Override public AdminService install() {
-//        addConsumer(vertx, Addresses.ADMIN_LOAD_ACCOUNTS, this::list);
-//        addConsumer(vertx, Addresses.ADMIN_DELETE_ACCOUNT, this::delete);
-//        addConsumer(vertx, Addresses.ADMIN_CHANGE_ADMIN_STATUS, this::toggle);
-//
-        return this;
-    }
-
     /**
      * @param params Parameters in JSON format.
      */
@@ -110,11 +101,11 @@ public class AdminService extends AbstractService {
      * @return Affected rows JSON object.
      */
     private JsonObject delete(String accId) {
-        UUID id = UUID.fromString(accId);
-
         int rows;
 
         try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            UUID id = UUID.fromString(accId);
+
             cfgsSvc.deleteByAccountId(id);
             notebooksSvc.deleteByAccountId(id);
 

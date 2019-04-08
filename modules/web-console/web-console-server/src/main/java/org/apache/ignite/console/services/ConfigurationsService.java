@@ -48,8 +48,8 @@ public class ConfigurationsService extends AbstractService {
         this.cfgsRepo = new ConfigurationsRepository(ignite);
     }
 
-    /** {@inheritDoc} */
-    @Override public ConfigurationsService install() {
+//    /** {@inheritDoc} */
+//    @Override public ConfigurationsService install() {
 //        addConsumer(vertx, Addresses.CONFIGURATION_LOAD, this::loadConfiguration);
 //        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, this::loadClusters);
 //
@@ -66,8 +66,8 @@ public class ConfigurationsService extends AbstractService {
 //        addConsumer(vertx, Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, this::saveBasicCluster);
 //        addConsumer(vertx, Addresses.CONFIGURATION_DELETE_CLUSTER, this::deleteClusters);
 //
-        return this;
-    }
+//        return this;
+//    }
 
     /**
      * Delete all notebook for specified account.

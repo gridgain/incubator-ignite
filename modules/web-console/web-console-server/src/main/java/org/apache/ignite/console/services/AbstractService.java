@@ -40,11 +40,6 @@ public abstract class AbstractService implements AutoCloseable {
         this.ignite = ignite;
     }
 
-    /**
-     * Initialize service.
-     */
-    public abstract AbstractService install();
-
     /** {@inheritDoc} */
     @Override public void close() {
 //        consumers.forEach(MessageConsumer::unregister);

@@ -23,14 +23,15 @@ import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.transactions.Transaction;
+import org.springframework.stereotype.Repository;
 
 /**
  * Repository to work with notebooks.
  */
-public class NotebooksRepository extends AbstractRepository {
+@Repository
+public class NotebooksRepository extends AbstractRepository<Notebook> {
     /** */
     private final Table<Notebook> notebooksTbl;
 
@@ -44,7 +45,7 @@ public class NotebooksRepository extends AbstractRepository {
         super(ignite);
 
         notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
-            .addUniqueIndex(Notebook::name, (notebook) -> "Notebook '" + notebook.name() + "' already exits");
+            .addUniqueIndex(Notebook::getName, (notebook) -> "Notebook '" + notebook.getName() + "' already exits");
 
         notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
     }
@@ -59,7 +60,7 @@ public class NotebooksRepository extends AbstractRepository {
      * @param userId User ID.
      * @return List of user notebooks.
      */
-    public Collection<? extends DataObject> list(UUID userId) {
+    public Collection<Notebook> list(UUID userId) {
         return loadList(userId, notebooksIdx, notebooksTbl);
     }
 
@@ -73,7 +74,7 @@ public class NotebooksRepository extends AbstractRepository {
         try (Transaction tx = txStart()) {
             notebooksTbl.save(notebook);
 
-            notebooksIdx.add(userId, notebook.id());
+            notebooksIdx.add(userId, notebook.getId());
 
             tx.commit();
         }

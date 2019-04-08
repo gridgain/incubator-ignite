@@ -18,12 +18,14 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import javax.validation.constraints.NotNull;
 
 /**
  * Base class for DTO objects.
  */
 public abstract class AbstractDto {
     /** */
+    @NotNull
     protected UUID id;
 
     /**
@@ -45,14 +47,14 @@ public abstract class AbstractDto {
     /**
      * @return Object ID.
      */
-    public UUID id() {
+    public UUID getId() {
         return id;
     }
 
     /**
      * @param id Object ID.
      */
-    public void id(UUID id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 

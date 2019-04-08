@@ -20,7 +20,8 @@ package org.apache.ignite.console.web.controller;
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
-import org.apache.ignite.console.web.model.UserDto;
+import org.apache.ignite.console.web.model.SignUpRequest;
+import org.apache.ignite.console.web.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,14 +33,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Controller with account API.
  */
 @RestController
-@RequestMapping("/api/v1")
 public class AccountController {
     /** Authentication manager. */
     private AuthenticationManager authMgr;
@@ -60,30 +59,31 @@ public class AccountController {
     /**
      * @param user User.
      */
-    @GetMapping(path = "/user")
-    public ResponseEntity<UserDto> user(@AuthenticationPrincipal UserDetails user) {
+    @GetMapping(path = "/api/v1/user")
+    public ResponseEntity<User> user(@AuthenticationPrincipal UserDetails user) {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
-        return ResponseEntity.ok(new UserDto(
+        return ResponseEntity.ok(new User(
             acc.email(),
             acc.firstName(),
             acc.lastName(),
             acc.phone(),
             acc.company(),
-            acc.country()
+            acc.country(),
+            acc.token()
         ));
     }
 
     /**
-     * @param user User.
+     * @param params SignUp params.
      */
-    @PostMapping(path = "/signup")
-    public ResponseEntity<Void> signup(@Valid @RequestBody UserDto user) {
-        Account account = accountsSrvc.register(user);
+    @PostMapping(path = "/api/v1/signup")
+    public ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
+        Account account = accountsSrvc.register(params);
 
         if (account.isEnabled()) {
             Authentication authentication = authMgr.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword()));
+                new UsernamePasswordAuthenticationToken(params.getEmail(), params.getPassword()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
