@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.affinity.AffinityFunction;
@@ -239,14 +240,14 @@ public class JdbcThinBestEffortAffinitySelfTest extends JdbcThinAbstractSelfTest
 
         PreparedStatement ps = conn.prepareStatement(
             "delete from Person where _key = ? or _key = ?");
-        ps.setInt(1, 1);
-        ps.setInt(2, 2);
+        ps.setInt(1, 1000);
+        ps.setInt(2, 2000);
         checkNodesUsage(ps, null,
             2, 0, true);
 
         ps = conn.prepareStatement("delete from Person where _key in (?, ?)");
-        ps.setInt(1, 1);
-        ps.setInt(2, 2);
+        ps.setInt(1, 1000);
+        ps.setInt(2, 2000);
         checkNodesUsage(ps, null,
             2, 0, true);
     }
@@ -506,6 +507,47 @@ public class JdbcThinBestEffortAffinitySelfTest extends JdbcThinAbstractSelfTest
         // are equal in therms of (==)
         assertTrue("Partitions distributions are not the same.",
             cachePartitionsDistribution.get(0) == cachePartitionsDistribution.get(1));
+    }
+
+    /**
+     * Check that best effort affinity works fine after reconnection.
+     *
+     * @throws Exception If failed.
+     */
+    @org.junit.Test
+    public void testReconnect() throws Exception {
+        checkNodesUsage(null, "select * from Person where _key = 3", 1, 1,
+            false);
+
+        startGrid(7);
+
+        for(int i = 0; i < NODES_CNT; i++)
+            stopGrid(i);
+
+        GridTestUtils.assertThrows(log, new Callable<Object>() {
+            @Override public Object call() throws Exception {
+                stmt.execute("select * from Person where _key = 3");
+
+                return null;
+            }
+        }, SQLException.class, "Failed to communicate with Ignite cluster.");
+
+        for(int i = 0; i < NODES_CNT; i++)
+            startGrid(i);
+
+        // TODO: 09.04.19 proper way to do this?
+        stopGrid(4);
+        stopGrid(5);
+        stopGrid(6);
+        stopGrid(7);
+
+        stmt = conn.createStatement();
+
+        // We need this extra query to invalidate obsolete affinity cache
+        stmt.execute("select * from Person where _key = 3");
+
+        checkNodesUsage(null, "select * from Person where _key = 3", 1, 1,
+            false);
     }
 
     /**
