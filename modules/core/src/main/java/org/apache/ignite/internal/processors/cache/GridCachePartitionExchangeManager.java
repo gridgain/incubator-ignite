@@ -47,11 +47,15 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cluster.BaselineNode;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.ClusterActivationEvent;
 import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.EventType;
 import org.apache.ignite.failure.FailureContext;
+import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteClientDisconnectedCheckedException;
 import org.apache.ignite.internal.IgniteDiagnosticAware;
 import org.apache.ignite.internal.IgniteDiagnosticPrepareContext;
@@ -124,6 +128,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_DIAGNOSTIC_WARN_LIMIT;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_IO_DUMP_ON_TIMEOUT;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PRELOAD_RESEND_TIMEOUT;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_THREAD_DUMP_ON_EXCHANGE_TIMEOUT;
@@ -154,7 +159,13 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         IgniteSystemProperties.getLong(IgniteSystemProperties.IGNITE_EXCHANGE_MERGE_DELAY, 0);
 
     /** */
+    private final int DIAGNOSTIC_WARN_LIMIT = IgniteSystemProperties.getInteger(IGNITE_DIAGNOSTIC_WARN_LIMIT, 10);
+
+    /** */
     private static final IgniteProductVersion EXCHANGE_PROTOCOL_2_SINCE = IgniteProductVersion.fromString("2.1.4");
+
+    /** Stripe id for cluster activation event. */
+    private static final int CLUSTER_ACTIVATION_EVT_STRIPE_ID = Integer.MAX_VALUE;
 
     /** Atomic reference for pending partition resend timeout object. */
     private AtomicReference<ResendTimeoutObject> pendingResend = new AtomicReference<>();
@@ -279,7 +290,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     return;
                 }
 
-                if (cache.state().transition()) {
+                if (cache.state().transition() &&
+                    (evt.type() == EVT_NODE_LEFT || evt.type() == EVT_NODE_JOINED || evt.type() == EVT_NODE_FAILED)
+                ) {
                     if (log.isDebugEnabled())
                         log.debug("Adding pending event: " + evt);
 
@@ -516,6 +529,13 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     exchId = exchangeId(n.id(), affinityTopologyVersion(evt), evt);
 
                     exchFut = exchangeFuture(exchId, evt, cache, exchActions, null);
+
+                    exchFut.listen(f -> {
+                        if (exchActions.activate())
+                            recordEvent("Cluster activated.", EventType.EVT_CLUSTER_ACTIVATED);
+                        else if (exchActions.deactivate())
+                            recordEvent("Cluster deactivated.", EventType.EVT_CLUSTER_DEACTIVATED);
+                    });
                 }
             }
             else if (customMsg instanceof DynamicCacheChangeBatch) {
@@ -595,6 +615,28 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             exchWorker.addCustomTask(new SchemaNodeLeaveExchangeWorkerTask(evt.eventNode()));
             exchWorker.addCustomTask(new WalStateNodeLeaveExchangeTask(evt.eventNode()));
         }
+    }
+
+    /**
+     * @param msg Event message.
+     * @param evtType Event type.
+     */
+    private void recordEvent(String msg, int evtType) {
+        GridKernalContext ctx = cctx.kernalContext();
+
+        Collection<ClusterNode> srvNodes = ctx.cluster().get().forServers().nodes();
+
+        Collection<BaselineNode> baselineNodes = new ArrayList<>(srvNodes);
+
+        ctx.getStripedExecutorService().execute(CLUSTER_ACTIVATION_EVT_STRIPE_ID, new Runnable() {
+            @Override public void run() {
+                if (ctx.event().isRecordable(evtType)) {
+                    ClusterActivationEvent evt = new ClusterActivationEvent(ctx.discovery().localNode(), msg, evtType, baselineNodes);
+
+                    ctx.event().record(evt);
+                }
+            }
+        });
     }
 
     /**
@@ -1856,15 +1898,20 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         exchWorker.dumpExchangeDebugInfo();
 
         if (!readyFuts.isEmpty()) {
-            U.warn(diagnosticLog, "First 5 pending affinity ready futures [total=" + readyFuts.size() + ']');
+            int warningsLimit = IgniteSystemProperties.getInteger(IGNITE_DIAGNOSTIC_WARN_LIMIT, 5);
 
-            int cnt = 0;
+            U.warn(diagnosticLog, "First " + warningsLimit + " pending affinity ready futures [total=" +
+                readyFuts.size() + ']');
 
-            for (AffinityReadyFuture fut : readyFuts.values()) {
-                U.warn(diagnosticLog, ">>> " + fut);
+            if (warningsLimit > 0) {
+                int cnt = 0;
 
-                if (++cnt == 5)
-                    break;
+                for (AffinityReadyFuture fut : readyFuts.values()) {
+                    U.warn(diagnosticLog, ">>> " + fut);
+
+                    if (++cnt == warningsLimit)
+                        break;
+                }
             }
         }
 
@@ -1877,15 +1924,18 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         ExchangeFutureSet exchFuts = this.exchFuts;
 
         if (exchFuts != null) {
-            U.warn(diagnosticLog, "Last 10 exchange futures (total: " + exchFuts.size() + "):");
+            U.warn(diagnosticLog, "Last " + DIAGNOSTIC_WARN_LIMIT + " exchange futures (total: " +
+                exchFuts.size() + "):");
 
-            int cnt = 0;
+            if (DIAGNOSTIC_WARN_LIMIT > 0) {
+                int cnt = 0;
 
-            for (GridDhtPartitionsExchangeFuture fut : exchFuts.values()) {
-                U.warn(diagnosticLog, ">>> " + fut.shortInfo());
+                for (GridDhtPartitionsExchangeFuture fut : exchFuts.values()) {
+                    U.warn(diagnosticLog, ">>> " + fut.shortInfo());
 
-                if (++cnt == 10)
-                    break;
+                    if (++cnt == DIAGNOSTIC_WARN_LIMIT)
+                        break;
+                }
             }
         }
 
@@ -1936,40 +1986,67 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             new IgniteDiagnosticPrepareContext(cctx.localNodeId()) : null;
 
         if (tm != null) {
+            WarningsGroup warnings = new WarningsGroup("First %d long running transactions [total=%d]",
+                diagnosticLog, DIAGNOSTIC_WARN_LIMIT);
+
             for (IgniteInternalTx tx : tm.activeTransactions()) {
                 if (curTime - tx.startTime() > timeout) {
                     found = true;
 
-                    U.warn(diagnosticLog, "Found long running transaction [startTime=" + formatTime(tx.startTime()) +
-                        ", curTime=" + formatTime(curTime) + ", tx=" + tx + ']');
+                    if (warnings.canAddMessage()) {
+                        warnings.add(">>> Transaction [startTime=" + formatTime(tx.startTime()) +
+                            ", curTime=" + formatTime(curTime) + ", tx=" + tx + ']');
+                    }
+                    else
+                        warnings.incTotal();
                 }
             }
+
+            warnings.printToLog();
         }
 
         if (mvcc != null) {
+            WarningsGroup activeWarnings = new WarningsGroup("First %d long running cache futures [total=%d]",
+                diagnosticLog, DIAGNOSTIC_WARN_LIMIT);
+
             for (GridCacheFuture<?> fut : mvcc.activeFutures()) {
                 if (curTime - fut.startTime() > timeout) {
                     found = true;
 
-                    U.warn(diagnosticLog, "Found long running cache future [startTime=" + formatTime(fut.startTime()) +
-                        ", curTime=" + formatTime(curTime) + ", fut=" + fut + ']');
+                    if (activeWarnings.canAddMessage()) {
+                        activeWarnings.add(">>> Future [startTime=" + formatTime(fut.startTime()) +
+                            ", curTime=" + formatTime(curTime) + ", fut=" + fut + ']');
+                    }
+                    else
+                        activeWarnings.incTotal();
 
                     if (diagCtx != null && fut instanceof IgniteDiagnosticAware)
                         ((IgniteDiagnosticAware)fut).addDiagnosticRequest(diagCtx);
                 }
             }
+
+            activeWarnings.printToLog();
+
+            WarningsGroup atomicWarnings = new WarningsGroup("First %d long running cache futures [total=%d]",
+                diagnosticLog, DIAGNOSTIC_WARN_LIMIT);
 
             for (GridCacheFuture<?> fut : mvcc.atomicFutures()) {
                 if (curTime - fut.startTime() > timeout) {
                     found = true;
 
-                    U.warn(diagnosticLog, "Found long running cache future [startTime=" + formatTime(fut.startTime()) +
-                        ", curTime=" + formatTime(curTime) + ", fut=" + fut + ']');
+                    if (atomicWarnings.canAddMessage()) {
+                        atomicWarnings.add(">>> Future [startTime=" + formatTime(fut.startTime()) +
+                            ", curTime=" + formatTime(curTime) + ", fut=" + fut + ']');
+                    }
+                    else
+                        atomicWarnings.incTotal();
 
                     if (diagCtx != null && fut instanceof IgniteDiagnosticAware)
                         ((IgniteDiagnosticAware)fut).addDiagnosticRequest(diagCtx);
                 }
             }
+
+            atomicWarnings.printToLog();
         }
 
         if (diagCtx != null && !diagCtx.empty()) {
@@ -2706,16 +2783,18 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
          * Dump debug info.
          */
         void dumpExchangeDebugInfo() {
-            U.warn(log, "First 10 pending exchange futures [total=" + futQ.size() + ']');
+            U.warn(log, "First " + DIAGNOSTIC_WARN_LIMIT + " pending exchange futures [total=" + futQ.size() + ']');
 
-            int cnt = 0;
+            if (DIAGNOSTIC_WARN_LIMIT > 0) {
+                int cnt = 0;
 
-            for (CachePartitionExchangeWorkerTask task : futQ) {
-                if (task instanceof GridDhtPartitionsExchangeFuture) {
-                    U.warn(log, ">>> " + ((GridDhtPartitionsExchangeFuture)task).shortInfo());
+                for (CachePartitionExchangeWorkerTask task : futQ) {
+                    if (task instanceof GridDhtPartitionsExchangeFuture) {
+                        U.warn(log, ">>> " + ((GridDhtPartitionsExchangeFuture)task).shortInfo());
 
-                    if (++cnt == 10)
-                        break;
+                        if (++cnt == DIAGNOSTIC_WARN_LIMIT)
+                            break;
+                    }
                 }
             }
         }
@@ -3364,6 +3443,82 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         /** {@inheritDoc} */
         @Override public String toString() {
             return S.toString(AffinityReadyFuture.class, this, super.toString());
+        }
+    }
+
+    /**
+     * Class to print only limited number of warnings.
+     */
+    private static class WarningsGroup {
+        /** */
+        private final IgniteLogger log;
+
+        /** */
+        private final int warningsLimit;
+
+        /** */
+        private final String title;
+
+        /** */
+        private final List<String> messages = new ArrayList<>();
+
+        /** */
+        private int warningsTotal = 0;
+
+        /**
+         * @param log Target logger.
+         * @param warningsLimit Warnings limit.
+         */
+        private WarningsGroup(String title, IgniteLogger log, int warningsLimit) {
+            this.title = title;
+
+            this.log = log;
+
+            this.warningsLimit = warningsLimit;
+        }
+
+        /**
+         * @param msg Warning message.
+         * @return {@code true} if message is added to list.
+         */
+        private boolean add(String msg) {
+            boolean added = false;
+
+            if (canAddMessage()) {
+                messages.add(msg);
+
+                added = true;
+            }
+
+            warningsTotal++;
+
+            return added;
+        }
+
+        /**
+         * @return {@code true} if messages list size less than limit.
+         */
+        private boolean canAddMessage() {
+            return warningsTotal < warningsLimit;
+        }
+
+        /**
+         * Increase total number of warnings.
+         */
+        private void incTotal() {
+            warningsTotal++;
+        }
+
+        /**
+         * Print warnings block title and messages.
+         */
+        private void printToLog() {
+            if (warningsTotal > 0) {
+                U.warn(log, String.format(title, warningsLimit, warningsTotal));
+
+                for (String message : messages)
+                    U.warn(log, message);
+            }
         }
     }
 }

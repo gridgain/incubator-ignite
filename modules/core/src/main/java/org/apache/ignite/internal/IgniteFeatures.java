@@ -34,7 +34,16 @@ public enum IgniteFeatures {
     TCP_COMMUNICATION_SPI_HANDSHAKE_WAIT_MESSAGE(0),
 
     /** Cache metrics v2 support. */
-    CACHE_METRICS_V2(1);
+    CACHE_METRICS_V2(1),
+
+    /** Distributed metastorage. */
+    DISTRIBUTED_METASTORAGE(2),
+
+    /** Data paket compression. */
+    DATA_PACKET_COMPRESSION(3),
+
+    /** Support of different rebalance size for nodes.  */
+    DIFFERENT_REBALANCE_POOL_SIZE(4);
 
     /**
      * Unique feature identifier.
@@ -64,7 +73,21 @@ public enum IgniteFeatures {
     public static boolean nodeSupports(ClusterNode clusterNode, IgniteFeatures feature) {
         final byte[] features = clusterNode.attribute(ATTR_IGNITE_FEATURES);
 
-        return features != null && BitSet.valueOf(features).get(feature.getFeatureId());
+        if (features == null)
+            return false;
+
+        int featureId = feature.getFeatureId();
+
+        // Same as "BitSet.valueOf(features).get(featureId)"
+
+        int byteIdx = featureId >>> 3;
+
+        if (byteIdx >= features.length)
+            return false;
+
+        int bitIdx = featureId & 0x7;
+
+        return (features[byteIdx] & (1 << bitIdx)) != 0;
     }
 
     /**

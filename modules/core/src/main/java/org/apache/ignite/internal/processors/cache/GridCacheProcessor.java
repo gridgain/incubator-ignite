@@ -67,6 +67,7 @@ import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteClientDisconnectedCheckedException;
 import org.apache.ignite.internal.IgniteComponentType;
+import org.apache.ignite.internal.IgniteFeatures;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.IgniteNodeAttributes;
@@ -177,6 +178,8 @@ import org.apache.ignite.spi.discovery.DiscoveryDataBag;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag.GridDiscoveryData;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag.JoiningNodeDiscoveryData;
 import org.apache.ignite.spi.encryption.EncryptionSpi;
+import org.apache.ignite.spi.indexing.IndexingSpi;
+import org.apache.ignite.spi.indexing.noop.NoopIndexingSpi;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -188,6 +191,7 @@ import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT;
 import static org.apache.ignite.cache.CacheMode.LOCAL;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheRebalanceMode.NONE;
 import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_ASYNC;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -223,6 +227,10 @@ public class GridCacheProcessor extends GridProcessorAdapter {
     /** Enables start caches in parallel. */
     private final boolean IGNITE_ALLOW_START_CACHES_IN_PARALLEL =
         IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_ALLOW_START_CACHES_IN_PARALLEL, true);
+
+    /** */
+    private final boolean keepStaticCacheConfiguration = IgniteSystemProperties.getBoolean(
+        IgniteSystemProperties.IGNITE_KEEP_STATIC_CACHE_CONFIGURATION);
 
     /** Shared cache context. */
     private GridCacheSharedContext<?, ?> sharedCtx;
@@ -534,6 +542,9 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             assertParameter(!cc.isWriteBehindEnabled(),
                 "writeBehindEnabled cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
 
+            assertParameter(cc.getRebalanceMode() != NONE,
+                "Rebalance mode NONE cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+
             ExpiryPolicy expPlc = null;
 
             if (cc.getExpiryPolicyFactory() instanceof FactoryBuilder.SingletonFactory)
@@ -559,6 +570,11 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                     ", dataRegionName=" + memPlcName + ", pageEvictionMode=" +
                     dataRegion.config().getPageEvictionMode() + ']');
             }
+
+            IndexingSpi idxSpi = ctx.config().getIndexingSpi();
+
+            assertParameter(idxSpi == null || idxSpi instanceof NoopIndexingSpi,
+                "Custom IndexingSpi cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
         }
 
         if (cc.isWriteBehindEnabled()) {
@@ -884,10 +900,12 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      */
     private void addStoredCache(Map<String, CacheInfo> caches, StoredCacheData cacheData, String cacheName,
         CacheType cacheType, boolean isStaticalyConfigured) {
-        if (!cacheType.userCache())
-            stopSeq.addLast(cacheName);
-        else
-            stopSeq.addFirst(cacheName);
+        if (!caches.containsKey(cacheName)) {
+            if (!cacheType.userCache())
+                stopSeq.addLast(cacheName);
+            else
+                stopSeq.addFirst(cacheName);
+        }
 
         caches.put(cacheName, new CacheInfo(cacheData, cacheType, cacheData.sql(), 0, isStaticalyConfigured));
     }
@@ -918,19 +936,37 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             Map<String, StoredCacheData> storedCaches = ctx.cache().context().pageStore().readCacheConfigurations();
 
             if (!F.isEmpty(storedCaches)) {
+                List<String> skippedConfigs = new ArrayList<>();
+
                 for (StoredCacheData storedCacheData : storedCaches.values()) {
                     String cacheName = storedCacheData.config().getName();
 
-                    //Ignore stored caches if it already added by static config(static config has higher priority).
+                    CacheType type = cacheType(cacheName);
+
                     if (!caches.containsKey(cacheName))
-                        addStoredCache(caches, storedCacheData, cacheName, cacheType(cacheName), false);
+                        // No static cache - add the configuration.
+                        addStoredCache(caches, storedCacheData, cacheName, type, false);
                     else {
+                        // A static cache with the same name already exists.
                         CacheConfiguration cfg = caches.get(cacheName).cacheData().config();
                         CacheConfiguration cfgFromStore = storedCacheData.config();
 
                         validateCacheConfigurationOnRestore(cfg, cfgFromStore);
+
+                        if (!keepStaticCacheConfiguration) {
+                            addStoredCache(caches, storedCacheData, cacheName, type, false);
+
+                            if (type == CacheType.USER)
+                                skippedConfigs.add(cacheName);
+                        }
                     }
                 }
+
+                if (!F.isEmpty(skippedConfigs))
+                    U.warn(log, "Static configuration for the following caches will be ignored because a persistent " +
+                        "cache with the same name already exist (see " +
+                        "https://apacheignite.readme.io/docs/cache-configuration for more information): " +
+                        skippedConfigs);
             }
         }
     }
@@ -1065,11 +1101,16 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @throws IgniteCheckedException if check failed.
      */
     private void checkConsistency() throws IgniteCheckedException {
-        for (ClusterNode n : ctx.discovery().remoteNodes()) {
+        Collection<ClusterNode> rmtNodes = ctx.discovery().remoteNodes();
+
+        boolean changeablePoolSize = IgniteFeatures.allNodesSupports(rmtNodes, IgniteFeatures.DIFFERENT_REBALANCE_POOL_SIZE);
+
+        for (ClusterNode n : rmtNodes) {
             if (Boolean.TRUE.equals(n.attribute(ATTR_CONSISTENCY_CHECK_SKIPPED)))
                 continue;
 
-            checkRebalanceConfiguration(n);
+            if(!changeablePoolSize)
+                checkRebalanceConfiguration(n);
 
             checkTransactionConfiguration(n);
 
@@ -1575,7 +1616,9 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         CacheCompressionManager compressMgr = new CacheCompressionManager();
         GridCacheAffinityManager affMgr = new GridCacheAffinityManager();
         GridCacheEventManager evtMgr = new GridCacheEventManager();
-        CacheEvictionManager evictMgr = (nearEnabled || cfg.isOnheapCacheEnabled()) ? new GridCacheEvictionManager() : new CacheOffheapEvictionManager();
+        CacheEvictionManager evictMgr = (nearEnabled || cfg.isOnheapCacheEnabled())
+            ? new GridCacheEvictionManager()
+            : new CacheOffheapEvictionManager();
         GridCacheQueryManager qryMgr = queryManager(cfg);
         CacheContinuousQueryManager contQryMgr = new CacheContinuousQueryManager();
         CacheDataStructuresManager dataStructuresMgr = new CacheDataStructuresManager();
@@ -2043,7 +2086,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @param node Joined node.
      * @return {@code True} if there are new caches received from joined node.
      */
-    boolean hasCachesReceivedFromJoin(ClusterNode node) {
+    public boolean hasCachesReceivedFromJoin(ClusterNode node) {
         return cachesInfo.hasCachesReceivedFromJoin(node.id());
     }
 
@@ -4671,6 +4714,14 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         }
 
         return max;
+    }
+
+    /**
+     * @return Keep static cache configuration flag. If {@code true}, static cache configuration will override
+     * configuration persisted on disk.
+     */
+    public boolean keepStaticCacheConfiguration() {
+        return keepStaticCacheConfiguration;
     }
 
     /**
