@@ -264,7 +264,13 @@ class GridDhtPartitionSupplier {
             Set<Integer> remainingParts;
 
             if (sctx == null || sctx.iterator == null) {
+                GridDhtPartitionSupplyMessage.TL.set(demandMsg);
+                GridDhtPartitionSupplyMessage.NODE_ID.set(nodeId);
+
                 iter = grp.offheap().rebalanceIterator(demandMsg.partitions(), demandMsg.topologyVersion());
+
+                GridDhtPartitionSupplyMessage.TL.set(null);
+                GridDhtPartitionSupplyMessage.NODE_ID.set(null);
 
                 remainingParts = new HashSet<>(demandMsg.partitions().fullSet());
 

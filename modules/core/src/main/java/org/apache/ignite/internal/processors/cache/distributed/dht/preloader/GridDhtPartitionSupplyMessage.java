@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.GridDirectCollection;
 import org.apache.ignite.internal.GridDirectMap;
@@ -48,6 +49,9 @@ import org.apache.ignite.plugin.extensions.communication.MessageWriter;
  */
 @IgniteCodeGeneratingFail
 public class GridDhtPartitionSupplyMessage extends GridCacheGroupIdMessage implements GridCacheDeployable {
+    public static final ThreadLocal<GridDhtPartitionDemandMessage> TL = new ThreadLocal<>();
+    public static final ThreadLocal<UUID> NODE_ID = new ThreadLocal<>();
+
     /** */
     private static final long serialVersionUID = 0L;
 
