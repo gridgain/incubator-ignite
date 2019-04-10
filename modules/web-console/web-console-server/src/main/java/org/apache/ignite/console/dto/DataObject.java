@@ -18,7 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.util.JsonObject;
 
 /**
  * Abstract data object.

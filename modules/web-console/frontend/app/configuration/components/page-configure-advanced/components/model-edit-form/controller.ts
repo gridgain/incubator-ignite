@@ -153,7 +153,7 @@ export default class ModelEditFormController {
 
     $onChanges(changes) {
         if (
-            'model' in changes && get(this.$scope.backupItem, '_id') !== get(this.model, '_id')
+            'model' in changes && get(this.$scope.backupItem, 'id') !== get(this.model, 'id')
         ) {
             this.$scope.backupItem = cloneDeep(changes.model.currentValue);
             if (this.$scope.ui && this.$scope.ui.inputForm) {
@@ -162,7 +162,7 @@ export default class ModelEditFormController {
             }
         }
         if ('caches' in changes)
-            this.cachesMenu = (changes.caches.currentValue || []).map((c) => ({label: c.name, value: c._id}));
+            this.cachesMenu = (changes.caches.currentValue || []).map((c) => ({label: c.name, value: c.id}));
     }
 
     onQueryFieldsChange(model: DomainModel) {

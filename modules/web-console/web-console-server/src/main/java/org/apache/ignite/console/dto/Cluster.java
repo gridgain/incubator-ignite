@@ -18,7 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.util.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**
@@ -36,9 +36,9 @@ public class Cluster extends DataObject {
      * @return New instance of cluster DTO.
      */
     public static Cluster fromJson(JsonObject json) {
-        String clusterId = json.getString("_id");
+        UUID id = json.getUuid("id");
 
-        if (clusterId == null)
+        if (id == null)
             throw new IllegalStateException("Cluster ID not found");
 
         String name = json.getString("name");
@@ -46,13 +46,13 @@ public class Cluster extends DataObject {
         if (F.isEmpty(name))
             throw new IllegalStateException("Cluster name is empty");
 
-        String discovery = json.getJsonObject("discovery").getString("kind");
+        String discovery = "TODO"; // json.getJsonObject("discovery").getString("kind");
 
         if (F.isEmpty(discovery))
             throw new IllegalStateException("Cluster discovery not found");
 
         return new Cluster(
-            UUID.fromString(clusterId),
+            id,
             name,
             discovery,
             json.encode()
@@ -91,8 +91,8 @@ public class Cluster extends DataObject {
     /** {@inheritDoc} */
     @Override public JsonObject shortView() {
         return new JsonObject()
-            .put("_id", _id())
-            .put("name", name)
-            .put("discovery", discovery);
+            .add("id", getId())
+            .add("name", name)
+            .add("discovery", discovery);
     }
 }

@@ -21,15 +21,11 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteTransactions;
-import org.apache.ignite.console.db.NestedTransaction;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.AbstractDto;
+import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Repository to work with notebooks.
@@ -39,19 +35,15 @@ public abstract class AbstractRepository<T extends AbstractDto>  {
     protected final Ignite ignite;
 
     /** */
-    private volatile boolean ready;
+    private final TransactionManager txMgr;
 
     /**
      * @param ignite Ignite.
      */
-    protected AbstractRepository(Ignite ignite) {
+    protected AbstractRepository(Ignite ignite, TransactionManager txMgr) {
         this.ignite = ignite;
+        this.txMgr = txMgr;
     }
-
-    /**
-     * Initialize database.
-     */
-    protected abstract void initDatabase();
 
     /**
      * Start transaction.
@@ -59,20 +51,7 @@ public abstract class AbstractRepository<T extends AbstractDto>  {
      * @return Transaction.
      */
     public Transaction txStart() {
-        if (!ready) {
-            initDatabase();
-
-            ready = true;
-        }
-
-        IgniteTransactions txs = ignite.transactions();
-
-        Transaction curTx = txs.tx();
-
-        if (curTx instanceof NestedTransaction)
-            return curTx;
-
-        return curTx == null ? txs.txStart(PESSIMISTIC, REPEATABLE_READ) : new NestedTransaction(curTx);
+        return txMgr.txStart();
     }
 
     /**

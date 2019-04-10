@@ -29,6 +29,8 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.cache.query.Query;
+import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.console.dto.AbstractDto;
 import org.apache.ignite.internal.util.typedef.F;
 import org.jetbrains.annotations.Nullable;
@@ -64,9 +66,9 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
 
     /** */
     private IgniteCache<Object, UUID> indexCache() {
-        IgniteCache cache = cache();
+        IgniteCache c = cache;
 
-        return (IgniteCache<Object, UUID>)cache;
+        return (IgniteCache<Object, UUID>)c;
     }
 
     /**
@@ -74,7 +76,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      * @return DTO.
      */
     @Nullable public T load(UUID id) {
-        return cache().get(id);
+        return cache.get(id);
     }
 
     /**
@@ -87,7 +89,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
         if (id == null)
             return null;
 
-        return cache().get(id);
+        return cache.get(id);
     }
 
     /**
@@ -119,7 +121,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     public T save(T val) throws IgniteException {
         putToUniqueIndexes(val);
 
-        cache().put(val.getId(), val);
+        cache.put(val.getId(), val);
 
         return val;
     }
@@ -131,7 +133,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
         for (T item : values.values())
             putToUniqueIndexes(item);
 
-        cache().putAll(values);
+        cache.putAll(values);
     }
 
     /**
@@ -139,7 +141,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      * @return Previous value.
      */
     @Nullable public T delete(UUID id) {
-        T val = cache().getAndRemove(id);
+        T val = cache.getAndRemove(id);
 
         indexCache().removeAll(uniqueIndexes.stream().map(idx -> idx.key(val)).collect(toSet()));
 
@@ -151,11 +153,21 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      */
     public void deleteAll(Set<UUID> ids) {
         Set<Object> idxIds = ids.stream()
-            .map(cache()::getAndRemove)
+            .map(cache::getAndRemove)
             .flatMap((payload) -> uniqueIndexes.stream().map(idx -> idx.key(payload)))
             .collect(toSet());
 
         indexCache().removeAll(idxIds);
+    }
+
+    /**
+     * Queries cache.
+     *
+     * @param qry Query to execute.
+     * @return Cursor.
+     */
+     public <R> QueryCursor<R> query(Query<R> qry) {
+        return cache.query(qry);
     }
 
     /**

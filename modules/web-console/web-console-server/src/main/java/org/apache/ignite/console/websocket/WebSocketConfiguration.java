@@ -38,11 +38,11 @@ public class WebSocketConfiguration implements WebSocketConfigurer {
 	private final WebSocketSessions wss;
 
 	/** */
-	@Value("${websocket.ssl.enabled}")
+// TODO WC-999 @Value("${websocket.ssl.enabled}")
 	private boolean sslEnabled;
 
 	/** */
-	@Value("${websocket.allowed.origin}")
+// TODO WC-999 @Value("${websocket.allowed.origin}")
 	private String allowedOrigin;
 
 	/**

@@ -41,20 +41,19 @@ public class AccountsService extends AbstractService implements UserDetailsServi
     private static final int HASH_WIDTH = 512;
 
     /** Password encoder. */
-    private PasswordEncoder encoder;
+    private final PasswordEncoder encoder;
 
     /** Repository to work with accounts. */
-    private AccountsRepository accountsRepo;
+    private final AccountsRepository accountsRepo;
 
     /**
-     * @param ignite Ignite.
+     * @param accountsRepo Accounts repository.
      */
     @Autowired
-    public AccountsService(Ignite ignite, AccountsRepository accountsRepo) {
-        super(ignite);
+    public AccountsService(AccountsRepository accountsRepo) {
+        this.accountsRepo = accountsRepo;
 
         this.encoder = encoder();
-        this.accountsRepo = accountsRepo;
     }
 
     /** {@inheritDoc} */
@@ -85,7 +84,7 @@ public class AccountsService extends AbstractService implements UserDetailsServi
      *
      * @return All registered accounts.
      */
-    List<Account> list() {
+    public List<Account> list() {
         return accountsRepo.list();
     }
 
@@ -95,17 +94,17 @@ public class AccountsService extends AbstractService implements UserDetailsServi
      * @param accId Account ID.
      * @return Number of removed accounts.
      */
-    int delete(UUID accId) {
+    public int delete(UUID accId) {
         return accountsRepo.delete(accId);
     }
 
     /**
-     * Update account permission.
+     * Update admin flag..
      *
      * @param accId Account ID.
      * @param adminFlag New value for admin flag.
      */
-    void updatePermission(UUID accId, boolean adminFlag) {
+    public void toggle(UUID accId, boolean adminFlag) {
         try (Transaction tx = accountsRepo.txStart()) {
             Account account = accountsRepo.getById(accId);
 

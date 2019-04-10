@@ -28,11 +28,9 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
-import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -51,6 +49,7 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
+import static org.apache.ignite.console.util.JsonUtils.fromJson;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_AUTH_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
@@ -61,9 +60,6 @@ import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS
 public class RestExecutor implements AutoCloseable {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(RestExecutor.class));
-
-    /** JSON object mapper. */
-    private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
 
     /** */
     private final AgentConfiguration cfg;
@@ -131,7 +127,7 @@ public class RestExecutor implements AutoCloseable {
         int code = res.getStatus();
 
         if (code == HTTP_OK) {
-            RestResponseHolder holder = MAPPER.readValue(res.getContent(), RestResponseHolder.class);
+            RestResponseHolder holder = fromJson(res.getContent(), RestResponseHolder.class);
 
             int status = holder.getSuccessStatus();
 

@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.json;
+package org.apache.ignite.console.util;
+
+import java.util.ArrayList;
 
 /**
- * Instances of this Exception are thrown if failed to decode a JSON string, because of invalid JSON.
- *
- * @author <a href="http://tfox.org">Tim Fox</a>
+ * A simple representation of a JSON array.
  */
-public class DecodeException extends RuntimeException {
-
-  public DecodeException() {
-  }
-
-  public DecodeException(String message) {
-    super(message);
-  }
-
-  public DecodeException(String message, Throwable cause) {
-    super(message, cause);
-  }
+public class JsonArray extends ArrayList<Object> {
 }

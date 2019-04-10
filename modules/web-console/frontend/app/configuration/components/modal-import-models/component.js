@@ -43,7 +43,7 @@ import {default as ActivitiesData} from 'app/core/activities/Activities.data';
 
 function _mapCaches(caches = []) {
     return caches.map((cache) => {
-        return {label: cache.name, value: cache._id, cache};
+        return {label: cache.name, value: cache.id, cache};
     });
 }
 
@@ -138,8 +138,8 @@ export class ModalImportModels {
                         models: []
                     })
                     : from(Promise.all([
-                        this.ConfigEffects.etp('LOAD_SHORT_CACHES', {ids: cluster.caches || [], clusterID: cluster._id}),
-                        this.ConfigEffects.etp('LOAD_SHORT_MODELS', {ids: cluster.models || [], clusterID: cluster._id})
+                        this.ConfigEffects.etp('LOAD_SHORT_CACHES', {ids: cluster.caches || [], clusterID: cluster.id}),
+                        this.ConfigEffects.etp('LOAD_SHORT_MODELS', {ids: cluster.models || [], clusterID: cluster.id})
                     ])).pipe(switchMap(() => {
                         return combineLatest(
                             this.ConfigureState.state$.pipe(this.ConfigSelectors.selectShortCachesValue()),
@@ -192,7 +192,7 @@ export class ModalImportModels {
                 ...req,
                 cluster: {
                     ...req.cluster,
-                    models: [...req.cluster.models, action.newDomainModel._id],
+                    models: [...req.cluster.models, action.newDomainModel.id],
                     caches: [...req.cluster.caches, ...action.newDomainModel.caches]
                 },
                 models: [...req.models, action.newDomainModel],
@@ -243,7 +243,7 @@ export class ModalImportModels {
             ),
             race(
                 this.ConfigureState.actions$.pipe(
-                    filter((a) => a.type === 'LOAD_CACHE_OK' && a.cache._id === cacheID),
+                    filter((a) => a.type === 'LOAD_CACHE_OK' && a.cache.id === cacheID),
                     pluck('cache'),
                     tap((cache) => {
                         this.loadedCaches[cacheID] = cache;
@@ -746,14 +746,14 @@ export class ModalImportModels {
                     skip: false,
                     table,
                     newDomainModel: {
-                        _id: uuidv4(),
+                        id: uuidv4(),
                         caches: [],
                         generatePojo
                     }
                 };
 
                 if (LegacyUtils.isDefined(domainFound)) {
-                    batchAction.newDomainModel._id = domainFound._id;
+                    batchAction.newDomainModel.id = domainFound.id;
                     // Don't touch original caches value
                     delete batchAction.newDomainModel.caches;
                     batchAction.confirm = true;
@@ -805,10 +805,10 @@ export class ModalImportModels {
 
                     // const siblingCaches = batch.filter((a) => a.newCache).map((a) => a.newCache);
                     const siblingCaches = [];
-                    newCache._id = uuidv4();
+                    newCache.id = uuidv4();
                     newCache.name = uniqueName(typeName + 'Cache', this.caches.concat(siblingCaches));
-                    newCache.domains = [batchAction.newDomainModel._id];
-                    batchAction.newDomainModel.caches = [newCache._id];
+                    newCache.domains = [batchAction.newDomainModel.id];
+                    batchAction.newDomainModel.caches = [newCache.id];
 
                     // POJO store factory is not defined in template.
                     if (!newCache.cacheStoreFactory || newCache.cacheStoreFactory.kind !== 'CacheJdbcPojoStoreFactory') {

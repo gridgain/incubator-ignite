@@ -40,15 +40,15 @@ import static org.apache.ignite.console.util.JsonUtils.errorToJson;
 import static org.apache.ignite.console.util.JsonUtils.fromJson;
 import static org.apache.ignite.console.util.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
-import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
-import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_STATUS;
-import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_TOPOLOGY;
-import static org.apache.ignite.console.websocket.WebSocketEvents.ERROR;
-import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_REST;
-import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_VISOR;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_DRIVERS;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_METADATA;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_SCHEMAS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_STATUS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_TOPOLOGY;
+import static org.apache.ignite.console.websocket.WebSocketConsts.ERROR;
+import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_REST;
+import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_VISOR;
+import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_DRIVERS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_METADATA;
+import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * Websocket sessions service.
@@ -100,6 +100,14 @@ public class WebSocketSessions {
     }
 
     /**
+     * @param evt Event.
+     * @return Text message.
+     */
+    private TextMessage textMessage(WebSocketEvent evt) {
+        return new TextMessage(toJson(evt));
+    }
+
+    /**
      * @param wsBrowser Session.
      * @param evt Event.
      * @param errMsg Error message.
@@ -110,7 +118,7 @@ public class WebSocketSessions {
             evt.setEventType(ERROR);
             evt.setPayload(errorToJson(errMsg, err));
 
-            wsBrowser.sendMessage(new TextMessage(toJson(evt)));
+            wsBrowser.sendMessage(textMessage(evt));
         }
         catch (Throwable e) {
             log.error("Failed to send error message [session=" + wsBrowser + ", event=" + evt + "]", e);
@@ -138,7 +146,7 @@ public class WebSocketSessions {
             if (log.isDebugEnabled())
                 log.debug("Found agent session [token=" + tok + ", session=" + wsAgent + ", event=" + evt + "]");
 
-            wsAgent.sendMessage(new TextMessage(toJson(evt)));
+            wsAgent.sendMessage(textMessage(evt));
         }
         catch (Throwable e) {
             String errMsg = "Failed to send event to agent: " + evt;
@@ -243,7 +251,7 @@ public class WebSocketSessions {
                 WebSocketSession browserWs = requests.remove(evt.getRequestId());
 
                 if (browserWs != null)
-                    browserWs.sendMessage(new TextMessage(toJson(evt)));
+                    browserWs.sendMessage(textMessage(evt));
                 else
                     log.warn("Failed to send event to browser: " + evt);
         }
@@ -314,12 +322,11 @@ public class WebSocketSessions {
             res.put("clusters", tops);
 
             try {
-                wsBrowser.sendMessage(new TextMessage(
-                    toJson(new WebSocketEvent(
-                        UUID.randomUUID().toString(),
-                        AGENT_STATUS,
-                        toJson(res)))
-                ));
+                wsBrowser.sendMessage(textMessage(new WebSocketEvent(
+                    UUID.randomUUID().toString(),
+                    AGENT_STATUS,
+                    toJson(res)))
+                );
             }
             catch (Throwable e) {
                 log.error("Failed to update agent status [session=" + wsBrowser + ", token=" + tok + "]", e);

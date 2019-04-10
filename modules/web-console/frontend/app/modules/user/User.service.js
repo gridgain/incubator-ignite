@@ -19,7 +19,7 @@ import {ReplaySubject} from 'rxjs';
 
 /**
  * @typedef User
- * @prop {string} _id
+ * @prop {string} id
  * @prop {boolean} admin
  * @prop {string} country
  * @prop {string} email

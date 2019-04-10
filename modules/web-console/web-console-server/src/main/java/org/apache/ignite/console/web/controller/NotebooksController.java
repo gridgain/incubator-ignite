@@ -19,12 +19,12 @@ package org.apache.ignite.console.web.controller;
 
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.console.services.NotebooksService;
+import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.services.NotebooksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,8 +41,8 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @RestController
 @RequestMapping(path = "/api/v1/notebooks")
 public class NotebooksController {
-    /** Notebooks service. */
-    private NotebooksService notebooksSrvc;
+    /** */
+    private final NotebooksService notebooksSrvc;
 
     /**
      * @param notebooksSrvc Notebooks service.
@@ -56,16 +56,16 @@ public class NotebooksController {
      * @param user User.
      */
     @GetMapping
-    public ResponseEntity<Collection<Notebook>> load(@AuthenticationPrincipal UserDetails user) {
-        return ResponseEntity.ok(notebooksSrvc.load(user.getUsername()));
+    public ResponseEntity<Collection<Notebook>> list(@AuthenticationPrincipal Account user) {
+        return ResponseEntity.ok(notebooksSrvc.list(user.getId()));
     }
 
     /**
      * @param user User.
      */
     @PutMapping(consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> save(@AuthenticationPrincipal UserDetails user, @RequestBody Notebook notebook) {
-        notebooksSrvc.save(user.getUsername(), notebook);
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account user, @RequestBody Notebook notebook) {
+        notebooksSrvc.save(user.getId(), notebook);
 
         return ResponseEntity.ok().build();
     }
@@ -76,8 +76,8 @@ public class NotebooksController {
      * @return Response.
      */
     @DeleteMapping(path = "/{notebookId}")
-    public ResponseEntity<Void> delete(@AuthenticationPrincipal UserDetails user, @PathVariable("notebookId") UUID notebookId) {
-        notebooksSrvc.delete(user.getUsername(), notebookId);
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal Account user, @PathVariable("notebookId") UUID notebookId) {
+        notebooksSrvc.delete(user.getId(), notebookId);
 
         return ResponseEntity.ok().build();
     }

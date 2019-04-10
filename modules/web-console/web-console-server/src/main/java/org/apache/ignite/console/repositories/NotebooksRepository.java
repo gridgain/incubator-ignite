@@ -24,7 +24,9 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -40,20 +42,16 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
 
     /**
      * @param ignite Ignite.
+     * @param txMgr Transactions manager.
      */
-    public NotebooksRepository(Ignite ignite) {
-        super(ignite);
+    @Autowired
+    public NotebooksRepository(Ignite ignite, TransactionManager txMgr) {
+        super(ignite, txMgr);
 
         notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
             .addUniqueIndex(Notebook::getName, (notebook) -> "Notebook '" + notebook.getName() + "' already exits");
 
         notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initDatabase() {
-        notebooksTbl.cache();
-        notebooksIdx.cache();
     }
 
     /**
@@ -110,7 +108,7 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      *
      * @param accId Account ID.
      */
-    public void deleteByAccount(UUID accId) {
+    public void deleteAll(UUID accId) {
         try(Transaction tx = txStart()) {
             TreeSet<UUID> ids = notebooksIdx.delete(accId);
 

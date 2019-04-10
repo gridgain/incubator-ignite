@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.routes;
+package org.apache.ignite.console.web.controller;
 
 import org.apache.ignite.Ignite;
 
 /**
  * Router to handle REST API for configurations.
  */
-public class ConfigurationsRouter extends AbstractRouter {
+public class ConfigurationsController {
     /** */
     private static final String E_FAILED_TO_LOAD_CONFIGURATION = "Failed to load configuration";
 
@@ -59,8 +59,8 @@ public class ConfigurationsRouter extends AbstractRouter {
     /**
      * @param ignite Ignite.
      */
-    public ConfigurationsRouter(Ignite ignite) {
-        super(ignite);
+    public ConfigurationsController(Ignite ignite) {
+
     }
 
 //    /** {@inheritDoc} */

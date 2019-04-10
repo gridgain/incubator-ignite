@@ -20,7 +20,7 @@ export type CacheModes = 'PARTITIONED' | 'REPLICATED' | 'LOCAL';
 export type AtomicityModes = 'ATOMIC' | 'TRANSACTIONAL' | 'TRANSACTIONAL_SNAPSHOT';
 
 export interface ShortCache {
-    _id: string,
+    id: string,
     cacheMode: CacheModes,
     atomicityMode: AtomicityModes,
     backups: number,
@@ -31,7 +31,7 @@ export interface ShortCache {
 type DefaultModes = 'PRIMARY' | 'PROXY' | 'DUAL_SYNC' | 'DUAL_ASYNC';
 
 export interface ShortIGFS {
-    _id: string,
+    id: string,
     name: string,
     defaultMode: DefaultModes,
     affinityGroupSize: number
@@ -62,19 +62,19 @@ export interface Alias {
 }
 export type IndexTypes = 'SORTED' | 'FULLTEXT' | 'GEOSPATIAL';
 export interface IndexField {
-    _id: string,
+    id: string,
     name?: string,
     direction?: boolean
 }
 export interface Index {
-    _id: string,
+    id: string,
     name: string,
     indexType: IndexTypes,
     fields: Array<IndexField>
 }
 
 export interface DomainModel {
-    _id: string,
+    id: string,
     space?: string,
     clusters?: Array<string>,
     caches?: Array<string>,
@@ -97,7 +97,7 @@ export interface DomainModel {
 }
 
 export interface ShortDomainModel {
-    _id: string,
+    id: string,
     keyType: string,
     valueType: string,
     hasIndex: boolean
@@ -122,14 +122,14 @@ export type LoadBalancingKinds = 'RoundRobin'
 export type FailoverSPIs = 'JobStealing' | 'Never' | 'Always' | 'Custom';
 
 export interface Cluster {
-    _id: string,
+    id: string,
     name: string,
     // TODO: cover with types
     [key: string]: any
 }
 
 export interface ShortCluster {
-    _id: string,
+    id: string,
     name: string,
     discovery: DiscoveryKinds,
     caches: number,

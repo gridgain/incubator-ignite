@@ -34,16 +34,17 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.session.ExpiringSession;
+import org.springframework.session.MapSession;
 import org.springframework.session.SessionRepository;
 import org.springframework.session.config.annotation.web.http.EnableSpringHttpSession;
+
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 
 /**
  * Security settings provider.
@@ -52,9 +53,6 @@ import org.springframework.session.config.annotation.web.http.EnableSpringHttpSe
 @EnableWebSecurity
 @EnableSpringHttpSession
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
-    /** Agents route. */
-    private static final String AGENT_ROUTE = "/agents";
-
     /** Sign in route. */
     private static final String SIGN_IN_ROUTE = "/api/v1/signin";
 
@@ -65,7 +63,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private static final String LOGOUT_ROUTE = "/api/v1/logout";
 
     /** Public routes. */
-    private static final String[] PUBLIC_ROUTES = new String[]{AGENT_ROUTE, SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE};
+    private static final String[] PUBLIC_ROUTES = new String[]{AGENTS_PATH, SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE};
 
     /** */
     private final AccountsService accountsSrvc;
@@ -131,7 +129,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
      */
     @Bean
     public SessionRepository<ExpiringSession> sessionRepository(@Autowired Ignite ignite) {
-        CacheConfiguration cfg = new CacheConfiguration()
+        CacheConfiguration<String, MapSession> cfg = new CacheConfiguration<String, MapSession>()
             .setName("sessions")
             .setCacheMode(CacheMode.REPLICATED);
 

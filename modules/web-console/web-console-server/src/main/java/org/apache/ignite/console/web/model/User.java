@@ -56,6 +56,9 @@ public class User {
     /** Agent token. */
     private String tok;
 
+    /** Agent token. */
+    private boolean admin;
+
     /**
      * Default constructor for serialization.
      */
@@ -72,9 +75,19 @@ public class User {
      * @param phone Phone.
      * @param company Company.
      * @param country Country.
-     * @param tok Agent token..
+     * @param tok Agent token.
+     * @param admin Admin flag.
      */
-    public User(String email, String firstName, String lastName, String phone, String company, String country, String tok) {
+    public User(
+        String email,
+        String firstName,
+        String lastName,
+        String phone,
+        String company,
+        String country,
+        String tok,
+        boolean admin
+    ) {
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -82,6 +95,7 @@ public class User {
         this.company = company;
         this.country = country;
         this.tok = tok;
+        this.admin = admin;
     }
 
     /**
@@ -180,6 +194,20 @@ public class User {
      */
     public void setToken(String tok) {
         this.tok = tok;
+    }
+
+    /**
+     * @return Admin flag.
+     */
+    public boolean isAdmin() {
+        return admin;
+    }
+
+    /**
+     * @param admin Admin flag.
+     */
+    public void setAdmin(boolean admin) {
+        this.admin = admin;
     }
 
     /** {@inheritDoc} */

@@ -44,12 +44,13 @@ import org.slf4j.LoggerFactory;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
 import static org.apache.ignite.console.util.JsonUtils.fromJson;
-import static org.apache.ignite.console.websocket.WebSocketEvents.AGENT_INFO;
-import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_REST;
-import static org.apache.ignite.console.websocket.WebSocketEvents.NODE_VISOR;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_DRIVERS;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_METADATA;
-import static org.apache.ignite.console.websocket.WebSocketEvents.SCHEMA_IMPORT_SCHEMAS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_REST;
+import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_VISOR;
+import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_DRIVERS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_METADATA;
+import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * Router that listen for web socket and redirect messages to event bus.
@@ -167,7 +168,7 @@ public class WebSocketRouter implements AutoCloseable {
     private void reconnect() {
         try {
             client.start();
-            client.connect(this, new URI(cfg.serverUri() + "/agents"));
+            client.connect(this, new URI(cfg.serverUri() + AGENTS_PATH));
 
             reconnectCnt = 0;
         }

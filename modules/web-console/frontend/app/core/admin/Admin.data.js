@@ -21,7 +21,7 @@ export default class IgniteAdminData {
     static $inject = ['$http', 'IgniteMessages', 'IgniteCountries'];
 
     /**
-     * @param {ng.IHttpService} $http     
+     * @param {ng.IHttpService} $http
      * @param {ReturnType<typeof import('app/services/Messages.service').default>} Messages
      * @param {ReturnType<typeof import('app/services/Countries.service').default>} Countries
      */
@@ -32,21 +32,21 @@ export default class IgniteAdminData {
     }
 
     /**
-     * @param {string} viewedUserId
+     * @param user User to become.
      */
-    becomeUser(viewedUserId) {
-        return this.$http.get(`/api/v1/admin/become/${viewedUserId}`)
+    becomeUser(user) {
+        return this.$http
+            .post('/api/v1/admin/become', {id: user.id})
             .catch(this.Messages.showError);
     }
 
     /**
-     * @param {import('app/modules/user/User.service').User} user
+     * @param user User to remove.
      */
     removeUser(user) {
-        return this.$http.delete(`/api/v1/admin/account/${user._id}`)
-            .then(() => {
-                this.Messages.showInfo(`User has been removed: "${user.userName}"`);
-            })
+        return this.$http
+            .post('/api/v1/admin/remove', {id: user.id})
+            .then(() => this.Messages.showInfo(`User has been removed: "${user.userName}"`))
             .catch(({data, status}) => {
                 if (status === 503)
                     this.Messages.showInfo(data);
@@ -56,19 +56,13 @@ export default class IgniteAdminData {
     }
 
     /**
-     * @param {import('app/modules/user/User.service').User} user
+     * @param user User to toggle admin role.
      */
     toggleAdmin(user) {
         const admin = !user.admin;
 
-        return this.$http({
-            method: 'PATCH',
-            url: `/api/v1/admin/account/${user._id}`,
-            headers: {
-                'Content-Type': 'application/merge-patch+json'
-            },
-            data: {admin}
-        })
+        return this.$http
+            .post('/api/v1/admin/toggle', {id: user.id, admin})
             .then(() => {
                 user.admin = admin;
 
@@ -78,6 +72,7 @@ export default class IgniteAdminData {
                 this.Messages.showError(`Failed to ${admin ? 'grant' : 'revoke'} admin rights for user: "${user.userName}"`, res);
             });
     }
+
 
     /**
      * @param {import('app/modules/user/User.service').User} user
@@ -93,8 +88,14 @@ export default class IgniteAdminData {
         return user;
     }
 
+    /**
+     * Load users.
+     *
+     * @param params Dates range.
+     * @return {*}
+     */
     loadUsers(params) {
-        return this.$http.get('/api/v1/admin/account', params)
+        return this.$http.post('/api/v1/admin/list', params)
             .then(({ data }) => data)
             .then((users) => _.map(users, this.prepareUsers.bind(this)))
             .catch(this.Messages.showError);

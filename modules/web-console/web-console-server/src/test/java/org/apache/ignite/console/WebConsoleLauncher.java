@@ -38,11 +38,9 @@ public class WebConsoleLauncher {
      * @param args Arguments.
      */
     public static void main(String... args) {
-        String workDir = Paths.get(U.getIgniteHome(), "work-web-console").toString();
-
         System.out.println("Starting persistence node for Ignite Web Console Server...");
 
-        System.setProperty("IGNITE_LOG_DIR", Paths.get(workDir, "log").toString());
+        String workDir = Paths.get(U.getIgniteHome(), "work-web-console").toString();
 
         IgniteConfiguration cfg = new IgniteConfiguration()
             .setIgniteInstanceName("Web Console backend")

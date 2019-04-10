@@ -18,12 +18,11 @@
 package org.apache.ignite.console.services;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.console.json.JsonArray;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.util.JsonObject;
 
 /**
  * Service to handle requests to Visor tasks.
@@ -34,13 +33,6 @@ public class AgentService extends AbstractService {
 
     /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
-
-    /**
-     * @param ignite Ignite.
-     */
-    public AgentService(Ignite ignite) {
-        super(ignite);
-    }
 
     /**
      * @param taskId Task ID.
@@ -93,12 +85,12 @@ public class AgentService extends AbstractService {
      * @param args Task arguments.
      * @return JSON object with VisorGatewayTask REST descriptor.
      */
-    protected JsonObject prepareNodeVisorParams(VisorTaskDescriptor desc, String nids, JsonArray args) {
+    protected JsonObject prepareNodeVisorParams(VisorTaskDescriptor desc, String nids, List<Object> args) {
         JsonObject exeParams =  new JsonObject()
-            .put("cmd", "exe")
-            .put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
-            .put("p1", nids)
-            .put("p2", desc.getTaskClass());
+            .add("cmd", "exe")
+            .add("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
+            .add("p1", nids)
+            .add("p2", desc.getTaskClass());
 
         AtomicInteger idx = new AtomicInteger(3);
 

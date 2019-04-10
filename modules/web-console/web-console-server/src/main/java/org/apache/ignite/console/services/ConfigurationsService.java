@@ -18,56 +18,32 @@
 package org.apache.ignite.console.services;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.console.json.JsonArray;
-import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.ConfigurationsRepository;
+import org.apache.ignite.console.util.JsonObject;
+import org.springframework.stereotype.Service;
 
 import static org.apache.ignite.console.common.Utils.idsFromJson;
-import static org.apache.ignite.console.common.Utils.uuidParam;
 
 /**
- * Service to handle notebooks.
+ * Service to handle configurations.
  */
+@Service
 public class ConfigurationsService extends AbstractService {
     /** Repository to work with configurations. */
     private final ConfigurationsRepository cfgsRepo;
 
     /**
-     * @param ignite Ignite.
+     * @param cfgsRepo Configurations repository.
      */
-    public ConfigurationsService(Ignite ignite) {
-        super(ignite);
-        
-        this.cfgsRepo = new ConfigurationsRepository(ignite);
+    public ConfigurationsService(ConfigurationsRepository cfgsRepo) {
+        this.cfgsRepo = cfgsRepo;
     }
-
-//    /** {@inheritDoc} */
-//    @Override public ConfigurationsService install() {
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD, this::loadConfiguration);
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, this::loadClusters);
-//
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_CLUSTER, this::loadCluster);
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_CACHE, this::loadCache);
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_MODEL, this::loadModel);
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_IGFS, this::loadIgfs);
-//
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_CACHES, this::loadShortCaches);
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_MODELS, this::loadShortModels);
-//        addConsumer(vertx, Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, this::loadShortIgfss);
-//
-//        addConsumer(vertx, Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, this::saveAdvancedCluster);
-//        addConsumer(vertx, Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, this::saveBasicCluster);
-//        addConsumer(vertx, Addresses.CONFIGURATION_DELETE_CLUSTER, this::deleteClusters);
-//
-//        return this;
-//    }
 
     /**
      * Delete all notebook for specified account.
@@ -83,7 +59,7 @@ public class ConfigurationsService extends AbstractService {
      * @return Configuration.
      */
     private JsonObject loadConfiguration(JsonObject params) {
-        UUID clusterId = uuidParam(params, "clusterId");
+        UUID clusterId = params.getUuid("clusterId");
 
         return cfgsRepo.loadConfiguration(clusterId);
     }
@@ -92,7 +68,7 @@ public class ConfigurationsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return List of user clusters.
      */
-    private JsonArray loadClusters(JsonObject params) {
+    private List<Object> loadClusters(JsonObject params) {
         UUID userId = getUserId(params);
 
         return cfgsRepo.loadClusters(userId);
@@ -103,9 +79,9 @@ public class ConfigurationsService extends AbstractService {
      * @return Cluster.
      */
     private JsonObject loadCluster(JsonObject params) {
-        UUID clusterId = uuidParam(params, "clusterId");
+        UUID clusterId = params.getUuid("clusterId");
 
-        return new JsonObject(cfgsRepo.loadCluster(clusterId).json());
+        return new JsonObject(); // cfgsRepo.loadCluster(clusterId).json());
     }
 
     /**
@@ -113,9 +89,9 @@ public class ConfigurationsService extends AbstractService {
      * @return Cache.
      */
     private JsonObject loadCache(JsonObject params) {
-        UUID cacheId = uuidParam(params, "cacheId");
+        UUID cacheId = params.getUuid("cacheId");
 
-        return new JsonObject(cfgsRepo.loadCluster(cacheId).json());
+        return new JsonObject(); // cfgsRepo.loadCluster(cacheId).json());
     }
 
     /**
@@ -123,9 +99,9 @@ public class ConfigurationsService extends AbstractService {
      * @return Model.
      */
     private JsonObject loadModel(JsonObject params) {
-        UUID mdlId = uuidParam(params, "modelId");
+        UUID mdlId = params.getUuid("modelId");
 
-        return new JsonObject(cfgsRepo.loadCluster(mdlId).json());
+        return new JsonObject(); // cfgsRepo.loadCluster(mdlId).json());
     }
 
     /**
@@ -133,9 +109,9 @@ public class ConfigurationsService extends AbstractService {
      * @return IGFS.
      */
     private JsonObject loadIgfs(JsonObject params) {
-        UUID igfsId = uuidParam(params, "igfsId");
+        UUID igfsId = params.getUuid("igfsId");
 
-        return new JsonObject(cfgsRepo.loadCluster(igfsId).json());
+        return new JsonObject(); // cfgsRepo.loadCluster(igfsId).json());
     }
 
     /**
@@ -144,16 +120,16 @@ public class ConfigurationsService extends AbstractService {
      * @param items List of DTOs to convert.
      * @return List of short objects.
      */
-    private JsonArray toShortList(Collection<? extends DataObject> items) {
-        return new JsonArray(items.stream().map(DataObject::shortView).collect(Collectors.toList()));
+    private List<Object> toShortList(Collection<? extends DataObject> items) {
+        return null; // new List<Object>(items.stream().map(DataObject::shortView).collect(Collectors.toList()));
     }
 
     /**
      * @param params Parameters in JSON format.
      * @return Collection of cluster caches.
      */
-    private JsonArray loadShortCaches(JsonObject params) {
-        UUID clusterId = uuidParam(params, "clusterId");
+    private List<Object> loadShortCaches(JsonObject params) {
+        UUID clusterId = params.getUuid("clusterId");
 
         return toShortList(cfgsRepo.loadCaches(clusterId));
     }
@@ -162,8 +138,8 @@ public class ConfigurationsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Collection of cluster models.
      */
-    private JsonArray loadShortModels(JsonObject params) {
-        UUID clusterId = uuidParam(params, "clusterId");
+    private List<Object> loadShortModels(JsonObject params) {
+        UUID clusterId = params.getUuid("clusterId");
 
         return toShortList(cfgsRepo.loadModels(clusterId));
     }
@@ -172,8 +148,8 @@ public class ConfigurationsService extends AbstractService {
      * @param params Parameters in JSON format.
      * @return Collection of cluster IGFSs.
      */
-    private JsonArray loadShortIgfss(JsonObject params) {
-        UUID clusterId = uuidParam(params, "clusterId");
+    private List<Object> loadShortIgfss(JsonObject params) {
+        UUID clusterId = params.getUuid("clusterId");
 
         return toShortList(cfgsRepo.loadIgfss(clusterId));
     }

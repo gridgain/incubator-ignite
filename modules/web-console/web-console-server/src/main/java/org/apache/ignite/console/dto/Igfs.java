@@ -18,7 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.util.JsonObject;
 import org.apache.ignite.igfs.IgfsMode;
 
 import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
@@ -41,17 +41,18 @@ public class Igfs extends DataObject {
      * @return New instance of IGFS DTO.
      */
     public static Igfs fromJson(JsonObject json) {
-        String id = json.getString("_id");
+        UUID id = json.getUuid("id");
 
         if (id == null)
             throw new IllegalStateException("IGFS ID not found");
 
         return new Igfs(
-            UUID.fromString(id),
+            id,
             json.getString("name"),
             IgfsMode.valueOf(json.getString("defaultMode", PRIMARY.name())),
             json.getInteger("affinityGroupSize", 512),
-            json.encode());
+            json.encode()
+        );
     }
 
     /**
@@ -95,9 +96,9 @@ public class Igfs extends DataObject {
     /** {@inheritDoc} */
     @Override public JsonObject shortView() {
         return new JsonObject()
-            .put("_id", _id())
-            .put("name", name)
-            .put("defaultMode", dfltMode)
-            .put("affinityGroupSize", affGrpSz);
+            .add("id", getId())
+            .add("name", name)
+            .add("defaultMode", dfltMode)
+            .add("affinityGroupSize", affGrpSz);
     }
 }

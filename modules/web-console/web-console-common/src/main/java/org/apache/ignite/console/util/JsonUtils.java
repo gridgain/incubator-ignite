@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
 
@@ -41,10 +42,14 @@ public class JsonUtils {
     /**
      * @param v Value to serialize.
      * @return JSON value.
-     * @throws IOException If failed.
      */
-    public static String toJson(Object v) throws IOException {
-        return MAPPER.writeValueAsString(v);
+    public static String toJson(Object v) {
+        try {
+            return MAPPER.writeValueAsString(v);
+        }
+        catch (Throwable e) {
+            throw new IllegalStateException("Failed to encode as JSON: " + v, e);
+        }
     }
 
     /**
@@ -58,6 +63,16 @@ public class JsonUtils {
     }
 
     /**
+     * @param json JSON.
+     * @param cls Object class.
+     * @return Deserialized object.
+     * @throws IOException If deserialization failed.
+     */
+    public static <T> T fromJson(byte[] json, Class<T> cls) throws IOException {
+        return MAPPER.readValue(json, cls);
+    }
+
+    /**
      * @param src source of JSON.
      * @param cls Object class.
      * @return Deserialized object.
@@ -65,6 +80,16 @@ public class JsonUtils {
      */
     public static <T> T fromJson(Reader src, Class<T> cls) throws IOException {
         return MAPPER.readValue(src, cls);
+    }
+
+    /**
+     * @param json JSON.
+     * @param typeRef Type descriptor.
+     * @return Deserialized object.
+     * @throws IOException If deserialization failed.
+     */
+    public static <T> T fromJson(String json, TypeReference<T> typeRef) throws IOException {
+        return MAPPER.readValue(json, typeRef);
     }
 
     /**

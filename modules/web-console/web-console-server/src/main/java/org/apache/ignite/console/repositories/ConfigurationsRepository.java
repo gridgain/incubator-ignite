@@ -17,8 +17,10 @@
 
 package org.apache.ignite.console.repositories;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -30,18 +32,19 @@ import org.apache.ignite.console.dto.Cluster;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Igfs;
 import org.apache.ignite.console.dto.Model;
-import org.apache.ignite.console.json.JsonArray;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.tx.TransactionManager;
+import org.apache.ignite.console.util.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
+import org.springframework.stereotype.Repository;
 
 import static org.apache.ignite.console.common.Utils.diff;
 import static org.apache.ignite.console.common.Utils.idsFromJson;
-import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
  * Repository to work with configurations.
  */
+@Repository
 public class ConfigurationsRepository extends AbstractRepository {
     /** */
     private final Table<Cluster> clustersTbl;
@@ -69,9 +72,10 @@ public class ConfigurationsRepository extends AbstractRepository {
 
     /**
      * @param ignite Ignite.
+     * @param txMgr Transactions manager.
      */
-    public ConfigurationsRepository(Ignite ignite) {
-        super(ignite);
+    public ConfigurationsRepository(Ignite ignite, TransactionManager txMgr) {
+        super(ignite, txMgr);
 
         clustersTbl = new Table<Cluster>(ignite, "wc_account_clusters")
             .addUniqueIndex(Cluster::name, (cluster) -> "Cluster '" + cluster + "' already exits");
@@ -84,19 +88,6 @@ public class ConfigurationsRepository extends AbstractRepository {
         cachesIdx = new OneToManyIndex(ignite, "wc_cluster_caches_idx");
         modelsIdx = new OneToManyIndex(ignite, "wc_cluster_models_idx");
         igfssIdx = new OneToManyIndex(ignite, "wc_cluster_igfss_idx");
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initDatabase() {
-        clustersTbl.cache();
-        cachesTbl.cache();
-        modelsTbl.cache();
-        igfssTbl.cache();
-
-        clustersIdx.cache();
-        cachesIdx.cache();
-        modelsIdx.cache();
-        igfssIdx.cache();
     }
 
     /**
@@ -114,11 +105,11 @@ public class ConfigurationsRepository extends AbstractRepository {
             Collection<Model> models = modelsTbl.loadAll(modelsIdx.load(clusterId));
             Collection<Igfs> igfss = igfssTbl.loadAll(igfssIdx.load(clusterId));
 
-            return new JsonObject()
-                .put("cluster", new JsonObject(cluster.json()))
-                .put("caches", toJsonArray(caches))
-                .put("models", toJsonArray(models))
-                .put("igfss", toJsonArray(igfss));
+            return new JsonObject();
+//                .add("cluster", new JsonObject(cluster.json()))
+//                .add("caches", toJsonArray(caches))
+//                .add("models", toJsonArray(models))
+//                .add("igfss", toJsonArray(igfss));
         }
     }
 
@@ -134,25 +125,25 @@ public class ConfigurationsRepository extends AbstractRepository {
         int igfsCnt = igfssIdx.load(clusterId).size();
 
         return new JsonObject()
-            .put("_id", cluster._id())
-            .put("name", cluster.name())
-            .put("discovery", cluster.discovery())
-            .put("cachesCount", cachesCnt)
-            .put("modelsCount", modelsCnt)
-            .put("igfsCount", igfsCnt);
+            .add("id", cluster.getId())
+            .add("name", cluster.name())
+            .add("discovery", cluster.discovery())
+            .add("cachesCount", cachesCnt)
+            .add("modelsCount", modelsCnt)
+            .add("igfsCount", igfsCnt);
     }
 
     /**
      * @param userId User ID.
      * @return List of user clusters.
      */
-    public JsonArray loadClusters(UUID userId) {
+    public List<Object> loadClusters(UUID userId) {
         try (Transaction ignored = txStart()) {
             TreeSet<UUID> clusterIds = clustersIdx.load(userId);
 
             Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
 
-            JsonArray shortList = new JsonArray();
+            List<Object> shortList = new ArrayList<>();
 
             clusters.forEach(cluster -> shortList.add(shortCluster(cluster)));
 
@@ -265,16 +256,16 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @return Saved cluster.
      */
     private Cluster saveCluster(UUID userId, JsonObject json) {
-        JsonObject jsonCluster = json.getJsonObject("cluster");
+        JsonObject jsonCluster = new JsonObject(); // json.getJsonObject("cluster");
 
-        Cluster newCluster = Cluster.fromJson(jsonCluster);
+        Cluster newCluster = null; // Cluster.fromJson(jsonCluster);
 
         UUID clusterId = newCluster.getId();
 
         Cluster oldCluster = clustersTbl.load(clusterId);
 
         if (oldCluster != null) {
-            JsonObject oldClusterJson = new JsonObject(oldCluster.json());
+            JsonObject oldClusterJson = new JsonObject(); // oldCluster.json());
 
             removedInCluster(cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
             removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
@@ -294,7 +285,7 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param basic {@code true} in case of saving basic cluster.
      */
     private void saveCaches(Cluster cluster, JsonObject json, boolean basic) {
-        JsonArray jsonCaches = json.getJsonArray("caches");
+        List<Object> jsonCaches = new ArrayList<>(); // json.getJsonArray("caches");
 
         if (F.isEmpty(jsonCaches))
             return;
@@ -304,7 +295,7 @@ public class ConfigurationsRepository extends AbstractRepository {
         Map<UUID, Cache> caches = new HashMap<>(sz);
 
         for (int i = 0; i < sz; i++) {
-            Cache cache = Cache.fromJson(jsonCaches.getJsonObject(i));
+            Cache cache = null; // Cache.fromJson(jsonCaches.getJsonObject(i));
 
             caches.put(cache.getId(), cache);
         }
@@ -316,10 +307,10 @@ public class ConfigurationsRepository extends AbstractRepository {
                 Cache newCache = caches.get(oldCache.getId());
 
                 if (newCache != null) {
-                    JsonObject oldJson = new JsonObject(oldCache.json());
-                    JsonObject newJson = new JsonObject(newCache.json());
+                    JsonObject oldJson = new JsonObject(); // oldCache.json());
+                    JsonObject newJson = new JsonObject(); // newCache.json());
 
-                    newCache.json(oldJson.mergeIn(newJson).encode());
+                    // newCache.json(oldJson.mergeIn(newJson).encode());
                 }
             });
         }
@@ -334,7 +325,7 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param json JSON data.
      */
     private void saveModels(Cluster cluster, JsonObject json) {
-        JsonArray jsonModels = json.getJsonArray("models");
+        List<Object> jsonModels = new ArrayList<>(); // json.getJsonArray("models");
 
         if (F.isEmpty(jsonModels))
             return;
@@ -344,7 +335,7 @@ public class ConfigurationsRepository extends AbstractRepository {
         Map<UUID, Model> mdls = new HashMap<>(sz);
 
         for (int i = 0; i < sz; i++) {
-            Model mdl = Model.fromJson(jsonModels.getJsonObject(i));
+            Model mdl = null; // Model.fromJson(jsonModels.getJsonObject(i));
 
             mdls.put(mdl.getId(), mdl);
         }
@@ -359,7 +350,7 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param json JSON data.
      */
     private void saveIgfss(Cluster cluster, JsonObject json) {
-        JsonArray jsonIgfss = json.getJsonArray("igfss");
+        List<Object> jsonIgfss = new ArrayList<>(); // json.getJsonArray("igfss");
 
         if (F.isEmpty(jsonIgfss))
             return;
@@ -368,11 +359,11 @@ public class ConfigurationsRepository extends AbstractRepository {
 
         Map<UUID, Igfs> igfss = new HashMap<>(sz);
 
-        for (int i = 0; i < sz; i++) {
-            Igfs igfs = Igfs.fromJson(jsonIgfss.getJsonObject(i));
-
-            igfss.put(igfs.getId(), igfs);
-        }
+//        for (int i = 0; i < sz; i++) {
+//            Igfs igfs = Igfs.fromJson(jsonIgfss.getJsonObject(i));
+//
+//            igfss.put(igfs.getId(), igfs);
+//        }
 
         igfssIdx.addAll(cluster.getId(), igfss.keySet());
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.routes;
+package org.apache.ignite.console.web.controller;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
@@ -31,7 +31,7 @@ import org.apache.ignite.console.config.WebConsoleConfiguration;
 /**
  * Router to handle REST API to download Web Agent.
  */
-public class AgentDownloadRouter extends AbstractRouter {
+public class AgentDownloadController {
     /** Buffer size of 30Mb to handle Web Agent ZIP file manipulations. */
     private static final int BUFFER_SZ = 30 * 1024 * 1024;
 
@@ -45,19 +45,15 @@ public class AgentDownloadRouter extends AbstractRouter {
      * @param ignite Ignite.
      * @param cfg Web Console configuration.
      */
-    public AgentDownloadRouter(Ignite ignite, WebConsoleConfiguration cfg) {
-        super(ignite);
-
+    public AgentDownloadController(Ignite ignite, WebConsoleConfiguration cfg) {
         this.agentFileName = cfg.getAgentFileName();
 
         pathToAgentZip = Paths.get(cfg.getAgentFolderName(), agentFileName + ".zip");
     }
 
-//    /** {@inheritDoc} */
-//    @Override public void install(Router router) {
-//        authenticatedRoute(router, GET, "/api/v1/downloads/agent", this::load);
-//    }
-
+    /**
+     * TODO IGNITE-5617 GET, "/api/v1/downloads/agent"
+     */
     private void load() {
         // User user = getContextAccount(ctx);
 

@@ -18,71 +18,12 @@
 package org.apache.ignite.console.services;
 
 import java.util.UUID;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.console.json.JsonObject;
-import org.apache.ignite.internal.util.typedef.F;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.console.util.JsonObject;
 
 /**
  * Base class for routers.
  */
-public abstract class AbstractService implements AutoCloseable {
-    /** */
-    protected final Ignite ignite;
-
-//    /** */
-//    private final Set<MessageConsumer<?>> consumers = new HashSet<>();
-
-    /**
-     * @param ignite Ignite.
-     */
-    protected AbstractService(Ignite ignite) {
-        this.ignite = ignite;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() {
-//        consumers.forEach(MessageConsumer::unregister);
-
-        ignite.log().info("Service stopped: " + getClass().getSimpleName());
-    }
-
-//    /**
-//     * @param addr Address.
-//     * @param supplier Data supplier.
-//     */
-//    protected <T, R> MessageConsumer<T> addConsumer(Vertx vertx, String addr, Function<T, R> supplier) {
-//        MessageConsumer<T> consumer = vertx
-//            .eventBus()
-//            .consumer(addr, (Message<T> msg) -> {
-//                T params = msg.body();
-//
-//                ignite.log().info("Received message [from=" + msg.address() + ", params=" + params + "]");
-//
-//                vertx.executeBlocking(
-//                    fut -> {
-//                        try {
-//                            fut.complete(supplier.apply(params));
-//                        }
-//                        catch (Throwable e) {
-//                            fut.fail(e);
-//                        }
-//                    },
-//                    asyncRes -> {
-//                        if (asyncRes.succeeded())
-//                            msg.reply(asyncRes.result());
-//                        else
-//                            msg.fail(HTTP_INTERNAL_ERROR, errorMessage(asyncRes.cause()));
-//                    }
-//                );
-//
-//            });
-//
-//        consumers.add(consumer);
-//
-//        return consumer;
-//    }
-
+public abstract class AbstractService {
     /**
      *
      * @param params Params in JSON format.
@@ -91,22 +32,13 @@ public abstract class AbstractService implements AutoCloseable {
      * @throws IllegalStateException If property not found.
      */
     protected JsonObject getProperty(JsonObject params, String key) {
-        JsonObject prop = params.getJsonObject(key);
-
-        if (prop == null)
-            throw new IllegalStateException("Message does not contain property: " + key);
-
-        return prop;
-    }
-
-    /**
-     * @param json JSON object.
-     * @return ID or {@code null} if object has no ID.
-     */
-    @Nullable protected UUID getId(JsonObject json) {
-        String s = json.getString("_id");
-
-        return F.isEmpty(s) ? null : UUID.fromString(s);
+//        JsonObject prop = params.getJsonObject(key);
+//
+//        if (prop == null)
+//            throw new IllegalStateException("Property not found: " + key);
+//
+//        return prop;
+        throw new IllegalStateException("Not implemented yet");
     }
 
     /**
@@ -117,7 +49,7 @@ public abstract class AbstractService implements AutoCloseable {
     protected UUID getUserId(JsonObject params) {
         JsonObject user = getProperty(params, "user");
 
-        UUID userId = getId(user);
+        UUID userId = user.getUuid("id");
 
         if (userId == null)
             throw new IllegalStateException("User ID not found");
@@ -131,6 +63,6 @@ public abstract class AbstractService implements AutoCloseable {
      */
     protected JsonObject rowsAffected(int rows) {
         return new JsonObject()
-            .put("rowsAffected", rows);
+            .add("rowsAffected", rows);
     }
 }

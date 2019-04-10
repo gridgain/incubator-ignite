@@ -19,21 +19,22 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.json.JsonArray;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.tx.TransactionManager;
+import org.apache.ignite.console.util.JsonArray;
+import org.apache.ignite.console.util.JsonObject;
 import org.apache.ignite.transactions.Transaction;
-
-import static org.apache.ignite.console.common.Utils.boolParam;
-import static org.apache.ignite.console.common.Utils.uuidParam;
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * Service to handle administrator actions.
  */
+@Service
 public class AdminService extends AbstractService {
+    /** */
+    private final TransactionManager txMgr;
+
     /** */
     private final AccountsService accountsSvc;
 
@@ -44,50 +45,49 @@ public class AdminService extends AbstractService {
     private final NotebooksService notebooksSvc;
 
     /**
-     * @param ignite Ignite.
+     * @param txMgr Transactions manager.
      * @param accountsSvc Service to work with accounts.
      * @param cfgsSvc Service to work with configurations.
      * @param notebooksSvc Service to work with notebooks.
      */
+    @Autowired
     public AdminService(
-        Ignite ignite,
+        TransactionManager txMgr,
         AccountsService accountsSvc,
         ConfigurationsService cfgsSvc,
         NotebooksService notebooksSvc
     ) {
-        super(ignite);
-
+        this.txMgr = txMgr;
         this.accountsSvc = accountsSvc;
         this.cfgsSvc = cfgsSvc;
         this.notebooksSvc = notebooksSvc;
     }
 
     /**
-     * @param params Parameters in JSON format.
+     * @return List of all users.
      */
-    @SuppressWarnings("unused")
-    private JsonArray list(JsonObject params) {
+    public JsonArray list() {
         List<Account> accounts = accountsSvc.list();
 
         JsonArray res = new JsonArray();
 
         accounts.forEach(account ->
             res.add(new JsonObject()
-                .put("_id", account._id())
-                .put("firstName", account.firstName())
-                .put("lastName", account.lastName())
-                .put("admin", account.admin())
-                .put("email", account.getUsername())
-                .put("company", account.company())
-                .put("country", account.country())
-                .put("lastLogin", account.lastLogin())
-                .put("lastActivity", account.lastActivity())
-                .put("activated", account.activated())
-                .put("counters", new JsonObject()
-                    .put("clusters", 0)
-                    .put("caches", 0)
-                    .put("models", 0)
-                    .put("igfs", 0))
+                .add("id", account.getId())
+                .add("firstName", account.firstName())
+                .add("lastName", account.lastName())
+                .add("admin", account.admin())
+                .add("email", account.getUsername())
+                .add("company", account.company())
+                .add("country", account.country())
+                .add("lastLogin", account.lastLogin())
+                .add("lastActivity", account.lastActivity())
+                .add("activated", account.activated())
+                .add("counters", new JsonObject()
+                    .add("clusters", 0)
+                    .add("caches", 0)
+                    .add("models", 0)
+                    .add("igfs", 0))
             )
         );
 
@@ -97,19 +97,16 @@ public class AdminService extends AbstractService {
     /**
      * Remove account.
      *
-     * @param accId Account Id.
+     * @param userId User ID.
      * @return Affected rows JSON object.
      */
-    private JsonObject delete(String accId) {
+    public JsonObject remove(UUID userId) {
         int rows;
 
-        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-            UUID id = UUID.fromString(accId);
-
-            cfgsSvc.deleteByAccountId(id);
-            notebooksSvc.deleteByAccountId(id);
-
-            rows = accountsSvc.delete(id);
+        try (Transaction tx = txMgr.txStart()) {
+            cfgsSvc.deleteByAccountId(userId);
+            notebooksSvc.deleteAll(userId);
+            rows = accountsSvc.delete(userId);
 
             tx.commit();
         }
@@ -118,12 +115,20 @@ public class AdminService extends AbstractService {
     }
 
     /**
-     * @param params Parameters in JSON format.
+     * @param userId User ID.
+     * @param admin Admin flag.
      * @return Affected rows JSON object.
      */
-    private JsonObject toggle(JsonObject params) {
-        accountsSvc.updatePermission(uuidParam(params, "accountId"), boolParam(params, "admin", false));
+    public JsonObject toggle(UUID userId, boolean admin) {
+        accountsSvc.toggle(userId, admin);
 
         return rowsAffected(1);
+    }
+
+    /**
+     * @param userId User ID.
+     */
+    public void become(UUID userId) {
+        throw new UnsupportedOperationException("Not implemented yet!");
     }
 }

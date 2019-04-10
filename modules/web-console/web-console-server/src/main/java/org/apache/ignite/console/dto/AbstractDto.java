@@ -57,11 +57,4 @@ public abstract class AbstractDto {
     public void setId(UUID id) {
         this.id = id;
     }
-
-    /**
-     * @return String value of ID.
-     */
-    public String _id() {
-        return id.toString();
-    }
 }

@@ -37,7 +37,7 @@ export default class IGFSs {
 
     getBlankIGFS() {
         return {
-            _id: uuidv4(),
+            id: uuidv4(),
             ipcEndpointEnabled: true,
             fragmentizerEnabled: true,
             colocateMetadata: true,
@@ -84,7 +84,7 @@ export default class IGFSs {
         if (!_.get(igfs, 'secondaryFileSystem.userNameMapper.Chained.mappers'))
             _.set(igfs, 'secondaryFileSystem.userNameMapper.Chained.mappers', []);
 
-        const item = {_id: ObjectID.generate(), kind: 'Basic'};
+        const item = {id: ObjectID.generate(), kind: 'Basic'};
 
         _.get(igfs, 'secondaryFileSystem.userNameMapper.Chained.mappers').push(item);
 

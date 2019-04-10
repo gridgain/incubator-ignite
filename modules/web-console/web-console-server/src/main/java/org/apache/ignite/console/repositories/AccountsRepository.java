@@ -27,6 +27,7 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -45,18 +46,14 @@ public class AccountsRepository extends AbstractRepository {
 
     /**
      * @param ignite Ignite.
+     * @param txMgr Transactions manager.
      */
     @Autowired
-    public AccountsRepository(Ignite ignite) {
-        super(ignite);
+    public AccountsRepository(Ignite ignite, TransactionManager txMgr) {
+        super(ignite, txMgr);
 
         accountsTbl = new Table<Account>(ignite, "accounts")
             .addUniqueIndex(Account::getUsername, (acc) -> "Account with email '" + acc.getUsername() + "' already registered");
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void initDatabase() {
-        accountsTbl.cache();
     }
 
     /**
@@ -159,9 +156,7 @@ public class AccountsRepository extends AbstractRepository {
      * @return List of accounts.
      */
     public List<Account> list() {
-        IgniteCache<UUID, Account> cache = accountsTbl.cache();
-
-        return cache
+        return accountsTbl
             .query(new ScanQuery<UUID, Object>())
             .getAll()
             .stream()

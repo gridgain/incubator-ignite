@@ -19,7 +19,6 @@ import {uniqueName} from 'app/utils/uniqueName';
 import {of, empty, combineLatest, forkJoin, pipe} from 'rxjs';
 import {filter, pluck, map, switchMap, take, distinctUntilChanged, exhaustMap} from 'rxjs/operators';
 import {defaultNames} from '../defaultNames';
-import {DomainModel, ShortCluster} from '../types';
 
 import {default as Caches} from '../services/Caches';
 import {default as Clusters} from '../services/Clusters';
@@ -58,7 +57,7 @@ const currentShortItems = ({changesKey, shortKey}) => (state$) => {
             if (!ids.length || !shortItems)
                 return [];
 
-            return ids.map((id) => changedItems.find(({_id}) => _id === id) || shortItems.get(id));
+            return ids.map((item) => changedItems.find(({id}) => item === id) || shortItems.get(item));
         }),
         map((v) => v.filter((v) => v))
     );
@@ -200,7 +199,7 @@ export default class ConfigSelectors {
                     caches,
                     domains: models,
                     igfss,
-                    spaces: [{_id: cluster.space, demo: isDemo}],
+                    spaces: [{id: cluster.space, demo: isDemo}],
                     __isComplete: !!cluster && !(!hasValues(caches) || !hasValues(models) || !hasValues(igfss))
                 })));
             })

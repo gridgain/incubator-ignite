@@ -41,10 +41,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class AccountController {
     /** Authentication manager. */
-    private AuthenticationManager authMgr;
+    private final AuthenticationManager authMgr;
 
     /** Accounts service. */
-    private AccountsService accountsSrvc;
+    private final AccountsService accountsSrvc;
 
     /**
      * @param authMgr Authentication manager.
@@ -70,7 +70,8 @@ public class AccountController {
             acc.phone(),
             acc.company(),
             acc.country(),
-            acc.token()
+            acc.token(),
+            acc.admin()
         ));
     }
 

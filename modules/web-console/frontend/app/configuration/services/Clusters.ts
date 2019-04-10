@@ -25,7 +25,7 @@ import {DiscoveryKinds, ShortDomainModel, ShortCluster, FailoverSPIs, LoadBalanc
 import {Menu} from 'app/types';
 
 const uniqueNameValidator = (defaultName = '') => (a, items = []) => {
-    return a && !items.some((b) => b._id !== a._id && (a.name || defaultName) === (b.name || defaultName));
+    return a && !items.some((b) => b.id !== a.id && (a.name || defaultName) === (b.name || defaultName));
 };
 
 export default class Clusters {
@@ -107,7 +107,7 @@ export default class Clusters {
     }
 
     removeCluster(cluster) {
-        return this.$http.post('/api/v1/configuration/clusters/remove', {_id: cluster});
+        return this.$http.post('/api/v1/configuration/clusters/remove', {id: cluster});
     }
 
     saveBasic(changedItems) {
@@ -120,7 +120,7 @@ export default class Clusters {
 
     getBlankCluster() {
         return {
-            _id: uuidv4(),
+            id: uuidv4(),
             activeOnStart: true,
             cacheSanityCheckEnabled: true,
             atomicConfiguration: {},
@@ -200,7 +200,7 @@ export default class Clusters {
 
     toShortCluster(cluster) {
         return {
-            _id: cluster._id,
+            id: cluster.id,
             name: cluster.name,
             discovery: cluster.discovery.kind,
             cachesCount: (cluster.caches || []).length,
@@ -269,7 +269,7 @@ export default class Clusters {
     };
 
     makeBlankDataRegionConfiguration() {
-        return {_id: uuidv4()};
+        return {id: uuidv4()};
     }
 
     addDataRegionConfiguration(cluster) {
@@ -310,7 +310,7 @@ export default class Clusters {
             },
             uniqueMemoryPolicyName: (a, items = []) => {
                 const def = this.memoryPolicy.name.default;
-                return !items.some((b) => b._id !== a._id && (a.name || def) === (b.name || def));
+                return !items.some((b) => b.id !== a.id && (a.name || def) === (b.name || def));
             }
         },
         emptyPagesPoolSize: {
@@ -390,7 +390,7 @@ export default class Clusters {
     ];
 
     makeBlankMemoryPolicy() {
-        return {_id: uuidv4()};
+        return {id: uuidv4()};
     }
 
     addMemoryPolicy(cluster) {
@@ -472,7 +472,7 @@ export default class Clusters {
     };
 
     makeBlankServiceConfiguration() {
-        return {_id: uuidv4()};
+        return {id: uuidv4()};
     }
 
     addServiceConfiguration(cluster) {
@@ -511,7 +511,7 @@ export default class Clusters {
         if (!cluster.executorConfiguration)
             cluster.executorConfiguration = [];
 
-        const item = {_id: uuidv4(), name: ''};
+        const item = {id: uuidv4(), name: ''};
 
         cluster.executorConfiguration.push(item);
 
@@ -576,7 +576,7 @@ export default class Clusters {
         if (!cluster.binaryConfiguration.typeConfigurations)
             cluster.binaryConfiguration.typeConfigurations = [];
 
-        const item = {_id: uuidv4()};
+        const item = {id: uuidv4()};
 
         cluster.binaryConfiguration.typeConfigurations.push(item);
 
@@ -587,7 +587,7 @@ export default class Clusters {
         if (!cluster.localEventListeners)
             cluster.localEventListeners = [];
 
-        const item = {_id: uuidv4()};
+        const item = {id: uuidv4()};
 
         cluster.localEventListeners.push(item);
 

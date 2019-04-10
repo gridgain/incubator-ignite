@@ -20,7 +20,6 @@ package org.apache.ignite.console.agent.handlers;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,15 +28,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
+import org.apache.ignite.console.util.JsonObject;
 import org.apache.ignite.console.websocket.TopologySnapshot;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
-import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.lang.IgniteProductVersion;
@@ -45,9 +43,10 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static org.apache.ignite.console.util.JsonUtils.fromJson;
 import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
-import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_DISCONNECTED;
-import static org.apache.ignite.console.websocket.WebSocketEvents.CLUSTER_TOPOLOGY;
+import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_DISCONNECTED;
+import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
 import static org.apache.ignite.internal.processors.rest.client.message.GridClientResponse.STATUS_FAILED;
 
@@ -81,9 +80,6 @@ public class ClusterHandler {
 
     /** Topology refresh frequency. */
     private static final long REFRESH_FREQ = 3000L;
-
-    /** JSON object mapper. */
-    private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
 
     /** Latest topology snapshot. */
     private TopologySnapshot top;
@@ -141,7 +137,7 @@ public class ClusterHandler {
      * @return Command result.
      * @throws IOException If failed to execute.
      */
-    private RestResult restCommand(Map<String, Object> params) throws IOException {
+    private RestResult restCommand(JsonObject params) throws IOException {
         if (!F.isEmpty(sesTok))
             params.put("sessionToken", sesTok);
         else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
@@ -182,7 +178,7 @@ public class ClusterHandler {
         if (ver.compareTo(IGNITE_2_0) < 0)
             return true;
 
-        Map<String, Object> params = new LinkedHashMap<>();
+        JsonObject params = new JsonObject();
 
         boolean v23 = ver.compareTo(IGNITE_2_3) >= 0;
 
@@ -221,12 +217,11 @@ public class ClusterHandler {
      * @throws IOException If failed to collect cluster topology.
      */
     private RestResult topology() throws IOException {
-        Map<String, Object> params = new LinkedHashMap<>();
-
-        params.put("cmd", "top");
-        params.put("attr", true);
-        params.put("mtr", false);
-        params.put("caches", false);
+        JsonObject params = new JsonObject()
+            .add("cmd", "top")
+            .add("attr", true)
+            .add("mtr", false)
+            .add("caches", false);
 
         return restCommand(params);
     }
@@ -240,8 +235,10 @@ public class ClusterHandler {
                 RestResult res = topology();
 
                 if (res.getStatus() == STATUS_SUCCESS) {
-                    List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
-                        new TypeReference<List<GridClientNodeBean>>() {});
+                    List<GridClientNodeBean> nodes = fromJson(
+                        res.getData(),
+                        new TypeReference<List<GridClientNodeBean>>() {}
+                    );
 
                     TopologySnapshot newTop = new TopologySnapshot(nodes);
 
@@ -328,5 +325,4 @@ public class ClusterHandler {
             wss.fail(evt, errMsg, e);
         }
     }
-
 }

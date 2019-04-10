@@ -45,7 +45,7 @@ export default class Caches {
 
     getBlankCache() {
         return {
-            _id: uuidv4(),
+            id: uuidv4(),
             evictionPolicy: {},
             cacheMode: 'PARTITIONED',
             atomicityMode: 'ATOMIC',
@@ -69,7 +69,7 @@ export default class Caches {
 
     toShortCache(cache: any): ShortCache {
         return {
-            _id: cache._id,
+            id: cache.id,
             name: cache.name,
             backups: cache.backups,
             cacheMode: cache.cacheMode,

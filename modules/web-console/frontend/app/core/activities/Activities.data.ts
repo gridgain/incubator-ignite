@@ -23,7 +23,7 @@ interface IActivityDataResponse {
     date: string,
     group: string,
     owner: string,
-    _id: string
+    id: string
 }
 
 export default class ActivitiesData {

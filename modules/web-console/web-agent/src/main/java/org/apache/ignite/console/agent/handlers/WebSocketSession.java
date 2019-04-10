@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.console.util.JsonUtils.errorToJson;
 import static org.apache.ignite.console.util.JsonUtils.toJson;
-import static org.apache.ignite.console.websocket.WebSocketEvents.ERROR;
+import static org.apache.ignite.console.websocket.WebSocketConsts.ERROR;
 
 /**
  * Wrapper for websocket.

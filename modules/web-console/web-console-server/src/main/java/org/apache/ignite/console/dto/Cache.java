@@ -20,7 +20,7 @@ package org.apache.ignite.console.dto;
 import java.util.UUID;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.util.JsonObject;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -46,13 +46,13 @@ public class Cache extends DataObject {
      * @return New instance of cache DTO.
      */
     public static Cache fromJson(JsonObject json) {
-        String id = json.getString("_id");
+        UUID id = json.getUuid("id");
 
         if (id == null)
             throw new IllegalStateException("Cache ID not found");
 
         return new Cache(
-            UUID.fromString(id),
+            id,
             json.getString("name"),
             CacheMode.valueOf(json.getString("cacheMode", PARTITIONED.name())),
             CacheAtomicityMode.valueOf(json.getString("atomicityMode", ATOMIC.name())),
@@ -115,10 +115,10 @@ public class Cache extends DataObject {
     /** {@inheritDoc} */
     @Override public JsonObject shortView() {
         return new JsonObject()
-            .put("_id", _id())
-            .put("name", name)
-            .put("cacheMode", cacheMode)
-            .put("atomicityMode", atomicityMode)
-            .put("backups", backups);
+            .add("id", getId())
+            .add("name", name)
+            .add("cacheMode", cacheMode)
+            .add("atomicityMode", atomicityMode)
+            .add("backups", backups);
     }
 }

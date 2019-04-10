@@ -47,22 +47,18 @@ public class CacheHolder<K, V> {
     CacheHolder(Ignite ignite, String cacheName) {
         this.ignite = ignite;
         this.cacheName = cacheName;
+
+        CacheConfiguration<K, V> ccfg = new CacheConfiguration<K, V>(cacheName)
+            .setAtomicityMode(TRANSACTIONAL)
+            .setCacheMode(REPLICATED);
+
+        cache = ignite.getOrCreateCache(ccfg);
     }
 
     /**
-     * Prepare cache.
-     *
      * @return Underlying cache.
      */
-    public IgniteCache<K, V> cache() {
-        if (cache == null) {
-            CacheConfiguration<K, V> ccfg = new CacheConfiguration<K, V>(cacheName)
-                .setAtomicityMode(TRANSACTIONAL)
-                .setCacheMode(REPLICATED);
-
-            cache = ignite.getOrCreateCache(ccfg);
-        }
-
+    public IgniteCache cache() {
         return cache;
     }
 }

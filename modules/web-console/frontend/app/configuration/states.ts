@@ -33,7 +33,7 @@ const shortCachesResolve = ['ConfigSelectors', 'ConfigureState', 'ConfigEffects'
     return from($transition$.injector().getAsync('_cluster')).pipe(
         switchMap(() => ConfigureState.state$.pipe(ConfigSelectors.selectCluster($transition$.params().clusterID), take(1))),
         switchMap((cluster) => {
-            return etp('LOAD_SHORT_CACHES', {ids: cluster.caches, clusterID: cluster._id});
+            return etp('LOAD_SHORT_CACHES', {ids: cluster.caches, clusterID: cluster.id});
         })
     )
     .toPromise();
@@ -148,9 +148,9 @@ function registerStates($stateProvider) {
                     switchMap(() => ConfigureState.state$.pipe(ConfigSelectors.selectCluster($transition$.params().clusterID), take(1))),
                     map((cluster) => {
                         return Promise.all([
-                            etp('LOAD_SHORT_CACHES', {ids: cluster.caches, clusterID: cluster._id}),
-                            etp('LOAD_SHORT_MODELS', {ids: cluster.models, clusterID: cluster._id}),
-                            etp('LOAD_SHORT_IGFSS', {ids: cluster.igfss, clusterID: cluster._id})
+                            etp('LOAD_SHORT_CACHES', {ids: cluster.caches, clusterID: cluster.id}),
+                            etp('LOAD_SHORT_MODELS', {ids: cluster.models, clusterID: cluster.id}),
+                            etp('LOAD_SHORT_IGFSS', {ids: cluster.igfss, clusterID: cluster.id})
                         ]);
                     })
                 )
@@ -200,8 +200,8 @@ function registerStates($stateProvider) {
                     switchMap(() => ConfigureState.state$.pipe(ConfigSelectors.selectCluster($transition$.params().clusterID), take(1))),
                     map((cluster) => {
                         return Promise.all([
-                            etp('LOAD_SHORT_CACHES', {ids: cluster.caches, clusterID: cluster._id}),
-                            etp('LOAD_SHORT_MODELS', {ids: cluster.models, clusterID: cluster._id})
+                            etp('LOAD_SHORT_CACHES', {ids: cluster.caches, clusterID: cluster.id}),
+                            etp('LOAD_SHORT_MODELS', {ids: cluster.models, clusterID: cluster.id})
                         ]);
                     })
                 ).toPromise();
@@ -247,7 +247,7 @@ function registerStates($stateProvider) {
                     switchMap(() => ConfigureState.state$.pipe(ConfigSelectors.selectCluster($transition$.params().clusterID), take(1))),
                     map((cluster) => {
                         return Promise.all([
-                            etp('LOAD_SHORT_IGFSS', {ids: cluster.igfss, clusterID: cluster._id})
+                            etp('LOAD_SHORT_IGFSS', {ids: cluster.igfss, clusterID: cluster.id})
                         ]);
                     })
                 ).toPromise();

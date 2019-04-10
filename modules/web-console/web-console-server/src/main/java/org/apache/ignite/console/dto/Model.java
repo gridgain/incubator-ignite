@@ -18,7 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.util.JsonObject;
 
 /**
  * DTO for cluster model.
@@ -38,13 +38,13 @@ public class Model extends DataObject {
      * @return New instance of model DTO.
      */
     public static Model fromJson(JsonObject json) {
-        String id = json.getString("_id");
+        UUID id = json.getUuid("id");
 
         if (id == null)
             throw new IllegalStateException("Model ID not found");
 
         return new Model(
-            UUID.fromString(id),
+            id,
             false, // TODO IGNITE-5617 DETECT INDEXES !!!
             json.getString("keyType"),
             json.getString("valueType"),
@@ -93,9 +93,9 @@ public class Model extends DataObject {
     /** {@inheritDoc} */
     @Override public JsonObject shortView() {
         return new JsonObject()
-            .put("_id", _id())
-            .put("hasIndex", hasIdx)
-            .put("keyType", keyType)
-            .put("valueType", valType);
+            .add("id", getId())
+            .add("hasIndex", hasIdx)
+            .add("keyType", keyType)
+            .add("valueType", valType);
     }
 }

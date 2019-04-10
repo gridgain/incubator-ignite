@@ -19,10 +19,9 @@ package org.apache.ignite.console.services;
 
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.repositories.NotebooksRepository;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.repositories.NotebooksRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -33,17 +32,12 @@ public class NotebooksService extends AbstractService {
     /** Repository to work with notebooks. */
     private final NotebooksRepository notebooksRepo;
 
-    /** Accounts service. */
-    private AccountsService accountsSrvc;
-
     /**
-     * @param ignite Ignite.
+     * @param notebooksRepo Notebooks repository.
      */
-    public NotebooksService(Ignite ignite, AccountsService accountsSrvc) {
-        super(ignite);
-
-        this.notebooksRepo = new NotebooksRepository(ignite);
-        this.accountsSrvc = accountsSrvc;
+    @Autowired
+    public NotebooksService(NotebooksRepository notebooksRepo) {
+        this.notebooksRepo = notebooksRepo;
     }
 
     /**
@@ -51,37 +45,31 @@ public class NotebooksService extends AbstractService {
      *
      * @param accId Account ID.
      */
-    void deleteByAccountId(UUID accId) {
-        notebooksRepo.deleteByAccount(accId);
+    void deleteAll(UUID accId) {
+        notebooksRepo.deleteAll(accId);
     }
 
     /**
-     * @param email Account email.
+     * @param accId Account ID.
      * @return List of user notebooks.
      */
-    public Collection<Notebook> load(String email) {
-        Account acc = accountsSrvc.loadUserByUsername(email);
-
-        return notebooksRepo.list(acc.getId());
+    public Collection<Notebook> list(UUID accId) {
+        return notebooksRepo.list(accId);
     }
 
     /**
-     * @param email Account email.
+     * @param accId Account ID.
      * @param notebook Notebook.
      */
-    public void save(String email, Notebook notebook) {
-        Account acc = accountsSrvc.loadUserByUsername(email);
-
-        notebooksRepo.save(acc.getId(), notebook);
+    public void save(UUID accId, Notebook notebook) {
+        notebooksRepo.save(accId, notebook);
     }
 
     /**
-     * @param email Account email.
+     * @param accId Account ID.
      * @param notebookId Notebook id.
      */
-    public void delete(String email, UUID notebookId) {
-        Account acc = accountsSrvc.loadUserByUsername(email);
-
-        notebooksRepo.delete(acc.getId(), notebookId);
+    public void delete(UUID accId, UUID notebookId) {
+        notebooksRepo.delete(accId, notebookId);
     }
 }
