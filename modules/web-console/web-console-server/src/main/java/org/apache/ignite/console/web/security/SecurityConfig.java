@@ -130,7 +130,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
      * @param ignite Ignite.
      */
     @Bean
-    public SessionRepository<ExpiringSession> sessionRepository(Ignite ignite) {
+    public SessionRepository<ExpiringSession> sessionRepository(@Autowired Ignite ignite) {
         CacheConfiguration cfg = new CacheConfiguration()
             .setName("sessions")
             .setCacheMode(CacheMode.REPLICATED);

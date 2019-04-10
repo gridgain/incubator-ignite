@@ -28,11 +28,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import static org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
 
 /**
  * Service to handle accounts.
@@ -126,11 +124,13 @@ public class AccountsService extends AbstractService implements UserDetailsServi
      */
     @Bean
     public PasswordEncoder encoder() {
-        Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH);
+// Pbkdf2PasswordEncoder is comaptible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
+// We can return to Pbkdf2PasswordEncoder if we decided to import old users.
+//        Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH);
+//
+//        encoder.setAlgorithm(PBKDF2WithHmacSHA256);
+//        encoder.setEncodeHashAsBase64(true);
 
-        encoder.setAlgorithm(PBKDF2WithHmacSHA256);
-        encoder.setEncodeHashAsBase64(true);
-
-        return encoder;
+        return new BCryptPasswordEncoder();
     }
 }

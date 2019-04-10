@@ -36,6 +36,7 @@
 
     <properties>
         <commons.compress.version>1.18</commons.compress.version>
+        <spring.boot.version>1.5.20.RELEASE</spring.boot.version>
     </properties>
 
     <dependencyManagement>
@@ -44,7 +45,7 @@
                 <!-- Import dependency management from Spring Boot -->
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <version>1.5.20.RELEASE</version>
+                <version>${spring.boot.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -127,6 +128,12 @@
 
         <!-- Test dependencies -->
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-hadoop</artifactId>
             <version>${project.version}</version>
@@ -182,11 +189,6 @@
         </testResources>
 
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-
             <plugin>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>

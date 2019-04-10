@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.config;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableScheduling;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.ImportResource;
 
 /**
- * Web console launcher.
+ * Grid instance configuration.
  */
-@SpringBootApplication
-@EnableScheduling
-public class Application {
+@Configuration
+@ImportResource("classpath:ignite-config.xml")
+public class GridConfiguration {
     /**
-     * @param args Args.
+     * @param cfg Grid configuration.
      */
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
+    @Bean(destroyMethod = "close")
+    public IgniteEx igniteInstance(@Autowired IgniteConfiguration cfg) {
+        return (IgniteEx)Ignition.start(cfg);
     }
 }
