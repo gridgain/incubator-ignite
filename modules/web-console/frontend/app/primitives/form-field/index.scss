@@ -657,6 +657,15 @@
             background-position: calc(100% - 10px) 50%;
             padding-right: 28px;
         }
+        // "Placeholder" color
+        select.ng-empty {
+            color: rgba(66, 66, 66, 0.5);
+
+            // Resets option color back to normal
+            option {
+                color: #393939;
+            }
+        }
     }
 }
 
