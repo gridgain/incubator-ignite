@@ -23,6 +23,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
+import org.apache.ignite.thread.IgniteThread;
 
 /**
  * Data store for H2 rows.
@@ -56,7 +57,11 @@ public class H2RowFactory {
         // TODO Avoid extra garbage generation. In upcoming H2 1.4.193 Row will become an interface,
         // TODO we need to refactor all this to return CacheDataRowAdapter implementing Row here.
 
-        final CacheDataRowAdapter rowBuilder = new CacheDataRowAdapter(link);
+        Thread curThread = Thread.currentThread();
+
+        boolean tmp = curThread instanceof IgniteThread && ((IgniteThread)curThread).allocator() != null && ((IgniteThread)curThread).allocator().tmpContext;
+
+        final CacheDataRowAdapter rowBuilder = new CacheDataRowAdapter(link, tmp);
 
         rowBuilder.initFromLink(cctx.group(), CacheDataRowAdapter.RowData.FULL);
 

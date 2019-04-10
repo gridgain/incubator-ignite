@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
+import org.apache.ignite.internal.processors.cache.persistence.tree.AllocationContext;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnhea
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.indexing.IndexingQueryCacheFilter;
+import org.apache.ignite.thread.IgniteThread;
 import org.h2.result.SearchRow;
 import org.h2.table.IndexColumn;
 import org.h2.value.Value;
@@ -223,64 +225,85 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
     @SuppressWarnings("ForLoopReplaceableByForEach")
     @Override protected int compare(BPlusIO<SearchRow> io, long pageAddr, int idx,
         SearchRow row) throws IgniteCheckedException {
-        if (inlineSize() == 0)
-            return compareRows(getRow(io, pageAddr, idx), row);
-        else {
-            int off = io.offset(idx);
+        Thread curThread = Thread.currentThread();
 
-            int fieldOff = 0;
+        boolean needReset = false;
 
-            int lastIdxUsed = 0;
+        if (curThread instanceof IgniteThread) {
+            IgniteThread igThread = (IgniteThread)curThread;
 
-            for (int i = 0; i < inlineIdxs.size(); i++) {
-                InlineIndexHelper inlineIdx = inlineIdxs.get(i);
+            AllocationContext allocator = igThread.allocator();
 
-                Value v2 = row.getValue(inlineIdx.columnIndex());
-
-                if (v2 == null)
-                    return 0;
-
-                int c = inlineIdx.compare(pageAddr, off + fieldOff, inlineSize() - fieldOff, v2, comp);
-
-                if (c == -2)
-                    break;
-
-                lastIdxUsed++;
-
-                if (c != 0)
-                    return c;
-
-                fieldOff += inlineIdx.fullSize(pageAddr, off + fieldOff);
-
-                if (fieldOff > inlineSize())
-                    break;
+            if (allocator != null) {
+                allocator.tmpContext = true;
+                needReset = true;
             }
+        }
 
-            if (lastIdxUsed == cols.length)
-                return 0;
+        try {
+            if (inlineSize() == 0)
+                return compareRows(getRow(io, pageAddr, idx), row);
+            else {
+                int off = io.offset(idx);
 
-            SearchRow rowData = getRow(io, pageAddr, idx);
+                int fieldOff = 0;
 
-            for (int i = lastIdxUsed, len = cols.length; i < len; i++) {
-                IndexColumn col = cols[i];
-                int idx0 = col.column.getColumnId();
+                int lastIdxUsed = 0;
 
-                Value v2 = row.getValue(idx0);
+                for (int i = 0; i < inlineIdxs.size(); i++) {
+                    InlineIndexHelper inlineIdx = inlineIdxs.get(i);
 
-                if (v2 == null) {
-                    // Can't compare further.
-                    return 0;
+                    Value v2 = row.getValue(inlineIdx.columnIndex());
+
+                    if (v2 == null)
+                        return 0;
+
+                    int c = inlineIdx.compare(pageAddr, off + fieldOff, inlineSize() - fieldOff, v2, comp);
+
+                    if (c == -2)
+                        break;
+
+                    lastIdxUsed++;
+
+                    if (c != 0)
+                        return c;
+
+                    fieldOff += inlineIdx.fullSize(pageAddr, off + fieldOff);
+
+                    if (fieldOff > inlineSize())
+                        break;
                 }
 
-                Value v1 = rowData.getValue(idx0);
+                if (lastIdxUsed == cols.length)
+                    return 0;
 
-                int c = compareValues(v1, v2);
+                SearchRow rowData = getRow(io, pageAddr, idx);
 
-                if (c != 0)
-                    return InlineIndexHelper.fixSort(c, col.sortType);
+                for (int i = lastIdxUsed, len = cols.length; i < len; i++) {
+                    IndexColumn col = cols[i];
+                    int idx0 = col.column.getColumnId();
+
+                    Value v2 = row.getValue(idx0);
+
+                    if (v2 == null) {
+                        // Can't compare further.
+                        return 0;
+                    }
+
+                    Value v1 = rowData.getValue(idx0);
+
+                    int c = compareValues(v1, v2);
+
+                    if (c != 0)
+                        return InlineIndexHelper.fixSort(c, col.sortType);
+                }
+
+                return 0;
             }
-
-            return 0;
+        }
+        finally {
+            if (needReset)
+                ((IgniteThread)curThread).allocator().tmpContext = false;
         }
     }
 
