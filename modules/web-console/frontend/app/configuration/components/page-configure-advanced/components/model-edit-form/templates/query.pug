@@ -264,7 +264,7 @@ panel-collapsible(ng-form=form opened=`!!${model}.queryMetadata`)
                                         model: `queryIndex.inlineSizeType`,
                                         name: '"InlineSizeKind"',
                                         placeholder: '{{::$ctrl.Models.inlineSizeType.default}}',
-                                        options: '{{::$ctrl.Models.inlineSizeTypes}}',
+                                        options: '::$ctrl.Models.inlineSizeTypes',
                                         tip: `Inline size
                                             <ul>
                                                 <li>Auto - Determine inline size automatically</li>
