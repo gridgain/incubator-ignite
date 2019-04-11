@@ -14,11 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.internal.processors.cache.verify;
 
-grid-showing-rows {
-	color: #757575;
+import org.apache.ignite.IgniteException;
 
-	i {
-		margin-right: 15px;
-	}
+/**
+ * Runtime exception that can be thrown in {@link VerifyBackupPartitionsTaskV2} when no caches matching given
+ * filter options can be found.
+ */
+public class NoMatchingCachesException extends IgniteException {
+    /** */
+    private static final long serialVersionUID = 0L;
 }

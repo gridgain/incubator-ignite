@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-grid-showing-rows {
-	color: #757575;
+package org.apache.ignite.internal.processors.cache.persistence;
 
-	i {
-		margin-right: 15px;
-	}
+/**
+ * Marker interface to distinguish exceptions that were caused by broken persistence datastructures invariants.
+ */
+public interface CorruptedPersistenceException {
 }

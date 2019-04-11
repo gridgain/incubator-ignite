@@ -15,10 +15,24 @@
  * limitations under the License.
  */
 
-grid-showing-rows {
-	color: #757575;
+package org.apache.ignite.internal.processors.cache.persistence.freelist;
 
-	i {
-		margin-right: 15px;
-	}
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.persistence.CorruptedPersistenceException;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Exception to distinguish {@link AbstractFreeList} broken invariants.
+ */
+public class CorruptedFreeListException extends IgniteCheckedException implements CorruptedPersistenceException {
+    /** */
+    private static final long serialVersionUID = 0L;
+
+    /**
+     * @param msg Message.
+     * @param cause Cause.
+     */
+    public CorruptedFreeListException(String msg, @Nullable Throwable cause) {
+        super(msg, cause);
+    }
 }
