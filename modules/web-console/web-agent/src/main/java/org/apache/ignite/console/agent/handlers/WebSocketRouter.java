@@ -46,6 +46,7 @@ import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
 import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_RESET_TOKEN;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_REST;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_VISOR;
 import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_DRIVERS;
@@ -233,15 +234,23 @@ public class WebSocketRouter implements AutoCloseable {
 
                 case SCHEMA_IMPORT_SCHEMAS:
                     dbHnd.collectDbSchemas(evt);
+
                     break;
 
                 case SCHEMA_IMPORT_METADATA:
                     dbHnd.collectDbMetadata(evt);
+
                     break;
 
                 case NODE_REST:
                 case NODE_VISOR:
                     clusterHnd.restRequest(evt);
+
+                    break;
+
+                case AGENT_RESET_TOKEN:
+                    log.info("Reset token!!!");
+
                     break;
 
                 default:

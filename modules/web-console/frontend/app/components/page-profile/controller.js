@@ -38,7 +38,6 @@ export default class PageProfileController {
         this.$root = $root;
         this.$scope = $scope;
         this.$http = $http;
-        this.LegacyUtils = LegacyUtils;
         this.Messages = Messages;
         this.Focus = Focus;
         this.Confirm = Confirm;
@@ -82,7 +81,7 @@ export default class PageProfileController {
         this.isLoading = true;
 
         return this.$http.post('/api/v1/profile/save', this.ui.user)
-            .then(this.User.load)
+            .then(() => this.User.load())
             .then(() => {
                 this.ui.expandedPassword = this.ui.expandedToken = false;
 

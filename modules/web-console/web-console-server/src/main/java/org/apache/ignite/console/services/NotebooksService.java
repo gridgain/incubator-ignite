@@ -20,9 +20,12 @@ package org.apache.ignite.console.services;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.NotebooksRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import static org.apache.ignite.console.json.JsonUtils.rowsAffected;
 
 /**
  * Service to handle notebooks.
@@ -69,7 +72,9 @@ public class NotebooksService {
      * @param accId Account ID.
      * @param notebookId Notebook id.
      */
-    public void delete(UUID accId, UUID notebookId) {
-        notebooksRepo.delete(accId, notebookId);
+    public JsonObject delete(UUID accId, UUID notebookId) {
+        int rmvRows = notebooksRepo.delete(accId, notebookId);
+
+        return rowsAffected(rmvRows);
     }
 }

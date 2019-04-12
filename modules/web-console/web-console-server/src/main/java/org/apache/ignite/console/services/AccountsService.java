@@ -20,8 +20,11 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.web.model.SignUpRequest;
+import org.apache.ignite.console.web.socket.WebSocketManager;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -36,18 +39,23 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AccountsService implements UserDetailsService {
-    /** Password encoder. */
-    private final PasswordEncoder encoder;
-
     /** Repository to work with accounts. */
     private final AccountsRepository accountsRepo;
 
+    /** */
+    private final WebSocketManager wsm;
+
+    /** Password encoder. */
+    private final PasswordEncoder encoder;
+
     /**
      * @param accountsRepo Accounts repository.
+     * @param wsm Websocket manager.
      */
     @Autowired
-    public AccountsService(AccountsRepository accountsRepo) {
+    public AccountsService(AccountsRepository accountsRepo, WebSocketManager wsm) {
         this.accountsRepo = accountsRepo;
+        this.wsm = wsm;
 
         this.encoder = encoder();
     }
@@ -111,6 +119,78 @@ public class AccountsService implements UserDetailsService {
 
                 tx.commit();
             }
+        }
+    }
+
+    /**
+     * @param oldVal Old value.
+     * @param newVal New value.
+     * @return {@code true} if value should be updated.
+     */
+    private boolean changed(String oldVal, String newVal) {
+        return !F.isEmpty(newVal) && !oldVal.equals(newVal);
+    }
+
+    /**
+     * Save user.
+     *
+     * @param changes Changes to apply to user.
+     */
+    public void save(JsonObject changes) {
+        try (Transaction tx = accountsRepo.txStart()) {
+            Account acc = accountsRepo.getById(changes.getUuid("id"));
+
+            if (!F.isEmpty(changes.getString("password"))) {
+                // TODO
+
+                System.out.println("Change password !!!");
+            }
+
+            String newVal = changes.getString("token");
+
+            String oldToken = acc.token();
+
+            if (changed(oldToken, newVal)) {
+                System.out.println("RESET TOKEN !!!");
+
+                wsm.resetToken(oldToken);
+
+                acc.token(newVal);
+            }
+
+            newVal = changes.getString("firstName");
+
+            if (changed(acc.firstName(), newVal))
+                acc.firstName(newVal);
+
+            newVal = changes.getString("lastName");
+
+            if (changed(acc.lastName(), newVal))
+                acc.lastName(newVal);
+
+            newVal = changes.getString("email");
+
+            if (changed(acc.email(), newVal))
+                acc.email(newVal);
+
+            newVal = changes.getString("phone");
+
+            if (changed(acc.phone(), newVal))
+                acc.phone(newVal);
+
+            newVal = changes.getString("country");
+
+            if (changed(acc.country(), newVal))
+                acc.country(newVal);
+
+            newVal = changes.getString("company");
+
+            if (changed(acc.company(), newVal))
+                acc.company(newVal);
+
+            accountsRepo.save(acc);
+
+            tx.commit();
         }
     }
 

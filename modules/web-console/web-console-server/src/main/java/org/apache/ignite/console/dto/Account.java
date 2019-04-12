@@ -123,10 +123,24 @@ public class Account extends AbstractDto implements UserDetails {
     }
 
     /**
+     * @param firstName New first name.
+     */
+    public void firstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    /**
      * @return Last name.
      */
     public String lastName() {
         return lastName;
+    }
+
+    /**
+     * @param lastName New last name.
+     */
+    public void lastName(String lastName) {
+        this.lastName = lastName;
     }
 
     /**
@@ -137,10 +151,24 @@ public class Account extends AbstractDto implements UserDetails {
     }
 
     /**
+     * @param email New email.
+     */
+    public void email(String email) {
+        this.email = email;
+    }
+
+    /**
      * @return Phone.
      */
     public String phone() {
         return phone;
+    }
+
+    /**
+     * @param phone New phone.
+     */
+    public void phone(String phone) {
+        this.phone = phone;
     }
 
     /**
@@ -151,6 +179,13 @@ public class Account extends AbstractDto implements UserDetails {
     }
 
     /**
+     * @param company New company.
+     */
+    public void company(String company) {
+        this.company = company;
+    }
+
+    /**
      * @return Country.
      */
     public String country() {
@@ -158,10 +193,24 @@ public class Account extends AbstractDto implements UserDetails {
     }
 
     /**
+     * @param country New country.
+     */
+    public void country(String country) {
+        this.country = country;
+    }
+
+    /**
      * @return Token.
      */
     public String token() {
         return tok;
+    }
+
+    /**
+     * @param tok New token.
+     */
+    public void token(String tok) {
+        this.tok = tok;
     }
 
     /**

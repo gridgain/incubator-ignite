@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.websocket;
+package org.apache.ignite.console.web.socket;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -35,29 +34,29 @@ import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 @EnableWebSocket
 public class WebSocketConfiguration implements WebSocketConfigurer {
 	/** */
-	private final WebSocketSessions wss;
+	private final WebSocketManager wsm;
 
 	/** */
-// TODO WC-999 @Value("${websocket.ssl.enabled}")
+// TODO WC-999 @Value("${websocket.ssl.enabled}") For some reason this value not populated from application.yaml
 	private boolean sslEnabled;
 
 	/** */
-// TODO WC-999 @Value("${websocket.allowed.origin}")
+// TODO WC-999 @Value("${websocket.allowed.origin}") For some reason this value not populated from application.yaml
 	private String allowedOrigin;
 
 	/**
-	 * @param wss Websocket sessions.
+	 * @param wsm Websocket manager.
 	 */
 	@Autowired
-	public WebSocketConfiguration(WebSocketSessions wss) {
-		this.wss = wss;
+	public WebSocketConfiguration(WebSocketManager wsm) {
+		this.wsm = wsm;
 	}
 
 	/**
 	 * @param registry Registry.
 	 */
 	@Override public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-		WebSocketHandlerRegistration reg = registry.addHandler(new WebSocketRouter(wss), AGENTS_PATH, BROWSERS_PATH);
+		WebSocketHandlerRegistration reg = registry.addHandler(wsm, AGENTS_PATH, BROWSERS_PATH);
 
 		if (sslEnabled)
 			reg.setAllowedOrigins(allowedOrigin);

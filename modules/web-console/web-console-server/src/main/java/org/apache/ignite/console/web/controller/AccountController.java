@@ -19,10 +19,12 @@ package org.apache.ignite.console.web.controller;
 
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -34,6 +36,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+
+import static org.springframework.http.HttpStatus.FORBIDDEN;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
  * Controller for accounts API.
@@ -64,6 +69,7 @@ public class AccountController {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
         return ResponseEntity.ok(new User(
+            acc.getId(),
             acc.email(),
             acc.firstName(),
             acc.lastName(),
@@ -90,5 +96,22 @@ public class AccountController {
         }
 
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     *
+     * @param curUser Current user.
+     * @param changes Changes to apply to user.
+     * @return {@linkplain HttpStatus#OK OK} on success.
+     */
+    @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account curUser, @RequestBody JsonObject changes) {
+        if (curUser.getId().equals(changes.getUuid("id"))) {
+            accountsSrvc.save(changes);
+
+            return ResponseEntity.ok().build();
+        }
+
+        return ResponseEntity.status(FORBIDDEN).build();
     }
 }
