@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
+import {Injectable} from '@angular/core';
 
-import igniteConsole from './app/app';
-import configurationLazyModule from './app/configuration/index.lazy';
-import {IgniteWebConsoleModule} from './app-angular';
-import {downgradeModuleFactory} from './app-angular/downgrade';
+export enum FormFieldRequiredMarkerStyles {
+    OPTIONAL = 'optional',
+    REQUIRED = 'required'
+}
 
-angular.bootstrap(document, [igniteConsole.name, configurationLazyModule.name, downgradeModuleFactory(IgniteWebConsoleModule)], {strictDi: true});
+export enum FormFieldErrorStyles {
+    INLINE = 'inline',
+    ICON = 'icon'
+}

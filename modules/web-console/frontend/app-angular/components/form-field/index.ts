@@ -15,11 +15,23 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
+import {FormFieldHint} from './hint.component';
+import {FormFieldErrors} from './errors.component';
+import {FormFieldError} from './error.component';
+import {FormField, FORM_FIELD_OPTIONS} from './formField.component';
+import {Autofocus} from './autofocus.directive';
+import {FormFieldTooltip} from './tooltip.component';
+import {PasswordVisibilityToggleButton} from './passwordVisibilityToggleButton.component';
+import {ScrollToFirstInvalid} from './scrollToFirstInvalid.directive';
 
-import igniteConsole from './app/app';
-import configurationLazyModule from './app/configuration/index.lazy';
-import {IgniteWebConsoleModule} from './app-angular';
-import {downgradeModuleFactory} from './app-angular/downgrade';
-
-angular.bootstrap(document, [igniteConsole.name, configurationLazyModule.name, downgradeModuleFactory(IgniteWebConsoleModule)], {strictDi: true});
+export {
+    FormFieldHint,
+    FormFieldError,
+    FormField, FORM_FIELD_OPTIONS,
+    Autofocus,
+    FormFieldTooltip,
+    PasswordVisibilityToggleButton,
+    ScrollToFirstInvalid
+};
+export * from './errorStyles.provider';
+export * from './validationMessages.provider';

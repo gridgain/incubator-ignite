@@ -15,23 +15,13 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
-import component from './component';
-import './style.scss';
+import {Directive, AfterViewInit, Inject, ElementRef} from '@angular/core';
 
-export default angular
-    .module('ignite-console.page-profile', [
-        'ignite-console.user'
-    ])
-    .config(['$stateProvider', ($stateProvider) => {
-        // set up the states
-        $stateProvider.state('base.settings.profile', {
-            url: '/profile',
-            component: 'pageProfile',
-            permission: 'profile',
-            tfMetaTags: {
-                title: 'User profile'
-            }
-        });
-    }])
-    .component('pageProfile', component);
+@Directive({selector: 'input[autofocus]'})
+export class Autofocus implements AfterViewInit {
+    static parameters = [[new Inject(ElementRef)]]
+    constructor(private el: ElementRef<HTMLInputElement>) {}
+    ngAfterViewInit() {
+        setTimeout(() => this.el.nativeElement.focus(), 0);
+    }
+}

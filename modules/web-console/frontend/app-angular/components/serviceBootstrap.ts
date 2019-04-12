@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-page-profile {
-    max-width: 800px;
-    display: block;
+/**
+ * This component ensures that Angular starts before AngularJS
+ * https://github.com/ui-router/angular-hybrid/issues/98
+ */
 
-    panel-collapsible {
-        width: 100%;
-    }
+import {Component} from '@angular/core';
 
-    footer {
-        display: flex;
-        justify-content: flex-end;
-    }
-
-    .btn-ignite + .btn-ignite {
-        margin-left: 10px;
+@Component({
+    selector: 'service-bootstrap',
+    template: ''
+})
+export class ServiceBootstrapComponent {
+    constructor() {
+        const injector = angular.element(document.body).injector();
+        const urlService = injector.get('$urlService');
+        urlService.listen();
+        urlService.sync();
     }
 }
+

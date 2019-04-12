@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-import template from './template.pug';
-import controller from './controller';
+import {Injectable} from '@angular/core';
 
-export default {
-    template,
-    controller
-};
+@Injectable({
+    providedIn: 'root'
+})
+export class VALIDATION_MESSAGES {
+    required = 'Value is required'
+    email = 'Email has invalid format'
+    passwordMatch = 'Passwords do not match'
+}

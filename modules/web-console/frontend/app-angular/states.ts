@@ -15,11 +15,17 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
+import {NgHybridStateDeclaration} from '@uirouter/angular-hybrid';
+import {PageProfile} from '.';
 
-import igniteConsole from './app/app';
-import configurationLazyModule from './app/configuration/index.lazy';
-import {IgniteWebConsoleModule} from './app-angular';
-import {downgradeModuleFactory} from './app-angular/downgrade';
-
-angular.bootstrap(document, [igniteConsole.name, configurationLazyModule.name, downgradeModuleFactory(IgniteWebConsoleModule)], {strictDi: true});
+export const states: NgHybridStateDeclaration[] = [
+    {
+        name: 'base.settings.profile',
+        url: '/profile',
+        component: PageProfile,
+        permission: 'profile',
+        tfMetaTags: {
+            title: 'User profile'
+        }
+    }
+];

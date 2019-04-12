@@ -15,11 +15,30 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
+import {Component, ElementRef, Input} from '@angular/core';
+import {PopperContent} from 'ngx-popper';
 
-import igniteConsole from './app/app';
-import configurationLazyModule from './app/configuration/index.lazy';
-import {IgniteWebConsoleModule} from './app-angular';
-import {downgradeModuleFactory} from './app-angular/downgrade';
-
-angular.bootstrap(document, [igniteConsole.name, configurationLazyModule.name, downgradeModuleFactory(IgniteWebConsoleModule)], {strictDi: true});
+@Component({
+    selector: 'form-field-tooltip',
+    template: `
+        <ignite-icon
+            name='info'
+            [popper]='content'
+            popperApplyClass='ignite-popper,ignite-popper__tooltip'
+            popperTrigger='hover'
+            popperAppendTo='body'
+        ></ignite-icon>
+    `,
+    styles: [`
+        :host {
+            display: inline-flex;
+        }
+        ignite-icon {
+            color: #0067b9;
+        }
+    `]
+})
+export class FormFieldTooltip {
+    @Input()
+    content: PopperContent
+}
