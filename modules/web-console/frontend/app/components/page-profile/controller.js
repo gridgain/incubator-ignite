@@ -16,17 +16,17 @@
  */
 
 import _ from 'lodash';
+import uuidv4 from 'uuid/v4';
 
 export default class PageProfileController {
     static $inject = [
-        '$rootScope', '$scope', '$http', 'IgniteLegacyUtils', 'IgniteMessages', 'IgniteFocus', 'IgniteConfirm', 'IgniteCountries', 'User', 'IgniteFormUtils'
+        '$rootScope', '$scope', '$http', 'IgniteMessages', 'IgniteFocus', 'IgniteConfirm', 'IgniteCountries', 'User', 'IgniteFormUtils'
     ];
 
     /**
      * @param {ng.IRootScopeService} $root
      * @param {ng.IScope} $scope
      * @param {ng.IHttpService} $http
-     * @param {ReturnType<typeof import('app/services/LegacyUtils.service').default>} LegacyUtils
      * @param {ReturnType<typeof import('app/services/Messages.service').default>} Messages
      * @param {ReturnType<typeof import('app/services/Focus.service').default>} Focus
      * @param {import('app/services/Confirm.service').Confirm} Confirm
@@ -34,7 +34,7 @@ export default class PageProfileController {
      * @param {ReturnType<typeof import('app/modules/user/User.service').default>} User
      * @param {ReturnType<typeof import('app/services/FormUtils.service').default>} FormUtils
      */
-    constructor($root, $scope, $http, LegacyUtils, Messages, Focus, Confirm, Countries, User, FormUtils) {
+    constructor($root, $scope, $http, Messages, Focus, Confirm, Countries, User, FormUtils) {
         this.$root = $root;
         this.$scope = $scope;
         this.$http = $http;
@@ -64,7 +64,7 @@ export default class PageProfileController {
 
     generateToken() {
         this.Confirm.confirm('Are you sure you want to change security token?<br>If you change the token you will need to restart the agent.')
-            .then(() => this.ui.user.token = this.LegacyUtils.randomString(20));
+            .then(() => this.ui.user.token = uuidv4());
     }
 
     onPasswordPanelClose() {
