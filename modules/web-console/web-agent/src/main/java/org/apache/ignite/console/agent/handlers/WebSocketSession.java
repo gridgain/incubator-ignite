@@ -26,8 +26,8 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.eclipse.jetty.websocket.api.Session;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.ignite.console.util.JsonUtils.errorToJson;
-import static org.apache.ignite.console.util.JsonUtils.toJson;
+import static org.apache.ignite.console.json.JsonUtils.errorToJson;
+import static org.apache.ignite.console.json.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.ERROR;
 
 /**

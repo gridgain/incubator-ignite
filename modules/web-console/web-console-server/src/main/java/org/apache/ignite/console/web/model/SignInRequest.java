@@ -20,7 +20,7 @@ package org.apache.ignite.console.web.model;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * Web model of the user credentials.
+ * Web model of sign in request.
  */
 public class SignInRequest {
     /** Email. */

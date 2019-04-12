@@ -15,12 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.util;
+package org.apache.ignite.console.json;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A simple representation of a JSON array.
  */
 public class JsonArray extends ArrayList<Object> {
+    /**
+     * Default constructor.
+     */
+    public JsonArray() {
+        // No-op.
+    }
+
+    /**
+     * Wrapping constructor.
+     *
+     * @param list List with items.
+     */
+    public JsonArray(List<Object> list) {
+        super(list);
+    }
+
+    /**
+     * @param idx Index of the element to return.
+     * @return Element as {@link String}.
+     */
+    public String getString(int idx) {
+        return (String)get(idx);
+    }
 }

@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
- * Router to handle REST API for notebooks.
+ * Controller for notebooks API.
  */
 @RestController
 @RequestMapping(path = "/api/v1/notebooks")

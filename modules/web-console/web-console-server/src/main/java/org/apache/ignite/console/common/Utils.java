@@ -17,16 +17,17 @@
 
 package org.apache.ignite.console.common;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T2;
+
+import static org.apache.ignite.console.json.JsonUtils.fromJson;
 
 /**
  * Utilities.
@@ -34,12 +35,6 @@ import org.apache.ignite.internal.util.typedef.T2;
 public class Utils {
     /** */
     private static final JsonObject EMPTY_OBJ = new JsonObject();
-
-//    /** */
-//    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
-//        HttpHeaderValues.NO_CACHE,
-//        HttpHeaderValues.NO_STORE,
-//        HttpHeaderValues.MUST_REVALIDATE);
 
     /**
      * @param cause Error.
@@ -68,12 +63,10 @@ public class Utils {
     public static TreeSet<UUID> idsFromJson(JsonObject json, String key) {
         TreeSet<UUID> res = new TreeSet<>();
 
-//        List<Object> ids = null; // json.getJsonArray(key);
-//
-//        if (ids != null) {
-//            for (int i = 0; i < ids.size(); i++)
-//                res.add(UUID.fromString(ids.getString(i)));
-//        }
+        JsonArray ids = json.getJsonArray(key);
+
+        if (ids != null)
+            ids.forEach(item -> res.add(UUID.fromString(item.toString())));
 
         return res;
     }
@@ -86,8 +79,12 @@ public class Utils {
     private static T2<JsonObject, String> xpath(JsonObject json, String path) {
         String[] keys = path.split("\\.");
 
-//        for (int i = 0; i < keys.length - 1; i++)
-//            json = json.getJsonObject(keys[i], EMPTY_OBJ);
+        for (int i = 0; i < keys.length - 1; i++) {
+            json = json.getJsonObject(keys[i]);
+
+            if (json == null)
+                json = EMPTY_OBJ;
+        }
 
         String key = keys[keys.length - 1];
 
@@ -106,51 +103,18 @@ public class Utils {
     public static boolean boolParam(JsonObject json, String path, boolean def) {
         T2<JsonObject, String> t = xpath(json, path);
 
-        return true; // t.getKey().getBoolean(t.getValue(), def);
-    }
-
-    /**
-     * @param json JSON object.
-     * @param path Dot separated list of properties.
-     * @return the value or {@code def} if no entry present.
-     */
-    public static boolean boolParam(JsonObject json, String path) throws IllegalArgumentException {
-        T2<JsonObject, String> t = xpath(json, path);
-
-        Boolean val = true; // t.getKey().getBoolean(t.getValue());
-
-        if (val == null)
-            throw new IllegalArgumentException(missingParameter(path));
-
-        return val;
-    }
-
-    /**
-     * @param json JSON object.
-     * @param path Dot separated list of properties.
-     * @return {@link UUID} for specified path.
-     */
-    public static UUID uuidParam(JsonObject json, String path) {
-        T2<JsonObject, String> t = xpath(json, path);
-
-        return UUID.fromString(t.getKey().getString(t.getValue()));
+        return t.getKey().getBoolean(t.getValue(), def);
     }
 
     /**
      * @param data Collection of DTO objects.
      * @return JSON array.
      */
-    public static List<Object> toJsonArray(Collection<? extends DataObject> data) {
-        return new ArrayList<>(); // data.stream().reduce(new JsonArray(), (a, b) -> a.add(new JsonObject(b.json())), JsonArray::addAll);
-    }
+    public static JsonArray toJsonArray(Collection<? extends DataObject> data) {
+        JsonArray res = new JsonArray();
 
-    /**
-     * Return missing parameter error message.
-     *
-     * @param param Parameter name.
-     * @return Missing parameter error message.
-     */
-    public static String missingParameter(String param) {
-        return "Failed to find mandatory parameter in request: " + param;
+        data.forEach(item -> res.add(fromJson(item.json())));
+
+        return res;
     }
 }

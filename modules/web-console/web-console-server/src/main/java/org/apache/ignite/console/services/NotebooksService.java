@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
  * Service to handle notebooks.
  */
 @Service
-public class NotebooksService extends AbstractService {
+public class NotebooksService {
     /** Repository to work with notebooks. */
     private final NotebooksRepository notebooksRepo;
 

@@ -30,7 +30,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteProductVersion;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
-import static org.apache.ignite.console.util.JsonUtils.attribute;
+import static org.apache.ignite.console.json.JsonUtils.attribute;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;

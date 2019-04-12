@@ -38,16 +38,15 @@ import org.apache.ignite.console.agent.db.DbMetadataReader;
 import org.apache.ignite.console.agent.db.DbSchema;
 import org.apache.ignite.console.agent.db.DbTable;
 import org.apache.ignite.console.demo.AgentMetadataDemo;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.console.util.JsonUtils.getBoolean;
-import static org.apache.ignite.console.util.JsonUtils.getString;
-import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
+import static org.apache.ignite.console.json.JsonUtils.fromJson;
 
 /**
  * Handler extract database metadata for "Metadata import" dialog on Web Console.
@@ -176,13 +175,13 @@ public class DatabaseHandler {
         log.info("Collecting database schemas...");
 
         try {
-            Map<String, Object> args = paramsFromJson(evt.getPayload());
+            JsonObject args = fromJson(evt.getPayload());
 
             try (Connection conn = connect(args)) {
                 String catalog = conn.getCatalog();
 
                 if (catalog == null) {
-                    String jdbcUrl = getString(args, "jdbcUrl", "");
+                    String jdbcUrl = args.getString("jdbcUrl", "");
 
                     String[] parts = jdbcUrl.split("[/:=]");
 
@@ -215,7 +214,7 @@ public class DatabaseHandler {
         log.info("Collecting database metadata...");
 
         try {
-            Map<String, Object> args = paramsFromJson(evt.getPayload());
+            JsonObject args = fromJson(evt.getPayload());
 
             if (!args.containsKey("schemas"))
                 throw new IllegalArgumentException("Missing schemas in arguments: " + args);
@@ -225,7 +224,7 @@ public class DatabaseHandler {
             if (!args.containsKey("tablesOnly"))
                 throw new IllegalArgumentException("Missing tablesOnly in arguments: " + args);
 
-            boolean tblsOnly = getBoolean(args, "tablesOnly", false);
+            boolean tblsOnly = args.getBoolean("tablesOnly", false);
 
             try (Connection conn = connect(args)) {
                 Collection<DbTable> metadata = dbMetaReader.metadata(conn, schemas, tblsOnly);
@@ -249,18 +248,18 @@ public class DatabaseHandler {
      * @return Connection to database.
      * @throws SQLException If failed to connect.
      */
-    private Connection connect(Map<String, Object> args) throws SQLException {
-        String jdbcDriverJarPath =  getString(args, "jdbcDriverJar", "");
+    private Connection connect(JsonObject args) throws SQLException {
+        String jdbcDriverJarPath = args.getString("jdbcDriverJar", "");
 
         if (F.isEmpty(jdbcDriverJarPath))
             throw new IllegalArgumentException("Path to JDBC driver not found in arguments");
 
-        String jdbcDriverCls = getString(args, "jdbcDriverClass", "");
+        String jdbcDriverCls = args.getString("jdbcDriverClass", "");
 
         if (F.isEmpty(jdbcDriverCls))
             throw new IllegalArgumentException("JDBC driver class not found in arguments");
 
-        String jdbcUrl = getString(args, "jdbcUrl", "");
+        String jdbcUrl = args.getString("jdbcUrl", "");
 
         if (F.isEmpty(jdbcUrl))
             throw new IllegalArgumentException("JDBC URL not found in arguments");

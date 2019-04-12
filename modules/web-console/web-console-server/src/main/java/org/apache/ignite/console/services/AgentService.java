@@ -22,12 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonObject;
 
 /**
  * Service to handle requests to Visor tasks.
  */
-public class AgentService extends AbstractService {
+public class AgentService {
     /** */
     protected final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
 

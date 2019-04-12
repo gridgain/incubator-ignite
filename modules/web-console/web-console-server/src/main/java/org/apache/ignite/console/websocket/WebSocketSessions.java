@@ -36,9 +36,9 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.console.util.JsonUtils.errorToJson;
-import static org.apache.ignite.console.util.JsonUtils.fromJson;
-import static org.apache.ignite.console.util.JsonUtils.toJson;
+import static org.apache.ignite.console.json.JsonUtils.errorToJson;
+import static org.apache.ignite.console.json.JsonUtils.fromJson;
+import static org.apache.ignite.console.json.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_STATUS;

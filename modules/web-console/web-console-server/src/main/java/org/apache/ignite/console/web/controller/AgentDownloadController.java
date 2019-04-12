@@ -29,7 +29,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 
 /**
- * Router to handle REST API to download Web Agent.
+ * Controller for download Web Agent API.
  */
 public class AgentDownloadController {
     /** Buffer size of 30Mb to handle Web Agent ZIP file manipulations. */

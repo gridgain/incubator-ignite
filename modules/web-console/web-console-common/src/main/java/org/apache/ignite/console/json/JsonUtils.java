@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.util;
+package org.apache.ignite.console.json;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -42,14 +42,31 @@ public class JsonUtils {
     /**
      * @param v Value to serialize.
      * @return JSON value.
+     * @throws IllegalStateException If serialization failed.
      */
     public static String toJson(Object v) {
         try {
             return MAPPER.writeValueAsString(v);
         }
         catch (Throwable e) {
-            throw new IllegalStateException("Failed to encode as JSON: " + v, e);
+            throw new IllegalStateException("Failed to serialize as JSON: " + v, e);
         }
+    }
+
+    /**
+     * Cast object to JSON.
+     *
+     * @param v Object.
+     * @return JSON object.
+     */
+    public static JsonObject asJson(Object v) {
+        if (v instanceof  JsonObject)
+            return (JsonObject)v;
+
+        if (v instanceof Map)
+            return new JsonObject((Map)v);
+
+        throw new ClassCastException("Not a JSON");
     }
 
     /**
@@ -95,11 +112,15 @@ public class JsonUtils {
     /**
      * @param json JSON.
      * @return Map with parameters.
-     * @throws IOException If deserialization failed.
+     * @throws IllegalStateException If deserialization failed.
      */
-    @SuppressWarnings("unchecked")
-    public static Map<String, Object> paramsFromJson(String json) throws IOException {
-        return MAPPER.readValue(json, Map.class);
+    public static JsonObject fromJson(String json) {
+        try {
+            return MAPPER.readValue(json, JsonObject.class);
+        }
+        catch (Throwable e) {
+            throw new IllegalStateException("Failed to deserialize object from JSON: " + json, e);
+        }
     }
 
     /**
@@ -121,36 +142,6 @@ public class JsonUtils {
     }
 
     /**
-     * @param map Map with parameters.
-     * @param key Key name.
-     * @param dflt Default value.
-     * @return Value as string.
-     */
-    public static String getString(Map<String, Object> map, String key, String dflt) {
-        Object res = map.get(key);
-
-        if (res == null)
-            return dflt;
-
-        return res.toString();
-    }
-
-    /**
-     * @param map Map with parameters.
-     * @param key Key name.
-     * @param dflt Default value.
-     * @return Value as boolean.
-     */
-    public static boolean getBoolean(Map<String, Object> map, String key, boolean dflt) {
-        Object res = map.get(key);
-
-        if (res == null)
-            return dflt;
-
-        return (Boolean)res;
-    }
-
-    /**
      * Helper method to get attribute.
      *
      * @param attrs Map with attributes.
@@ -159,5 +150,14 @@ public class JsonUtils {
      */
     public static <T> T attribute(Map<String, Object> attrs, String name) {
         return (T)attrs.get(name);
+    }
+
+    /**
+     * @param rows Number of rows.
+     * @return JSON with number of affected rows.
+     */
+    public static JsonObject rowsAffected(int rows) {
+        return new JsonObject()
+            .add("rowsAffected", rows);
     }
 }

@@ -14,17 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.console.util;
+
+package org.apache.ignite.console.json;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-
-import static org.apache.ignite.console.util.JsonUtils.toJson;
 
 /**
  * A helper class to build a JSON object in Java.
  */
 public class JsonObject extends LinkedHashMap<String, Object> {
+    /**
+     * Default constructor.
+     */
+    public JsonObject() {
+        // No-op.
+    }
+
+    /**
+     * Wrapping constructor.
+     *
+     * @param map Map with values.
+     */
+    public JsonObject(Map<String, Object> map) {
+        super(map);
+    }
+
     /**
      * @param key Key.
      * @param val Value.
@@ -37,7 +54,18 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * Get the boolean value with the specified key.
+     * Get the boolean value for specified key.
+     *
+     * @param key Key.
+     * @return Value or {@code null} if no value for that key.
+     * @throws ClassCastException If the value is not a {@link Boolean}.
+     */
+    public Boolean getBoolean(String key) {
+        return (Boolean)get(key);
+    }
+
+    /**
+     * Get the boolean value for specified key.
      *
      * @param key Key.
      * @param dflt Default value, if map does not contain key.
@@ -51,7 +79,7 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * Get the string value with the specified key.
+     * Get the string value for specified key.
      *
      * @param key Key.
      * @return Value or {@code null} if no value for that key.
@@ -62,7 +90,7 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * Get the string value with the specified key.
+     * Get the string value for specified key.
      *
      * @param key Key.
      * @param dflt Default value, if map does not contain key.
@@ -76,7 +104,7 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * Get the integer value with the specified key.
+     * Get the integer value for specified key.
      *
      * @param key Key.
      * @return Value or {@code null} if no value for that key.
@@ -87,7 +115,7 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * Get the integer value with the specified key.
+     * Get the integer value for specified key.
      *
      * @param key Key.
      * @param dflt Default value, if map does not contain key.
@@ -101,7 +129,7 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * Get the long value with the specified key.
+     * Get the long value for specified key.
      *
      * @param key Key.
      * @param dflt Default value, if map does not contain key.
@@ -115,7 +143,7 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * Get the UUID value with the specified key.
+     * Get the UUID value for specified key.
      *
      * @param key Key.
      * @return Value or {@code null} if no value for that key.
@@ -137,9 +165,57 @@ public class JsonObject extends LinkedHashMap<String, Object> {
     }
 
     /**
-     * @return String representation of JSON.
+     * Get JSON object.
+     *
+     * @param key Key.
+     * @return Value or {@code null} if no value for that key.
+     * @throws ClassCastException If the value is not a JSON object.
      */
-    public String encode() {
-        return toJson(this);
+    public JsonObject getJsonObject(String key) {
+        Object val = get(key);
+
+        if (val == null)
+            return null;
+
+        if (val instanceof JsonObject)
+            return (JsonObject)val;
+
+        if (val instanceof Map)
+            return new JsonObject((Map)val);
+
+        throw new ClassCastException("Failed to get JSON from: " + val);
+    }
+
+    /**
+     * Get JSON array.
+     * @param key Key.
+     * @return Value or {@code null} if no value for that key.
+     * @throws ClassCastException If the value is not a JSON array.
+     */
+    public JsonArray getJsonArray(String key) {
+        Object val = get(key);
+
+        if (val == null)
+            return null;
+
+        if (val instanceof JsonArray)
+            return (JsonArray)val;
+
+        if (val instanceof List)
+            return new JsonArray((List)val);
+
+        throw new ClassCastException("Failed to get JSON from: " + val);
+    }
+
+    /**
+     * Merge in another JSON object.
+     *
+     * @param other JSON object to merge.
+     * @return {@code this} for chaining.
+     */
+    public JsonObject mergeIn(JsonObject other) {
+        putAll(other);
+
+        return this;
     }
 }

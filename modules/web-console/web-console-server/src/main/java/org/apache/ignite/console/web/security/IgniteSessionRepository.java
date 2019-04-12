@@ -22,7 +22,6 @@ import org.springframework.session.ExpiringSession;
 import org.springframework.session.MapSession;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
-import org.springframework.stereotype.Repository;
 
 /**
  * A {@link SessionRepository} backed by a Apache Ignite and that uses a {@link MapSession}.

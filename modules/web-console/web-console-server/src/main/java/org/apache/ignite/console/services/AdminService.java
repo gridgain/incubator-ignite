@@ -21,17 +21,19 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.tx.TransactionManager;
-import org.apache.ignite.console.util.JsonArray;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import static org.apache.ignite.console.json.JsonUtils.rowsAffected;
 
 /**
  * Service to handle administrator actions.
  */
 @Service
-public class AdminService extends AbstractService {
+public class AdminService {
     /** */
     private final TransactionManager txMgr;
 

@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
-import static org.apache.ignite.console.util.JsonUtils.fromJson;
+import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_REST;

@@ -19,7 +19,6 @@ package org.apache.ignite.console.services;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.web.model.SignUpRequest;
@@ -36,10 +35,7 @@ import org.springframework.stereotype.Service;
  * Service to handle accounts.
  */
 @Service
-public class AccountsService extends AbstractService implements UserDetailsService {
-    /**  */
-    private static final int HASH_WIDTH = 512;
-
+public class AccountsService implements UserDetailsService {
     /** Password encoder. */
     private final PasswordEncoder encoder;
 
@@ -123,9 +119,9 @@ public class AccountsService extends AbstractService implements UserDetailsServi
      */
     @Bean
     public PasswordEncoder encoder() {
-// Pbkdf2PasswordEncoder is comaptible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
+// Pbkdf2PasswordEncoder is compatible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
 // We can return to Pbkdf2PasswordEncoder if we decided to import old users.
-//        Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH);
+//        Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH); // HASH_WIDTH = 512
 //
 //        encoder.setAlgorithm(PBKDF2WithHmacSHA256);
 //        encoder.setEncodeHashAsBase64(true);

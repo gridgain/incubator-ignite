@@ -15,53 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.web.controller;
 
-import java.util.UUID;
+import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
- * Abstract data object.
+ * Dummy controller, just for migration to Java.
  */
-public abstract class DataObject extends AbstractDto {
-    /** */
-    private String json;
-
+@RestController
+public class DummyController {
     /**
-     * Default constructor.
+     * Dummy handler for: /api/v1/activities/page
      */
-    protected DataObject() {
-        // No-op.
+    @PostMapping(path = "/api/v1/activities/page", consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<JsonArray> dummyActivitiesPage(@RequestBody JsonObject params) {
+        System.out.println("dummyActivitiesPage: " + params);
+
+        return ResponseEntity.ok().build();
     }
-
-    /**
-     * Full constructor.
-     *
-     * @param id ID.
-     * @param json JSON encoded payload.
-     */
-    protected DataObject(UUID id, String json) {
-        super(id);
-
-        this.json = json;
-    }
-
-    /**
-     * @return JSON encoded payload.
-     */
-    public String json() {
-        return json;
-    }
-
-    /**
-     * @param json JSON encoded payload.
-     */
-    public void json(String json) {
-        this.json = json;
-    }
-
-    /**
-     * @return JSON value suitable for short lists.
-     */
-    public abstract JsonObject shortView();
 }

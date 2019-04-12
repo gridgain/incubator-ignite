@@ -27,7 +27,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedCredentialsNotFoundException;
 
-import static org.apache.ignite.console.util.JsonUtils.fromJson;
+import static org.apache.ignite.console.json.JsonUtils.fromJson;
 
 /**
  * Custom filter for retrieve credentials from body and authenticate user. Default implementation use path parameters.

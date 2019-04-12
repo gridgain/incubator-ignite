@@ -22,7 +22,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Web model of the user.
+ * Web model of sign up request.
  */
 public class SignUpRequest {
     /** Email. */

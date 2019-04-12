@@ -17,224 +17,159 @@
 
 package org.apache.ignite.console.web.controller;
 
-import org.apache.ignite.Ignite;
+import java.util.UUID;
+import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.services.ConfigurationsService;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import static org.apache.ignite.console.common.Utils.idsFromJson;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
- * Router to handle REST API for configurations.
+ * Controller for configurations API.
  */
+@RestController
+@RequestMapping(path = "/api/v1/configuration")
 public class ConfigurationsController {
     /** */
-    private static final String E_FAILED_TO_LOAD_CONFIGURATION = "Failed to load configuration";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_CLUSTERS = "Failed to load clusters";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_CLUSTER = "Failed to load cluster";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_CLUSTER_CACHES = "Failed to load cluster caches";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_CLUSTER_MODELS = "Failed to load cluster models";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_CLUSTER_IGFSS = "Failed to load cluster IGFSs";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_CACHE = "Failed to load cache";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_MODEL = "Failed to load model";
-
-    /** */
-    private static final String E_FAILED_TO_LOAD_IGFS = "Failed to load IGFS";
-
-    /** */
-    private static final String E_FAILED_TO_SAVE_CLUSTER = "Failed to save cluster";
-
-    /** */
-    private static final String E_FAILED_TO_DELETE_CLUSTER = "Failed to delete cluster";
+    private final ConfigurationsService cfgsSrvc;
 
     /**
-     * @param ignite Ignite.
+     * @param cfgsSrvc Configurations service.
      */
-    public ConfigurationsController(Ignite ignite) {
-
+    public ConfigurationsController(ConfigurationsService cfgsSrvc) {
+        this.cfgsSrvc = cfgsSrvc;
     }
 
-//    /** {@inheritDoc} */
-//    @Override public void install(Router router) {
-//        authenticatedRoute(router, GET, "/api/v1/configuration/:clusterId", this::loadConfiguration);
-//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters", this::loadClustersShortList);
-//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId", this::loadCluster);
-//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/caches", this::loadCachesShortList);
-//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/models", this::loadModelsShortList);
-//        authenticatedRoute(router, GET, "/api/v1/configuration/clusters/:clusterId/igfss", this::loadIgfssShortList);
-//
-//        authenticatedRoute(router, GET, "/api/v1/configuration/caches/:cacheId", this::loadCache);
-//        authenticatedRoute(router, GET, "/api/v1/configuration/domains/:modelId", this::loadModel);
-//        authenticatedRoute(router, GET, "/api/v1/configuration/igfs/:igfsId", this::loadIgfs);
-//
-//        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters", this::saveAdvancedCluster);
-//        authenticatedRoute(router, PUT, "/api/v1/configuration/clusters/basic", this::saveBasicCluster);
-//        authenticatedRoute(router, POST, "/api/v1/configuration/clusters/remove", this::deleteClusters);
-//    }
+    /**
+     * @param clusterId Cluster ID.
+     */
+    @GetMapping(path = "/{clusterId}")
+    private ResponseEntity<JsonObject> loadConfiguration(@PathVariable("clusterId") UUID clusterId) {
+        return ResponseEntity.ok(cfgsSrvc.loadConfiguration(clusterId));
+    }
 
-//    /**
-//     * @param ctx Context.
-//     */
-//    private void loadConfiguration(RoutingContext ctx) {
-//        User user = getContextAccount(ctx);
-//
-//        if (user != null)
-//            send(Addresses.CONFIGURATION_LOAD, requestParams(ctx), ctx, E_FAILED_TO_LOAD_CONFIGURATION);
-//    }
-//
-//    /**
-//     * Load clusters short list.
-//     *
-//     * @param ctx Context.
-//     */
-//    private void loadClustersShortList(RoutingContext ctx) {
-//        ContextAccount acc = getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("user", acc.principal());
-//
-//        send(Addresses.CONFIGURATION_LOAD_SHORT_CLUSTERS, msg, ctx, E_FAILED_TO_LOAD_CLUSTERS);
-//    }
-//
-//    /**
-//     * @param ctx Cluster.
-//     */
-//    private void loadCluster(RoutingContext ctx) {
-//        getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("cluster", requestParams(ctx));
-//
-//        send(Addresses.CONFIGURATION_LOAD_CLUSTER, msg, ctx, E_FAILED_TO_LOAD_CLUSTER);
-//    }
-//
-//    /**
-//     * Load cluster caches short list.
-//     *
-//     * @param ctx Context.
-//     */
-//    private void loadCachesShortList(RoutingContext ctx) {
-//        getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("cluster", requestParams(ctx));
-//
-//        send(Addresses.CONFIGURATION_LOAD_SHORT_CACHES, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_CACHES);
-//    }
-//
-//    /**
-//     * Load cluster models short list.
-//     *
-//     * @param ctx Context.
-//     */
-//    private void loadModelsShortList(RoutingContext ctx) {
-//        getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("cluster", requestParams(ctx));
-//
-//        send(Addresses.CONFIGURATION_LOAD_SHORT_MODELS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_MODELS);
-//    }
-//
-//    /**
-//     * Get cluster IGFSs short list.
-//     *
-//     * @param ctx Context.
-//     */
-//    private void loadIgfssShortList(RoutingContext ctx) {
-//        getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("cluster", requestParams(ctx));
-//
-//        send(Addresses.CONFIGURATION_LOAD_SHORT_IGFSS, msg, ctx, E_FAILED_TO_LOAD_CLUSTER_IGFSS);
-//    }
-//
-//    /**
-//     * @param ctx Context.
-//     */
-//    private void loadCache(RoutingContext ctx) {
-//        getContextAccount(ctx);
-//
-//        JsonObject msg = requestParams(ctx);
-//
-//        send(Addresses.CONFIGURATION_LOAD_CACHE, msg, ctx, E_FAILED_TO_LOAD_CACHE);
-//    }
-//
-//    /**
-//     * @param ctx Context.
-//     */
-//    private void loadModel(RoutingContext ctx) {
-//        getContextAccount(ctx);
-//
-//        JsonObject msg = requestParams(ctx);
-//
-//        send(Addresses.CONFIGURATION_LOAD_MODEL, msg, ctx, E_FAILED_TO_LOAD_MODEL);
-//    }
-//
-//    /**
-//     * @param ctx Context.
-//     */
-//    private void loadIgfs(RoutingContext ctx) {
-//        getContextAccount(ctx);
-//
-//        JsonObject msg = requestParams(ctx);
-//
-//        send(Addresses.CONFIGURATION_LOAD_IGFS, msg, ctx, E_FAILED_TO_LOAD_IGFS);
-//    }
-//
-//    /**
-//     * Save cluster.
-//     *
-//     * @param ctx Context.
-//     */
-//    private void saveAdvancedCluster(RoutingContext ctx) {
-//        User user = getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("user", user.principal())
-//            .put("cluster", ctx.getBodyAsJson());
-//
-//        send(Addresses.CONFIGURATION_SAVE_CLUSTER_ADVANCED, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
-//    }
-//
-//    /**
-//     * Save basic cluster.
-//     *
-//     * @param ctx Context.
-//     */
-//    private void saveBasicCluster(RoutingContext ctx) {
-//        User user = getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("user", user.principal())
-//            .put("cluster", ctx.getBodyAsJson());
-//
-//        send(Addresses.CONFIGURATION_SAVE_CLUSTER_BASIC, msg, ctx, E_FAILED_TO_SAVE_CLUSTER);
-//    }
-//
-//    /**
-//     * Delete clusters.
-//     *
-//     * @param ctx Context.
-//     */
-//    private void deleteClusters(RoutingContext ctx) {
-//        User user = getContextAccount(ctx);
-//
-//        JsonObject msg = new JsonObject()
-//            .put("user", user.principal())
-//            .put("cluster", ctx.getBodyAsJson());
-//
-//        send(Addresses.CONFIGURATION_DELETE_CLUSTER, msg, ctx, E_FAILED_TO_DELETE_CLUSTER);
-//    }
+    /**
+     * @param user User.
+     * @return Clusters short list.
+     */
+    @GetMapping(path = "/clusters")
+    private ResponseEntity<JsonArray> loadClustersShortList(@AuthenticationPrincipal Account user) {
+        return ResponseEntity.ok(cfgsSrvc.loadClusters(user.getId()));
+    }
+
+    /**
+     * @param clusterId Cluster ID.
+     */
+    @GetMapping(path = "/clusters/{clusterId}")
+    private ResponseEntity<String> loadCluster(@PathVariable("clusterId") UUID clusterId) {
+        return ResponseEntity.ok(cfgsSrvc.loadCluster(clusterId));
+    }
+
+    /**
+     * Load cluster caches short list.
+     *
+     * @param clusterId Cluster ID.
+     */
+    @GetMapping(path = "/clusters/{clusterId}/caches")
+    private ResponseEntity<JsonArray> loadCachesShortList(@PathVariable("clusterId") UUID clusterId) {
+        return ResponseEntity.ok(cfgsSrvc.loadShortCaches(clusterId));
+    }
+
+    /**
+     * Load cluster models short list.
+     *
+     *  @param clusterId Cluster ID.
+     */
+    @GetMapping(path = "/clusters/{clusterId}/models")
+    private ResponseEntity<JsonArray> loadModelsShortList(@PathVariable("clusterId") UUID clusterId) {
+        return ResponseEntity.ok(cfgsSrvc.loadShortModels(clusterId));
+    }
+
+    /**
+     * Get cluster IGFSs short list.
+     *
+     * @param clusterId Cluster ID.
+     */
+    @GetMapping(path = "/clusters/{clusterId}/igfss")
+    private ResponseEntity<JsonArray> loadIgfssShortList(@PathVariable("clusterId") UUID clusterId) {
+        return ResponseEntity.ok(cfgsSrvc.loadShortIgfss(clusterId));
+    }
+
+    /**
+     * @param cacheId Cache ID.
+     */
+    @GetMapping(path = "/caches/{cacheId}")
+    private ResponseEntity<String> loadCache(@PathVariable("cacheId") UUID cacheId) {
+        return ResponseEntity.ok(cfgsSrvc.loadCache(cacheId));
+    }
+
+    /**
+     * @param modelId Model ID.
+     */
+    @GetMapping(path = "/domains/{modelId}")
+    private ResponseEntity<String> loadModel(@PathVariable("modelId") UUID modelId) {
+        return ResponseEntity.ok(cfgsSrvc.loadModel(modelId));
+    }
+
+    /**
+     * @param igfsId IGFS ID.
+     */
+    @GetMapping(path = "/igfs/{igfsId}")
+    private ResponseEntity<String> loadIgfs(@PathVariable("igfsId") UUID igfsId) {
+        return ResponseEntity.ok(cfgsSrvc.loadIgfs(igfsId));
+    }
+
+    /**
+     * Save cluster.
+     *
+     * @param user User.
+     * @param changedItems Items to save.
+     */
+    @PutMapping(path = "/clusters", consumes = APPLICATION_JSON_VALUE)
+    private ResponseEntity<JsonObject> saveAdvancedCluster(
+        @AuthenticationPrincipal Account user,
+        @RequestBody JsonObject changedItems
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.saveAdvancedCluster(user.getId(), changedItems));
+    }
+
+    /**
+     * Save basic clusters.
+     *
+     * @param user User.
+     * @param changedItems Items to save.
+     */
+    @PutMapping(path = "/clusters/basic", consumes = APPLICATION_JSON_VALUE)
+    private ResponseEntity<JsonObject> saveBasicCluster(
+        @AuthenticationPrincipal Account user,
+        @RequestBody JsonObject changedItems
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.saveBasicCluster(user.getId(), changedItems));
+    }
+
+    /**
+     * Delete clusters.
+     *
+     * @param user User.
+     * @param clusterIDs Cluster IDs for removal.
+     */
+    @PostMapping(path = "/clusters/remove", consumes = APPLICATION_JSON_VALUE)
+    private ResponseEntity<JsonObject> deleteClusters(
+        @AuthenticationPrincipal Account user,
+        @RequestBody JsonObject clusterIDs
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.deleteClusters(user.getId(), idsFromJson(clusterIDs, "clusterIDs")));
+    }
 }
 

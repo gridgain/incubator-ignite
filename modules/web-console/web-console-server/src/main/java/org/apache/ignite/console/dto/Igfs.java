@@ -18,9 +18,10 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.igfs.IgfsMode;
 
+import static org.apache.ignite.console.json.JsonUtils.toJson;
 import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
 
 /**
@@ -51,7 +52,7 @@ public class Igfs extends DataObject {
             json.getString("name"),
             IgfsMode.valueOf(json.getString("defaultMode", PRIMARY.name())),
             json.getInteger("affinityGroupSize", 512),
-            json.encode()
+            toJson(json)
         );
     }
 

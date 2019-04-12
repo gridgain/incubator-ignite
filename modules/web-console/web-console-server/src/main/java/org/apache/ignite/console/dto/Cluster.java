@@ -18,8 +18,10 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
+
+import static org.apache.ignite.console.json.JsonUtils.toJson;
 
 /**
  * DTO for cluster configuration.
@@ -46,7 +48,7 @@ public class Cluster extends DataObject {
         if (F.isEmpty(name))
             throw new IllegalStateException("Cluster name is empty");
 
-        String discovery = "TODO"; // json.getJsonObject("discovery").getString("kind");
+        String discovery = json.getJsonObject("discovery").getString("kind");
 
         if (F.isEmpty(discovery))
             throw new IllegalStateException("Cluster discovery not found");
@@ -55,7 +57,7 @@ public class Cluster extends DataObject {
             id,
             name,
             discovery,
-            json.encode()
+            toJson(json)
         );
     }
 

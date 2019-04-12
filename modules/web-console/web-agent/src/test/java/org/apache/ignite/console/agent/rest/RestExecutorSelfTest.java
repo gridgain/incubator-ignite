@@ -21,28 +21,25 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.ConnectorConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -191,11 +188,11 @@ public class RestExecutorSelfTest {
 
             RestExecutor exec = new RestExecutor(cfg);
 
-            Map<String, Object> params = new HashMap<>();
-            params.put("cmd", "top");
-            params.put("attr", false);
-            params.put("mtr", false);
-            params.put("caches", false);
+            JsonObject params = new JsonObject()
+                .add("cmd", "top")
+                .add("attr", false)
+                .add("mtr", false)
+                .add("caches", false);
 
             RestResult res = exec.sendRequest(params);
 

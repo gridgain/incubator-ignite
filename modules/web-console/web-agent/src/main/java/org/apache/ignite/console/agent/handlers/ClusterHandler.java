@@ -19,9 +19,7 @@ package org.apache.ignite.console.agent.handlers;
 
 import java.io.IOException;
 import java.net.ConnectException;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -32,7 +30,7 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.websocket.TopologySnapshot;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
@@ -43,8 +41,7 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static org.apache.ignite.console.util.JsonUtils.fromJson;
-import static org.apache.ignite.console.util.JsonUtils.paramsFromJson;
+import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_DISCONNECTED;
 import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
@@ -290,12 +287,9 @@ public class ClusterHandler {
             log.debug("Processing REST request: " + evt);
 
         try {
-            Map<String, Object> args = paramsFromJson(evt.getPayload());
+            JsonObject args = fromJson(evt.getPayload());
 
-            Map<String, Object> params = Collections.emptyMap();
-
-            if (args.containsKey("params"))
-                params = (Map<String, Object>)args.get("params");
+            JsonObject params = args.containsKey("params") ? args.getJsonObject("params") : new JsonObject();
 
             // TODO IGNITE-5617 Restore demo mode.
 //            if (!args.containsKey("demo"))

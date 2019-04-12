@@ -18,7 +18,9 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonObject;
+
+import static org.apache.ignite.console.json.JsonUtils.toJson;
 
 /**
  * DTO for cluster model.
@@ -48,7 +50,7 @@ public class Model extends DataObject {
             false, // TODO IGNITE-5617 DETECT INDEXES !!!
             json.getString("keyType"),
             json.getString("valueType"),
-            json.encode()
+            toJson(json)
         );
     }
 

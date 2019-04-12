@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -49,7 +50,7 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
-import static org.apache.ignite.console.util.JsonUtils.fromJson;
+import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_AUTH_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
@@ -149,7 +150,7 @@ public class RestExecutor implements AutoCloseable {
     }
 
     /** */
-    private RestResult sendRequest(String url, Map<String, Object> params) throws Throwable {
+    private RestResult sendRequest(String url, JsonObject params) throws Throwable {
         Request req = httpClient
             .newRequest(url)
             .path("/ignite")
@@ -169,7 +170,7 @@ public class RestExecutor implements AutoCloseable {
      * @return Response from cluster.
      * @throws ConnectException if failed to connect to cluster.
      */
-    public RestResult sendRequest(Map<String, Object> params) throws ConnectException {
+    public RestResult sendRequest(JsonObject params) throws ConnectException {
         List<String> nodeURIs = cfg.nodeURIs();
 
         Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);

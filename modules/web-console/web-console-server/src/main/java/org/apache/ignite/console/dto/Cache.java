@@ -20,10 +20,11 @@ package org.apache.ignite.console.dto;
 import java.util.UUID;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
-import org.apache.ignite.console.util.JsonObject;
+import org.apache.ignite.console.json.JsonObject;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.console.json.JsonUtils.toJson;
 
 /**
  * DTO for cluster cache.
@@ -57,7 +58,7 @@ public class Cache extends DataObject {
             CacheMode.valueOf(json.getString("cacheMode", PARTITIONED.name())),
             CacheAtomicityMode.valueOf(json.getString("atomicityMode", ATOMIC.name())),
             json.getInteger("backups", 0),
-            json.encode()
+            toJson(json)
         );
     }
 

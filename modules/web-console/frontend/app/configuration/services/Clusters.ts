@@ -106,8 +106,8 @@ export default class Clusters {
         return this.$http.get<{data: ShortCluster[]}>('/api/v1/configuration/clusters/');
     }
 
-    removeCluster(cluster) {
-        return this.$http.post('/api/v1/configuration/clusters/remove', {id: cluster});
+    removeCluster(clusterIDs) {
+        return this.$http.post('/api/v1/configuration/clusters/remove', {clusterIDs});
     }
 
     saveBasic(changedItems) {
