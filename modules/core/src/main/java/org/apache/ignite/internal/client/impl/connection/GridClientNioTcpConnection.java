@@ -478,7 +478,8 @@ public class GridClientNioTcpConnection extends GridClientConnection {
                 req.requestId(reqId);
 
                 sndFut = ses.send(req);
-            } else {
+            }
+            else {
                 sndFut = ses.send(msg);
             }
 
