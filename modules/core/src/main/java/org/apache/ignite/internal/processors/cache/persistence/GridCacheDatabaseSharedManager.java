@@ -69,8 +69,11 @@ import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.cache.Cache;
+
 import org.apache.ignite.DataRegionMetricsProvider;
 import org.apache.ignite.DataStorageMetrics;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteInterruptedException;
@@ -152,6 +155,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointer;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.port.GridPortRecord;
 import org.apache.ignite.internal.processors.query.GridQueryProcessor;
 import org.apache.ignite.internal.stat.IoStatisticsHolderNoOp;
@@ -196,6 +200,7 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_WAL_REBALANCE_
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_RECOVERY_SEMAPHORE_PERMITS;
 import static org.apache.ignite.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.IgniteSystemProperties.partCnts;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT;
 import static org.apache.ignite.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.failure.FailureType.SYSTEM_CRITICAL_OPERATION_TIMEOUT;
@@ -2624,6 +2629,10 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         IgniteInClosure<WALPointer> onWalPointerApplied,
         boolean asyncApply
     ) {
+        boolean cc = asyncApply;
+
+        asyncApply = false;
+
         StripedExecutor exec = cctx.kernalContext().getStripedExecutorService();
 
         AtomicReference<IgniteCheckedException> applyError = new AtomicReference<>();
@@ -2647,8 +2656,29 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                         try {
                             DataRecord dataRec = (DataRecord)rec;
 
+                            GridCacheVersion vvv = null;
+
                             for (DataEntry dataEntry : dataRec.writeEntries()) {
                                 if (entryPred.apply(rec, dataEntry)) {
+                                    vvv = dataEntry.nearXidVersion();
+
+                                    if (dataEntry.nearXidVersion() != null) {
+                                        //log.info("TRACE " + (cc ? "CUT" : "PITR") + ": tx=" + vvv);
+                                        log.info("TRACE " + (cc ? "CUT" : "PITR") + ": Apply data entry: ptr=" + rec.position() + ", rec=" + rec);
+
+                                        Integer kkk = dataEntry.key().value(null, false);
+
+                                        partCnts.compute(kkk,
+                                                (k, v0) -> {
+                                                    Long newVal = dataEntry.partitionCounter();
+
+                                                    if (v0 != null && v0 >= newVal )
+                                                        log.info("FUCK!!! prevCntr=" + v0 + ", dataEntry=" + dataEntry);
+
+                                                    return newVal;
+                                                });
+                                    }
+
                                     int cacheId = dataEntry.cacheId();
 
                                     GridCacheContext cacheCtx = cctx.cacheContext(cacheId);
@@ -2666,6 +2696,23 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                                             "[cacheId=" + cacheId + ']');
                                     }
                                 }
+                                else {
+                                    if (dataEntry.nearXidVersion() != null)
+                                        log.info("TRACE " + (cc ? "CUT" : "PITR") + ": Skip data entry: ptr=" + rec.position() + ", rec=" + rec);
+                                }
+                            }
+
+                            if (!asyncApply && vvv != null) {
+                                IgniteCache<Integer, Long> cache = cctx.kernalContext().grid().cache("txCache");
+
+                                Map<Integer, Long> map = new HashMap<>();
+
+                                for (Cache.Entry<Integer, Long> e : cache)
+                                    map.put(e.getKey(), e.getValue());
+
+                                long sum = map.values().stream().mapToLong(v -> v).sum();
+
+                                log.info("TRACE " + (cc ? "CUT" : "PITR") + ": Result sum=" + sum + ", ok=" + (sum == 0));
                             }
                         }
                         catch (IgniteCheckedException e) {

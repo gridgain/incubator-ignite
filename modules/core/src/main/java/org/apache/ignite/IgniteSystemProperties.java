@@ -23,6 +23,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.net.ssl.HostnameVerifier;
 import org.apache.ignite.cache.CacheEntryProcessor;
 import org.apache.ignite.cluster.ClusterGroup;
@@ -42,6 +44,8 @@ import org.jetbrains.annotations.Nullable;
  * These properties and variables can be used to affect the behavior of Ignite.
  */
 public final class IgniteSystemProperties {
+    public static final ConcurrentMap<Integer, Long> partCnts = new ConcurrentHashMap<>();
+
     /**
      * If this system property is present the Ignite will include grid name into verbose log.
      *

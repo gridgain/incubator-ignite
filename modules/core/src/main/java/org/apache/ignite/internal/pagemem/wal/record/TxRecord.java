@@ -39,6 +39,7 @@ public class TxRecord extends TimeStampRecord {
     private final GridCacheVersion nearXidVer;
 
     /** Transaction entries write topology version. */
+    @GridToStringInclude
     private final GridCacheVersion writeVer;
 
     /**

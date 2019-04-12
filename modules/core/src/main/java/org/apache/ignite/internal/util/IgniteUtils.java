@@ -9288,8 +9288,10 @@ public abstract class IgniteUtils {
         if (!dir.canRead())
             throw new IgniteCheckedException("Cannot read from directory: " + dir);
 
+/*
         if (!dir.canWrite())
             throw new IgniteCheckedException("Cannot write to directory: " + dir);
+*/
 
         return dir;
     }
