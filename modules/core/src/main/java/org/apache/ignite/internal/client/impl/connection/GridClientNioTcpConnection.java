@@ -470,7 +470,7 @@ public class GridClientNioTcpConnection extends GridClientConnection {
             assert old == null;
 
             GridNioFuture<?> sndFut;
-            if(sesTok == null && credentials() != null ) {
+            if(sesTok == null && credentials() != null) {
                 fut.retryState(TcpClientFuture.STATE_AUTH_RETRY);
 
                 GridClientAuthenticationRequest req = buildAuthRequest();
