@@ -55,7 +55,7 @@ public class NotebooksController {
 
     /**
      * @param user User.
-     * @return
+     * @return Collection of notebooks.
      */
     @GetMapping
     public ResponseEntity<Collection<Notebook>> list(@AuthenticationPrincipal Account user) {
@@ -79,8 +79,6 @@ public class NotebooksController {
      */
     @DeleteMapping(path = "/{notebookId}")
     public ResponseEntity<JsonObject> delete(@AuthenticationPrincipal Account user, @PathVariable("notebookId") UUID notebookId) {
-        ;
-
         return ResponseEntity.ok(notebooksSrvc.delete(user.getId(), notebookId));
     }
 }

@@ -60,7 +60,7 @@ import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_
 import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_SCHEMAS;
 
 /**
- * Router for requests from web sockets.
+ * Web sockets manager.
  */
 @Service
 public class WebSocketManager extends TextWebSocketHandler {
