@@ -17,19 +17,16 @@
 
 package org.apache.ignite.console.web.controller;
 
-import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
@@ -50,50 +47,34 @@ public class AdminController {
     }
 
     /**
-     * @param user User.
      * @param params Parameters.
      */
     @PostMapping(path = "/list", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonArray> loadUsers(@AuthenticationPrincipal Account user, @RequestBody JsonObject params) {
-        if (!user.admin())
-            return ResponseEntity.status(FORBIDDEN).build();
-
+    public ResponseEntity<JsonArray> loadUsers(@RequestBody JsonObject params) {
         return ResponseEntity.ok(adminSrvc.list());
     }
 
     /**
-     * @param user User.
      * @param params Parameters.
      */
     @PostMapping(path = "/toggle", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> toggle(@AuthenticationPrincipal Account user, @RequestBody JsonObject params) {
-        if (!user.admin())
-            return ResponseEntity.status(FORBIDDEN).build();
-
+    public ResponseEntity<JsonObject> toggle(@RequestBody JsonObject params) {
         return ResponseEntity.ok(adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false)));
     }
 
     /**
-     * @param user User.
      * @param params Parameters.
      */
     @PostMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> remove(@AuthenticationPrincipal Account user, @RequestBody JsonObject params) {
-        if (!user.admin())
-            return ResponseEntity.status(FORBIDDEN).build();
-
+    public ResponseEntity<JsonObject> remove(@RequestBody JsonObject params) {
         return ResponseEntity.ok(adminSrvc.remove(params.getUuid("id")));
     }
 
     /**
-     * @param user User.
      * @param params Parameters.
      */
     @PostMapping(path = "/become", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> become(@AuthenticationPrincipal Account user, @RequestBody JsonObject params) {
-        if (!user.admin())
-            return ResponseEntity.status(FORBIDDEN).build();
-
+    public ResponseEntity<Void> become(@RequestBody JsonObject params) {
         adminSrvc.become(params.getUuid("id"));
 
         return ResponseEntity.ok().build();
