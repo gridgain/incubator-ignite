@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.web.model;
 
+import java.util.UUID;
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
@@ -25,6 +26,11 @@ import org.hibernate.validator.constraints.NotEmpty;
  * Web model of the user.
  */
 public class User {
+    /** ID */
+    @NotNull
+    @NotEmpty
+    private UUID id;
+
     /** Email. */
     @NotNull
     @NotEmpty
@@ -69,6 +75,7 @@ public class User {
     /**
      * Full constructor.
      *
+     * @param id ID.
      * @param email Email.
      * @param firstName First name.
      * @param lastName Last name.
@@ -79,6 +86,7 @@ public class User {
      * @param admin Admin flag.
      */
     public User(
+        UUID id,
         String email,
         String firstName,
         String lastName,
@@ -88,6 +96,7 @@ public class User {
         String tok,
         boolean admin
     ) {
+        this.id = id;
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -96,6 +105,20 @@ public class User {
         this.country = country;
         this.tok = tok;
         this.admin = admin;
+    }
+
+    /**
+     * @return ID.
+     */
+    public UUID getId() {
+        return id;
+    }
+
+    /**
+     * @param id New ID.
+     */
+    public void setId(UUID id) {
+        this.id = id;
     }
 
     /**

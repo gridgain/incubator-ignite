@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.websocket;
+package org.apache.ignite.console.web.socket;
 
 import java.io.IOException;
 import java.security.Principal;
@@ -26,14 +26,21 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.websocket.AgentInfo;
+import org.apache.ignite.console.websocket.TopologySnapshot;
+import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.jsr166.ConcurrentLinkedHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.PingMessage;
+import org.springframework.web.socket.PongMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.json.JsonUtils.errorToJson;
@@ -42,6 +49,7 @@ import static org.apache.ignite.console.json.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_STATUS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.console.websocket.WebSocketConsts.ERROR;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_REST;
@@ -51,12 +59,12 @@ import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_
 import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_SCHEMAS;
 
 /**
- * Websocket sessions service.
+ * Web sockets manager.
  */
-@Component
-public class WebSocketSessions {
+@Service
+public class WebSocketManager extends TextWebSocketHandler {
     /** */
-    private static final Logger log = LoggerFactory.getLogger(WebSocketSessions.class);
+    private static final Logger log = LoggerFactory.getLogger(WebSocketManager.class);
 
     /** */
     private static final PingMessage PING = new PingMessage(UTF_8.encode("PING"));
@@ -76,7 +84,7 @@ public class WebSocketSessions {
     /**
      * Default constructor.
      */
-    public WebSocketSessions() {
+    public WebSocketManager() {
         agents = new ConcurrentLinkedHashMap<>();
         clusters = new ConcurrentHashMap<>();
         browsers = new ConcurrentHashMap<>();
@@ -131,7 +139,7 @@ public class WebSocketSessions {
      * @param wsBrowser Browser session.
      * @param evt Event to send.
      */
-    public void sendToAgent(WebSocketSession wsBrowser, WebSocketEvent evt) {
+    private void sendToAgent(WebSocketSession wsBrowser, WebSocketEvent evt) {
         try {
             String tok = token(wsBrowser);
 
@@ -171,19 +179,11 @@ public class WebSocketSessions {
     }
 
     /**
-     * Ping connected clients.
-     */
-    public void ping() {
-        agents.keySet().forEach(this::ping);
-        browsers.keySet().forEach(this::ping);
-    }
-
-    /**
      * @param evt Event to process.
      * @param ws Session.
      * @throws IOException If failed to process.
      */
-    public void registerAgent(WebSocketEvent evt, WebSocketSession ws) throws IOException {
+    private void registerAgent(WebSocketEvent evt, WebSocketSession ws) throws IOException {
         AgentInfo agentInfo = fromJson(evt.getPayload(), AgentInfo.class);
 
         log.info("Agent connected: " + agentInfo);
@@ -194,7 +194,7 @@ public class WebSocketSessions {
     /**
      * @param ws Session.
      */
-    public void registerBrowser(WebSocketSession ws) {
+    private void registerBrowser(WebSocketSession ws) {
         log.info("Browser connected: " + ws);
 
         browsers.put(ws, token(ws));
@@ -233,7 +233,7 @@ public class WebSocketSessions {
      * @param msg Incoming message.
      * @throws IOException If failed to handle event.
      */
-    public void handleAgentEvents(WebSocketSession ws, TextMessage msg) throws IOException {
+    private void handleAgentEvents(WebSocketSession ws, TextMessage msg) throws IOException {
         WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
         switch (evt.getEventType()) {
@@ -262,7 +262,7 @@ public class WebSocketSessions {
      * @param msg Incoming message.
      * @throws IOException If failed to handle event.
      */
-    public void handleBrowserEvents(WebSocketSession ws, TextMessage msg) throws IOException {
+    private void handleBrowserEvents(WebSocketSession ws, TextMessage msg) throws IOException {
         WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
         switch (evt.getEventType()) {
@@ -286,7 +286,7 @@ public class WebSocketSessions {
      * @param ws Session.
      * @param evt Event to process.
      */
-    public void registerCluster(WebSocketSession ws, WebSocketEvent evt) {
+    private void registerCluster(WebSocketSession ws, WebSocketEvent evt) {
         try {
             TopologySnapshot top = fromJson(evt.getPayload(), TopologySnapshot.class);
 
@@ -307,12 +307,12 @@ public class WebSocketSessions {
             List<TopologySnapshot> tops = new ArrayList<>();
 
             agents.forEach((wsAgent, agentInfo) -> {
-               if (agentInfo.getTokens().contains(tok)) {
-                   TopologySnapshot top = clusters.get(wsAgent);
+                if (agentInfo.getTokens().contains(tok)) {
+                    TopologySnapshot top = clusters.get(wsAgent);
 
-                   if (top != null && tops.stream().allMatch(t -> t.differentCluster(top)))
-                       tops.add(top);
-               }
+                    if (top != null && tops.stream().allMatch(t -> t.differentCluster(top)))
+                        tops.add(top);
+                }
             });
 
             Map<String, Object> res = new LinkedHashMap<>();
@@ -332,5 +332,55 @@ public class WebSocketSessions {
                 log.error("Failed to update agent status [session=" + wsBrowser + ", token=" + tok + "]", e);
             }
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override public void handleTextMessage(WebSocketSession ws, TextMessage msg) {
+        try {
+            if (BROWSERS_PATH.equals(ws.getUri().getPath()))
+                handleBrowserEvents(ws, msg);
+            else
+                handleAgentEvents(ws, msg);
+        }
+        catch (Throwable e) {
+            log.error("Failed to process websocket message [session=" + ws + ", msg=" + msg + "]", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void handlePongMessage(WebSocketSession ws, PongMessage msg) {
+        try {
+            if (log.isTraceEnabled())
+                log.trace("Received pong message [socket=" + ws + ", msg=" + msg + "]");
+        }
+        catch (Throwable e) {
+            log.error("Failed to process pong message [socket=" + ws + ", msg=" + msg + "]", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void afterConnectionEstablished(WebSocketSession ws) {
+        log.info("Session opened [socket=" + ws + "]");
+
+        ws.setTextMessageSizeLimit(10 * 1024 * 1024); // TODO IGNITE-5617 how to configure in more correct way
+
+        if (BROWSERS_PATH.equals(ws.getUri().getPath()))
+            registerBrowser(ws);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void afterConnectionClosed(WebSocketSession ws, CloseStatus status) {
+        log.info("Session closed [socket=" + ws + ", status=" + status + "]");
+
+        closeSession(ws);
+    }
+
+    /**
+     * Periodically ping connected clients to keep connections alive.
+     */
+    @Scheduled(fixedRate = 5000)
+    public void pingClients() {
+        agents.keySet().forEach(this::ping);
+        browsers.keySet().forEach(this::ping);
     }
 }

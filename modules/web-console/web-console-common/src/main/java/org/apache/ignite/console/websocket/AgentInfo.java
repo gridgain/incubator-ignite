@@ -20,6 +20,7 @@ package org.apache.ignite.console.websocket;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
  */
 public class AgentInfo {
     /** */
+    @GridToStringInclude
     private Set<String> toks;
 
     /**

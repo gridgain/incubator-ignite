@@ -233,10 +233,12 @@ public class WebSocketRouter implements AutoCloseable {
 
                 case SCHEMA_IMPORT_SCHEMAS:
                     dbHnd.collectDbSchemas(evt);
+
                     break;
 
                 case SCHEMA_IMPORT_METADATA:
                     dbHnd.collectDbMetadata(evt);
+
                     break;
 
                 case NODE_REST:

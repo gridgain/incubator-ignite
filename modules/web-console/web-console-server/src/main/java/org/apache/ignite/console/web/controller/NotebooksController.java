@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.NotebooksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -54,6 +55,7 @@ public class NotebooksController {
 
     /**
      * @param user User.
+     * @return Collection of notebooks.
      */
     @GetMapping
     public ResponseEntity<Collection<Notebook>> list(@AuthenticationPrincipal Account user) {
@@ -73,12 +75,10 @@ public class NotebooksController {
     /**
      * @param user User.
      * @param notebookId Notebook ID.
-     * @return Response.
+     * @return Rows affected.
      */
     @DeleteMapping(path = "/{notebookId}")
-    public ResponseEntity<Void> delete(@AuthenticationPrincipal Account user, @PathVariable("notebookId") UUID notebookId) {
-        notebooksSrvc.delete(user.getId(), notebookId);
-
-        return ResponseEntity.ok().build();
+    public ResponseEntity<JsonObject> delete(@AuthenticationPrincipal Account user, @PathVariable("notebookId") UUID notebookId) {
+        return ResponseEntity.ok(notebooksSrvc.delete(user.getId(), notebookId));
     }
 }

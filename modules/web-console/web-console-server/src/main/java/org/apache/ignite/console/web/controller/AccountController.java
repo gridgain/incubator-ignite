@@ -64,6 +64,7 @@ public class AccountController {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
         return ResponseEntity.ok(new User(
+            acc.getId(),
             acc.email(),
             acc.firstName(),
             acc.lastName(),

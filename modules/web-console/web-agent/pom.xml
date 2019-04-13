@@ -58,6 +58,12 @@
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-rest-http</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
