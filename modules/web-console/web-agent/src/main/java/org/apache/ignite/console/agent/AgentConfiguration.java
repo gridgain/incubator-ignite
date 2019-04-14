@@ -37,7 +37,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * Agent configuration.
  */
 public class AgentConfiguration {
-    /** Default path to agent property file. */
+    /** Default path to properties file. */
     public static final String DFLT_CFG_PATH = "default.properties";
 
     /** Default server URI. */
@@ -79,7 +79,7 @@ public class AgentConfiguration {
     private String demoNodeUri;
 
     /** */
-    @Parameter(names = {"-c", "--config"}, description = "Path to agent property file" +
+    @Parameter(names = {"-c", "--config"}, description = "Path to properties file" +
         "                                  " +
         "      Default value: " + DFLT_CFG_PATH)
     private String cfgPath;
@@ -624,7 +624,7 @@ public class AgentConfiguration {
             sb.append("Login to Ignite node REST server: ").append(nodeLogin).append(nl);
 
         sb.append("URI to Ignite Console server    : ").append(srvUri == null ? DFLT_SERVER_URI : srvUri).append(nl);
-        sb.append("Path to agent property file     : ").append(configPath()).append(nl);
+        sb.append("Path to properties file         : ").append(configPath()).append(nl);
 
         String drvFld = driversFolder();
 

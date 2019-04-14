@@ -151,9 +151,7 @@ public class AccountsService implements UserDetailsService {
             String oldToken = acc.token();
 
             if (changed(oldToken, newVal)) {
-                System.out.println("RESET TOKEN !!!");
-
-                wsm.resetToken(oldToken);
+                wsm.revokeToken(oldToken);
 
                 acc.token(newVal);
             }

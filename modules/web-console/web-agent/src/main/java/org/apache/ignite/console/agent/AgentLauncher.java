@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 /**
- * Ignite Web Agent launcher.
+ * Ignite Web Console Agent launcher.
  */
 public class AgentLauncher {
     /** */
@@ -96,13 +96,13 @@ public class AgentLauncher {
             File f = AgentUtils.resolvePath(prop);
 
             if (f == null)
-                log.warn("Failed to find agent property file: " + prop);
+                log.warn("Failed to find properties file: " + prop);
             else
                 propCfg.load(f.toURI().toURL());
         }
         catch (IOException e) {
             if (!AgentConfiguration.DFLT_CFG_PATH.equals(prop))
-                log.warn("Failed to load agent property file: " + prop, e);
+                log.warn("Failed to load properties file: " + prop, e);
         }
 
         cfg.merge(propCfg);
@@ -114,7 +114,7 @@ public class AgentLauncher {
         }
 
         System.out.println();
-        System.out.println("Agent configuration:");
+        System.out.println("Web Console Agent configuration :");
         System.out.println(cfg);
         System.out.println();
 
@@ -130,7 +130,7 @@ public class AgentLauncher {
         }
 
         if (cfg.tokens() == null) {
-            System.out.println("Security token is required to establish connection to the web console.");
+            System.out.println("Security token is required to establish connection to the Web Console.");
             System.out.println(String.format("It is available on the Profile page: https://%s/profile", uri.getHost()));
 
             String tokens = String.valueOf(readPassword("Enter security tokens separated by comma: "));
@@ -173,7 +173,7 @@ public class AgentLauncher {
         }
 
         if (nodeURIs.isEmpty()) {
-            log.error("Failed to find valid URIs for connect to Ignite node via REST. Please check agent settings");
+            log.error("Failed to find valid URIs for connect to Ignite node via REST. Please check settings");
 
             return null;
         }
@@ -194,10 +194,13 @@ public class AgentLauncher {
                 websocket.start();
 
                 websocket.awaitClose();
+
             }
             catch (Throwable e) {
-                log.error("Agent failed", e);
+                log.error("Web Console Agent failed to start", e);
             }
+
+            System.exit(0); // This is known issue with Jetty: HTTP client does not shutdown its threads.
         }
     }
 }

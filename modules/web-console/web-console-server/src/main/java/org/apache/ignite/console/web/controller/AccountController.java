@@ -99,7 +99,6 @@ public class AccountController {
     }
 
     /**
-     *
      * @param curUser Current user.
      * @param changes Changes to apply to user.
      * @return {@linkplain HttpStatus#OK OK} on success.

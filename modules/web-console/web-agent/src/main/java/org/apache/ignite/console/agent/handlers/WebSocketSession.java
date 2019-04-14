@@ -18,7 +18,6 @@
 package org.apache.ignite.console.agent.handlers;
 
 import java.io.IOException;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.websocket.WebSocketEvent;
@@ -41,11 +40,9 @@ public class WebSocketSession {
     private final AtomicReference<Session> sesRef;
 
     /**
-     * Websocket session constructor.
-     *
-     * @param agentId Agent ID.
+     * Default constructor.
      */
-    public WebSocketSession(String agentId) {
+    public WebSocketSession() {
         sesRef = new AtomicReference<>();
     }
 
@@ -58,8 +55,16 @@ public class WebSocketSession {
 
     /**
      * Close current session.
+     *
+     * @param statusCode Status code.
+     * @param reason Optional reason.
      */
-    public void close() {
+    public void close(int statusCode, String reason) {
+        Session ses = sesRef.get();
+
+        if (ses != null && ses.isOpen())
+            ses.close(statusCode, reason);
+
         sesRef.set(null);
     }
 
@@ -86,11 +91,7 @@ public class WebSocketSession {
      * @throws Exception If failed to send event.
      */
     public void send(String evtType, Object payload) throws Exception {
-        send(new WebSocketEvent(
-            UUID.randomUUID().toString(),
-            evtType,
-            toJson(payload)
-        ));
+        send(new WebSocketEvent(evtType, toJson(payload)));
     }
 
     /**
