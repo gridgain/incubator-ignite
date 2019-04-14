@@ -200,7 +200,7 @@ public class AgentLauncher {
                 log.error("Web Console Agent failed to start", e);
             }
 
-            System.exit(0); // This is known issue with Jetty: HTTP client does not shutdown its threads.
+            System.exit(0); // Force exit because of  known issue with Jetty: HTTP client does not shutdown its threads.
         }
     }
 }

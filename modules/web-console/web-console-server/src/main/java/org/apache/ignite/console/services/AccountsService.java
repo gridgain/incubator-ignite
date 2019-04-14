@@ -141,7 +141,7 @@ public class AccountsService implements UserDetailsService {
             Account acc = accountsRepo.getById(changes.getUuid("id"));
 
             if (!F.isEmpty(changes.getString("password"))) {
-                // TODO
+                // WC-1049	Re-Implement "Change password"
 
                 System.out.println("Change password !!!");
             }
