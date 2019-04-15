@@ -20,7 +20,6 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.web.model.ProfileUser;
 import org.apache.ignite.console.web.model.SignUpRequest;
@@ -124,15 +123,6 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
-     * @param oldVal Old value.
-     * @param newVal New value.
-     * @return {@code true} if value should be updated.
-     */
-    private boolean changed(String oldVal, String newVal) {
-        return !F.isEmpty(newVal) && !oldVal.equals(newVal);
-    }
-
-    /**
      * Save user.
      *
      * @param changedUser Changed user to save.
@@ -141,20 +131,22 @@ public class AccountsService implements UserDetailsService {
         try (Transaction tx = accountsRepo.txStart()) {
             Account acc = accountsRepo.getById(changedUser.getId());
 
-            if (!F.isEmpty(changedUser.getPassword())) {
+            String pwd = changedUser.getPassword();
+
+            if (!F.isEmpty(pwd)) {
                 // WC-1049	Re-Implement "Change password"
 
                 System.out.println("Change password !!!");
             }
 
-            String newVal = changedUser.getToken();
+            String newTok = changedUser.getToken();
 
-            String oldToken = acc.token();
+            String oldTok = acc.token();
 
-            if (changed(oldToken, newVal)) {
-                wsm.revokeToken(oldToken);
+            if (!F.isEmpty(newTok) && !oldTok.equals(newTok)) {
+                wsm.revokeToken(oldTok);
 
-                acc.token(newVal);
+                acc.token(newTok);
             }
 
             acc.firstName(changedUser.getFirstName());
