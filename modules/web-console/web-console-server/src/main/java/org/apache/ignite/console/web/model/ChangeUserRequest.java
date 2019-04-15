@@ -18,34 +18,28 @@
 package org.apache.ignite.console.web.model;
 
 import javax.validation.constraints.NotNull;
-import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Web model of sign up request.
+ * Web model of change user request.
  */
-public class SignUpRequest extends User {
-    /** Password. */
+public class ChangeUserRequest extends SignUpRequest {
+    /** Agent token. */
     @NotNull
     @NotEmpty
-    private String pwd;
+    private String tok;
 
     /**
-     * @return Password.
+     * @return Agent token.
      */
-    public String getPassword() {
-        return pwd;
+    public String getToken() {
+        return tok;
     }
 
     /**
-     * @param pwd New password.
+     * @param tok New agent token.
      */
-    public void setPassword(String pwd) {
-        this.pwd = pwd;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(SignUpRequest.class, this);
+    public void setToken(String tok) {
+        this.tok = tok;
     }
 }

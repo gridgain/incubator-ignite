@@ -17,20 +17,14 @@
 
 package org.apache.ignite.console.web.model;
 
-import java.util.UUID;
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Web model of the user.
+ * Base class for user web models.
  */
 public class User {
-    /** ID */
-    @NotNull
-    @NotEmpty
-    private UUID id;
-
     /** Email. */
     @NotNull
     @NotEmpty
@@ -59,14 +53,6 @@ public class User {
     @NotEmpty
     private String country;
 
-    /** Agent token. */
-    @NotNull
-    @NotEmpty
-    private String tok;
-
-    /** Agent token. */
-    private boolean admin;
-
     /**
      * Default constructor for serialization.
      */
@@ -77,50 +63,27 @@ public class User {
     /**
      * Full constructor.
      *
-     * @param id ID.
      * @param email Email.
      * @param firstName First name.
      * @param lastName Last name.
      * @param phone Phone.
      * @param company Company.
      * @param country Country.
-     * @param tok Agent token.
-     * @param admin Admin flag.
      */
     public User(
-        UUID id,
         String email,
         String firstName,
         String lastName,
         String phone,
         String company,
-        String country,
-        String tok,
-        boolean admin
+        String country
     ) {
-        this.id = id;
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
         this.phone = phone;
         this.company = company;
         this.country = country;
-        this.tok = tok;
-        this.admin = admin;
-    }
-
-    /**
-     * @return ID.
-     */
-    public UUID getId() {
-        return id;
-    }
-
-    /**
-     * @param id New ID.
-     */
-    public void setId(UUID id) {
-        this.id = id;
     }
 
     /**
@@ -205,34 +168,6 @@ public class User {
      */
     public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    /**
-     * @return Agent token.
-     */
-    public String getToken() {
-        return tok;
-    }
-
-    /**
-     * @param tok New agent token.
-     */
-    public void setToken(String tok) {
-        this.tok = tok;
-    }
-
-    /**
-     * @return Admin flag.
-     */
-    public boolean isAdmin() {
-        return admin;
-    }
-
-    /**
-     * @param admin Admin flag.
-     */
-    public void setAdmin(boolean admin) {
-        this.admin = admin;
     }
 
     /** {@inheritDoc} */

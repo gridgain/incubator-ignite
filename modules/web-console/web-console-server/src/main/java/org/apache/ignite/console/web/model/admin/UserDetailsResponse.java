@@ -15,26 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.web.model;
+package org.apache.ignite.console.web.model.admin;
+
+import java.util.UUID;
+import javax.validation.constraints.NotNull;
+import org.apache.ignite.console.web.model.UserResponse;
+import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Web model of the user from Profile.
+ * Web model of the user.
  */
-public class ProfileUser extends User {
-    /** */
-    private String pwd;
+public class UserDetailsResponse extends UserResponse {
+    /** ID */
+    @NotNull
+    @NotEmpty
+    private UUID id;
 
     /**
-     * @return Password.
+     * @return ID.
      */
-    public String getPassword() {
-        return pwd;
+    public UUID getId() {
+        return id;
     }
 
     /**
-     * @param pwd New password.
+     * @param id New ID.
      */
-    public void setPassword(String pwd) {
-        this.pwd = pwd;
+    public void setId(UUID id) {
+        this.id = id;
     }
 }

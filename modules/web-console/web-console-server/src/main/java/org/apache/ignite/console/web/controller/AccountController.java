@@ -19,11 +19,10 @@ package org.apache.ignite.console.web.controller;
 
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AccountsService;
-import org.apache.ignite.console.web.model.ProfileUser;
+import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
-import org.apache.ignite.console.web.model.User;
+import org.apache.ignite.console.web.model.UserResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +37,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
@@ -66,11 +64,10 @@ public class AccountController {
      * @param user User.
      */
     @GetMapping(path = "/api/v1/user")
-    public ResponseEntity<User> user(@AuthenticationPrincipal UserDetails user) {
+    public ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
-        return ResponseEntity.ok(new User(
-            acc.getId(),
+        return ResponseEntity.ok(new UserResponse(
             acc.email(),
             acc.firstName(),
             acc.lastName(),
@@ -100,18 +97,14 @@ public class AccountController {
     }
 
     /**
-     * @param curUser Current user.
+     * @param acc Current user.
      * @param changedUser Changed user to save.
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> save(@AuthenticationPrincipal Account curUser, @RequestBody ProfileUser changedUser) {
-        if (curUser.getId().equals(changedUser.getId())) {
-            accountsSrvc.save(changedUser);
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @RequestBody ChangeUserRequest changedUser) {
+        accountsSrvc.save(acc.getId(), changedUser);
 
-            return ResponseEntity.ok().build();
-        }
-
-        return ResponseEntity.status(FORBIDDEN).build();
+        return ResponseEntity.ok().build();
     }
 }

@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
-import org.apache.ignite.console.web.model.ProfileUser;
+import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.internal.util.typedef.F;
@@ -127,9 +127,9 @@ public class AccountsService implements UserDetailsService {
      *
      * @param changedUser Changed user to save.
      */
-    public void save(ProfileUser changedUser) {
+    public void save(UUID accId, ChangeUserRequest changedUser) {
         try (Transaction tx = accountsRepo.txStart()) {
-            Account acc = accountsRepo.getById(changedUser.getId());
+            Account acc = accountsRepo.getById(accId);
 
             String pwd = changedUser.getPassword();
 
@@ -140,7 +140,6 @@ public class AccountsService implements UserDetailsService {
             }
 
             String newTok = changedUser.getToken();
-
             String oldTok = acc.token();
 
             if (!F.isEmpty(newTok) && !oldTok.equals(newTok)) {
