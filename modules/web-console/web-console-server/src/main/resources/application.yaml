@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-server.port: ${PORT:3000}
+server.port: 3000
