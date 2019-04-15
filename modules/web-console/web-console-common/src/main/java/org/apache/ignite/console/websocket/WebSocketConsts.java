@@ -34,7 +34,7 @@ public interface WebSocketConsts {
     public static final String AGENT_INFO = "agent:info";
 
     /** */
-    public static final String AGENT_RESET_TOKEN = "agent:reset:token";
+    public static final String AGENT_REVOKE_TOKEN = "agent:revoke:token";
 
     /** */
     public static final String AGENT_STATUS = "agent:status";

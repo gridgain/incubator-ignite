@@ -15,37 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.web.model;
+package org.apache.ignite.console.web.model.admin;
 
+import java.util.UUID;
 import javax.validation.constraints.NotNull;
-import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.console.web.model.UserResponse;
 import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Web model of sign up request.
+ * Web model of the user.
  */
-public class SignUpRequest extends User {
-    /** Password. */
+public class UserDetailsResponse extends UserResponse {
+    /** ID */
     @NotNull
     @NotEmpty
-    private String pwd;
+    private UUID id;
 
     /**
-     * @return Password.
+     * @return ID.
      */
-    public String getPassword() {
-        return pwd;
+    public UUID getId() {
+        return id;
     }
 
     /**
-     * @param pwd New password.
+     * @param id New ID.
      */
-    public void setPassword(String pwd) {
-        this.pwd = pwd;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(SignUpRequest.class, this);
+    public void setId(UUID id) {
+        this.id = id;
     }
 }

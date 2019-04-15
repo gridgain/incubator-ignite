@@ -20,9 +20,11 @@ package org.apache.ignite.console.web.controller;
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
-import org.apache.ignite.console.web.model.User;
+import org.apache.ignite.console.web.model.UserResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -34,6 +36,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
  * Controller for accounts API.
@@ -60,11 +64,10 @@ public class AccountController {
      * @param user User.
      */
     @GetMapping(path = "/api/v1/user")
-    public ResponseEntity<User> user(@AuthenticationPrincipal UserDetails user) {
+    public ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
-        return ResponseEntity.ok(new User(
-            acc.getId(),
+        return ResponseEntity.ok(new UserResponse(
             acc.email(),
             acc.firstName(),
             acc.lastName(),
@@ -89,6 +92,18 @@ public class AccountController {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @param acc Current user.
+     * @param changes Changes to apply to user.
+     * @return {@linkplain HttpStatus#OK OK} on success.
+     */
+    @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @RequestBody ChangeUserRequest changes) {
+        accountsSrvc.save(acc.getId(), changes);
 
         return ResponseEntity.ok().build();
     }

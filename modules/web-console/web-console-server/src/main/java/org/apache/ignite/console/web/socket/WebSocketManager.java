@@ -49,6 +49,7 @@ import static org.apache.ignite.console.json.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_STATUS;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_REVOKE_TOKEN;
 import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.console.websocket.WebSocketConsts.ERROR;
@@ -109,10 +110,10 @@ public class WebSocketManager extends TextWebSocketHandler {
 
     /**
      * @param evt Event.
-     * @return Text message.
+     * @throws IOException If failed to send message.
      */
-    private TextMessage textMessage(WebSocketEvent evt) {
-        return new TextMessage(toJson(evt));
+    private void sendMessage(WebSocketSession ws, WebSocketEvent evt) throws IOException {
+        ws.sendMessage(new TextMessage(toJson(evt)));
     }
 
     /**
@@ -126,7 +127,7 @@ public class WebSocketManager extends TextWebSocketHandler {
             evt.setEventType(ERROR);
             evt.setPayload(errorToJson(errMsg, err));
 
-            wsBrowser.sendMessage(textMessage(evt));
+            sendMessage(wsBrowser, evt);
         }
         catch (Throwable e) {
             log.error("Failed to send error message [session=" + wsBrowser + ", event=" + evt + "]", e);
@@ -154,7 +155,7 @@ public class WebSocketManager extends TextWebSocketHandler {
             if (log.isDebugEnabled())
                 log.debug("Found agent session [token=" + tok + ", session=" + wsAgent + ", event=" + evt + "]");
 
-            wsAgent.sendMessage(textMessage(evt));
+            sendMessage(wsAgent, evt);
         }
         catch (Throwable e) {
             String errMsg = "Failed to send event to agent: " + evt;
@@ -251,7 +252,7 @@ public class WebSocketManager extends TextWebSocketHandler {
                 WebSocketSession browserWs = requests.remove(evt.getRequestId());
 
                 if (browserWs != null)
-                    browserWs.sendMessage(textMessage(evt));
+                    sendMessage(browserWs, evt);
                 else
                     log.warn("Failed to send event to browser: " + evt);
         }
@@ -322,14 +323,27 @@ public class WebSocketManager extends TextWebSocketHandler {
             res.put("clusters", tops);
 
             try {
-                wsBrowser.sendMessage(textMessage(new WebSocketEvent(
-                    UUID.randomUUID().toString(),
-                    AGENT_STATUS,
-                    toJson(res)))
-                );
+                sendMessage(wsBrowser, new WebSocketEvent(AGENT_STATUS, toJson(res)));
             }
             catch (Throwable e) {
                 log.error("Failed to update agent status [session=" + wsBrowser + ", token=" + tok + "]", e);
+            }
+        });
+    }
+
+    /**
+     * @param token Token to revoke.
+     */
+    public void revokeToken(String token) {
+        log.info("Revoke token: " + token);
+
+        agents.forEach((ws, ai) -> {
+            try {
+                if (ai.getTokens().remove(token))
+                    sendMessage(ws, new WebSocketEvent(AGENT_REVOKE_TOKEN, token));
+            }
+            catch (Throwable e) {
+                log.error("Failed to reset token: " + token);
             }
         });
     }

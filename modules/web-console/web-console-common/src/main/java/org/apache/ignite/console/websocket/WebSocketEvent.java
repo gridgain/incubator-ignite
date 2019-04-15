@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.websocket;
 
+import java.util.UUID;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
@@ -50,6 +51,16 @@ public class WebSocketEvent {
         this.reqId = reqId;
         this.evtType = evtType;
         this.payload = payload;
+    }
+
+    /**
+     * Constructor with auto generated ID.
+     *
+     * @param evtType Event type.
+     * @param payload Payload.
+     */
+    public WebSocketEvent(String evtType, String payload) {
+        this(UUID.randomUUID().toString(), evtType, payload);
     }
 
     /**

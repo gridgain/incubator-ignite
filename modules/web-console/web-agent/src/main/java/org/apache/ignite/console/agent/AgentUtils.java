@@ -60,7 +60,7 @@ public class AgentUtils {
 
             // Should not happen, but to make sure our code is not broken.
             if (domain == null || domain.getCodeSource() == null || domain.getCodeSource().getLocation() == null) {
-                log.warn("Failed to resolve agent jar location!");
+                log.warn("Failed to resolve application folder!");
 
                 return null;
             }
@@ -77,7 +77,7 @@ public class AgentUtils {
             return new File(classesUri).getParentFile();
         }
         catch (URISyntaxException | SecurityException ignored) {
-            log.warn("Failed to resolve agent jar location!");
+            log.warn("Failed to resolve application folder!");
 
             return null;
         }

@@ -20,7 +20,6 @@ package org.apache.ignite.console.agent.handlers;
 import java.net.ConnectException;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
@@ -31,6 +30,7 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
@@ -46,6 +46,7 @@ import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
 import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_REVOKE_TOKEN;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_REST;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_VISOR;
 import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_DRIVERS;
@@ -59,9 +60,6 @@ import static org.apache.ignite.console.websocket.WebSocketConsts.SCHEMA_IMPORT_
 public class WebSocketRouter implements AutoCloseable {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketRouter.class));
-
-    /** */
-    private static final String AGENT_ID = UUID.randomUUID().toString();
 
     /** */
     private static final ByteBuffer PONG_MSG = UTF_8.encode("PONG");
@@ -95,7 +93,7 @@ public class WebSocketRouter implements AutoCloseable {
         this.cfg = cfg;
 
         closeLatch = new CountDownLatch(1);
-        wss = new WebSocketSession(AGENT_ID);
+        wss = new WebSocketSession();
         clusterHnd = new ClusterHandler(cfg, wss);
         dbHnd = new DatabaseHandler(cfg, wss);
     }
@@ -104,7 +102,7 @@ public class WebSocketRouter implements AutoCloseable {
      * Start websocket client.
      */
     public void start() {
-        log.info("Web Agent ID: " + AGENT_ID);
+        log.info("Starting Web Console Agent...");
         log.info("Connecting to: " + cfg.serverUri());
 
         connect();
@@ -114,6 +112,8 @@ public class WebSocketRouter implements AutoCloseable {
 
     /** {@inheritDoc} */
     @Override public void close() {
+        log.info("Stopping Web Console Agent...");
+
         try {
             client.stop();
         }
@@ -185,6 +185,13 @@ public class WebSocketRouter implements AutoCloseable {
     }
 
     /**
+     * @return {@code true} If web agent is running.
+     */
+    private boolean isRunning() {
+        return closeLatch.getCount() > 0;
+    }
+
+    /**
      *
      * @param statusCode Close status code.
      * @param reason Close reason.
@@ -193,9 +200,10 @@ public class WebSocketRouter implements AutoCloseable {
     public void onClose(int statusCode, String reason) {
         log.info("Connection closed [code=" + statusCode + ", reason=" + reason + "]");
 
-        wss.close();
+        wss.close(StatusCode.NORMAL, null);
 
-        connect();
+        if (isRunning())
+            connect();
     }
 
     /**
@@ -211,7 +219,7 @@ public class WebSocketRouter implements AutoCloseable {
             wss.send(AGENT_INFO, new AgentInfo(cfg.tokens()));
         }
         catch (Throwable e) {
-            log.error("Failed to send agent info to server", e);
+            log.error("Failed to send handshake to server", e);
         }
     }
 
@@ -244,6 +252,24 @@ public class WebSocketRouter implements AutoCloseable {
                 case NODE_REST:
                 case NODE_VISOR:
                     clusterHnd.restRequest(evt);
+
+                    break;
+
+                case AGENT_REVOKE_TOKEN:
+                    String tok = evt.getPayload();
+
+                    log.warning("Security token has been revoked: " + tok);
+
+                    cfg.tokens().remove(tok);
+
+                    if (F.isEmpty(cfg.tokens())) {
+                        log.warning("Web Console Agent will be stopped because no more valid tokens available");
+
+                        wss.close(StatusCode.SHUTDOWN, "No more valid tokens available");
+
+                        closeLatch.countDown();
+                    }
+
                     break;
 
                 default:
@@ -261,7 +287,7 @@ public class WebSocketRouter implements AutoCloseable {
      */
     @OnWebSocketFrame
     public void onFrame(Session ses, Frame frame) {
-        if (frame.getType() == Frame.Type.PING) {
+        if (isRunning() && frame.getType() == Frame.Type.PING) {
             if (log.isTraceEnabled())
                 log.trace("Received ping message [socket=" + ses + ", msg=" + frame + "]");
 

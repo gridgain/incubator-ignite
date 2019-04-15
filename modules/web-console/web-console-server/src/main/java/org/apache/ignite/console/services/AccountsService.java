@@ -21,7 +21,10 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
+import org.apache.ignite.console.web.socket.WebSocketManager;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -36,18 +39,23 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AccountsService implements UserDetailsService {
-    /** Password encoder. */
-    private final PasswordEncoder encoder;
-
     /** Repository to work with accounts. */
     private final AccountsRepository accountsRepo;
 
+    /** */
+    private final WebSocketManager wsm;
+
+    /** Password encoder. */
+    private final PasswordEncoder encoder;
+
     /**
      * @param accountsRepo Accounts repository.
+     * @param wsm Websocket manager.
      */
     @Autowired
-    public AccountsService(AccountsRepository accountsRepo) {
+    public AccountsService(AccountsRepository accountsRepo, WebSocketManager wsm) {
         this.accountsRepo = accountsRepo;
+        this.wsm = wsm;
 
         this.encoder = encoder();
     }
@@ -111,6 +119,46 @@ public class AccountsService implements UserDetailsService {
 
                 tx.commit();
             }
+        }
+    }
+
+    /**
+     * Save user.
+     *
+     * @param accId User ID.
+     * @param changes Changes to apply to user.
+     */
+    public void save(UUID accId, ChangeUserRequest changes) {
+        try (Transaction tx = accountsRepo.txStart()) {
+            Account acc = accountsRepo.getById(accId);
+
+            String pwd = changes.getPassword();
+
+            if (!F.isEmpty(pwd)) {
+                // WC-1049	Re-Implement "Change password"
+
+                System.out.println("Change password !!!");
+            }
+
+            String newTok = changes.getToken();
+            String oldTok = acc.token();
+
+            if (!F.isEmpty(newTok) && !oldTok.equals(newTok)) {
+                wsm.revokeToken(oldTok);
+
+                acc.token(newTok);
+            }
+
+            acc.firstName(changes.getFirstName());
+            acc.lastName(changes.getLastName());
+            acc.email(changes.getEmail());
+            acc.phone(changes.getPhone());
+            acc.country(changes.getCountry());
+            acc.company(changes.getCompany());
+
+            accountsRepo.save(acc);
+
+            tx.commit();
         }
     }
 
