@@ -78,7 +78,9 @@ public class NotebooksController {
      * @return Rows affected.
      */
     @DeleteMapping(path = "/{notebookId}")
-    public ResponseEntity<JsonObject> delete(@AuthenticationPrincipal Account user, @PathVariable("notebookId") UUID notebookId) {
-        return ResponseEntity.ok(notebooksSrvc.delete(user.getId(), notebookId));
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal Account user, @PathVariable("notebookId") UUID notebookId) {
+        notebooksSrvc.delete(user.getId(), notebookId);
+
+        return ResponseEntity.ok().build();
     }
 }

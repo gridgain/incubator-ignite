@@ -21,14 +21,6 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
                            http://www.springframework.org/schema/beans/spring-beans.xsd">
-    <!--
-      Initialize property configurer so we can reference environment variables.
-    -->
-    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
-        <property name="systemPropertiesModeName" value="SYSTEM_PROPERTIES_MODE_FALLBACK"/>
-        <property name="searchSystemEnvironment" value="true"/>
-    </bean>
-
     <bean class="org.apache.ignite.configuration.IgniteConfiguration" primary="true">
         <property name="clientMode" value="${CLIENT_MODE:true}"/>
 
@@ -39,26 +31,6 @@
         <property name="failureDetectionTimeout" value="10000"/>
         <property name="clientFailureDetectionTimeout" value="10000"/>
         <property name="networkTimeout" value="10000"/>
-
-        <!-- For local testing!!! -->
-        <property name="localHost" value="127.0.0.1"/>
-
-        <property name="discoverySpi">
-            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
-                <property name="localPort" value="60800"/>
-
-                <property name="ipFinder">
-                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
-                        <property name="addresses">
-                            <list>
-                                <value>127.0.0.1:60800</value>
-                            </list>
-                        </property>
-                    </bean>
-                </property>
-            </bean>
-        </property>
-        <!-- For local testing!!! -->
 
         <property name="cacheConfiguration">
             <bean class="org.apache.ignite.configuration.CacheConfiguration">
