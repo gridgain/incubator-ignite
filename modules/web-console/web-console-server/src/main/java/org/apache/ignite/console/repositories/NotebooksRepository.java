@@ -83,24 +83,17 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      *
      * @param userId User ID.
      * @param notebookId Notebook ID to delete.
-     * @return Number of removed notebooks.
      */
-    public int delete(UUID userId, UUID notebookId) {
-        int rmvCnt = 0;
-
+    public void delete(UUID userId, UUID notebookId) {
         try (Transaction tx = txStart()) {
             Notebook notebook = notebooksTbl.delete(notebookId);
 
             if (notebook != null) {
                 notebooksIdx.remove(userId, notebookId);
 
-                rmvCnt = 1;
+                tx.commit();
             }
-
-            tx.commit();
         }
-
-        return rmvCnt;
     }
 
     /**

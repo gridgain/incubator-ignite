@@ -72,9 +72,7 @@ public class NotebooksService {
      * @param accId Account ID.
      * @param notebookId Notebook id.
      */
-    public JsonObject delete(UUID accId, UUID notebookId) {
-        int rmvRows = notebooksRepo.delete(accId, notebookId);
-
-        return rowsAffected(rmvRows);
+    public void delete(UUID accId, UUID notebookId) {
+        notebooksRepo.delete(accId, notebookId);
     }
 }
