@@ -16,3 +16,7 @@
 #
 
 server.port: 3000
+
+websocket:
+  ssl.enabled: false
+  allowed.origin:

@@ -21,14 +21,6 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
                            http://www.springframework.org/schema/beans/spring-beans.xsd">
-    <!--
-      Initialize property configurer so we can reference environment variables.
-    -->
-    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
-        <property name="systemPropertiesModeName" value="SYSTEM_PROPERTIES_MODE_FALLBACK"/>
-        <property name="searchSystemEnvironment" value="true"/>
-    </bean>
-
     <bean class="org.apache.ignite.configuration.IgniteConfiguration" primary="true">
         <property name="clientMode" value="${CLIENT_MODE:true}"/>
 

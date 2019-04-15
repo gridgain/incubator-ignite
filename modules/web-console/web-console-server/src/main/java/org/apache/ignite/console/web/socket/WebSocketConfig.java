@@ -18,6 +18,7 @@
 package org.apache.ignite.console.web.socket;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -37,11 +38,11 @@ public class WebSocketConfig implements WebSocketConfigurer {
 	private final WebSocketManager wsm;
 
 	/** */
-// TODO WC-999 @Value("${websocket.ssl.enabled}") For some reason this value not populated from application.yaml
+	@Value("${websocket.ssl.enabled}")
 	private boolean sslEnabled;
 
 	/** */
-// TODO WC-999 @Value("${websocket.allowed.origin}") For some reason this value not populated from application.yaml
+	@Value("${websocket.allowed.origin}")
 	private String allowedOrigin;
 
 	/**
