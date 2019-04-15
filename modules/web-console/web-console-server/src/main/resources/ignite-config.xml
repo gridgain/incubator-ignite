@@ -40,26 +40,6 @@
         <property name="clientFailureDetectionTimeout" value="10000"/>
         <property name="networkTimeout" value="10000"/>
 
-        <!-- For local testing!!! -->
-        <property name="localHost" value="127.0.0.1"/>
-
-        <property name="discoverySpi">
-            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
-                <property name="localPort" value="60800"/>
-
-                <property name="ipFinder">
-                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
-                        <property name="addresses">
-                            <list>
-                                <value>127.0.0.1:60800</value>
-                            </list>
-                        </property>
-                    </bean>
-                </property>
-            </bean>
-        </property>
-        <!-- For local testing!!! -->
-
         <property name="cacheConfiguration">
             <bean class="org.apache.ignite.configuration.CacheConfiguration">
                 <property name="name" value="*"/>
