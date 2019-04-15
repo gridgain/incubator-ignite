@@ -21,6 +21,7 @@ import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.web.model.ProfileUser;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,13 +101,13 @@ public class AccountController {
 
     /**
      * @param curUser Current user.
-     * @param changes Changes to apply to user.
+     * @param changedUser Changed user to save.
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> save(@AuthenticationPrincipal Account curUser, @RequestBody JsonObject changes) {
-        if (curUser.getId().equals(changes.getUuid("id"))) {
-            accountsSrvc.save(changes);
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account curUser, @RequestBody ProfileUser changedUser) {
+        if (curUser.getId().equals(changedUser.getId())) {
+            accountsSrvc.save(changedUser);
 
             return ResponseEntity.ok().build();
         }

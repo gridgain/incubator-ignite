@@ -60,6 +60,8 @@ public class User {
     private String country;
 
     /** Agent token. */
+    @NotNull
+    @NotEmpty
     private String tok;
 
     /** Agent token. */

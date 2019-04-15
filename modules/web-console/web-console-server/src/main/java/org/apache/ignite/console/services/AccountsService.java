@@ -22,6 +22,7 @@ import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.console.web.model.ProfileUser;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.internal.util.typedef.F;
@@ -134,19 +135,19 @@ public class AccountsService implements UserDetailsService {
     /**
      * Save user.
      *
-     * @param changes Changes to apply to user.
+     * @param changedUser Changed user to save.
      */
-    public void save(JsonObject changes) {
+    public void save(ProfileUser changedUser) {
         try (Transaction tx = accountsRepo.txStart()) {
-            Account acc = accountsRepo.getById(changes.getUuid("id"));
+            Account acc = accountsRepo.getById(changedUser.getId());
 
-            if (!F.isEmpty(changes.getString("password"))) {
+            if (!F.isEmpty(changedUser.getPassword())) {
                 // WC-1049	Re-Implement "Change password"
 
                 System.out.println("Change password !!!");
             }
 
-            String newVal = changes.getString("token");
+            String newVal = changedUser.getToken();
 
             String oldToken = acc.token();
 
@@ -156,35 +157,12 @@ public class AccountsService implements UserDetailsService {
                 acc.token(newVal);
             }
 
-            newVal = changes.getString("firstName");
-
-            if (changed(acc.firstName(), newVal))
-                acc.firstName(newVal);
-
-            newVal = changes.getString("lastName");
-
-            if (changed(acc.lastName(), newVal))
-                acc.lastName(newVal);
-
-            newVal = changes.getString("email");
-
-            if (changed(acc.email(), newVal))
-                acc.email(newVal);
-
-            newVal = changes.getString("phone");
-
-            if (changed(acc.phone(), newVal))
-                acc.phone(newVal);
-
-            newVal = changes.getString("country");
-
-            if (changed(acc.country(), newVal))
-                acc.country(newVal);
-
-            newVal = changes.getString("company");
-
-            if (changed(acc.company(), newVal))
-                acc.company(newVal);
+            acc.firstName(changedUser.getFirstName());
+            acc.lastName(changedUser.getLastName());
+            acc.email(changedUser.getEmail());
+            acc.phone(changedUser.getPhone());
+            acc.country(changedUser.getCountry());
+            acc.company(changedUser.getCompany());
 
             accountsRepo.save(acc);
 
