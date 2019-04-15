@@ -98,12 +98,12 @@ public class AccountController {
 
     /**
      * @param acc Current user.
-     * @param changedUser Changed user to save.
+     * @param changes Changes to apply to user.
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @RequestBody ChangeUserRequest changedUser) {
-        accountsSrvc.save(acc.getId(), changedUser);
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @RequestBody ChangeUserRequest changes) {
+        accountsSrvc.save(acc.getId(), changes);
 
         return ResponseEntity.ok().build();
     }

@@ -125,13 +125,14 @@ public class AccountsService implements UserDetailsService {
     /**
      * Save user.
      *
-     * @param changedUser Changed user to save.
+     * @param accId User ID.
+     * @param changes Changes to apply to user.
      */
-    public void save(UUID accId, ChangeUserRequest changedUser) {
+    public void save(UUID accId, ChangeUserRequest changes) {
         try (Transaction tx = accountsRepo.txStart()) {
             Account acc = accountsRepo.getById(accId);
 
-            String pwd = changedUser.getPassword();
+            String pwd = changes.getPassword();
 
             if (!F.isEmpty(pwd)) {
                 // WC-1049	Re-Implement "Change password"
@@ -139,7 +140,7 @@ public class AccountsService implements UserDetailsService {
                 System.out.println("Change password !!!");
             }
 
-            String newTok = changedUser.getToken();
+            String newTok = changes.getToken();
             String oldTok = acc.token();
 
             if (!F.isEmpty(newTok) && !oldTok.equals(newTok)) {
@@ -148,12 +149,12 @@ public class AccountsService implements UserDetailsService {
                 acc.token(newTok);
             }
 
-            acc.firstName(changedUser.getFirstName());
-            acc.lastName(changedUser.getLastName());
-            acc.email(changedUser.getEmail());
-            acc.phone(changedUser.getPhone());
-            acc.country(changedUser.getCountry());
-            acc.company(changedUser.getCompany());
+            acc.firstName(changes.getFirstName());
+            acc.lastName(changes.getLastName());
+            acc.email(changes.getEmail());
+            acc.phone(changes.getPhone());
+            acc.country(changes.getCountry());
+            acc.company(changes.getCompany());
 
             accountsRepo.save(acc);
 
