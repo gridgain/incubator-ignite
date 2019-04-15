@@ -134,11 +134,8 @@ public class AccountsService implements UserDetailsService {
 
             String pwd = changes.getPassword();
 
-            if (!F.isEmpty(pwd)) {
-                // WC-1049	Re-Implement "Change password"
-
-                System.out.println("Change password !!!");
-            }
+            if (!F.isEmpty(pwd))
+                acc.setPassword(encoder.encode(pwd));
 
             String newTok = changes.getToken();
             String oldTok = acc.token();
