@@ -270,6 +270,13 @@ public class Account extends AbstractDto implements UserDetails {
         return hashedPwd;
     }
 
+    /**
+     * @param hashedPwd New hashed password.
+     */
+    public void setPassword(String hashedPwd) {
+        this.hashedPwd = hashedPwd;
+    }
+
     /** {@inheritDoc} */
     @Override public boolean isAccountNonExpired() {
         return true;

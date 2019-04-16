@@ -23,11 +23,28 @@ import org.hibernate.validator.constraints.NotEmpty;
 /**
  * Web model of change user request.
  */
-public class ChangeUserRequest extends SignUpRequest {
+public class ChangeUserRequest extends User {
+    /** Password. */
+    private String pwd;
+
     /** Agent token. */
     @NotNull
     @NotEmpty
     private String tok;
+
+    /**
+     * @return Password.
+     */
+    public String getPassword() {
+        return pwd;
+    }
+
+    /**
+     * @param pwd New password.
+     */
+    public void setPassword(String pwd) {
+        this.pwd = pwd;
+    }
 
     /**
      * @return Agent token.
