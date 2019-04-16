@@ -21,7 +21,9 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -157,5 +159,24 @@ public class AgentUtils {
             sslCtxFactory.setIncludeCipherSuites(ciphers.toArray(EMPTY));
 
         return  sslCtxFactory;
+    }
+
+    /**
+     * @param s String with sensitive data.
+     * @return Secured string.
+     */
+    public static String secured(String s) {
+        int len = s.length();
+        int toShow = len > 4 ? 4 : 1;
+
+        return new String(new char[len - toShow]).replace('\0', '*') + s.substring(len - toShow, len);
+    }
+
+    /**
+     * @param c Collection with sensitive data.
+     * @return Secured string.
+     */
+    public static String secured(Collection<String> c) {
+        return c.stream().map(AgentUtils::secured).collect(Collectors.joining(", "));
     }
 }

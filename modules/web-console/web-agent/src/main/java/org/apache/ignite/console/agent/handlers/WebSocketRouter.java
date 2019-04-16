@@ -49,6 +49,7 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.LoggerFactory;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.console.agent.AgentUtils.secured;
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
 import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
@@ -276,11 +277,11 @@ public class WebSocketRouter implements AutoCloseable {
             missedTokens.removeAll(validTokens);
 
             if (!F.isEmpty(missedTokens)) {
-                log.warning("Failed to validate token(s): " + F.concat(missedTokens, ", ") + ". " +
-                    "Please reload agent archive or check settings");
+                log.warning("Failed to validate token(s): " + secured(missedTokens) + "." +
+                    " Please reload agent archive or check settings.");
             }
 
-            log.info("Successful handshake with server");
+            log.info("Successful handshake with server.");
         }
         catch (Throwable e) {
             log.error("Failed to process handshake response from server", e);

@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.websocket.AgentHandshakeRequest;
 import org.apache.ignite.console.websocket.AgentHandshakeResponse;
 import org.apache.ignite.console.websocket.TopologySnapshot;
@@ -53,8 +53,8 @@ import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.json.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_HANDSHAKE;
-import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_STATUS;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_REVOKE_TOKEN;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_STATUS;
 import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.CLUSTER_TOPOLOGY;
 import static org.apache.ignite.console.websocket.WebSocketConsts.ERROR;
@@ -91,14 +91,14 @@ public class WebSocketManager extends TextWebSocketHandler {
     private final Map<String, String> supportedAgents;
 
     /** */
-    private final AccountsService accSrvc;
+    private final AccountsRepository accRepo;
 
     /**
-     * @param accSrvc Service to work with accounts.
+     * @param accRepo Service to work with accounts.
      */
     @Autowired
-    public WebSocketManager(AccountsService accSrvc) {
-        this.accSrvc = accSrvc;
+    public WebSocketManager(AccountsRepository accRepo) {
+        this.accRepo = accRepo;
 
         agents = new ConcurrentLinkedHashMap<>();
         clusters = new ConcurrentHashMap<>();
@@ -205,19 +205,19 @@ public class WebSocketManager extends TextWebSocketHandler {
         AgentHandshakeResponse res = new AgentHandshakeResponse();
 
         if (F.isEmpty(req.getTokens()))
-            res.setError("Tokens not set. Please reload agent or check settings");
+            res.setError("Tokens not set. Please reload agent or check settings.");
         else if (!F.isEmpty(req.getVersion()) && !F.isEmpty(req.getBuildTime()) & !F.isEmpty(supportedAgents)) {
             // TODO WC-1053 Implement version check in beta2 stage.
-            res.setError("You are using an older version of the agent. Please reload agent");
+            res.setError("You are using an older version of the agent. Please reload agent.");
         }
         else {
             Set<String> tokens = req.getTokens();
 
-            Set<String> validTokens = accSrvc.validateTokens(tokens);
+            Set<String> validTokens = accRepo.validateTokens(tokens);
 
             if (F.isEmpty(validTokens)) {
                 res.setError("Failed to authenticate with token(s): " + tokens + "." +
-                    " Please reload agent or check settings");
+                    " Please reload agent or check settings.");
             }
             else {
                 req.setTokens(validTokens);
