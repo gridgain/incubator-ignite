@@ -32,12 +32,6 @@ public class WebConsoleConfiguration {
     /** Web Console port. */
     private int port = DFLT_PORT;
 
-    /** Folder with Web Agent binaries. */
-    private String agentFolderName;
-
-    /** Web Agent file name. */
-    private String agentFileName;
-
     /** Accounts configuration. */
     private AccountConfiguration accountCfg;
 
@@ -62,8 +56,6 @@ public class WebConsoleConfiguration {
     public WebConsoleConfiguration(WebConsoleConfiguration cc) {
        webRoot = cc.getWebRoot();
        port = cc.getPort();
-       agentFolderName = cc.getAgentFolderName();
-       agentFileName = cc.getAgentFileName();
        accountCfg = cc.getAccountConfiguration();
        mailCfg = cc.getMailConfiguration();
        sslCfg = cc.getSslConfiguration();
@@ -99,41 +91,6 @@ public class WebConsoleConfiguration {
      */
     public WebConsoleConfiguration setPort(int port) {
         this.port = port;
-
-        return this;
-    }
-
-    /**
-     * @return Folder with Web Agent binaries.
-     */
-    public String getAgentFolderName() {
-        return agentFolderName;
-    }
-
-    /**
-     *
-     * @param agentFolderName Folder with Web Agent binaries.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setAgentFolderName(String agentFolderName) {
-        this.agentFolderName = agentFolderName;
-
-        return this;
-    }
-
-    /**
-     * @return Web Agent file name.
-     */
-    public String getAgentFileName() {
-        return agentFileName;
-    }
-
-    /**
-     * @param agentFileName Web Agent file name.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setAgentFileName(String agentFileName) {
-        this.agentFileName = agentFileName;
 
         return this;
     }

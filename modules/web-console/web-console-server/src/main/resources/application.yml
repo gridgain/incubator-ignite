@@ -23,4 +23,4 @@ websocket:
 
 agent:
   folder.name: agent_dists
-  file.name: ignite-web-agent-2.8.1
+  file.mask: ignite\-web\-console\-agent.*\.zip
