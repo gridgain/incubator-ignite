@@ -17,7 +17,9 @@
 
 package org.apache.ignite.console.repositories;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.cache.Cache;
@@ -164,5 +166,27 @@ public class AccountsRepository extends AbstractRepository {
             .filter(item -> item instanceof Account)
             .map(item -> (Account)item)
             .collect(Collectors.toList());
+    }
+
+
+    /**
+     * @param tokens Tokens to check.
+     * @return Valid tokens.
+     */
+    public Set<String> validateTokens(Set<String> tokens) {
+        Set<String> accToks = accountsTbl
+            .query(new ScanQuery<UUID, Object>())
+            .getAll()
+            .stream()
+            .map(Cache.Entry::getValue)
+            .filter(item -> item instanceof Account)
+            .map(item -> ((Account)item).token())
+            .collect(Collectors.toSet());
+
+        Set<String> validTokens = new HashSet<>(tokens);
+
+        validTokens.retainAll(accToks);
+
+        return validTokens;
     }
 }

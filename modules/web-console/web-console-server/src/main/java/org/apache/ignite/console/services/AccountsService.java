@@ -18,6 +18,7 @@
 package org.apache.ignite.console.services;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.repositories.AccountsRepository;
@@ -160,6 +161,14 @@ public class AccountsService implements UserDetailsService {
 
             tx.commit();
         }
+    }
+
+    /**
+     * @param tokens Tokens to check.
+     * @return Valid tokens.
+     */
+    public Set<String> validateTokens(Set<String> tokens) {
+        return accountsRepo.validateTokens(tokens);
     }
 
     /**

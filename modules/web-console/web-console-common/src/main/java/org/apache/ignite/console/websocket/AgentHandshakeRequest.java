@@ -24,9 +24,9 @@ import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * Agent descriptor POJO.
+ * Handshake request from Web Console Agent.
  */
-public class AgentInfo {
+public class AgentHandshakeRequest {
     /** */
     private boolean disableDemo;
 
@@ -43,7 +43,7 @@ public class AgentInfo {
     /**
      * Default constructor for serialization.
      */
-    public AgentInfo() {
+    public AgentHandshakeRequest() {
         // No-op.
     }
 
@@ -55,7 +55,7 @@ public class AgentInfo {
      * @param buildTime Agent build time.
      * @param toks Tokens.
      */
-    public AgentInfo(
+    public AgentHandshakeRequest(
         boolean disableDemo,
         String ver,
         String buildTime,
@@ -125,6 +125,6 @@ public class AgentInfo {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(AgentInfo.class, this);
+        return S.toString(AgentHandshakeRequest.class, this);
     }
 }

@@ -23,15 +23,20 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.websocket.AgentInfo;
+import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.websocket.AgentHandshakeRequest;
+import org.apache.ignite.console.websocket.AgentHandshakeResponse;
 import org.apache.ignite.console.websocket.TopologySnapshot;
 import org.apache.ignite.console.websocket.WebSocketEvent;
+import org.apache.ignite.internal.util.typedef.F;
 import org.jsr166.ConcurrentLinkedHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -71,7 +76,7 @@ public class WebSocketManager extends TextWebSocketHandler {
     private static final PingMessage PING = new PingMessage(UTF_8.encode("PING"));
 
     /** */
-    private final Map<WebSocketSession, AgentInfo> agents;
+    private final Map<WebSocketSession, AgentHandshakeRequest> agents;
 
     /** */
     private final Map<WebSocketSession, TopologySnapshot> clusters;
@@ -82,14 +87,24 @@ public class WebSocketManager extends TextWebSocketHandler {
     /** */
     private final Map<String, WebSocketSession> requests;
 
+    /** */
+    private final Map<String, String> supportedAgents;
+
+    /** */
+    private final AccountsService accSrvc;
+
     /**
-     * Default constructor.
+     * @param accSrvc Service to work with accounts.
      */
-    public WebSocketManager() {
+    @Autowired
+    public WebSocketManager(AccountsService accSrvc) {
+        this.accSrvc = accSrvc;
+
         agents = new ConcurrentLinkedHashMap<>();
         clusters = new ConcurrentHashMap<>();
         browsers = new ConcurrentHashMap<>();
         requests = new ConcurrentHashMap<>();
+        supportedAgents = new ConcurrentHashMap<>();
     }
 
     /**
@@ -185,13 +200,38 @@ public class WebSocketManager extends TextWebSocketHandler {
      * @throws IOException If failed to process.
      */
     private void registerAgent(WebSocketEvent evt, WebSocketSession ws) throws IOException {
-        AgentInfo agentInfo = fromJson(evt.getPayload(), AgentInfo.class);
+        AgentHandshakeRequest req = fromJson(evt.getPayload(), AgentHandshakeRequest.class);
 
-        log.info("Agent connected: " + agentInfo);
+        AgentHandshakeResponse res = new AgentHandshakeResponse();
 
-        agents.put(ws, agentInfo);
+        if (F.isEmpty(req.getTokens()))
+            res.setError("Tokens not set. Please reload agent or check settings");
+        else if (!F.isEmpty(req.getVersion()) && !F.isEmpty(req.getBuildTime()) & !F.isEmpty(supportedAgents)) {
+            // TODO WC-1053 Implement version check in beta2 stage.
+            res.setError("You are using an older version of the agent. Please reload agent");
+        }
+        else {
+            Set<String> tokens = req.getTokens();
 
-        sendMessage(ws, evt.setPayload("Handshake OK"));
+            Set<String> validTokens = accSrvc.validateTokens(tokens);
+
+            if (F.isEmpty(validTokens)) {
+                res.setError("Failed to authenticate with token(s): " + tokens + "." +
+                    " Please reload agent or check settings");
+            }
+            else
+                res.setTokens(validTokens);
+        }
+
+        if (F.isEmpty(res.getError())) {
+            log.info("Agent connected: " + req);
+
+            agents.put(ws, req);
+        }
+        else
+            log.warn("Agent not connected [err=" + res.getError() + ", req=" + req + "]");
+
+        sendMessage(ws, evt.setPayload(toJson(res)));
     }
 
     /**

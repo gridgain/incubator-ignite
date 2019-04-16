@@ -21,12 +21,16 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
-import org.apache.ignite.console.websocket.AgentInfo;
+import org.apache.ignite.console.websocket.AgentHandshakeRequest;
+import org.apache.ignite.console.websocket.AgentHandshakeResponse;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
@@ -135,6 +139,7 @@ public class WebSocketRouter implements AutoCloseable {
     /**
      * Connect to websocket.
      */
+    @SuppressWarnings("deprecation")
     private void connect() {
         boolean trustAll = Boolean.getBoolean("trust.all");
 
@@ -220,7 +225,7 @@ public class WebSocketRouter implements AutoCloseable {
 
         try {
             String ver = "";
-            String buidTime = "";
+            String buildTime = "";
 
             String clsName = WebSocketRouter.class.getSimpleName() + ".class";
             String clsPath = WebSocketRouter.class.getResource(clsName).toString();
@@ -233,13 +238,13 @@ public class WebSocketRouter implements AutoCloseable {
                 Attributes attr = manifest.getMainAttributes();
 
                 ver = attr.getValue("Implementation-Version");
-                buidTime = attr.getValue("Build-Time");
+                buildTime = attr.getValue("Build-Time");
             }
 
-            AgentInfo ai = new AgentInfo(
+            AgentHandshakeRequest ai = new AgentHandshakeRequest(
                 cfg.disableDemo(),
                 ver,
-                buidTime,
+                buildTime,
                 cfg.tokens()
             );
 
@@ -251,10 +256,37 @@ public class WebSocketRouter implements AutoCloseable {
     }
 
     /**
-     * @param res Response from server.
+     * @param json Response from server.
      */
-    private void handshake(String res) {
-        log.info("Handshake: " + res);
+    private void handshake(String json) {
+        try {
+            AgentHandshakeResponse res = fromJson(json, AgentHandshakeResponse.class);
+
+            if (F.isEmpty(res.getError())) {
+                log.error(res.getError());
+
+                System.exit(1);
+            }
+
+            Set<String> validTokens = res.getTokens();
+            List<String> missedTokens = cfg.tokens();
+
+            cfg.tokens(new ArrayList<>(validTokens));
+
+            missedTokens.removeAll(validTokens);
+
+            if (!F.isEmpty(missedTokens)) {
+                log.warning("Failed to authenticate with token(s): " + F.concat(missedTokens, ", ") + ". " +
+                    "Please reload agent archive or check settings");
+            }
+
+            log.info("Successful handshake with server");
+        }
+        catch (Throwable e) {
+            log.error("Failed to process handshake response from server", e);
+
+            System.exit(1);
+        }
     }
 
     /**
