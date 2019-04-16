@@ -241,14 +241,14 @@ public class WebSocketRouter implements AutoCloseable {
                 buildTime = attr.getValue("Build-Time");
             }
 
-            AgentHandshakeRequest ai = new AgentHandshakeRequest(
+            AgentHandshakeRequest req = new AgentHandshakeRequest(
                 cfg.disableDemo(),
                 ver,
                 buildTime,
                 cfg.tokens()
             );
 
-            wss.send(AGENT_HANDSHAKE, ai);
+            wss.send(AGENT_HANDSHAKE, req);
         }
         catch (Throwable e) {
             log.error("Failed to send handshake to server", e);
@@ -256,13 +256,13 @@ public class WebSocketRouter implements AutoCloseable {
     }
 
     /**
-     * @param json Response from server.
+     * @param json Response from server in JSON format.
      */
     private void handshake(String json) {
         try {
             AgentHandshakeResponse res = fromJson(json, AgentHandshakeResponse.class);
 
-            if (F.isEmpty(res.getError())) {
+            if (!F.isEmpty(res.getError())) {
                 log.error(res.getError());
 
                 System.exit(1);

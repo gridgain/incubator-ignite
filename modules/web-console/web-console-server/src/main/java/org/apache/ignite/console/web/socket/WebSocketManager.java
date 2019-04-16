@@ -219,8 +219,10 @@ public class WebSocketManager extends TextWebSocketHandler {
                 res.setError("Failed to authenticate with token(s): " + tokens + "." +
                     " Please reload agent or check settings");
             }
-            else
+            else {
+                req.setTokens(validTokens);
                 res.setTokens(validTokens);
+            }
         }
 
         if (F.isEmpty(res.getError())) {
@@ -379,13 +381,13 @@ public class WebSocketManager extends TextWebSocketHandler {
     public void revokeToken(String token) {
         log.info("Revoke token: " + token);
 
-        agents.forEach((ws, ai) -> {
+        agents.forEach((ws, info) -> {
             try {
-                if (ai.getTokens().remove(token))
+                if (info.getTokens().remove(token))
                     sendMessage(ws, new WebSocketEvent(AGENT_REVOKE_TOKEN, token));
             }
             catch (Throwable e) {
-                log.error("Failed to reset token: " + token);
+                log.error("Failed to revoke token: " + token);
             }
         });
     }
