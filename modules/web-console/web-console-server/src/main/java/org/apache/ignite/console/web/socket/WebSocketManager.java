@@ -47,7 +47,7 @@ import static org.apache.ignite.console.json.JsonUtils.errorToJson;
 import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.json.JsonUtils.toJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
-import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_HANDSHAKE;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_STATUS;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_REVOKE_TOKEN;
 import static org.apache.ignite.console.websocket.WebSocketConsts.BROWSERS_PATH;
@@ -190,6 +190,8 @@ public class WebSocketManager extends TextWebSocketHandler {
         log.info("Agent connected: " + agentInfo);
 
         agents.put(ws, agentInfo);
+
+        sendMessage(ws, evt.setPayload("Handshake OK"));
     }
 
     /**
@@ -238,7 +240,7 @@ public class WebSocketManager extends TextWebSocketHandler {
         WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
         switch (evt.getEventType()) {
-            case AGENT_INFO:
+            case AGENT_HANDSHAKE:
                 registerAgent(evt, ws);
 
                 break;
