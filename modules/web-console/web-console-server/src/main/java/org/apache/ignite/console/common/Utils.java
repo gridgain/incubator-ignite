@@ -127,12 +127,12 @@ public class Utils {
         String proto = req.getHeader("x-forwarded-proto");
 
         if (F.isEmpty(proto))
-            proto = "https"; // req.isSSL() ? "https" : "http";
+            proto = req.getScheme();
 
         String host = req.getHeader("x-forwarded-host");
 
         if (F.isEmpty(host))
-            host = req.getRemoteHost(); //req.gethost();
+            host = req.getServerName() + ":" + req.getServerPort();
 
         return proto + "://" + host;
     }
