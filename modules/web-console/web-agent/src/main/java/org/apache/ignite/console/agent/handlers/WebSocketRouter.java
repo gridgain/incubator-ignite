@@ -276,7 +276,7 @@ public class WebSocketRouter implements AutoCloseable {
             missedTokens.removeAll(validTokens);
 
             if (!F.isEmpty(missedTokens)) {
-                log.warning("Failed to authenticate with token(s): " + F.concat(missedTokens, ", ") + ". " +
+                log.warning("Failed to validate token(s): " + F.concat(missedTokens, ", ") + ". " +
                     "Please reload agent archive or check settings");
             }
 
