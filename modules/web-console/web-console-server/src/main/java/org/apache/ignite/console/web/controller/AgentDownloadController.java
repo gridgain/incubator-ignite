@@ -18,18 +18,16 @@
 package org.apache.ignite.console.web.controller;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileFilter;
 import java.io.FileNotFoundException;
-import java.util.Arrays;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.regex.Pattern;
-import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.internal.util.typedef.F;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -39,8 +37,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponents;
 
-import static org.apache.ignite.console.common.Utils.origin;
 import static org.apache.ignite.internal.util.io.GridFilenameUtils.removeExtension;
 import static org.springframework.http.HttpHeaders.CACHE_CONTROL;
 import static org.springframework.http.HttpHeaders.CONTENT_DISPOSITION;
@@ -56,14 +55,6 @@ public class AgentDownloadController {
     private static final int BUFFER_SZ = 30 * 1024 * 1024;
 
     /** */
-    private static final Comparator<File> LATEST_FILE = new Comparator<File>() {
-        /** {@inheritDoc} */
-        @Override public int compare(File f1, File f2) {
-            return Long.compare(f1.lastModified(), f2.lastModified());
-        }
-    };
-
-    /** */
     @Value("${agent.folder.name}")
     private String agentFolderName;
 
@@ -72,31 +63,22 @@ public class AgentDownloadController {
     private String agentFileMask;
 
     /**
-     * @param req Request.
      * @param user User.
      * @return Agent ZIP.
      * @throws Exception If failed.
      */
     @GetMapping(path = "/api/v1/downloads/agent")
-    private ResponseEntity<Resource> load(HttpServletRequest req, @AuthenticationPrincipal Account user) throws Exception {
-        File agentFolder = new File(agentFolderName);
+    private ResponseEntity<Resource> load(@AuthenticationPrincipal Account user) throws Exception {
+        Path agentFolder = Paths.get(agentFolderName);
 
         Pattern ptrn = Pattern.compile(agentFileMask);
 
-        File[] files = agentFolder.listFiles(new FileFilter() {
-            @Override public boolean accept(File file) {
-                return !file.isDirectory() && ptrn.matcher(file.getName()).matches();
-            }
-        });
+        Path latestAgentPath = Files.list(agentFolder)
+            .filter(f -> !Files.isDirectory(f) && ptrn.matcher(f.getFileName().toString()).matches())
+            .max(Comparator.comparingLong(f -> f.toFile().lastModified()))
+            .orElseThrow(() -> new FileNotFoundException("Web Console Agent distributive not found on server"));
 
-        if (F.isEmpty(files))
-            throw new FileNotFoundException("Web Console Agent distributive not found on server");
-
-        Arrays.sort(files, LATEST_FILE.reversed());
-
-        File latestAgentFile = files[0];
-
-        ZipFile zip = new ZipFile(latestAgentFile);
+        ZipFile zip = new ZipFile(latestAgentPath.toFile());
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream(BUFFER_SZ);
 
@@ -105,12 +87,16 @@ public class AgentDownloadController {
         // Make a copy of agent ZIP.
         zip.copyRawEntries(zos, rawEntry -> true);
 
+        String latestAgentFileName = latestAgentPath.getFileName().toString();
+
         // Append "default.properties" to agent ZIP.
-        zos.putArchiveEntry(new ZipArchiveEntry(removeExtension(latestAgentFile.getName()) + "/default.properties"));
+        zos.putArchiveEntry(new ZipArchiveEntry(removeExtension(latestAgentFileName) + "/default.properties"));
+
+        UriComponents uri = ServletUriComponentsBuilder.fromCurrentRequest().build();
 
         String content = String.join("\n",
             "tokens=" + user.token(),
-            "server-uri=" + origin(req),
+            "server-uri=" + uri.getScheme() + "://" + uri.getHost() + ":" + uri.getPort()  ,
             "#Uncomment following options if needed:",
             "#node-uri=http://localhost:8080",
             "#node-login=ignite",
@@ -138,7 +124,7 @@ public class AgentDownloadController {
         headers.add(CACHE_CONTROL, "no-cache, no-store, must-revalidate");
         headers.add(PRAGMA, "no-cache");
         headers.add(EXPIRES, "0");
-        headers.add(CONTENT_DISPOSITION, "attachment; filename=\"" + latestAgentFile.getName());
+        headers.add(CONTENT_DISPOSITION, "attachment; filename=\"" + latestAgentFileName);
         headers.setContentLength(data.length);
         headers.setContentType(MediaType.parseMediaType("application/zip"));
 
