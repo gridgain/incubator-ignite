@@ -140,7 +140,7 @@ public class AccountsService implements UserDetailsService {
             String oldTok = acc.token();
             String newTok = changes.getToken();
 
-            if (!F.isEmpty(newTok) && !oldTok.equals(newTok)) {
+            if (!oldTok.equals(newTok)) {
                 wsm.revokeToken(oldTok);
 
                 acc.token(newTok);
@@ -149,7 +149,7 @@ public class AccountsService implements UserDetailsService {
             String oldEmail = acc.email();
             String newEmail = changes.getEmail();
 
-            if (!F.isEmpty(newEmail) && !oldEmail.equals(newEmail)) {
+            if (!oldEmail.equals(newEmail)) {
                 Account accByEmail = accountsRepo.getByEmail(oldEmail);
 
                 if (acc.getId().equals(accByEmail.getId()))
