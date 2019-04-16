@@ -20,3 +20,7 @@ server.port: 3000
 websocket:
   ssl.enabled: false
   allowed.origin: https://localhost
+
+agent:
+  folder.name: agent_dists
+  file.name: ignite-web-agent-2.8.1

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import javax.servlet.http.HttpServletRequest;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
@@ -116,5 +117,23 @@ public class Utils {
         data.forEach(item -> res.add(fromJson(item.json())));
 
         return res;
+    }
+
+    /**
+     * @param req Request.
+     * @return Request origin.
+     */
+    public static String origin(HttpServletRequest req) {
+        String proto = req.getHeader("x-forwarded-proto");
+
+        if (F.isEmpty(proto))
+            proto = "https"; // req.isSSL() ? "https" : "http";
+
+        String host = req.getHeader("x-forwarded-host");
+
+        if (F.isEmpty(host))
+            host = req.getRemoteHost(); //req.gethost();
+
+        return proto + "://" + host;
     }
 }
