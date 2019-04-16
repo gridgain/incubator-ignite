@@ -135,24 +135,32 @@ public class AccountsService implements UserDetailsService {
 
             String pwd = changes.getPassword();
 
-            if (!F.isEmpty(pwd)) {
-                // WC-1049	Re-Implement "Change password"
+            if (!F.isEmpty(pwd))
+                acc.setPassword(encoder.encode(pwd));
 
-                System.out.println("Change password !!!");
-            }
-
-            String newTok = changes.getToken();
             String oldTok = acc.token();
+            String newTok = changes.getToken();
 
-            if (!F.isEmpty(newTok) && !oldTok.equals(newTok)) {
+            if (!oldTok.equals(newTok)) {
                 wsm.revokeToken(oldTok);
 
                 acc.token(newTok);
             }
 
+            String oldEmail = acc.email();
+            String newEmail = changes.getEmail();
+
+            if (!oldEmail.equals(newEmail)) {
+                Account accByEmail = accountsRepo.getByEmail(oldEmail);
+
+                if (acc.getId().equals(accByEmail.getId()))
+                    acc.email(changes.getEmail());
+                else
+                    throw new IllegalStateException("User with this email already registered");
+            }
+
             acc.firstName(changes.getFirstName());
             acc.lastName(changes.getLastName());
-            acc.email(changes.getEmail());
             acc.phone(changes.getPhone());
             acc.country(changes.getCountry());
             acc.company(changes.getCompany());
@@ -176,12 +184,12 @@ public class AccountsService implements UserDetailsService {
      */
     @Bean
     public PasswordEncoder encoder() {
-// Pbkdf2PasswordEncoder is compatible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
-// We can return to Pbkdf2PasswordEncoder if we decided to import old users.
-//        Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH); // HASH_WIDTH = 512
-//
-//        encoder.setAlgorithm(PBKDF2WithHmacSHA256);
-//        encoder.setEncodeHashAsBase64(true);
+        // Pbkdf2PasswordEncoder is compatible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
+        // We can return to Pbkdf2PasswordEncoder if we decided to import old users.
+        //  Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH); // HASH_WIDTH = 512
+        //
+        //  encoder.setAlgorithm(PBKDF2WithHmacSHA256);
+        //  encoder.setEncodeHashAsBase64(true);
 
         return new BCryptPasswordEncoder();
     }
