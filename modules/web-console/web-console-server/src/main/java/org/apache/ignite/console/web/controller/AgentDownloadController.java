@@ -38,7 +38,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import org.springframework.web.util.UriComponents;
 
 import static org.apache.ignite.internal.util.io.GridFilenameUtils.removeExtension;
 import static org.springframework.http.HttpHeaders.CACHE_CONTROL;
@@ -92,11 +91,9 @@ public class AgentDownloadController {
         // Append "default.properties" to agent ZIP.
         zos.putArchiveEntry(new ZipArchiveEntry(removeExtension(latestAgentFileName) + "/default.properties"));
 
-        UriComponents uri = ServletUriComponentsBuilder.fromCurrentRequest().build();
-
         String content = String.join("\n",
             "tokens=" + user.token(),
-            "server-uri=" + uri.getScheme() + "://" + uri.getHost() + ":" + uri.getPort()  ,
+            "server-uri=" + ServletUriComponentsBuilder.fromCurrentRequest().replacePath(null).build().toString(),
             "#Uncomment following options if needed:",
             "#node-uri=http://localhost:8080",
             "#node-login=ignite",
