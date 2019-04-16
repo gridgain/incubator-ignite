@@ -33,6 +33,28 @@ public class AgentHandshakeResponse {
     private Set<String> toks;
 
     /**
+     * @param err Error message.
+     */
+    public static AgentHandshakeResponse error(String err) {
+        AgentHandshakeResponse res = new AgentHandshakeResponse();
+
+        res.setError(err);
+
+        return res;
+    }
+
+    /**
+     * @param toks Tokens.
+     */
+    public static AgentHandshakeResponse tokens(Set<String> toks) {
+        AgentHandshakeResponse res = new AgentHandshakeResponse();
+
+        res.setTokens(toks);
+
+        return res;
+    }
+
+    /**
      * @return Error message.
      */
     public String getError() {
