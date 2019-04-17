@@ -20,3 +20,7 @@ server.port: 3000
 websocket:
   ssl.enabled: false
   allowed.origin: https://localhost
+
+agent:
+  folder.name: C:/Temp
+  file.regexp: ignite\-web\-console\-agent.*\.zip
