@@ -195,45 +195,30 @@ public class WebSocketManager extends TextWebSocketHandler {
     }
 
     /**
-     * @param ws Session.
      * @param evt Event to process.
      * @throws IOException If failed to process.
      */
-    private void registerAgent(WebSocketSession ws, WebSocketEvent evt) throws IOException {
+    private AgentHandshakeResponse agentHandshake(WebSocketEvent evt) throws IOException {
         AgentHandshakeRequest req = fromJson(evt.getPayload(), AgentHandshakeRequest.class);
 
-        AgentHandshakeResponse res;
-
         if (F.isEmpty(req.getTokens()))
-            res = AgentHandshakeResponse.error("Tokens not set. Please reload agent or check settings.");
-        else if (!F.isEmpty(req.getVersion()) && !F.isEmpty(req.getBuildTime()) & !F.isEmpty(supportedAgents)) {
+            return new AgentHandshakeResponse("Tokens not set. Please reload agent or check settings.");
+
+        if (!F.isEmpty(req.getVersion()) && !F.isEmpty(req.getBuildTime()) & !F.isEmpty(supportedAgents)) {
             // TODO WC-1053 Implement version check in beta2 stage.
-            res = AgentHandshakeResponse.error("You are using an older version of the agent. Please reload agent.");
-        }
-        else {
-            Set<String> tokens = req.getTokens();
-
-            Set<String> validTokens = accRepo.validateTokens(tokens);
-
-            if (F.isEmpty(validTokens)) {
-                res = AgentHandshakeResponse.error("Failed to authenticate with token(s): " + tokens + "." +
-                    " Please reload agent or check settings.");
-            }
-            else {
-                log.info("Agent connected: " + req);
-
-                res = AgentHandshakeResponse.tokens(validTokens);
-
-                agents.put(ws, validTokens);
-            }
+            return new AgentHandshakeResponse("You are using an older version of the agent. Please reload agent.");
         }
 
-        assert res != null;
+        Set<String> tokens = req.getTokens();
 
-        if (!F.isEmpty(res.getError()))
-            log.warn("Agent not connected [err=" + res.getError() + ", req=" + req + "]");
+        Set<String> validTokens = accRepo.validateTokens(tokens);
 
-        sendMessage(ws, evt.setPayload(toJson(res)));
+        if (F.isEmpty(validTokens)) {
+            return new AgentHandshakeResponse("Failed to authenticate with token(s): " + tokens + "." +
+                " Please reload agent or check settings.");
+        }
+
+        return new AgentHandshakeResponse(validTokens);
     }
 
     /**
@@ -300,7 +285,17 @@ public class WebSocketManager extends TextWebSocketHandler {
 
         switch (evt.getEventType()) {
             case AGENT_HANDSHAKE:
-                registerAgent(ws, evt);
+                AgentHandshakeResponse res = agentHandshake(evt);
+
+                if (F.isEmpty(res.getError())) {
+                    log.info("Agent connected [evt=" + evt + "]");
+
+                    agents.put(ws, res.getTokens());
+                }
+                else
+                    log.warn("Agent not connected [err=" + res.getError() + ", evt=" + evt + "]");
+
+                sendMessage(ws, evt.setPayload(toJson(res)));
 
                 break;
 

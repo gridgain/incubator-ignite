@@ -33,25 +33,24 @@ public class AgentHandshakeResponse {
     private Set<String> toks;
 
     /**
+     * Default constructor for serialization.
+     */
+    public AgentHandshakeResponse() {
+        // No-op.
+    }
+
+    /**
      * @param err Error message.
      */
-    public static AgentHandshakeResponse error(String err) {
-        AgentHandshakeResponse res = new AgentHandshakeResponse();
-
-        res.setError(err);
-
-        return res;
+    public AgentHandshakeResponse(String err) {
+        this.err = err;
     }
 
     /**
      * @param toks Tokens.
      */
-    public static AgentHandshakeResponse tokens(Set<String> toks) {
-        AgentHandshakeResponse res = new AgentHandshakeResponse();
-
-        res.setTokens(toks);
-
-        return res;
+    public AgentHandshakeResponse(Set<String> toks) {
+        this.toks = toks;
     }
 
     /**

@@ -263,30 +263,31 @@ public class WebSocketRouter implements AutoCloseable {
         try {
             AgentHandshakeResponse res = fromJson(json, AgentHandshakeResponse.class);
 
-            if (!F.isEmpty(res.getError())) {
+            if (F.isEmpty(res.getError())) {
+                Set<String> validTokens = res.getTokens();
+                List<String> missedTokens = cfg.tokens();
+
+                cfg.tokens(new ArrayList<>(validTokens));
+
+                missedTokens.removeAll(validTokens);
+
+                if (!F.isEmpty(missedTokens)) {
+                    log.warning("Failed to validate token(s): " + secured(missedTokens) + "." +
+                        " Please reload agent archive or check settings.");
+                }
+
+                log.info("Successful handshake with server.");
+            }
+            else {
                 log.error(res.getError());
 
-                System.exit(1);
+                closeLatch.countDown();
             }
-
-            Set<String> validTokens = res.getTokens();
-            List<String> missedTokens = cfg.tokens();
-
-            cfg.tokens(new ArrayList<>(validTokens));
-
-            missedTokens.removeAll(validTokens);
-
-            if (!F.isEmpty(missedTokens)) {
-                log.warning("Failed to validate token(s): " + secured(missedTokens) + "." +
-                    " Please reload agent archive or check settings.");
-            }
-
-            log.info("Successful handshake with server.");
         }
         catch (Throwable e) {
             log.error("Failed to process handshake response from server", e);
 
-            System.exit(1);
+            closeLatch.countDown();
         }
     }
 
