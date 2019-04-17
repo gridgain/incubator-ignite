@@ -91,9 +91,16 @@ public class AgentDownloadController {
         // Append "default.properties" to agent ZIP.
         zos.putArchiveEntry(new ZipArchiveEntry(removeExtension(latestAgentFileName) + "/default.properties"));
 
+        String origin = ServletUriComponentsBuilder
+            .fromCurrentRequest()
+            .replacePath(null)
+            .build()
+            .toString()
+            .replaceFirst("http", "ws");
+
         String content = String.join("\n",
             "tokens=" + user.token(),
-            "server-uri=" + ServletUriComponentsBuilder.fromCurrentRequest().replacePath(null).build().toString(),
+            "server-uri=" + origin,
             "#Uncomment following options if needed:",
             "#node-uri=http://localhost:8080",
             "#node-login=ignite",
