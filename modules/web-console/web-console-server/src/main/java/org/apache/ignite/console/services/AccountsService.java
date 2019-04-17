@@ -184,4 +184,13 @@ public class AccountsService implements UserDetailsService {
 
         return new BCryptPasswordEncoder();
     }
+
+    /**
+     * @param user
+     */
+    public void resetPasswordToken(Account user) {
+        user.resetPasswordToken(UUID.randomUUID().toString());
+
+        accountsRepo.save(user);
+    }
 }

@@ -20,10 +20,10 @@ package org.apache.ignite.console.web.controller;
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
+import org.apache.ignite.console.services.MailService;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.UserResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -50,21 +50,24 @@ public class AccountController {
     /** Accounts service. */
     private final AccountsService accountsSrvc;
 
+    /** */
+    private final MailService mailSrvc;
+
     /**
      * @param authMgr Authentication manager.
      * @param accountsSrvc Accounts service.
      */
-    @Autowired
-    public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc) {
+    public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc, MailService mailSrvc) {
         this.authMgr = authMgr;
         this.accountsSrvc = accountsSrvc;
+        this.mailSrvc = mailSrvc;
     }
 
     /**
      * @param user User.
      */
     @GetMapping(path = "/api/v1/user")
-    public ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
+    private ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
         return ResponseEntity.ok(new UserResponse(
@@ -83,7 +86,7 @@ public class AccountController {
      * @param params SignUp params.
      */
     @PostMapping(path = "/api/v1/signup")
-    public ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
+    private ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
         Account account = accountsSrvc.register(params);
 
         if (account.isEnabled()) {
@@ -102,9 +105,57 @@ public class AccountController {
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @Valid @RequestBody ChangeUserRequest changes) {
+    private ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @Valid @RequestBody ChangeUserRequest changes) {
         accountsSrvc.save(acc.getId(), changes);
 
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @return
+     */
+    @PostMapping(path = "/api/v1/password/forgot")
+    private ResponseEntity<String> forgotPassword() {
+        String origin = "ToDo";
+        String email = "kuaw26@mail.ru";
+
+        Account user = accountsSrvc.loadUserByUsername(email);
+
+        // TODO when we have settings
+        // if (settings.activation.enabled && !user.activated())
+        //     throw new MissingConfirmRegistrationException(email);
+
+        accountsSrvc.resetPasswordToken(user);
+
+        mailSrvc.sendResetLink();
+
+        return ResponseEntity.ok("An email has been sent with further instructions.");
+    }
+
+    /**
+     *
+     * @return
+     */
+    @PostMapping(path = "/api/v1/password/reset")
+    private ResponseEntity<Void> resetPassword() {
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     *
+     * @return
+     */
+    @PostMapping(path = "/api/v1/password/validate/token")
+    private ResponseEntity<Void> validatePasswordToken() {
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     *
+     * @return
+     */
+    @PostMapping(path = "/api/v1/activation/resend")
+    private ResponseEntity<Void> resendSignupConfirmation() {
         return ResponseEntity.ok().build();
     }
 }
