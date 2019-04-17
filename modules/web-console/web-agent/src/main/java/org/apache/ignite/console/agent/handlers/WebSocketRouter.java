@@ -19,11 +19,18 @@ package org.apache.ignite.console.agent.handlers;
 
 import java.net.ConnectException;
 import java.net.URI;
+import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
-import org.apache.ignite.console.websocket.AgentInfo;
+import org.apache.ignite.console.websocket.AgentHandshakeRequest;
+import org.apache.ignite.console.websocket.AgentHandshakeResponse;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
@@ -42,10 +49,11 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.LoggerFactory;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.console.agent.AgentUtils.secured;
 import static org.apache.ignite.console.agent.AgentUtils.sslContextFactory;
 import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
-import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_INFO;
+import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_HANDSHAKE;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_REVOKE_TOKEN;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_REST;
 import static org.apache.ignite.console.websocket.WebSocketConsts.NODE_VISOR;
@@ -132,6 +140,7 @@ public class WebSocketRouter implements AutoCloseable {
     /**
      * Connect to websocket.
      */
+    @SuppressWarnings("deprecation")
     private void connect() {
         boolean trustAll = Boolean.getBoolean("trust.all");
 
@@ -216,10 +225,86 @@ public class WebSocketRouter implements AutoCloseable {
         wss.open(ses);
 
         try {
-            wss.send(AGENT_INFO, new AgentInfo(cfg.tokens()));
+            String ver = "";
+            String buildTime = "";
+
+            String clsName = WebSocketRouter.class.getSimpleName() + ".class";
+            String clsPath = WebSocketRouter.class.getResource(clsName).toString();
+
+            if (clsPath.startsWith("jar")) {
+                String manifestPath = clsPath.substring(0, clsPath.lastIndexOf('!') + 1) + "/META-INF/MANIFEST.MF";
+
+                Manifest manifest = new Manifest(new URL(manifestPath).openStream());
+
+                Attributes attr = manifest.getMainAttributes();
+
+                ver = attr.getValue("Implementation-Version");
+                buildTime = attr.getValue("Build-Time");
+            }
+
+            AgentHandshakeRequest req = new AgentHandshakeRequest(
+                cfg.disableDemo(),
+                ver,
+                buildTime,
+                cfg.tokens()
+            );
+
+            wss.send(AGENT_HANDSHAKE, req);
         }
         catch (Throwable e) {
             log.error("Failed to send handshake to server", e);
+        }
+    }
+
+    /**
+     * @param json Response from server in JSON format.
+     */
+    private void handshake(String json) {
+        try {
+            AgentHandshakeResponse res = fromJson(json, AgentHandshakeResponse.class);
+
+            if (F.isEmpty(res.getError())) {
+                Set<String> validTokens = res.getTokens();
+                List<String> missedTokens = cfg.tokens();
+
+                cfg.tokens(new ArrayList<>(validTokens));
+
+                missedTokens.removeAll(validTokens);
+
+                if (!F.isEmpty(missedTokens)) {
+                    log.warning("Failed to validate token(s): " + secured(missedTokens) + "." +
+                        " Please reload agent archive or check settings.");
+                }
+
+                log.info("Successful handshake with server.");
+            }
+            else {
+                log.error(res.getError());
+
+                closeLatch.countDown();
+            }
+        }
+        catch (Throwable e) {
+            log.error("Failed to process handshake response from server", e);
+
+            closeLatch.countDown();
+        }
+    }
+
+    /**
+     * @param tok Token to revoke.
+     */
+    private void revokeToken(String tok) {
+        log.warning("Security token has been revoked: " + tok);
+
+        cfg.tokens().remove(tok);
+
+        if (F.isEmpty(cfg.tokens())) {
+            log.warning("Web Console Agent will be stopped because no more valid tokens available");
+
+            wss.close(StatusCode.SHUTDOWN, "No more valid tokens available");
+
+            closeLatch.countDown();
         }
     }
 
@@ -234,6 +319,16 @@ public class WebSocketRouter implements AutoCloseable {
             String evtType = evt.getEventType();
 
             switch (evtType) {
+                case AGENT_HANDSHAKE:
+                    handshake(evt.getPayload());
+
+                    break;
+
+                case AGENT_REVOKE_TOKEN:
+                    revokeToken(evt.getPayload());
+
+                    break;
+
                 case SCHEMA_IMPORT_DRIVERS:
                     dbHnd.collectJdbcDrivers(evt);
 
@@ -252,23 +347,6 @@ public class WebSocketRouter implements AutoCloseable {
                 case NODE_REST:
                 case NODE_VISOR:
                     clusterHnd.restRequest(evt);
-
-                    break;
-
-                case AGENT_REVOKE_TOKEN:
-                    String tok = evt.getPayload();
-
-                    log.warning("Security token has been revoked: " + tok);
-
-                    cfg.tokens().remove(tok);
-
-                    if (F.isEmpty(cfg.tokens())) {
-                        log.warning("Web Console Agent will be stopped because no more valid tokens available");
-
-                        wss.close(StatusCode.SHUTDOWN, "No more valid tokens available");
-
-                        closeLatch.countDown();
-                    }
 
                     break;
 

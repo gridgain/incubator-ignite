@@ -17,16 +17,25 @@
 
 package org.apache.ignite.console.websocket;
 
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * Agent descriptor POJO.
+ * Handshake request from Web Console Agent.
  */
-public class AgentInfo {
+public class AgentHandshakeRequest {
+    /** */
+    private boolean disableDemo;
+
+    /** */
+    private String ver;
+
+    /** */
+    private String buildTime;
+
     /** */
     @GridToStringInclude
     private Set<String> toks;
@@ -34,18 +43,70 @@ public class AgentInfo {
     /**
      * Default constructor for serialization.
      */
-    public AgentInfo() {
+    public AgentHandshakeRequest() {
         // No-op.
     }
 
     /**
      * Full constructor.
      *
+     * @param disableDemo Disable demo flag.
+     * @param ver Agent version.
+     * @param buildTime Agent build time.
      * @param toks Tokens.
      */
-    public AgentInfo(List<String> toks) {
-        this.toks = new HashSet<>();
-        this.toks.addAll(toks);
+    public AgentHandshakeRequest(
+        boolean disableDemo,
+        String ver,
+        String buildTime,
+        Collection<String> toks
+    ) {
+        this.disableDemo = disableDemo;
+        this.ver = ver;
+        this.buildTime = buildTime;
+        this.toks = new HashSet<>(toks);
+    }
+
+    /**
+     * @return Disable demo flag.
+     */
+    public boolean isDisableDemo() {
+        return disableDemo;
+    }
+
+    /**
+     * @param disableDemo Disable demo flag.
+     */
+    public void setDisableDemo(boolean disableDemo) {
+        this.disableDemo = disableDemo;
+    }
+
+    /**
+     * @return Agent version.
+     */
+    public String getVersion() {
+        return ver;
+    }
+
+    /**
+     * @param ver Agent version.
+     */
+    public void setVersion(String ver) {
+        this.ver = ver;
+    }
+
+    /**
+     * @return Agent built time.
+     */
+    public String getBuildTime() {
+        return buildTime;
+    }
+
+    /**
+     * @param buildTime Agent built time.
+     */
+    public void setBuildTime(String buildTime) {
+        this.buildTime = buildTime;
     }
 
     /**
@@ -64,6 +125,6 @@ public class AgentInfo {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(AgentInfo.class, this);
+        return S.toString(AgentHandshakeRequest.class, this);
     }
 }

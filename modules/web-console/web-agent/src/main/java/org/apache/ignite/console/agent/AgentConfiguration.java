@@ -27,11 +27,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
-import java.util.stream.Collectors;
 import com.beust.jcommander.Parameter;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.console.agent.AgentUtils.secured;
 
 /**
  * Agent configuration.
@@ -594,16 +594,6 @@ public class AgentConfiguration {
             cipherSuites(cfg.cipherSuites());
     }
 
-    /**
-     * @param s String with sensitive data.
-     * @return Secured string.
-     */
-    private String secured(String s) {
-        int len = s.length();
-        int toShow = len > 4 ? 4 : 1;
-
-        return new String(new char[len - toShow]).replace('\0', '*') + s.substring(len - toShow, len);
-    }
 
     /** {@inheritDoc} */
     @Override public String toString() {
@@ -614,7 +604,7 @@ public class AgentConfiguration {
         if (!F.isEmpty(tokens)) {
             sb.append("User's security tokens          : ");
 
-            sb.append(tokens.stream().map(this::secured).collect(Collectors.joining(", "))).append(nl);
+            sb.append(secured(tokens)).append(nl);
         }
 
         sb.append("URI to Ignite node REST server  : ")

@@ -72,9 +72,12 @@ public class WebSocketEvent {
 
     /**
      * @param reqId New request ID.
+     * @return {@code this} for chaining.
      */
-    public void setRequestId(String reqId) {
+    public WebSocketEvent setRequestId(String reqId) {
         this.reqId = reqId;
+
+        return this;
     }
 
     /**
@@ -86,9 +89,12 @@ public class WebSocketEvent {
 
     /**
      * @param evtType New event type.
+     * @return {@code this} for chaining.
      */
-    public void setEventType(String evtType) {
+    public WebSocketEvent setEventType(String evtType) {
         this.evtType = evtType;
+
+        return this;
     }
 
     /**
@@ -100,9 +106,12 @@ public class WebSocketEvent {
 
     /**
      * @param payload New payload.
+     * @return {@code this} for chaining.
      */
-    public void setPayload(String payload) {
+    public WebSocketEvent setPayload(String payload) {
         this.payload = payload;
+
+        return this;
     }
 
     /** {@inheritDoc} */
