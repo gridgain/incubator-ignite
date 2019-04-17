@@ -22,5 +22,5 @@ websocket:
   allowed.origin: https://localhost
 
 agent:
-  folder.name: C:/Temp
+  folder.name: agent_dists
   file.regexp: ignite\-web\-console\-agent.*\.zip
