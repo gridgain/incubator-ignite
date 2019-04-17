@@ -17,8 +17,8 @@
 
 package org.apache.ignite.jdbc.suite;
 
-import org.apache.ignite.internal.jdbc.thin.JdbcThinConnection;
 import org.apache.ignite.jdbc.thin.JdbcThinAbstractSelfTest;
+import org.apache.ignite.jdbc.thin.JdbcThinBestEffortAffinitySelfTest;
 import org.apache.ignite.jdbc.thin.JdbcThinBestEffortAffinityTransactionsSelfTest;
 import org.apache.ignite.jdbc.thin.JdbcThinConnectionSelfTest;
 import org.apache.ignite.jdbc.thin.JdbcThinStatementSelfTest;
@@ -36,6 +36,7 @@ import org.junit.runners.Suite;
     JdbcThinConnectionSelfTest.class,
     JdbcThinTcpIoTest.class,
     JdbcThinStatementSelfTest.class,
+    JdbcThinBestEffortAffinitySelfTest.class,
     JdbcThinBestEffortAffinityTransactionsSelfTest.class,
 })
 public class IgniteJdbcThinDriverBestEffordAffinityTestSuite {
@@ -45,7 +46,6 @@ public class IgniteJdbcThinDriverBestEffordAffinityTestSuite {
      */
     @BeforeClass
     public static void setupBestEffortAffinity() {
-        GridTestUtils.setFieldValue(JdbcThinConnection.class, "bestEffortAffinity", true);
-        GridTestUtils.setFieldValue(JdbcThinAbstractSelfTest.class, "bestEffortAffinity", true);
+        GridTestUtils.setFieldValue(JdbcThinAbstractSelfTest.class, "affinityAwareness", true);
     }
 }
