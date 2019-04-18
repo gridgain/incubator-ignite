@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.commandline.cache.argument;
 
 import org.apache.ignite.internal.commandline.argument.CommandArg;
-import org.apache.ignite.internal.commandline.cache.CacheCommandList;
+import org.apache.ignite.internal.commandline.cache.CacheCommand;
 
 /**
- * {@link CacheCommandList#LIST} command arguments.
+ * {@link CacheCommand#LIST} command arguments.
  */
 public enum ListCommandArg implements CommandArg {
     /** Group. */

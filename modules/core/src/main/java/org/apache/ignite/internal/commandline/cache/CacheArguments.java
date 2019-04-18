@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CacheArguments {
     /** Command. */
-    private CacheCommandList cmd;
+    private CacheCommand cmd;
 
     /** Caches. */
     private Set<String> caches;
@@ -114,7 +114,7 @@ public class CacheArguments {
     /**
      * @return Command.
      */
-    public CacheCommandList command() {
+    public CacheCommand command() {
         return cmd;
     }
 
@@ -135,7 +135,7 @@ public class CacheArguments {
     /**
      * @param cmd New command.
      */
-    public void command(CacheCommandList cmd) {
+    public void command(CacheCommand cmd) {
         this.cmd = cmd;
     }
 

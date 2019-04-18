@@ -2164,6 +2164,13 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         tree.destroy();
     }
 
+    /**
+     * @param page Root page.
+     * @param grpId Cache group id.
+     * @param pageMemory Page memory.
+     * @return Inline size.
+     * @throws IgniteCheckedException If something went wrong.
+     */
     private int getInlineSize(RootPage page, int grpId, PageMemory pageMemory) throws IgniteCheckedException {
         long metaPageId = page.pageId().pageId();
 

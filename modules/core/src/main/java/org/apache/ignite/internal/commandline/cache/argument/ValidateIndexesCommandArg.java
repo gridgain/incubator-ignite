@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.commandline.cache.argument;
 
 import org.apache.ignite.internal.commandline.argument.CommandArg;
-import org.apache.ignite.internal.commandline.cache.CacheCommandList;
+import org.apache.ignite.internal.commandline.cache.CacheCommand;
 
 /**
- * {@link CacheCommandList#VALIDATE_INDEXES} command arguments.
+ * {@link CacheCommand#VALIDATE_INDEXES} command arguments.
  */
 public enum ValidateIndexesCommandArg implements CommandArg {
     /** Check first. */

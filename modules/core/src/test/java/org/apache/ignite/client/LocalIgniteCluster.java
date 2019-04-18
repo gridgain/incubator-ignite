@@ -27,8 +27,8 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
-import org.apache.ignite.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.ClientConfiguration;
+import org.apache.ignite.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 
@@ -152,7 +152,7 @@ public class LocalIgniteCluster implements AutoCloseable {
 
     /** */
     private static IgniteConfiguration getConfiguration(NodeConfiguration nodeCfg) {
-        IgniteConfiguration igniteCfg = ClientConfigurationTestConfig.getServerConfiguration();
+        IgniteConfiguration igniteCfg = Config.getServerConfiguration();
 
         ((TcpDiscoverySpi)igniteCfg.getDiscoverySpi()).getIpFinder().registerAddresses(
             Collections.singletonList(new InetSocketAddress(HOST, nodeCfg.getDiscoveryPort()))

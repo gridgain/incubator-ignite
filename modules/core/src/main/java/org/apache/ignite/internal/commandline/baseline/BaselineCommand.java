@@ -17,67 +17,61 @@
 
 package org.apache.ignite.internal.commandline.baseline;
 
-import org.apache.ignite.internal.visor.baseline.VisorBaselineOperation;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Set of baseline commands.
  */
-public enum BaselineSubcommands {
+public enum BaselineCommand {
     /**
      * Add nodes to baseline.
      */
-    ADD("add", VisorBaselineOperation.ADD),
+    ADD("add"),
 
     /**
      * Remove nodes from baseline.
      */
-    REMOVE("remove", VisorBaselineOperation.REMOVE),
+    REMOVE("remove"),
 
     /**
      * Collect information about baseline.
      */
-    COLLECT("collect", VisorBaselineOperation.COLLECT),
+    COLLECT("collect"),
 
     /**
      * Set new baseline.
      */
-    SET("set", VisorBaselineOperation.SET),
+    SET("set"),
 
     /**
      * Check current topology version.
      */
-    VERSION("version", VisorBaselineOperation.VERSION),
+    VERSION("version"),
 
     /**
      * Baseline auto-adjust configuration.
      */
-    AUTO_ADJUST("auto_adjust", VisorBaselineOperation.AUTOADJUST);
+    AUTO_ADJUST("auto_adjust");
 
     /** Enumerated values. */
-    private static final BaselineSubcommands[] VALS = values();
+    private static final BaselineCommand[] VALS = values();
 
     /** Name. */
     private final String name;
 
-    /** Corresponding visor baseline operation. */
-    private final VisorBaselineOperation visorBaselineOperation;
-
     /**
      * @param name Name.
-     * @param operation
      */
-    BaselineSubcommands(String name, VisorBaselineOperation operation) {
+    BaselineCommand(String name) {
         this.name = name;
-        visorBaselineOperation = operation;
     }
 
     /**
      * @param text Command text.
      * @return Command for the text.
      */
-    public static BaselineSubcommands of(String text) {
-        for (BaselineSubcommands cmd : BaselineSubcommands.values()) {
+    public static BaselineCommand of(String text) {
+        for (BaselineCommand cmd : BaselineCommand.values()) {
             if (cmd.text().equalsIgnoreCase(text))
                 return cmd;
         }
@@ -92,17 +86,13 @@ public enum BaselineSubcommands {
         return name;
     }
 
-    public VisorBaselineOperation visorBaselineOperation() {
-        return visorBaselineOperation;
-    }
-
     /**
      * Efficiently gets enumerated value from its ordinal.
      *
      * @param ord Ordinal value.
      * @return Enumerated value or {@code null} if ordinal out of range.
      */
-    @Nullable public static BaselineSubcommands fromOrdinal(int ord) {
+    @Nullable public static BaselineCommand fromOrdinal(int ord) {
         return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
     }
 
