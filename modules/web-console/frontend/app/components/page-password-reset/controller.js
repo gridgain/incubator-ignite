@@ -25,6 +25,7 @@ export default class {
      * @param {ng.IHttpService} $http
      * @param {import('@uirouter/angularjs').StateService} $state
      * @param {ReturnType<typeof import('app/services/Messages.service').default>} Messages
+     * @param el Element.
      */
     constructor($modal, $http, $state, Messages, el) {
         this.$http = $http;
@@ -39,7 +40,8 @@ export default class {
 
     $onInit() {
         this.$http.post('/api/v1/password/validate/token', {token: this.$state.params.token})
-            .then(({data}) => this.ui = data);
+            .then(({data}) => this.ui = data)
+            .catch(this.Messages.showError);
     }
 
     // Try to reset user password for provided token.

@@ -21,6 +21,7 @@ import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
+import org.apache.ignite.console.web.model.ResetPasswordRequest;
 import org.apache.ignite.console.web.model.SignInRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.UserResponse;
@@ -120,29 +121,22 @@ public class AccountController {
     }
 
     /**
-     *
+     * @param req Reset password request.
+     * @return User info required for password reset.
+     */
+    @PostMapping(path = "/api/v1/password/validate/token")
+    private ResponseEntity<UserResponse> validatePasswordToken(@RequestBody ResetPasswordRequest req) {
+        return ResponseEntity.ok(accountsSrvc.validateResetToken(req.getToken()));
+    }
+
+    /**
+     * @param req Reset password request.
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/reset")
-    private ResponseEntity<Void> resetPassword() {
-        return ResponseEntity.ok().build();
-    }
+    private ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
+        accountsSrvc.resetPasswordByToken(currentRequestOrigin(), req.getToken(), req.getPassword());
 
-    /**
-     *
-     * @return {@linkplain HttpStatus#OK OK} on success.
-     */
-    @PostMapping(path = "/api/v1/password/validate/token")
-    private ResponseEntity<Void> validatePasswordToken() {
-        return ResponseEntity.ok().build();
-    }
-
-    /**
-     *
-     * @return {@linkplain HttpStatus#OK OK} on success.
-     */
-    @PostMapping(path = "/api/v1/activation/resend")
-    private ResponseEntity<Void> resendSignupConfirmation() {
         return ResponseEntity.ok().build();
     }
 }

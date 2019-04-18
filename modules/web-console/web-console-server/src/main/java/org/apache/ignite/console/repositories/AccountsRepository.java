@@ -78,10 +78,11 @@ public class AccountsRepository extends AbstractRepository {
     /**
      * Get account by email.
      *
-     * @param email Parameters in JSON format.
+     * @param email E-mail.
      * @return Account.
+     * @throws UsernameNotFoundException If user not found.
      */
-    public Account getByEmail(String email) {
+    public Account getByEmail(String email) throws UsernameNotFoundException {
         try (Transaction ignored = txStart()) {
             Account account = accountsTbl.getByIndex(email);
 
@@ -93,6 +94,26 @@ public class AccountsRepository extends AbstractRepository {
         catch (IgniteException e) {
             throw new UsernameNotFoundException(email, e);
         }
+    }
+
+    /**
+     * Get account by email.
+     *
+     * @param resetPwdTok Reset password token.
+     * @return Account.
+     * @throws IllegalStateException If user not found.
+     */
+    public Account getByResetToken(String resetPwdTok) throws IllegalStateException {
+        return accountsTbl
+            .query(new ScanQuery<UUID, Object>())
+            .getAll()
+            .stream()
+            .map(Cache.Entry::getValue)
+            .filter(item -> item instanceof Account)
+            .map(item -> (Account)item)
+            .filter(acc -> resetPwdTok.equals(acc.resetPasswordToken()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("Failed to find account with this token! Please check link from email."));
     }
 
     /**

@@ -17,23 +17,45 @@
 
 package org.apache.ignite.console.services;
 
+import org.apache.ignite.console.dto.Account;
 import org.springframework.stereotype.Service;
 
 /**
- *
+ * // TODO WC-940 Implement real e-mail service.
  */
 @Service
 public class MailService {
     /**
      * @param origin Request origin, required for composing reset link.
-     * @param email Email to send reset link.
-     * @param resetPwdTok Token to build reset link.
+     * @param user User that requested password reset.
      */
-    public void sendResetLink(String origin, String email, String resetPwdTok) {
-        // TODO WC-940 TOD Implement real e-mail service.
+    public void sendResetLink(String origin, Account user) {
+        // TODO WC-940 Implement real e-mail service.
 
-        String resetLink = origin + "/password/reset?token=" + resetPwdTok;
+        String resetLink = origin + "/password/reset?token=" + user.resetPasswordToken();
 
-        System.out.println("TODO WC-940 Send reset link: " + resetLink);
+        System.out.println("TODO WC-940 Send reset link [user=" + user.firstName() + " " + user.lastName() +
+            ", email=" + user.email() + ", link=" + resetLink + "]");
+    }
+
+    /**
+     * @param origin Request origin, required for composing reset link.
+     * @param user User that requested password reset.
+     */
+    public void sendPasswordChanged(String origin, Account user) {
+        // TODO WC-940 Implement real e-mail service.
+
+        try {
+            System.out.println("TODO WC-940 Your password has been changed [user=" + user.firstName() + " " + user.lastName() +
+                ", email=" + user.email() + "]");
+
+            String greeting = "Web Console"; // TODO WC-940 Move to settings.
+
+            System.out.println("TODO WC-940 This is a confirmation that the password for your account on " +
+                "<a href=" + origin + ">" + greeting + "</a> has just been changed.");
+        }
+        catch (Throwable ignored) {
+            System.out.println("TODO WC-940 Password was changed, but failed to send confirmation email!");
+        }
     }
 }

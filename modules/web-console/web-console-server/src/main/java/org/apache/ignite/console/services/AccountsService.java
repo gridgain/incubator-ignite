@@ -24,6 +24,7 @@ import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
+import org.apache.ignite.console.web.model.UserResponse;
 import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
@@ -205,23 +206,71 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
+     * @param acc Account to check.
+     * @throws IllegalStateException If account was not activated.
+     */
+    private void checkAccountActivated(Account acc) throws IllegalStateException {
+        if (activationEnabled && !acc.activated())
+            throw new IllegalStateException("Account was not activated by email: " + acc.email());
+    }
+
+    /**
      * @param origin Request origin, required for composing reset link.
      * @param email User email to send reset password link.
      */
     public void forgotPassword(String origin, String email) {
         try (Transaction tx = txMgr.txStart()) {
-            Account user = accountsRepo.getByEmail(email);
+            Account acc = accountsRepo.getByEmail(email);
 
-            if (activationEnabled && !user.activated())
-                throw new IllegalStateException("User account was not activated by email: " + email);
+            checkAccountActivated(acc);
 
-            user.resetPasswordToken(UUID.randomUUID().toString());
+            acc.resetPasswordToken(UUID.randomUUID().toString());
 
-            accountsRepo.save(user);
+            accountsRepo.save(acc);
 
             tx.commit();
 
-            mailSrvc.sendResetLink(origin, email, user.resetPasswordToken());
+            mailSrvc.sendResetLink(origin, acc);
+        }
+    }
+
+    /**
+     * @param resetPwdTok Reset password token to validate.
+     * @return User info required for password reset.
+     */
+    public UserResponse validateResetToken(String resetPwdTok) {
+        Account acc = accountsRepo.getByResetToken(resetPwdTok);
+
+        checkAccountActivated(acc);
+
+        UserResponse res = new UserResponse();
+        res.setToken(resetPwdTok);
+        res.setEmail(acc.email());
+
+        return res;
+    }
+
+    /**
+     * @param origin Request origin required for composing reset link.
+     * @param resetPwdTok Reset password token.
+     * @param newPwd New password.
+     */
+    public void resetPasswordByToken(String origin, String resetPwdTok, String newPwd) {
+        Account acc = accountsRepo.getByResetToken(resetPwdTok);
+
+        checkAccountActivated(acc);
+
+        try (Transaction tx = txMgr.txStart()) {
+            acc = accountsRepo.getById(acc.getId());
+
+            acc.setPassword(encoder.encode(newPwd));
+            acc.resetPasswordToken(null);
+
+            accountsRepo.save(acc);
+
+            tx.commit();
+
+            mailSrvc.sendPasswordChanged(origin, acc);
         }
     }
 }
