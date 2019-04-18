@@ -65,9 +65,6 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     /** Forgot password route. */
     private static final String FORGOT_PASSWORD_ROUTE = "/api/v1/password/forgot";
 
-    /** Validate reset password token route. */
-    private static final String VALIDATE_PASSWORD_TOKEN_ROUTE = "/api/v1/password/validate/token";
-
     /** Reset password route. */
     private static final String RESET_PASSWORD_ROUTE = "/api/v1/password/reset";
 
@@ -75,7 +72,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private static final String[] PUBLIC_ROUTES = new String[] {
         AGENTS_PATH,
         SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE,
-        FORGOT_PASSWORD_ROUTE, VALIDATE_PASSWORD_TOKEN_ROUTE, RESET_PASSWORD_ROUTE
+        FORGOT_PASSWORD_ROUTE, RESET_PASSWORD_ROUTE
     };
 
     /** */

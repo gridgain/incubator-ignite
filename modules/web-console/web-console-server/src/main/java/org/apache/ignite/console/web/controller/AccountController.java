@@ -122,20 +122,11 @@ public class AccountController {
 
     /**
      * @param req Reset password request.
-     * @return User info required for password reset.
-     */
-    @PostMapping(path = "/api/v1/password/validate/token")
-    private ResponseEntity<UserResponse> validatePasswordToken(@RequestBody ResetPasswordRequest req) {
-        return ResponseEntity.ok(accountsSrvc.validateResetToken(req.getToken()));
-    }
-
-    /**
-     * @param req Reset password request.
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/reset")
     private ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
-        accountsSrvc.resetPasswordByToken(currentRequestOrigin(), req.getToken(), req.getPassword());
+        accountsSrvc.resetPasswordByToken(currentRequestOrigin(), req.getEmail(), req.getToken(), req.getPassword());
 
         return ResponseEntity.ok().build();
     }

@@ -24,7 +24,6 @@ import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
-import org.apache.ignite.console.web.model.UserResponse;
 import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
@@ -235,33 +234,19 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
-     * @param resetPwdTok Reset password token to validate.
-     * @return User info required for password reset.
-     */
-    public UserResponse validateResetToken(String resetPwdTok) {
-        Account acc = accountsRepo.getByResetToken(resetPwdTok);
-
-        checkAccountActivated(acc);
-
-        UserResponse res = new UserResponse();
-        res.setToken(resetPwdTok);
-        res.setEmail(acc.email());
-
-        return res;
-    }
-
-    /**
      * @param origin Request origin required for composing reset link.
+     * @param email E-mail of user that request password reset.
      * @param resetPwdTok Reset password token.
      * @param newPwd New password.
      */
-    public void resetPasswordByToken(String origin, String resetPwdTok, String newPwd) {
-        Account acc = accountsRepo.getByResetToken(resetPwdTok);
-
-        checkAccountActivated(acc);
-
+    public void resetPasswordByToken(String origin, String email, String resetPwdTok, String newPwd) {
         try (Transaction tx = txMgr.txStart()) {
-            acc = accountsRepo.getById(acc.getId());
+            Account acc = accountsRepo.getByEmail(email);
+
+            if (!resetPwdTok.equals(acc.resetPasswordToken()))
+                throw new IllegalStateException("Failed to find account with this token! Please check link from email.");
+
+            checkAccountActivated(acc);
 
             acc.setPassword(encoder.encode(newPwd));
             acc.resetPasswordToken(null);

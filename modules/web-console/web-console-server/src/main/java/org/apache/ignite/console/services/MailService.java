@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.services;
 
+import java.net.URLEncoder;
 import org.apache.ignite.console.dto.Account;
 import org.springframework.stereotype.Service;
 
@@ -32,10 +33,16 @@ public class MailService {
     public void sendResetLink(String origin, Account user) {
         // TODO WC-940 Implement real e-mail service.
 
-        String resetLink = origin + "/password/reset?token=" + user.resetPasswordToken();
+        try {
+            String resetLink = origin + "/password/reset?email=" + URLEncoder.encode(user.email(), "UTF-8") +
+                "&token=" + user.resetPasswordToken();
 
-        System.out.println("TODO WC-940 Send reset link [user=" + user.firstName() + " " + user.lastName() +
-            ", email=" + user.email() + ", link=" + resetLink + "]");
+            System.out.println("TODO WC-940 Send reset link [user=" + user.firstName() + " " + user.lastName() +
+                ", email=" + user.email() + ", link=" + resetLink + "]");
+        }
+        catch (Throwable e) {
+            System.out.println("TODO WC-940 Failed to send reset password link: " + e.getMessage());
+        }
     }
 
     /**
