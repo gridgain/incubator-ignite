@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.NotebooksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

@@ -112,8 +112,8 @@ public class AccountsService implements UserDetailsService {
         try (Transaction tx = accountsRepo.txStart()) {
             Account account = accountsRepo.getById(accId);
 
-            if (account.admin() != adminFlag) {
-                account.admin(adminFlag);
+            if (account.getAdmin() != adminFlag) {
+                account.setAdmin(adminFlag);
 
                 accountsRepo.save(account);
 
@@ -137,32 +137,32 @@ public class AccountsService implements UserDetailsService {
             if (!F.isEmpty(pwd))
                 acc.setPassword(encoder.encode(pwd));
 
-            String oldTok = acc.token();
+            String oldTok = acc.getToken();
             String newTok = changes.getToken();
 
             if (!oldTok.equals(newTok)) {
                 wsm.revokeToken(oldTok);
 
-                acc.token(newTok);
+                acc.setToken(newTok);
             }
 
-            String oldEmail = acc.email();
+            String oldEmail = acc.getEmail();
             String newEmail = changes.getEmail();
 
             if (!oldEmail.equals(newEmail)) {
                 Account accByEmail = accountsRepo.getByEmail(oldEmail);
 
                 if (acc.getId().equals(accByEmail.getId()))
-                    acc.email(changes.getEmail());
+                    acc.setEmail(changes.getEmail());
                 else
                     throw new IllegalStateException("User with this email already registered");
             }
 
-            acc.firstName(changes.getFirstName());
+            acc.setFirstName(changes.getFirstName());
             acc.lastName(changes.getLastName());
-            acc.phone(changes.getPhone());
-            acc.country(changes.getCountry());
-            acc.company(changes.getCompany());
+            acc.setPhone(changes.getPhone());
+            acc.setCountry(changes.getCountry());
+            acc.setCompany(changes.getCompany());
 
             accountsRepo.save(acc);
 

@@ -68,14 +68,14 @@ public class AccountController {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
         return ResponseEntity.ok(new UserResponse(
-            acc.email(),
-            acc.firstName(),
-            acc.lastName(),
-            acc.phone(),
-            acc.company(),
-            acc.country(),
-            acc.token(),
-            acc.admin()
+            acc.getEmail(),
+            acc.getFirstName(),
+            acc.getLastName(),
+            acc.getPhone(),
+            acc.getCompany(),
+            acc.getCountry(),
+            acc.getToken(),
+            acc.getAdmin()
         ));
     }
 

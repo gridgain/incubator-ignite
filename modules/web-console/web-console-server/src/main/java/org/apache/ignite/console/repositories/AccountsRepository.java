@@ -110,7 +110,7 @@ public class AccountsRepository extends AbstractRepository {
 
             Object firstUserMarker = cache.getAndPutIfAbsent(FIRST_USER_MARKER_KEY, account.getId());
 
-            account.admin(firstUserMarker == null);
+            account.setAdmin(firstUserMarker == null);
 
             save(account);
 
@@ -180,7 +180,7 @@ public class AccountsRepository extends AbstractRepository {
             .stream()
             .map(Cache.Entry::getValue)
             .filter(item -> item instanceof Account)
-            .map(item -> ((Account)item).token())
+            .map(item -> ((Account)item).getToken())
             .collect(Collectors.toSet());
 
         Set<String> validTokens = new HashSet<>(tokens);

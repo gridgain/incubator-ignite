@@ -15,44 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.notification;
 
-import java.util.UUID;
+import org.apache.ignite.console.notification.config.MessagesProperties;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /**
- * Base class for DTO objects.
+ * Notification service launcher.
  */
-public abstract class AbstractDto {
-    /** */
-    protected UUID id;
-
+@SpringBootApplication
+@EnableConfigurationProperties(MessagesProperties.class)
+public class Application {              
     /**
-     * Default constructor.
+     * @param args Args.
      */
-    protected AbstractDto() {
-        // No-op.
-    }
-
-    /**
-     * Full constructor.
-     *
-     * @param id ID.
-     */
-    protected AbstractDto(UUID id) {
-        this.id = id;
-    }
-
-    /**
-     * @return Object ID.
-     */
-    public UUID getId() {
-        return id;
-    }
-
-    /**
-     * @param id Object ID.
-     */
-    public void setId(UUID id) {
-        this.id = id;
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
     }
 }

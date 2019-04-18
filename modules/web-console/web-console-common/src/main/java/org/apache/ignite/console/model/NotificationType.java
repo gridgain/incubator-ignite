@@ -15,44 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.model;
 
-import java.util.UUID;
-
-/**
- * Base class for DTO objects.
- */
-public abstract class AbstractDto {
-    /** */
-    protected UUID id;
-
-    /**
-     * Default constructor.
-     */
-    protected AbstractDto() {
-        // No-op.
-    }
-
-    /**
-     * Full constructor.
-     *
-     * @param id ID.
-     */
-    protected AbstractDto(UUID id) {
-        this.id = id;
-    }
-
-    /**
-     * @return Object ID.
-     */
-    public UUID getId() {
-        return id;
-    }
-
-    /**
-     * @param id Object ID.
-     */
-    public void setId(UUID id) {
-        this.id = id;
-    }
+public enum NotificationType {
+    BASE;
 }

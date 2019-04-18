@@ -99,7 +99,7 @@ public class AgentDownloadController {
             .replaceFirst("http", "ws");
 
         String content = String.join("\n",
-            "tokens=" + user.token(),
+            "tokens=" + user.getToken(),
             "server-uri=" + origin,
             "#Uncomment following options if needed:",
             "#node-uri=http://localhost:8080",

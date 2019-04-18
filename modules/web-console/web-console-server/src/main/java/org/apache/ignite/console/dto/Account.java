@@ -19,13 +19,14 @@ package org.apache.ignite.console.dto;
 
 import java.util.Collection;
 import java.util.UUID;
+import org.apache.ignite.console.model.Recipient;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 /**
  * DTO for Account.
  */
-public class Account extends AbstractDto implements UserDetails {
+public class Account extends AbstractDto implements UserDetails, Recipient {
     /** Email. */
     private String email;
 
@@ -118,21 +119,21 @@ public class Account extends AbstractDto implements UserDetails {
     /**
      * @return First name.
      */
-    public String firstName() {
+    public String getFirstName() {
         return firstName;
     }
 
     /**
      * @param firstName New first name.
      */
-    public void firstName(String firstName) {
+    public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
 
     /**
      * @return Last name.
      */
-    public String lastName() {
+    public String getLastName() {
         return lastName;
     }
 
@@ -146,84 +147,84 @@ public class Account extends AbstractDto implements UserDetails {
     /**
      * @return e-mail.
      */
-    public String email() {
+    public String getEmail() {
         return email;
     }
 
     /**
      * @param email New email.
      */
-    public void email(String email) {
+    public void setEmail(String email) {
         this.email = email;
     }
 
     /**
      * @return Phone.
      */
-    public String phone() {
+    public String getPhone() {
         return phone;
     }
 
     /**
      * @param phone New phone.
      */
-    public void phone(String phone) {
+    public void setPhone(String phone) {
         this.phone = phone;
     }
 
     /**
      * @return Company.
      */
-    public String company() {
+    public String getCompany() {
         return company;
     }
 
     /**
      * @param company New company.
      */
-    public void company(String company) {
+    public void setCompany(String company) {
         this.company = company;
     }
 
     /**
      * @return Country.
      */
-    public String country() {
+    public String getCountry() {
         return country;
     }
 
     /**
      * @param country New country.
      */
-    public void country(String country) {
+    public void setCountry(String country) {
         this.country = country;
     }
 
     /**
      * @return Token.
      */
-    public String token() {
+    public String getToken() {
         return tok;
     }
 
     /**
      * @param tok New token.
      */
-    public void token(String tok) {
+    public void setToken(String tok) {
         this.tok = tok;
     }
 
     /**
      * @return Admin flag.
      */
-    public boolean admin() {
+    public boolean getAdmin() {
         return admin;
     }
 
     /**
      * @param admin Admin flag.
      */
-    public void admin(boolean admin) {
+    public void setAdmin(boolean admin) {
         this.admin = admin;
     }
 
