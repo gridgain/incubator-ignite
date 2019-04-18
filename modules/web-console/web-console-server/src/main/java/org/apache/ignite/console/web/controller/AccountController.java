@@ -20,8 +20,8 @@ package org.apache.ignite.console.web.controller;
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
-import org.apache.ignite.console.services.MailService;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
+import org.apache.ignite.console.web.model.SignInRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.UserResponse;
 import org.springframework.http.HttpStatus;
@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import static org.apache.ignite.console.common.Utils.currentRequestOrigin;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
@@ -50,17 +51,13 @@ public class AccountController {
     /** Accounts service. */
     private final AccountsService accountsSrvc;
 
-    /** */
-    private final MailService mailSrvc;
-
     /**
      * @param authMgr Authentication manager.
      * @param accountsSrvc Accounts service.
      */
-    public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc, MailService mailSrvc) {
+    public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc) {
         this.authMgr = authMgr;
         this.accountsSrvc = accountsSrvc;
-        this.mailSrvc = mailSrvc;
     }
 
     /**
@@ -112,29 +109,19 @@ public class AccountController {
     }
 
     /**
-     * @return
+     * @param req Forgot password request.
+     * @return {@linkplain HttpStatus#OK OK} on success.
      */
-    @PostMapping(path = "/api/v1/password/forgot")
-    private ResponseEntity<String> forgotPassword() {
-        String origin = "ToDo";
-        String email = "kuaw26@mail.ru";
+    @PostMapping(path = "/api/v1/password/forgot", consumes = APPLICATION_JSON_VALUE)
+    private ResponseEntity<Void> forgotPassword(@RequestBody SignInRequest req) {
+        accountsSrvc.forgotPassword(currentRequestOrigin(), req.getEmail());
 
-        Account user = accountsSrvc.loadUserByUsername(email);
-
-        // TODO when we have settings
-        // if (settings.activation.enabled && !user.activated())
-        //     throw new MissingConfirmRegistrationException(email);
-
-        accountsSrvc.resetPasswordToken(user);
-
-        mailSrvc.sendResetLink();
-
-        return ResponseEntity.ok("An email has been sent with further instructions.");
+        return ResponseEntity.ok().build();
     }
 
     /**
      *
-     * @return
+     * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/reset")
     private ResponseEntity<Void> resetPassword() {
@@ -143,7 +130,7 @@ public class AccountController {
 
     /**
      *
-     * @return
+     * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/validate/token")
     private ResponseEntity<Void> validatePasswordToken() {
@@ -152,7 +139,7 @@ public class AccountController {
 
     /**
      *
-     * @return
+     * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/activation/resend")
     private ResponseEntity<Void> resendSignupConfirmation() {

@@ -25,9 +25,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class MailService {
     /**
-     *
+     * @param origin Request origin, required for composing reset link.
+     * @param email Email to send reset link.
+     * @param resetPwdTok Token to build reset link.
      */
-    public void sendResetLink() {
-        System.out.println("TODO: Send reset link");
+    public void sendResetLink(String origin, String email, String resetPwdTok) {
+        // TODO WC-940 TOD Implement real e-mail service.
+
+        String resetLink = origin + "/password/reset?token=" + resetPwdTok;
+
+        System.out.println("TODO WC-940 Send reset link: " + resetLink);
     }
 }

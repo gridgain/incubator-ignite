@@ -37,8 +37,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import static org.apache.ignite.console.common.Utils.currentRequestOrigin;
 import static org.apache.ignite.internal.util.io.GridFilenameUtils.removeExtension;
 import static org.springframework.http.HttpHeaders.CACHE_CONTROL;
 import static org.springframework.http.HttpHeaders.CONTENT_DISPOSITION;
@@ -91,12 +91,7 @@ public class AgentDownloadController {
         // Append "default.properties" to agent ZIP.
         zos.putArchiveEntry(new ZipArchiveEntry(removeExtension(latestAgentFileName) + "/default.properties"));
 
-        String origin = ServletUriComponentsBuilder
-            .fromCurrentRequest()
-            .replacePath(null)
-            .build()
-            .toString()
-            .replaceFirst("http", "ws");
+        String origin = currentRequestOrigin().replaceFirst("http", "ws");
 
         String content = String.join("\n",
             "tokens=" + user.token(),
