@@ -22,6 +22,9 @@ package org.apache.ignite.internal.commandline.cache.argument;
 
 import org.apache.ignite.internal.commandline.argument.CommandArg;
 
+/**
+ *
+ */
 public enum FindAndDeleteGarbageArg implements CommandArg {
     DELETE("--delete");
 
