@@ -50,6 +50,7 @@ import org.apache.ignite.cache.affinity.AffinityFunctionContext;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.store.CacheStore;
 import org.apache.ignite.cache.store.CacheStoreSessionListener;
+import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -146,6 +147,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lifecycle.LifecycleAware;
 import org.apache.ignite.marshaller.Marshaller;
@@ -4600,7 +4602,16 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @param allowed whether allowed
      */
     public void setTxOwnerDumpRequestsAllowed(boolean allowed) {
-        IgniteCompute compute = ctx.grid().compute(ctx.grid().cluster().forServers());
+        //product versions are hardcoded in 2.4.16+ version as IgniteFeatures is not supported here
+        IgniteProductVersion since = IgniteProductVersion.fromString("2.4.16");
+        IgniteProductVersion before = IgniteProductVersion.fromString("2.5.0");
+
+        ClusterGroup grp = ctx.grid()
+            .cluster()
+            .forServers()
+            .forPredicate(node -> (node.version().compareTo(since) >= 0 && node.version().compareTo(before) < 0));
+
+        IgniteCompute compute = ctx.grid().compute(grp);
 
         compute.broadcast(new TxOwnerDumpRequestAllowedSettingClosure(allowed));
     }
