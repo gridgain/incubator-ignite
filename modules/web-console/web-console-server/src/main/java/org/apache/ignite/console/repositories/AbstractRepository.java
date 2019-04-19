@@ -68,17 +68,17 @@ public abstract class AbstractRepository<T extends AbstractDto>  {
         OneToManyIndex ownerIdx,
         Table<T> tbl
     ) {
-        Collection<T> res;
+        Collection<T> dtos;
 
         try (Transaction ignored = txStart()) {
             TreeSet<UUID> ids = ownerIdx.load(ownerId);
 
-            res = tbl.loadAll(ids);
+            dtos = tbl.loadAll(ids);
         }
 
-        res.forEach(dto -> checkOwner(accId, dto));
+        checkOwner(accId, dtos);
 
-        return res;
+        return dtos;
     }
 
     /**
@@ -89,5 +89,14 @@ public abstract class AbstractRepository<T extends AbstractDto>  {
     protected void checkOwner(UUID accId, AbstractDto dto) throws SecurityException {
         if (!accId.equals(dto.getAccountId()))
             throw new SecurityException("Illegal access to other user data");
+    }
+
+    /**
+     * @param accId Expected account ID.
+     * @param dtos Objects to check.
+     * @throws SecurityException If detected illegal access.
+     */
+    protected void checkOwner(UUID accId, Collection<? extends AbstractDto> dtos) throws SecurityException {
+        dtos.forEach(dto -> checkOwner(accId, dto));
     }
 }

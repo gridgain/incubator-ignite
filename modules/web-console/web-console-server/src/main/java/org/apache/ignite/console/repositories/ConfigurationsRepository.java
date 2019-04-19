@@ -246,11 +246,16 @@ public class ConfigurationsRepository extends AbstractRepository {
     /**
      * Handle objects that was deleted from cluster.
      *
+     * @param accId Account ID.
+     * @param tbl Table with DTOs.
+     * @param idx Foreign key.
+     * @param clusterId Cluster ID.
      * @param oldCluster Old cluster JSON.
      * @param newCluster New cluster JSON.
      * @param fld Field name that holds IDs to check for deletion.
      */
     private void removedInCluster(
+        UUID accId,
         Table<? extends DataObject> tbl,
         OneToManyIndex idx,
         UUID clusterId,
@@ -264,6 +269,8 @@ public class ConfigurationsRepository extends AbstractRepository {
         TreeSet<UUID> deletedIds = diff(oldIds, newIds);
 
         if (!F.isEmpty(deletedIds)) {
+            checkOwner(accId, tbl.loadAll(deletedIds));
+
             tbl.deleteAll(deletedIds);
             idx.removeAll(clusterId, deletedIds);
         }
@@ -279,6 +286,8 @@ public class ConfigurationsRepository extends AbstractRepository {
 
         Cluster newCluster = Cluster.fromJson(jsonCluster);
 
+        newCluster.setAccountId(accId);
+
         UUID clusterId = newCluster.getId();
 
         Cluster oldCluster = clustersTbl.load(clusterId);
@@ -286,9 +295,9 @@ public class ConfigurationsRepository extends AbstractRepository {
         if (oldCluster != null) {
             JsonObject oldClusterJson = fromJson(oldCluster.json());
 
-            removedInCluster(cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
-            removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
-            removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
+            removedInCluster(accId, cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
+            removedInCluster(accId, modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
+            removedInCluster(accId, igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
         }
 
         clustersIdx.add(accId, clusterId);
@@ -313,6 +322,8 @@ public class ConfigurationsRepository extends AbstractRepository {
             .stream()
             .map(item -> Cache.fromJson(asJson(item)))
             .collect(toMap(Cache::getId, c -> c));
+
+        caches.values().forEach(c -> c.setAccountId(cluster.getAccountId()));
 
         if (basic) {
             Collection<Cache> oldCaches = cachesTbl.loadAll(new TreeSet<>(caches.keySet()));
@@ -349,6 +360,8 @@ public class ConfigurationsRepository extends AbstractRepository {
             .map(item -> Model.fromJson(asJson(item)))
             .collect(toMap(Model::getId, m -> m));
 
+        mdls.values().forEach(m -> m.setAccountId(cluster.getAccountId()));
+
         modelsIdx.addAll(cluster.getId(), mdls.keySet());
 
         modelsTbl.saveAll(mdls);
@@ -368,6 +381,8 @@ public class ConfigurationsRepository extends AbstractRepository {
             .stream()
             .map(item -> Igfs.fromJson(asJson(item)))
             .collect(toMap(Igfs::getId, i -> i));
+
+        igfss.values().forEach(igfs -> igfs.setAccountId(cluster.getAccountId()));
 
         igfssIdx.addAll(cluster.getId(), igfss.keySet());
 
@@ -395,12 +410,12 @@ public class ConfigurationsRepository extends AbstractRepository {
     /**
      * Save basic cluster.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param json Configuration in JSON format.
      */
-    public void saveBasicCluster(UUID userId, JsonObject json) {
+    public void saveBasicCluster(UUID accId, JsonObject json) {
         try (Transaction tx = txStart()) {
-            Cluster cluster = saveCluster(userId, json);
+            Cluster cluster = saveCluster(accId, json);
 
             saveCaches(cluster, json, true);
 
@@ -435,16 +450,18 @@ public class ConfigurationsRepository extends AbstractRepository {
     /**
      * Delete clusters.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param clusterIds Cluster IDs to delete.
      * @return Number of deleted clusters.
      */
-    public int deleteClusters(UUID userId, TreeSet<UUID> clusterIds) {
+    public int deleteClusters(UUID accId, TreeSet<UUID> clusterIds) {
         try (Transaction tx = txStart()) {
+            checkOwner(accId, clustersTbl.loadAll(clusterIds));
+
             clusterIds.forEach(this::deleteAllClusterObjects);
 
             clustersTbl.deleteAll(clusterIds);
-            clustersIdx.removeAll(userId, clusterIds);
+            clustersIdx.removeAll(accId, clusterIds);
 
             tx.commit();
         }

@@ -100,16 +100,16 @@ public class AdminService {
     /**
      * Remove account.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @return Affected rows JSON object.
      */
-    public RowsAffected remove(UUID userId) {
+    public RowsAffected remove(UUID accId) {
         int rows;
 
         try (Transaction tx = txMgr.txStart()) {
-            cfgsSvc.deleteByAccountId(userId);
-            notebooksSvc.deleteAll(userId);
-            rows = accountsSvc.delete(userId);
+            cfgsSvc.deleteByAccountId(accId);
+            notebooksSvc.deleteAll(accId);
+            rows = accountsSvc.delete(accId);
 
             tx.commit();
         }
@@ -118,20 +118,20 @@ public class AdminService {
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param admin Admin flag.
      * @return Affected rows JSON object.
      */
-    public RowsAffected toggle(UUID userId, boolean admin) {
-        accountsSvc.toggle(userId, admin);
+    public RowsAffected toggle(UUID accId, boolean admin) {
+        accountsSvc.toggle(accId, admin);
 
         return rowsAffected(1);
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      */
-    public void become(UUID userId) {
+    public void become(UUID accId) {
         throw new UnsupportedOperationException("Not implemented yet!");
     }
 }

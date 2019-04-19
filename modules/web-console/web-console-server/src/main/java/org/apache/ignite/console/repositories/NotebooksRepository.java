@@ -73,6 +73,8 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      */
     public void save(UUID accId, Notebook notebook) {
         try (Transaction tx = txStart()) {
+            notebook.setAccountId(accId);
+            
             notebooksTbl.save(notebook);
 
             notebooksIdx.add(accId, notebook.getId());

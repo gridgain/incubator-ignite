@@ -66,8 +66,6 @@ public class NotebooksController {
      */
     @PutMapping(consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @RequestBody Notebook notebook) {
-        notebook.setAccountId(acc.getId());
-
         notebooksSrvc.save(acc.getId(), notebook);
 
         return ResponseEntity.ok().build();
