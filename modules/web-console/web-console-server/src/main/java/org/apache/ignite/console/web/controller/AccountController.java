@@ -21,9 +21,10 @@ import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
+import org.apache.ignite.console.web.model.ResetPasswordRequest;
+import org.apache.ignite.console.web.model.SignInRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.UserResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import static org.apache.ignite.console.common.Utils.currentRequestOrigin;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
@@ -54,7 +56,6 @@ public class AccountController {
      * @param authMgr Authentication manager.
      * @param accountsSrvc Accounts service.
      */
-    @Autowired
     public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc) {
         this.authMgr = authMgr;
         this.accountsSrvc = accountsSrvc;
@@ -104,6 +105,28 @@ public class AccountController {
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @Valid @RequestBody ChangeUserRequest changes) {
         accountsSrvc.save(acc.getId(), changes);
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @param req Forgot password request.
+     * @return {@linkplain HttpStatus#OK OK} on success.
+     */
+    @PostMapping(path = "/api/v1/password/forgot", consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> forgotPassword(@RequestBody SignInRequest req) {
+        accountsSrvc.forgotPassword(currentRequestOrigin(), req.getEmail());
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @param req Reset password request.
+     * @return {@linkplain HttpStatus#OK OK} on success.
+     */
+    @PostMapping(path = "/api/v1/password/reset")
+    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
+        accountsSrvc.resetPasswordByToken(currentRequestOrigin(), req.getEmail(), req.getToken(), req.getPassword());
 
         return ResponseEntity.ok().build();
     }

@@ -17,6 +17,9 @@
 
 server.port: 3000
 
+app:
+  activation.enabled: false
+
 websocket:
   ssl.enabled: false
   allowed.origin: https://localhost
