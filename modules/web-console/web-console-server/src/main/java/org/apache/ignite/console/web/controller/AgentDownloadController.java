@@ -67,7 +67,7 @@ public class AgentDownloadController {
      * @throws Exception If failed.
      */
     @GetMapping(path = "/api/v1/downloads/agent")
-    private ResponseEntity<Resource> load(@AuthenticationPrincipal Account user) throws Exception {
+    public ResponseEntity<Resource> load(@AuthenticationPrincipal Account user) throws Exception {
         Path agentFolder = Paths.get(agentFolderName);
 
         Pattern ptrn = Pattern.compile(agentFileRegExp);

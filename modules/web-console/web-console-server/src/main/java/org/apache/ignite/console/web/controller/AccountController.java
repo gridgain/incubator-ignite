@@ -65,7 +65,7 @@ public class AccountController {
      * @param user User.
      */
     @GetMapping(path = "/api/v1/user")
-    private ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
+    public ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
         return ResponseEntity.ok(new UserResponse(
@@ -84,7 +84,7 @@ public class AccountController {
      * @param params SignUp params.
      */
     @PostMapping(path = "/api/v1/signup")
-    private ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
+    public ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
         Account account = accountsSrvc.register(params);
 
         if (account.isEnabled()) {
@@ -103,7 +103,7 @@ public class AccountController {
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
-    private ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @Valid @RequestBody ChangeUserRequest changes) {
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @Valid @RequestBody ChangeUserRequest changes) {
         accountsSrvc.save(acc.getId(), changes);
 
         return ResponseEntity.ok().build();
@@ -114,7 +114,7 @@ public class AccountController {
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/forgot", consumes = APPLICATION_JSON_VALUE)
-    private ResponseEntity<Void> forgotPassword(@RequestBody SignInRequest req) {
+    public ResponseEntity<Void> forgotPassword(@RequestBody SignInRequest req) {
         accountsSrvc.forgotPassword(currentRequestOrigin(), req.getEmail());
 
         return ResponseEntity.ok().build();
@@ -125,7 +125,7 @@ public class AccountController {
      * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/reset")
-    private ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
+    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
         accountsSrvc.resetPasswordByToken(currentRequestOrigin(), req.getEmail(), req.getToken(), req.getPassword());
 
         return ResponseEntity.ok().build();
