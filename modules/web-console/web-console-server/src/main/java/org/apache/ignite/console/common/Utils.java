@@ -22,6 +22,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.console.dto.DataObject;
+import org.apache.ignite.console.dto.RowsAffected;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
@@ -128,5 +129,13 @@ public class Utils {
             .replacePath(null)
             .build()
             .toString();
+    }
+
+    /**
+     * @param rows Number of rows.
+     * @return Object with number of affected rows.
+     */
+    public static RowsAffected rowsAffected(int rows) {
+        return new RowsAffected(rows);
     }
 }

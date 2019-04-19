@@ -26,7 +26,8 @@ import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -34,6 +35,9 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public class NotebooksRepository extends AbstractRepository<Notebook> {
+    /** */
+    private static final Logger log = LoggerFactory.getLogger(NotebooksRepository.class);
+
     /** */
     private final Table<Notebook> notebooksTbl;
 
@@ -44,7 +48,6 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
      */
-    @Autowired
     public NotebooksRepository(Ignite ignite, TransactionManager txMgr) {
         super(ignite, txMgr);
 
@@ -55,24 +58,24 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
     }
 
     /**
-     * @param userId User ID.
-     * @return List of user notebooks.
+     * @param accId Account ID.
+     * @return List of notebooks for specified account.
      */
-    public Collection<Notebook> list(UUID userId) {
-        return loadList(userId, notebooksIdx, notebooksTbl);
+    public Collection<Notebook> list(UUID accId) {
+        return loadList(accId, accId, notebooksIdx, notebooksTbl);
     }
 
     /**
      * Save notebook.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param notebook Notebook to save.
      */
-    public void save(UUID userId, Notebook notebook) {
+    public void save(UUID accId, Notebook notebook) {
         try (Transaction tx = txStart()) {
             notebooksTbl.save(notebook);
 
-            notebooksIdx.add(userId, notebook.getId());
+            notebooksIdx.add(accId, notebook.getId());
 
             tx.commit();
         }
@@ -81,23 +84,30 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
     /**
      * Delete notebook.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param notebookId Notebook ID to delete.
      */
-    public void delete(UUID userId, UUID notebookId) {
+    public void delete(UUID accId, UUID notebookId) {
         try (Transaction tx = txStart()) {
-            Notebook notebook = notebooksTbl.delete(notebookId);
+            Notebook notebook = notebooksTbl.load(notebookId);
 
             if (notebook != null) {
-                notebooksIdx.remove(userId, notebookId);
+                checkOwner(accId, notebook);
+
+                notebooksTbl.delete(notebookId);
+
+                notebooksIdx.remove(accId, notebookId);
 
                 tx.commit();
             }
+            else
+                log.warn("Detected attempt to delete not existing notebook [accId=" + accId +
+                    ", notebookId=" + notebookId + "]");
         }
     }
 
     /**
-     * Delete all notebook for specified user.
+     * Delete all notebook for specified account.
      *
      * @param accId Account ID.
      */

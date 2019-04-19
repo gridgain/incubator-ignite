@@ -57,19 +57,37 @@ public abstract class AbstractRepository<T extends AbstractDto>  {
     /**
      * Load short list of DTOs.
      *
+     * @param accId Account ID.
      * @param ownerId Owner ID.
      * @param ownerIdx Index with DTOs IDs.
      * @param tbl Table with DTOs.
      */
     protected Collection<T> loadList(
+        UUID accId,
         UUID ownerId,
         OneToManyIndex ownerIdx,
         Table<T> tbl
     ) {
+        Collection<T> res;
+
         try (Transaction ignored = txStart()) {
             TreeSet<UUID> ids = ownerIdx.load(ownerId);
 
-            return tbl.loadAll(ids);
+            res = tbl.loadAll(ids);
         }
+
+        res.forEach(dto -> checkOwner(accId, dto));
+
+        return res;
+    }
+
+    /**
+     * @param accId Expected account ID.
+     * @param dto Object to check.
+     * @throws SecurityException If detected illegal access.
+     */
+    protected void checkOwner(UUID accId, AbstractDto dto) throws SecurityException {
+        if (!accId.equals(dto.getAccountId()))
+            throw new SecurityException("Illegal access to other user data");
     }
 }

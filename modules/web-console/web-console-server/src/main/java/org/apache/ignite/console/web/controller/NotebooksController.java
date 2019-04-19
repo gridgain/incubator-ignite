@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.NotebooksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -54,32 +53,37 @@ public class NotebooksController {
     }
 
     /**
-     * @param user User.
+     * @param acc Account.
      * @return Collection of notebooks.
      */
     @GetMapping
-    public ResponseEntity<Collection<Notebook>> list(@AuthenticationPrincipal Account user) {
-        return ResponseEntity.ok(notebooksSrvc.list(user.getId()));
+    public ResponseEntity<Collection<Notebook>> list(@AuthenticationPrincipal Account acc) {
+        return ResponseEntity.ok(notebooksSrvc.list(acc.getId()));
     }
 
     /**
-     * @param user User.
+     * @param acc Account.
      */
     @PutMapping(consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> save(@AuthenticationPrincipal Account user, @RequestBody Notebook notebook) {
-        notebooksSrvc.save(user.getId(), notebook);
+    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @RequestBody Notebook notebook) {
+        notebook.setAccountId(acc.getId());
+
+        notebooksSrvc.save(acc.getId(), notebook);
 
         return ResponseEntity.ok().build();
     }
 
     /**
-     * @param user User.
+     * @param acc Account.
      * @param notebookId Notebook ID.
      * @return Rows affected.
      */
     @DeleteMapping(path = "/{notebookId}")
-    public ResponseEntity<Void> delete(@AuthenticationPrincipal Account user, @PathVariable("notebookId") UUID notebookId) {
-        notebooksSrvc.delete(user.getId(), notebookId);
+    public ResponseEntity<Void> delete(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("notebookId") UUID notebookId
+    ) {
+        notebooksSrvc.delete(acc.getId(), notebookId);
 
         return ResponseEntity.ok().build();
     }

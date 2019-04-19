@@ -17,62 +17,24 @@
 
 package org.apache.ignite.console.dto;
 
-import java.util.UUID;
-import javax.validation.constraints.NotNull;
-
 /**
- * Base class for DTO objects.
+ * Object with number of rows affected during some operation.
  */
-public abstract class AbstractDto {
+public class RowsAffected {
     /** */
-    @NotNull
-    protected UUID id;
-
-    /** */
-    @NotNull
-    protected UUID accId;
+    private final int rows;
 
     /**
-     * Default constructor.
+     * @param rows Number of rows.
      */
-    protected AbstractDto() {
-        // No-op.
+    public RowsAffected(int rows) {
+        this.rows = rows;
     }
 
     /**
-     * Full constructor.
-     *
-     * @param id ID.
+     * @return Number of rows affected.
      */
-    protected AbstractDto(UUID id) {
-        this.id = id;
-    }
-
-    /**
-     * @return Object ID.
-     */
-    public UUID getId() {
-        return id;
-    }
-
-    /**
-     * @param id Object ID.
-     */
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    /**
-     * @return Account ID.
-     */
-    public UUID getAccountId() {
-        return accId;
-    }
-
-    /**
-     * @param accId Account ID.
-     */
-    public void setAccountId(UUID accId) {
-        this.accId = accId;
+    public int getRowsAffected() {
+        return rows;
     }
 }

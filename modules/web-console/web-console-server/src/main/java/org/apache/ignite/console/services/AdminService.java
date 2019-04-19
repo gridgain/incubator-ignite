@@ -20,6 +20,7 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.RowsAffected;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
@@ -27,7 +28,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import static org.apache.ignite.console.json.JsonUtils.rowsAffected;
+import static org.apache.ignite.console.common.Utils.rowsAffected;
 
 /**
  * Service to handle administrator actions.
@@ -102,7 +103,7 @@ public class AdminService {
      * @param userId User ID.
      * @return Affected rows JSON object.
      */
-    public JsonObject remove(UUID userId) {
+    public RowsAffected remove(UUID userId) {
         int rows;
 
         try (Transaction tx = txMgr.txStart()) {
@@ -121,7 +122,7 @@ public class AdminService {
      * @param admin Admin flag.
      * @return Affected rows JSON object.
      */
-    public JsonObject toggle(UUID userId, boolean admin) {
+    public RowsAffected toggle(UUID userId, boolean admin) {
         accountsSvc.toggle(userId, admin);
 
         return rowsAffected(1);

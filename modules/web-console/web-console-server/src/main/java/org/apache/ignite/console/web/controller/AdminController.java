@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.web.controller;
 
+import org.apache.ignite.console.dto.RowsAffected;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
@@ -48,17 +49,19 @@ public class AdminController {
 
     /**
      * @param params Parameters.
+     * @return List of accounts.
      */
     @PostMapping(path = "/list", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonArray> loadUsers(@RequestBody JsonObject params) {
+    public ResponseEntity<JsonArray> loadAccounts(@RequestBody JsonObject params) {
         return ResponseEntity.ok(adminSrvc.list());
     }
 
     /**
      * @param params Parameters.
+     * @return Number of affected rows.
      */
     @PostMapping(path = "/toggle", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> toggle(@RequestBody JsonObject params) {
+    public ResponseEntity<RowsAffected> toggle(@RequestBody JsonObject params) {
         return ResponseEntity.ok(adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false)));
     }
 
@@ -66,7 +69,7 @@ public class AdminController {
      * @param params Parameters.
      */
     @PostMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> remove(@RequestBody JsonObject params) {
+    public ResponseEntity<RowsAffected> remove(@RequestBody JsonObject params) {
         return ResponseEntity.ok(adminSrvc.remove(params.getUuid("id")));
     }
 

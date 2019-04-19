@@ -94,15 +94,18 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Configuration in JSON format.
      */
-    public JsonObject loadConfiguration(UUID clusterId) {
+    public JsonObject loadConfiguration(UUID accId, UUID clusterId) {
         try (Transaction ignored = txStart()) {
             Cluster cluster = clustersTbl.load(clusterId);
 
             if (cluster == null)
                 throw new IllegalStateException("Cluster not found for ID: " + clusterId);
+
+            checkOwner(accId, cluster);
 
             Collection<Cache> caches = cachesTbl.loadAll(cachesIdx.load(clusterId));
             Collection<Model> models = modelsTbl.loadAll(modelsIdx.load(clusterId));
@@ -137,12 +140,12 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      * @return List of user clusters.
      */
-    public JsonArray loadClusters(UUID userId) {
+    public JsonArray loadClusters(UUID accId) {
         try (Transaction ignored = txStart()) {
-            TreeSet<UUID> clusterIds = clustersIdx.load(userId);
+            TreeSet<UUID> clusterIds = clustersIdx.load(accId);
 
             Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
 
@@ -155,10 +158,14 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
+     *
+     * @param accId Account ID.
      * @param id Object ID.
+     * @param tbl Table with objects.
+     * @param objName Object name.
      * @return DTO.
      */
-    private <T extends DataObject> T loadObject(UUID id, Table<? extends DataObject> tbl, String objName) {
+    private <T extends DataObject> T loadObject(UUID accId, UUID id, Table<? extends DataObject> tbl, String objName) {
         T obj;
 
         try (Transaction ignored = txStart()) {
@@ -168,63 +175,72 @@ public class ConfigurationsRepository extends AbstractRepository {
         if (obj == null)
             throw new IllegalStateException(objName + " not found for ID: " + id);
 
+        checkOwner(accId, obj);
+
         return obj;
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Cluster.
      */
-    public Cluster loadCluster(UUID clusterId) {
-        return loadObject(clusterId, clustersTbl, "Cluster");
+    public Cluster loadCluster(UUID accId, UUID clusterId) {
+        return loadObject(accId, clusterId, clustersTbl, "Cluster");
     }
 
     /**
+     * @param accId Account ID.
      * @param cacheId Cache ID.
      * @return Cache.
      */
-    public Cache loadCache(UUID cacheId) {
-        return loadObject(cacheId, cachesTbl, "Cache");
+    public Cache loadCache(UUID accId, UUID cacheId) {
+        return loadObject(accId, cacheId, cachesTbl, "Cache");
     }
 
     /**
+     * @param accId Account ID.
      * @param mdlId Model ID.
      * @return Model.
      */
-    public Model loadModel(UUID mdlId) {
-        return loadObject(mdlId, modelsTbl, "Model");
+    public Model loadModel(UUID accId, UUID mdlId) {
+        return loadObject(accId, mdlId, modelsTbl, "Model");
     }
 
     /**
+     * @param accId Account ID.
      * @param igfsId IGFS ID.
      * @return IGFS.
      */
-    public Igfs loadIgfs(UUID igfsId) {
-        return loadObject(igfsId, modelsTbl, "IGFS");
+    public Igfs loadIgfs(UUID accId, UUID igfsId) {
+        return loadObject(accId, igfsId, modelsTbl, "IGFS");
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster caches.
      */
-    public Collection<Cache> loadCaches(UUID clusterId) {
-        return loadList(clusterId, cachesIdx, cachesTbl);
+    public Collection<Cache> loadCaches(UUID accId, UUID clusterId) {
+        return loadList(accId, clusterId, cachesIdx, cachesTbl);
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster models.
      */
-    public Collection<Model> loadModels(UUID clusterId) {
-        return loadList(clusterId, modelsIdx, modelsTbl);
+    public Collection<Model> loadModels(UUID accId, UUID clusterId) {
+        return loadList(accId, clusterId, modelsIdx, modelsTbl);
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster IGFSs.
      */
-    public Collection<Igfs> loadIgfss(UUID clusterId) {
-        return loadList(clusterId, igfssIdx, igfssTbl);
+    public Collection<Igfs> loadIgfss(UUID accId, UUID clusterId) {
+        return loadList(accId, clusterId, igfssIdx, igfssTbl);
     }
 
     /**
@@ -254,11 +270,11 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param changedItems Items to save.
      * @return Saved cluster.
      */
-    private Cluster saveCluster(UUID userId, JsonObject changedItems) {
+    private Cluster saveCluster(UUID accId, JsonObject changedItems) {
         JsonObject jsonCluster = changedItems.getJsonObject("cluster");
 
         Cluster newCluster = Cluster.fromJson(jsonCluster);
@@ -275,7 +291,7 @@ public class ConfigurationsRepository extends AbstractRepository {
             removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
         }
 
-        clustersIdx.add(userId, clusterId);
+        clustersIdx.add(accId, clusterId);
 
         clustersTbl.save(newCluster);
 
@@ -361,12 +377,12 @@ public class ConfigurationsRepository extends AbstractRepository {
     /**
      * Save full cluster.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param json Configuration in JSON format.
      */
-    public void saveAdvancedCluster(UUID userId, JsonObject json) {
+    public void saveAdvancedCluster(UUID accId, JsonObject json) {
         try (Transaction tx = txStart()) {
-            Cluster cluster = saveCluster(userId, json);
+            Cluster cluster = saveCluster(accId, json);
 
             saveCaches(cluster, json, false);
             saveModels(cluster, json);
