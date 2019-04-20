@@ -166,7 +166,7 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
 
         info("Awaiting rebalance events [restartCnt=" + restartCnt.get() + ']');
 
-        boolean success = lsnr.awaitEvents(GRID_CNT * 2 * restartCnt.get(), 15000);
+        boolean success = lsnr.awaitEvents(getRebalanceCount(restartCnt), 15000);
 
         for (int i = 0; i < GRID_CNT; i++)
             grid(i).events().stopLocalListen(lsnr, EventType.EVT_CACHE_REBALANCE_STOPPED);
@@ -175,26 +175,34 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
     }
 
     /**
+     * @param restartCnt Server restarts.
+     * @return Count of rebalances were executed.
+     */
+    protected int getRebalanceCount(AtomicInteger restartCnt) {
+        //Each stopping of server node lead to rebalance on eache other server nodes.
+        return gridCount() * restartCnt.get();
+    }
+
+    /**
      *
      */
     protected IgniteInternalFuture createRestartAction(final AtomicBoolean done, final AtomicInteger restartCnt) throws Exception {
         return multithreadedAsync(new Callable<Object>() {
-            /** */
-            private final long nodeLifeTime = 2 * 1000;
-
             /** */
             private final int logFreq = 50;
 
             @SuppressWarnings({"BusyWait"})
             @Override public Object call() throws Exception {
                 while (!done.get()) {
-                    int idx = GRID_CNT;
+                    startGrid(gridCount());
 
-                    startGrid(idx);
+                    changeBaseline();
 
-                    Thread.sleep(nodeLifeTime);
+                    awaitPartitionMapExchange();
 
-                    stopGrid(idx);
+                    stopGrid(gridCount());
+
+                    changeBaseline();
 
                     int c = restartCnt.incrementAndGet();
 
@@ -205,6 +213,10 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
                 return true;
             }
         }, 1, "restart-thread");
+    }
+
+    /** Change baseline topology. */
+    protected void changeBaseline() {
     }
 
     /** Listener that will wait for specified number of events received. */

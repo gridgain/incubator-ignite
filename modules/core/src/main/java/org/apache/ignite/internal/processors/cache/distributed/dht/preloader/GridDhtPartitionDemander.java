@@ -242,7 +242,7 @@ public class GridDhtPartitionDemander {
      * reassing exchange occurs, see {@link RebalanceReassignExchangeTask} for details.
      */
     private boolean topologyChanged(RebalanceFuture fut) {
-        return !ctx.exchange().rebalanceTopologyVersion().equals(fut.topVer) ||
+        return /*!ctx.exchange().rebalanceTopologyVersion().equals(fut.topVer) ||*/
             fut != rebalanceFut; // Same topology, but dummy exchange forced because of missing partitions.
     }
 
@@ -253,13 +253,6 @@ public class GridDhtPartitionDemander {
      */
     void onTopologyChanged(GridDhtPartitionsExchangeFuture lastFut) {
         lastExchangeFut = lastFut;
-    }
-
-    /**
-     * @return Collection of supplier nodes. Value {@code empty} means rebalance already finished.
-     */
-    Collection<UUID> remainingNodes() {
-        return rebalanceFut.remainingNodes();
     }
 
     /**
@@ -290,6 +283,13 @@ public class GridDhtPartitionDemander {
 
         if ((delay == 0 || force) && assignments != null) {
             final RebalanceFuture oldFut = rebalanceFut;
+
+            if (compareAssignments(assignments, oldFut)) {
+                if (log.isDebugEnabled())
+                    log.debug("Rebalancing skipped due to already started.");
+
+                return null;
+            }
 
             final RebalanceFuture fut = new RebalanceFuture(grp, assignments, log, rebalanceId);
 
@@ -364,14 +364,15 @@ public class GridDhtPartitionDemander {
             return () -> {
                 if (next != null)
                     fut.listen(f -> {
-                        try {
-                            if (f.get()) // Not cancelled.
-                                next.run(); // Starts next cache rebalancing (according to the order).
-                        }
-                        catch (IgniteCheckedException e) {
-                            if (log.isDebugEnabled())
-                                log.debug(e.getMessage());
-                        }
+                            try {
+                                f.get();
+                            } catch (Exception e) {
+                                if (log.isDebugEnabled())
+                                        log.debug("Rebalance for cache " + grp.cacheOrGroupName() + " throw  exception err: "
+                                        + e.getMessage() + ". Go to next." );
+                            }
+
+                            next.run(); // Starts next cache rebalancing (according to the order).
                     });
 
                 requestPartitions(fut, assignments);
@@ -411,6 +412,60 @@ public class GridDhtPartitionDemander {
         }
 
         return null;
+    }
+
+    /**
+     * @param assignments Rebalance assignment.
+     * @param oldFut Previous rebalance future.
+     */
+    private boolean compareAssignments(GridDhtPreloaderAssignments assignments, RebalanceFuture oldFut) {
+        if (oldFut.isInitial() || oldFut.isCancelled())
+            return false;
+
+        if (assignments.isEmpty())
+            return true;
+
+        synchronized (oldFut) {
+            if (oldFut.remaining.size() < assignments.size())
+                return false;
+
+            for (ClusterNode rmtNode: assignments.keySet()) {
+                if (oldFut.remaining.get(rmtNode.id()) == null)
+                    return false;
+
+                IgniteDhtDemandedPartitionsMap oldDemandMsgParts = oldFut.remaining.get(rmtNode.id());
+                IgniteDhtDemandedPartitionsMap demandMsgParts = assignments.get(rmtNode).partitions();
+
+                CachePartitionPartialCountersMap oldHistMap = oldDemandMsgParts.historicalMap();
+                CachePartitionPartialCountersMap histMap = demandMsgParts.historicalMap();
+
+                if (oldHistMap.size() < histMap.size())
+                    return false;
+
+                Set<Integer> oldFullRebalanceParts = oldDemandMsgParts.fullSet();
+                Set<Integer> fullRebalanceParts = demandMsgParts.fullSet();
+
+                if (oldFullRebalanceParts.size() < fullRebalanceParts.size())
+                    return false;
+
+                int j = 0;
+
+                for (int i = 0; i < histMap.size(); i++) {
+                    while(oldHistMap.partitionAt(j) != histMap.partitionAt(i))
+                        j++;
+
+                    if (oldHistMap.partitionAt(j) != histMap.partitionAt(i)
+                        || oldHistMap.initialUpdateCounterAt(j) != histMap.initialUpdateCounterAt(i)
+                        || oldHistMap.updateCounterAt(j) != histMap.updateCounterAt(i))
+                        return false;
+                }
+
+                if (!oldFullRebalanceParts.containsAll(fullRebalanceParts))
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -675,7 +730,7 @@ public class GridDhtPartitionDemander {
         }
 
         // Topology already changed (for the future that supply message based on).
-        if (topologyChanged(fut) || !fut.isActual(supplyMsg.rebalanceId())) {
+        if (/*topologyChanged(fut) ||*/ !fut.isActual(supplyMsg.rebalanceId())) {
             if (log.isDebugEnabled())
                 log.debug("Supply message ignored (topology changed) [" + demandRoutineInfo(topicId, nodeId, supplyMsg) + "]");
 
@@ -1472,13 +1527,6 @@ public class GridDhtPartitionDemander {
 
                 onDone(!cancelled);
             }
-        }
-
-        /**
-         * @return Collection of supplier nodes. Value {@code empty} means rebalance already finished.
-         */
-        private synchronized Collection<UUID> remainingNodes() {
-            return remaining.keySet();
         }
 
         /**
