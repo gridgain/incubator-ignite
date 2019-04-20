@@ -20,10 +20,10 @@ package org.apache.ignite.console.repositories;
 import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.AbstractDto;
+import org.apache.ignite.console.services.OwnerValidationService;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
 
@@ -32,17 +32,20 @@ import org.apache.ignite.transactions.Transaction;
  */
 public abstract class AbstractRepository<T extends AbstractDto>  {
     /** */
-    protected final Ignite ignite;
+    protected final TransactionManager txMgr;
 
     /** */
-    private final TransactionManager txMgr;
+    protected final OwnerValidationService ownerValidationSrvc;
 
     /**
-     * @param ignite Ignite.
+     * @param txMgr Tran.
      */
-    protected AbstractRepository(Ignite ignite, TransactionManager txMgr) {
-        this.ignite = ignite;
+    protected AbstractRepository(
+        TransactionManager txMgr,
+        OwnerValidationService ownerValidationSrvc
+    ) {
         this.txMgr = txMgr;
+        this.ownerValidationSrvc = ownerValidationSrvc;
     }
 
     /**
@@ -82,13 +85,22 @@ public abstract class AbstractRepository<T extends AbstractDto>  {
     }
 
     /**
+     * @param accId Account ID.
+     * @param dto Object ID.
+     */
+    protected void registerOwner(UUID accId, AbstractDto dto) {
+        ownerValidationSrvc.register(accId, dto.getId());
+    }
+
+    /**
      * @param accId Expected account ID.
      * @param dto Object to check.
      * @throws SecurityException If detected illegal access.
      */
     protected void checkOwner(UUID accId, AbstractDto dto) throws SecurityException {
-        if (!accId.equals(dto.getAccountId()))
-            throw new SecurityException("Illegal access to other user data");
+        ownerValidationSrvc.validate(accId, dto.getId());
+//        if (!accId.equals(dto.getAccountId()))
+//            throw new SecurityException("Illegal access to other user data");
     }
 
     /**

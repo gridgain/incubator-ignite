@@ -20,7 +20,6 @@ package org.apache.ignite.console.services;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.CacheHolder;
-import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.stereotype.Service;
 
@@ -28,14 +27,14 @@ import org.springframework.stereotype.Service;
  * Service to check object ownership.
  */
 @Service
-public class OwnerCheckerService {
+public class OwnerValidationService {
     /** */
     private final Registry registry;
 
     /**
      * @param ignite Ignite.
      */
-    public OwnerCheckerService(Ignite ignite) {
+    public OwnerValidationService(Ignite ignite) {
         registry = new Registry(ignite, "wc_ownership_registry");
     }
 
@@ -50,13 +49,20 @@ public class OwnerCheckerService {
     }
 
     /**
-     * Check that link between account and obect is correct.
+     * Validate that link between account and object is correct.
      *
      * @param accId Account ID.
      * @param objId Object ID.
      */
-    public void check(UUID accId, UUID objId) {
+    public void validate(UUID accId, UUID objId) {
         registry.process(accId, objId, false);
+    }
+
+    /**
+     * @param objId Object ID.
+     */
+    public void unregister(UUID objId) {
+        registry.unregister(objId);
     }
 
     /**
@@ -72,11 +78,24 @@ public class OwnerCheckerService {
         }
 
         /**
+         * Check that all operations with registry will be transactional.
+         *
+         * @throws IllegalStateException If active transaction not found.
+         */
+        private void checkTransaction() throws IllegalStateException {
+            Transaction tx = ignite.transactions().tx();
+
+            if (tx == null)
+                throw new IllegalStateException("Active transaction not found");
+        }
+
+        /**
          * @param accId Account ID.
          * @param objId Object ID.
          * @param register {@code true} if link should be registered.
+         * @throws IllegalStateException If failed to process link.
          */
-        public void process(UUID accId, UUID objId, boolean register) {
+        public void process(UUID accId, UUID objId, boolean register) throws IllegalStateException {
             checkTransaction();
 
             UUID oldAccId = cache.get(objId);
@@ -91,13 +110,13 @@ public class OwnerCheckerService {
         }
 
         /**
-         * Check that all operations with registry will be transactional.
+         * @param objId Object ID.
+         * @throws IllegalStateException If failed to unregister link between account and object.
          */
-        private void checkTransaction() {
-            Transaction tx = ignite.transactions().tx();
+        private void unregister(UUID objId) throws IllegalStateException  {
+            checkTransaction();
 
-            if (tx == null)
-                throw new IllegalStateException("Active transaction not found");
+            cache.remove(objId);
         }
     }
 }

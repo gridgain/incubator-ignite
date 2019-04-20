@@ -24,6 +24,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.services.OwnerValidationService;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
 import org.slf4j.Logger;
@@ -34,9 +35,15 @@ import org.springframework.stereotype.Repository;
  * Repository to work with notebooks.
  */
 @Repository
-public class NotebooksRepository extends AbstractRepository<Notebook> {
+public class NotebooksRepository {
     /** */
     private static final Logger log = LoggerFactory.getLogger(NotebooksRepository.class);
+
+    /** */
+    private final TransactionManager txMgr;
+
+    /** */
+    private final OwnerValidationService ownerValidationSrvc;
 
     /** */
     private final Table<Notebook> notebooksTbl;
@@ -48,8 +55,9 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
      */
-    public NotebooksRepository(Ignite ignite, TransactionManager txMgr) {
-        super(ignite, txMgr);
+    public NotebooksRepository(Ignite ignite, TransactionManager txMgr, OwnerValidationService ownerValidationSrvc) {
+        this.txMgr = txMgr;
+        this.ownerValidationSrvc = ownerValidationSrvc;
 
         notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
             .addUniqueIndex(Notebook::getName, (notebook) -> "Notebook '" + notebook.getName() + "' already exits");
@@ -72,8 +80,8 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      * @param notebook Notebook to save.
      */
     public void save(UUID accId, Notebook notebook) {
-        try (Transaction tx = txStart()) {
-            notebook.setAccountId(accId);
+        try (Transaction tx = txMgr.txStart()) {
+            ownerValidationSrvc.register(accId, notebook.getId());
             
             notebooksTbl.save(notebook);
 
@@ -90,11 +98,11 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      * @param notebookId Notebook ID to delete.
      */
     public void delete(UUID accId, UUID notebookId) {
-        try (Transaction tx = txStart()) {
+        try (Transaction tx = txMgr.txStart()) {
             Notebook notebook = notebooksTbl.load(notebookId);
 
             if (notebook != null) {
-                checkOwner(accId, notebook);
+                ownerValidationSrvc.validate(accId, notebook.getId());
 
                 notebooksTbl.delete(notebookId);
 
@@ -114,7 +122,7 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      * @param accId Account ID.
      */
     public void deleteAll(UUID accId) {
-        try(Transaction tx = txStart()) {
+        try(Transaction tx = txMgr.txStart()) {
             TreeSet<UUID> ids = notebooksIdx.delete(accId);
 
             notebooksTbl.deleteAll(ids);

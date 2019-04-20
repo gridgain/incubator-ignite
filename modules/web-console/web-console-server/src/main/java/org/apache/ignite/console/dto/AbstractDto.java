@@ -28,10 +28,6 @@ public abstract class AbstractDto {
     @NotNull
     protected UUID id;
 
-    /** */
-    @NotNull
-    protected UUID accId;
-
     /**
      * Default constructor.
      */
@@ -60,19 +56,5 @@ public abstract class AbstractDto {
      */
     public void setId(UUID id) {
         this.id = id;
-    }
-
-    /**
-     * @return Account ID.
-     */
-    public UUID getAccountId() {
-        return accId;
-    }
-
-    /**
-     * @param accId Account ID.
-     */
-    public void setAccountId(UUID accId) {
-        this.accId = accId;
     }
 }

@@ -39,9 +39,12 @@ import org.springframework.stereotype.Repository;
  * Repository to work with accounts.
  */
 @Repository
-public class AccountsRepository extends AbstractRepository {
+public class AccountsRepository {
     /** Special key to check that first user should be granted admin rights. */
     private static final UUID FIRST_USER_MARKER_KEY = UUID.fromString("039d28e2-133d-4eae-ae2b-29d6db6d4974");
+
+    /** */
+    private final TransactionManager txMgr;
 
     /** Accounts collection. */
     private final Table<Account> accountsTbl;
@@ -52,7 +55,7 @@ public class AccountsRepository extends AbstractRepository {
      */
     @Autowired
     public AccountsRepository(Ignite ignite, TransactionManager txMgr) {
-        super(ignite, txMgr);
+        this.txMgr = txMgr;
 
         accountsTbl = new Table<Account>(ignite, "accounts")
             .addUniqueIndex(Account::getUsername, (acc) -> "Account with email '" + acc.getUsername() + "' already registered");
@@ -65,7 +68,7 @@ public class AccountsRepository extends AbstractRepository {
      * @return Account.
      */
     public Account getById(UUID accId) {
-        try (Transaction ignored = txStart()) {
+        try (Transaction ignored = txMgr.txStart()) {
             Account account = accountsTbl.load(accId);
 
             if (account == null)
@@ -83,7 +86,7 @@ public class AccountsRepository extends AbstractRepository {
      * @throws UsernameNotFoundException If user not found.
      */
     public Account getByEmail(String email) throws UsernameNotFoundException {
-        try (Transaction ignored = txStart()) {
+        try (Transaction ignored = txMgr.txStart()) {
             Account account = accountsTbl.getByIndex(email);
 
             if (account == null)
@@ -103,7 +106,7 @@ public class AccountsRepository extends AbstractRepository {
      */
     @SuppressWarnings("unchecked")
     public Account create(Account account) {
-        try (Transaction tx = txStart()) {
+        try (Transaction tx = txMgr.txStart()) {
             IgniteCache cache = accountsTbl.cache();
 
             if (accountsTbl.getByIndex(account.getUsername()) != null)
@@ -127,7 +130,7 @@ public class AccountsRepository extends AbstractRepository {
      * @param account Account to save.
      */
     public void save(Account account) {
-        try (Transaction tx = txStart()) {
+        try (Transaction tx = txMgr.txStart()) {
             accountsTbl.save(account);
 
             tx.commit();
@@ -143,7 +146,7 @@ public class AccountsRepository extends AbstractRepository {
     public int delete(UUID accId) {
         int rmvCnt = 0;
 
-        try (Transaction tx = txStart()) {
+        try (Transaction tx = txMgr.txStart()) {
             Account account = accountsTbl.delete(accId);
 
             if (account != null)
