@@ -21,10 +21,10 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.db.ForeignKeyIndex;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.services.OwnerValidationService;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
 import org.slf4j.Logger;
@@ -43,26 +43,27 @@ public class NotebooksRepository {
     private final TransactionManager txMgr;
 
     /** */
-    private final OwnerValidationService ownerValidationSrvc;
-
-    /** */
     private final Table<Notebook> notebooksTbl;
 
     /** */
     private final OneToManyIndex notebooksIdx;
 
+    /** */
+    private final ForeignKeyIndex accFkIdx;
+
     /**
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
      */
-    public NotebooksRepository(Ignite ignite, TransactionManager txMgr, OwnerValidationService ownerValidationSrvc) {
+    public NotebooksRepository(Ignite ignite, TransactionManager txMgr) {
         this.txMgr = txMgr;
-        this.ownerValidationSrvc = ownerValidationSrvc;
 
         notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
             .addUniqueIndex(Notebook::getName, (notebook) -> "Notebook '" + notebook.getName() + "' already exits");
 
         notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
+
+        accFkIdx = new ForeignKeyIndex(ignite, "wc_accounts_fk_idx");
     }
 
     /**
@@ -70,7 +71,11 @@ public class NotebooksRepository {
      * @return List of notebooks for specified account.
      */
     public Collection<Notebook> list(UUID accId) {
-        return loadList(accId, accId, notebooksIdx, notebooksTbl);
+        try (Transaction ignored = txMgr.txStart()) {
+            TreeSet<UUID> notebooksIds = notebooksIdx.load(accId);
+
+            return notebooksTbl.loadAll(notebooksIds);
+        }
     }
 
     /**
@@ -81,8 +86,8 @@ public class NotebooksRepository {
      */
     public void save(UUID accId, Notebook notebook) {
         try (Transaction tx = txMgr.txStart()) {
-            ownerValidationSrvc.register(accId, notebook.getId());
-            
+            accFkIdx.add(accId, notebook.getId());
+
             notebooksTbl.save(notebook);
 
             notebooksIdx.add(accId, notebook.getId());
@@ -102,7 +107,7 @@ public class NotebooksRepository {
             Notebook notebook = notebooksTbl.load(notebookId);
 
             if (notebook != null) {
-                ownerValidationSrvc.validate(accId, notebook.getId());
+                accFkIdx.delete(accId, notebook.getId());
 
                 notebooksTbl.delete(notebookId);
 
@@ -123,9 +128,11 @@ public class NotebooksRepository {
      */
     public void deleteAll(UUID accId) {
         try(Transaction tx = txMgr.txStart()) {
-            TreeSet<UUID> ids = notebooksIdx.delete(accId);
+            TreeSet<UUID> notebooksIds = notebooksIdx.delete(accId);
 
-            notebooksTbl.deleteAll(ids);
+            accFkIdx.deleteAll(accId, notebooksIds);
+
+            notebooksTbl.deleteAll(notebooksIds);
 
             tx.commit();
         }
