@@ -87,7 +87,7 @@ public class ConfigurationsService {
      * @return Cache.
      */
     public String loadCache(UUID accId, UUID cacheId) {
-        return cfgsRepo.loadCluster(accId, cacheId).json();
+        return cfgsRepo.loadCache(accId, cacheId).json();
     }
 
     /**
@@ -96,7 +96,7 @@ public class ConfigurationsService {
      * @return Model.
      */
     public String loadModel(UUID accId, UUID mdlId) {
-        return cfgsRepo.loadCluster(accId, mdlId).json();
+        return cfgsRepo.loadModel(accId, mdlId).json();
     }
 
     /**
@@ -105,7 +105,7 @@ public class ConfigurationsService {
      * @return IGFS.
      */
     public String loadIgfs(UUID accId, UUID igfsId) {
-        return cfgsRepo.loadCluster(accId, igfsId).json();
+        return cfgsRepo.loadIgfs(accId, igfsId).json();
     }
 
     /**

@@ -84,10 +84,7 @@ public class ConfigurationsRepository {
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
      */
-    public ConfigurationsRepository(
-        Ignite ignite,
-        TransactionManager txMgr
-    ) {
+    public ConfigurationsRepository(Ignite ignite, TransactionManager txMgr) {
         this.txMgr = txMgr;
 
         clustersTbl = new Table<Cluster>(ignite, "wc_account_clusters")
@@ -117,7 +114,7 @@ public class ConfigurationsRepository {
             if (cluster == null)
                 throw new IllegalStateException("Cluster not found for ID: " + clusterId);
 
-            accFkIdx.validate(cluster.getId(), accId);
+            accFkIdx.validate(accId, cluster.getId());
 
             Collection<Cache> caches = cachesTbl.loadAll(cachesIdx.load(clusterId));
             Collection<Model> models = modelsTbl.loadAll(modelsIdx.load(clusterId));
@@ -179,7 +176,7 @@ public class ConfigurationsRepository {
      */
     private <T extends DataObject> T loadObject(UUID accId, UUID objId, Table<? extends DataObject> tbl, String objName) {
         try (Transaction ignored = txMgr.txStart()) {
-            accFkIdx.validate(objId, accId);
+            accFkIdx.validate(accId, objId);
 
             T obj = (T)tbl.load(objId);
 
@@ -223,7 +220,7 @@ public class ConfigurationsRepository {
      * @return IGFS.
      */
     public Igfs loadIgfs(UUID accId, UUID igfsId) {
-        return loadObject(accId, igfsId, modelsTbl, "IGFS");
+        return loadObject(accId, igfsId, igfssTbl, "IGFS");
     }
 
     /**
@@ -263,7 +260,7 @@ public class ConfigurationsRepository {
      */
     public Collection<Igfs> loadIgfss(UUID accId, UUID clusterId) {
         try (Transaction ignored = txMgr.txStart()) {
-            accFkIdx.validate(clusterId, accId);
+            accFkIdx.validate(accId, clusterId);
 
             TreeSet<UUID> igfsIds = igfssIdx.load(clusterId);
 

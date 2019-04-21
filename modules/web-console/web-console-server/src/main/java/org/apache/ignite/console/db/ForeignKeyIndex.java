@@ -21,12 +21,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
-import org.springframework.stereotype.Service;
 
 /**
- * Service to check object ownership.
+ * Foreign key index.
  */
-@Service
 public class ForeignKeyIndex extends CacheHolder<UUID, UUID> {
     /** */
     private static final String ERR_DATA_ACCESS_VIOLATION = "Data access violation";

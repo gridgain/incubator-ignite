@@ -31,7 +31,6 @@ import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Repository;
 
@@ -53,7 +52,6 @@ public class AccountsRepository {
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
      */
-    @Autowired
     public AccountsRepository(Ignite ignite, TransactionManager txMgr) {
         this.txMgr = txMgr;
 
