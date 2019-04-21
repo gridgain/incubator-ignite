@@ -145,14 +145,14 @@ public class ConfigurationsController {
 
     /**
      * @param acc Account.
-     * @param modelId Model ID.
+     * @param mdlId Model ID.
      */
     @GetMapping(path = "/domains/{modelId}")
     public ResponseEntity<String> loadModel(
         @AuthenticationPrincipal Account acc,
-        @PathVariable("modelId") UUID modelId
+        @PathVariable("modelId") UUID mdlId
     ) {
-        return ResponseEntity.ok(cfgsSrvc.loadModel(acc.getId(), modelId));
+        return ResponseEntity.ok(cfgsSrvc.loadModel(acc.getId(), mdlId));
     }
 
     /**
