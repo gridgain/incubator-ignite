@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console.web.controller;
 
-import org.apache.ignite.console.dto.RowsAffected;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
@@ -58,19 +57,22 @@ public class AdminController {
 
     /**
      * @param params Parameters.
-     * @return Number of affected rows.
      */
     @PostMapping(path = "/toggle", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<RowsAffected> toggle(@RequestBody JsonObject params) {
-        return ResponseEntity.ok(adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false)));
+    public ResponseEntity<Void> toggle(@RequestBody JsonObject params) {
+        adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false));
+
+        return ResponseEntity.ok().build();
     }
 
     /**
      * @param params Parameters.
      */
     @PostMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<RowsAffected> remove(@RequestBody JsonObject params) {
-        return ResponseEntity.ok(adminSrvc.remove(params.getUuid("id")));
+    public ResponseEntity<Void> remove(@RequestBody JsonObject params) {
+        adminSrvc.remove(params.getUuid("id"));
+
+        return ResponseEntity.ok().build();
     }
 
     /**

@@ -20,15 +20,12 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.dto.RowsAffected;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import static org.apache.ignite.console.common.Utils.rowsAffected;
 
 /**
  * Service to handle administrator actions.
@@ -101,31 +98,23 @@ public class AdminService {
      * Remove account.
      *
      * @param accId Account ID.
-     * @return Affected rows JSON object.
      */
-    public RowsAffected remove(UUID accId) {
-        int rows;
-
+    public void remove(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
             cfgsSvc.deleteByAccountId(accId);
             notebooksSvc.deleteAll(accId);
-            rows = accountsSvc.delete(accId);
+            accountsSvc.delete(accId);
 
             tx.commit();
         }
-
-        return rowsAffected(rows);
     }
 
     /**
      * @param accId Account ID.
      * @param admin Admin flag.
-     * @return Affected rows JSON object.
      */
-    public RowsAffected toggle(UUID accId, boolean admin) {
+    public void toggle(UUID accId, boolean admin) {
         accountsSvc.toggle(accId, admin);
-
-        return rowsAffected(1);
     }
 
     /**

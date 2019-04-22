@@ -115,10 +115,9 @@ public class AccountsService implements UserDetailsService {
      * Delete account by ID.
      *
      * @param accId Account ID.
-     * @return Number of removed accounts.
      */
-    public int delete(UUID accId) {
-        return accountsRepo.delete(accId);
+    public void delete(UUID accId) {
+        accountsRepo.delete(accId);
     }
 
     /**

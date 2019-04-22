@@ -481,9 +481,8 @@ public class ConfigurationsRepository {
      *
      * @param accId Account ID.
      * @param clusterIds Cluster IDs to delete.
-     * @return Number of deleted clusters.
      */
-    public int deleteClusters(UUID accId, TreeSet<UUID> clusterIds) {
+    public void deleteClusters(UUID accId, TreeSet<UUID> clusterIds) {
         try (Transaction tx = txMgr.txStart()) {
             accFkIdx.deleteAll(accId, clusterIds);
 
@@ -494,8 +493,6 @@ public class ConfigurationsRepository {
 
             tx.commit();
         }
-
-        return clusterIds.size();
     }
 
     /**

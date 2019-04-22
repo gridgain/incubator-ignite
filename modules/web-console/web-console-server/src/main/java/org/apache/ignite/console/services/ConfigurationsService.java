@@ -23,13 +23,10 @@ import java.util.UUID;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.console.dto.RowsAffected;
 import org.apache.ignite.console.repositories.ConfigurationsRepository;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.springframework.stereotype.Service;
-
-import static org.apache.ignite.console.common.Utils.rowsAffected;
 
 /**
  * Service to handle configurations.
@@ -141,6 +138,16 @@ public class ConfigurationsService {
     }
 
     /**
+     * Save full cluster.
+     *
+     * @param accId Account ID.
+     * @param changedItems Items to save.
+     */
+    public void saveAdvancedCluster(UUID accId, JsonObject changedItems) {
+        cfgsRepo.saveAdvancedCluster(accId, changedItems);
+    }
+
+    /**
      * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster IGFSs.
@@ -150,29 +157,13 @@ public class ConfigurationsService {
     }
 
     /**
-     * Save full cluster.
-     *
-     * @param accId Account ID.
-     * @param changedItems Items to save.
-     * @return Affected rows JSON object.
-     */
-    public RowsAffected saveAdvancedCluster(UUID accId, JsonObject changedItems) {
-        cfgsRepo.saveAdvancedCluster(accId, changedItems);
-
-        return rowsAffected(1);
-    }
-
-    /**
      * Save basic cluster.
      *
      * @param accId Account ID.
      * @param changedItems Items to save.
-     * @return Affected rows JSON object.
      */
-    public RowsAffected saveBasicCluster(UUID accId, JsonObject changedItems) {
+    public void saveBasicCluster(UUID accId, JsonObject changedItems) {
         cfgsRepo.saveBasicCluster(accId, changedItems);
-
-        return rowsAffected(1);
     }
 
     /**
@@ -189,11 +180,8 @@ public class ConfigurationsService {
      *
      * @param accId Account ID.
      * @param clusterIds Clusters IDs to delete.
-     * @return Affected rows JSON object.
      */
-    public RowsAffected deleteClusters(UUID accId, TreeSet<UUID> clusterIds) {
-        int rmvCnt = cfgsRepo.deleteClusters(accId, clusterIds);
-
-        return rowsAffected(rmvCnt);
+    public void deleteClusters(UUID accId, TreeSet<UUID> clusterIds) {
+        cfgsRepo.deleteClusters(accId, clusterIds);
     }
 }

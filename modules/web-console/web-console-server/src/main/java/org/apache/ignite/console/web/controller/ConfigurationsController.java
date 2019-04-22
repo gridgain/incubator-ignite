@@ -19,7 +19,6 @@ package org.apache.ignite.console.web.controller;
 
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.dto.RowsAffected;
 import org.apache.ignite.console.services.ConfigurationsService;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
@@ -171,14 +170,15 @@ public class ConfigurationsController {
      *
      * @param acc Account.
      * @param changedItems Items to save.
-     * @return Number of affected rows.
      */
     @PutMapping(path = "/clusters", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<RowsAffected> saveAdvancedCluster(
+    public ResponseEntity<Void> saveAdvancedCluster(
         @AuthenticationPrincipal Account acc,
         @RequestBody JsonObject changedItems
     ) {
-        return ResponseEntity.ok(cfgsSrvc.saveAdvancedCluster(acc.getId(), changedItems));
+        cfgsSrvc.saveAdvancedCluster(acc.getId(), changedItems);
+
+        return ResponseEntity.ok().build();
     }
 
     /**
@@ -186,14 +186,15 @@ public class ConfigurationsController {
      *
      * @param acc Account.
      * @param changedItems Items to save.
-     * @return Number of affected rows.
      */
     @PutMapping(path = "/clusters/basic", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<RowsAffected> saveBasicCluster(
+    public ResponseEntity<Void> saveBasicCluster(
         @AuthenticationPrincipal Account acc,
         @RequestBody JsonObject changedItems
     ) {
-        return ResponseEntity.ok(cfgsSrvc.saveBasicCluster(acc.getId(), changedItems));
+        cfgsSrvc.saveBasicCluster(acc.getId(), changedItems);
+
+        return ResponseEntity.ok().build();
     }
 
     /**
@@ -201,13 +202,14 @@ public class ConfigurationsController {
      *
      * @param acc Account.
      * @param clusterIDs Cluster IDs for removal.
-     * @return Number of affected rows.
      */
     @PostMapping(path = "/clusters/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<RowsAffected> deleteClusters(
+    public ResponseEntity<Void> deleteClusters(
         @AuthenticationPrincipal Account acc,
         @RequestBody JsonObject clusterIDs
     ) {
-        return ResponseEntity.ok(cfgsSrvc.deleteClusters(acc.getId(), idsFromJson(clusterIDs, "clusterIDs")));
+        cfgsSrvc.deleteClusters(acc.getId(), idsFromJson(clusterIDs, "clusterIDs"));
+
+        return ResponseEntity.ok().build();
     }
 }

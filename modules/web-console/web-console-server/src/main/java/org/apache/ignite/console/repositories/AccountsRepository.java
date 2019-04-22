@@ -139,21 +139,13 @@ public class AccountsRepository {
      * Delete account.
      *
      * @param accId Account ID.
-     * @return Number of removed accounts.
      */
-    public int delete(UUID accId) {
-        int rmvCnt = 0;
-
+    public void delete(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
-            Account account = accountsTbl.delete(accId);
-
-            if (account != null)
-                rmvCnt = 1;
+            accountsTbl.delete(accId);
 
             tx.commit();
         }
-
-        return rmvCnt;
     }
 
     /**

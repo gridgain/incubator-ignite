@@ -74,7 +74,6 @@ public class NotebooksController {
     /**
      * @param acc Account.
      * @param notebookId Notebook ID.
-     * @return Rows affected.
      */
     @DeleteMapping(path = "/{notebookId}")
     public ResponseEntity<Void> delete(
