@@ -17,15 +17,30 @@
 
 package org.apache.ignite.console.dto;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.UUID;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 /**
  * DTO for Account.
  */
 public class Account extends AbstractDto implements UserDetails {
+    /** */
+    private static final GrantedAuthority ROLE_USER = new SimpleGrantedAuthority("ROLE_USER");
+
+    /** */
+    private static final GrantedAuthority ROLE_ADMIN = new SimpleGrantedAuthority("ROLE_ADMIN");
+
+    /** */
+    private static final Collection<GrantedAuthority> AUTH_USER = Collections.singleton(ROLE_USER);
+
+    /** */
+    private static final Collection<GrantedAuthority> AUTH_ADMIN = Arrays.asList(ROLE_USER, ROLE_ADMIN);
+
     /** Email. */
     private String email;
 
@@ -264,7 +279,7 @@ public class Account extends AbstractDto implements UserDetails {
 
     /** {@inheritDoc} */
     @Override public Collection<? extends GrantedAuthority> getAuthorities() {
-        return null; // TODO IGNITE-5617 Implement or may be return empty collection.
+        return admin ? AUTH_ADMIN : AUTH_USER;
     }
 
     /** {@inheritDoc} */
