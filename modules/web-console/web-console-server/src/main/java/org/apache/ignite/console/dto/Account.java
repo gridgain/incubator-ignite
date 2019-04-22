@@ -17,29 +17,23 @@
 
 package org.apache.ignite.console.dto;
 
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.UUID;
+import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import static org.springframework.security.core.authority.AuthorityUtils.createAuthorityList;
 
 /**
  * DTO for Account.
  */
-public class Account extends AbstractDto implements UserDetails {
+public class Account extends AbstractDto implements UserDetails, CredentialsContainer {
     /** */
-    private static final GrantedAuthority ROLE_USER = new SimpleGrantedAuthority("ROLE_USER");
+    private static final String ROLE_USER = "ROLE_USER";
 
     /** */
-    private static final GrantedAuthority ROLE_ADMIN = new SimpleGrantedAuthority("ROLE_ADMIN");
-
-    /** */
-    private static final Collection<GrantedAuthority> AUTH_USER = Collections.singleton(ROLE_USER);
-
-    /** */
-    private static final Collection<GrantedAuthority> AUTH_ADMIN = Arrays.asList(ROLE_USER, ROLE_ADMIN);
+    private static final String ROLE_ADMIN = "ROLE_ADMIN";
 
     /** Email. */
     private String email;
@@ -279,7 +273,9 @@ public class Account extends AbstractDto implements UserDetails {
 
     /** {@inheritDoc} */
     @Override public Collection<? extends GrantedAuthority> getAuthorities() {
-        return admin ? AUTH_ADMIN : AUTH_USER;
+        return admin
+            ? createAuthorityList(ROLE_USER, ROLE_ADMIN)
+            : createAuthorityList(ROLE_USER);
     }
 
     /** {@inheritDoc} */
@@ -317,5 +313,10 @@ public class Account extends AbstractDto implements UserDetails {
     /** {@inheritDoc} */
     @Override public boolean isEnabled() {
         return true;
+    }
+
+    /** */
+    @Override public void eraseCredentials() {
+        this.hashedPwd = null;
     }
 }
