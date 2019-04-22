@@ -78,10 +78,11 @@ public class AccountsRepository extends AbstractRepository {
     /**
      * Get account by email.
      *
-     * @param email Parameters in JSON format.
+     * @param email E-mail.
      * @return Account.
+     * @throws UsernameNotFoundException If user not found.
      */
-    public Account getByEmail(String email) {
+    public Account getByEmail(String email) throws UsernameNotFoundException {
         try (Transaction ignored = txStart()) {
             Account account = accountsTbl.getByIndex(email);
 

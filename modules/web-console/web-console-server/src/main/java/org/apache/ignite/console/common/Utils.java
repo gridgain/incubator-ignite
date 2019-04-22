@@ -26,6 +26,7 @@ import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T2;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import static org.apache.ignite.console.json.JsonUtils.fromJson;
 
@@ -116,5 +117,16 @@ public class Utils {
         data.forEach(item -> res.add(fromJson(item.json())));
 
         return res;
+    }
+
+    /**
+     * @return Current request origin.
+     */
+    public static String currentRequestOrigin() {
+        return ServletUriComponentsBuilder
+            .fromCurrentRequest()
+            .replacePath(null)
+            .build()
+            .toString();
     }
 }

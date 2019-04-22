@@ -256,6 +256,13 @@ public class Account extends AbstractDto implements UserDetails, Recipient {
         return resetPwdTok;
     }
 
+    /**
+     * @param resetPwdTok Reset password token.
+     */
+    public void resetPasswordToken(String resetPwdTok) {
+        this.resetPwdTok = resetPwdTok;
+    }
+
     /** {@inheritDoc} */
     @Override public Collection<? extends GrantedAuthority> getAuthorities() {
         return null; // TODO IGNITE-5617 Implement or may be return empty collection.

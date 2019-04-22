@@ -55,7 +55,7 @@ public class ConfigurationsController {
      * @param clusterId Cluster ID.
      */
     @GetMapping(path = "/{clusterId}")
-    private ResponseEntity<JsonObject> loadConfiguration(@PathVariable("clusterId") UUID clusterId) {
+    public ResponseEntity<JsonObject> loadConfiguration(@PathVariable("clusterId") UUID clusterId) {
         return ResponseEntity.ok(cfgsSrvc.loadConfiguration(clusterId));
     }
 
@@ -64,7 +64,7 @@ public class ConfigurationsController {
      * @return Clusters short list.
      */
     @GetMapping(path = "/clusters")
-    private ResponseEntity<JsonArray> loadClustersShortList(@AuthenticationPrincipal Account user) {
+    public ResponseEntity<JsonArray> loadClustersShortList(@AuthenticationPrincipal Account user) {
         return ResponseEntity.ok(cfgsSrvc.loadClusters(user.getId()));
     }
 
@@ -72,7 +72,7 @@ public class ConfigurationsController {
      * @param clusterId Cluster ID.
      */
     @GetMapping(path = "/clusters/{clusterId}")
-    private ResponseEntity<String> loadCluster(@PathVariable("clusterId") UUID clusterId) {
+    public ResponseEntity<String> loadCluster(@PathVariable("clusterId") UUID clusterId) {
         return ResponseEntity.ok(cfgsSrvc.loadCluster(clusterId));
     }
 
@@ -82,7 +82,7 @@ public class ConfigurationsController {
      * @param clusterId Cluster ID.
      */
     @GetMapping(path = "/clusters/{clusterId}/caches")
-    private ResponseEntity<JsonArray> loadCachesShortList(@PathVariable("clusterId") UUID clusterId) {
+    public ResponseEntity<JsonArray> loadCachesShortList(@PathVariable("clusterId") UUID clusterId) {
         return ResponseEntity.ok(cfgsSrvc.loadShortCaches(clusterId));
     }
 
@@ -92,7 +92,7 @@ public class ConfigurationsController {
      *  @param clusterId Cluster ID.
      */
     @GetMapping(path = "/clusters/{clusterId}/models")
-    private ResponseEntity<JsonArray> loadModelsShortList(@PathVariable("clusterId") UUID clusterId) {
+    public ResponseEntity<JsonArray> loadModelsShortList(@PathVariable("clusterId") UUID clusterId) {
         return ResponseEntity.ok(cfgsSrvc.loadShortModels(clusterId));
     }
 
@@ -102,7 +102,7 @@ public class ConfigurationsController {
      * @param clusterId Cluster ID.
      */
     @GetMapping(path = "/clusters/{clusterId}/igfss")
-    private ResponseEntity<JsonArray> loadIgfssShortList(@PathVariable("clusterId") UUID clusterId) {
+    public ResponseEntity<JsonArray> loadIgfssShortList(@PathVariable("clusterId") UUID clusterId) {
         return ResponseEntity.ok(cfgsSrvc.loadShortIgfss(clusterId));
     }
 
@@ -110,7 +110,7 @@ public class ConfigurationsController {
      * @param cacheId Cache ID.
      */
     @GetMapping(path = "/caches/{cacheId}")
-    private ResponseEntity<String> loadCache(@PathVariable("cacheId") UUID cacheId) {
+    public ResponseEntity<String> loadCache(@PathVariable("cacheId") UUID cacheId) {
         return ResponseEntity.ok(cfgsSrvc.loadCache(cacheId));
     }
 
@@ -118,7 +118,7 @@ public class ConfigurationsController {
      * @param modelId Model ID.
      */
     @GetMapping(path = "/domains/{modelId}")
-    private ResponseEntity<String> loadModel(@PathVariable("modelId") UUID modelId) {
+    public ResponseEntity<String> loadModel(@PathVariable("modelId") UUID modelId) {
         return ResponseEntity.ok(cfgsSrvc.loadModel(modelId));
     }
 
@@ -126,7 +126,7 @@ public class ConfigurationsController {
      * @param igfsId IGFS ID.
      */
     @GetMapping(path = "/igfs/{igfsId}")
-    private ResponseEntity<String> loadIgfs(@PathVariable("igfsId") UUID igfsId) {
+    public ResponseEntity<String> loadIgfs(@PathVariable("igfsId") UUID igfsId) {
         return ResponseEntity.ok(cfgsSrvc.loadIgfs(igfsId));
     }
 
@@ -137,7 +137,7 @@ public class ConfigurationsController {
      * @param changedItems Items to save.
      */
     @PutMapping(path = "/clusters", consumes = APPLICATION_JSON_VALUE)
-    private ResponseEntity<JsonObject> saveAdvancedCluster(
+    public ResponseEntity<JsonObject> saveAdvancedCluster(
         @AuthenticationPrincipal Account user,
         @RequestBody JsonObject changedItems
     ) {
@@ -151,7 +151,7 @@ public class ConfigurationsController {
      * @param changedItems Items to save.
      */
     @PutMapping(path = "/clusters/basic", consumes = APPLICATION_JSON_VALUE)
-    private ResponseEntity<JsonObject> saveBasicCluster(
+    public ResponseEntity<JsonObject> saveBasicCluster(
         @AuthenticationPrincipal Account user,
         @RequestBody JsonObject changedItems
     ) {
@@ -165,7 +165,7 @@ public class ConfigurationsController {
      * @param clusterIDs Cluster IDs for removal.
      */
     @PostMapping(path = "/clusters/remove", consumes = APPLICATION_JSON_VALUE)
-    private ResponseEntity<JsonObject> deleteClusters(
+    public ResponseEntity<JsonObject> deleteClusters(
         @AuthenticationPrincipal Account user,
         @RequestBody JsonObject clusterIDs
     ) {
