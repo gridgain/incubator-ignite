@@ -48,9 +48,10 @@ public class AdminController {
 
     /**
      * @param params Parameters.
+     * @return List of accounts.
      */
     @PostMapping(path = "/list", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonArray> loadUsers(@RequestBody JsonObject params) {
+    public ResponseEntity<JsonArray> loadAccounts(@RequestBody JsonObject params) {
         return ResponseEntity.ok(adminSrvc.list());
     }
 
@@ -58,16 +59,20 @@ public class AdminController {
      * @param params Parameters.
      */
     @PostMapping(path = "/toggle", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> toggle(@RequestBody JsonObject params) {
-        return ResponseEntity.ok(adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false)));
+    public ResponseEntity<Void> toggle(@RequestBody JsonObject params) {
+        adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false));
+
+        return ResponseEntity.ok().build();
     }
 
     /**
      * @param params Parameters.
      */
     @PostMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> remove(@RequestBody JsonObject params) {
-        return ResponseEntity.ok(adminSrvc.remove(params.getUuid("id")));
+    public ResponseEntity<Void> remove(@RequestBody JsonObject params) {
+        adminSrvc.remove(params.getUuid("id"));
+
+        return ResponseEntity.ok().build();
     }
 
     /**

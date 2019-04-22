@@ -22,7 +22,6 @@ import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.ConfigurationsService;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,124 +52,164 @@ public class ConfigurationsController {
     }
 
     /**
+     * @param acc Account.
      * @param clusterId Cluster ID.
      */
     @GetMapping(path = "/{clusterId}")
-    public ResponseEntity<JsonObject> loadConfiguration(@PathVariable("clusterId") UUID clusterId) {
-        return ResponseEntity.ok(cfgsSrvc.loadConfiguration(clusterId));
+    public ResponseEntity<JsonObject> loadConfiguration(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("clusterId") UUID clusterId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadConfiguration(acc.getId(), clusterId));
     }
 
     /**
-     * @param user User.
+     * @param acc Account.
      * @return Clusters short list.
      */
     @GetMapping(path = "/clusters")
-    public ResponseEntity<JsonArray> loadClustersShortList(@AuthenticationPrincipal Account user) {
-        return ResponseEntity.ok(cfgsSrvc.loadClusters(user.getId()));
+    public ResponseEntity<JsonArray> loadClustersShortList(@AuthenticationPrincipal Account acc) {
+        return ResponseEntity.ok(cfgsSrvc.loadClusters(acc.getId()));
     }
 
     /**
+     * @param acc Account.
      * @param clusterId Cluster ID.
+     * @return Cluster as JSON.
      */
     @GetMapping(path = "/clusters/{clusterId}")
-    public ResponseEntity<String> loadCluster(@PathVariable("clusterId") UUID clusterId) {
-        return ResponseEntity.ok(cfgsSrvc.loadCluster(clusterId));
+    public ResponseEntity<String> loadCluster(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("clusterId") UUID clusterId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadCluster(acc.getId(), clusterId));
     }
 
     /**
      * Load cluster caches short list.
      *
+     * @param acc Account.
      * @param clusterId Cluster ID.
+     * @return Caches short list.
      */
     @GetMapping(path = "/clusters/{clusterId}/caches")
-    public ResponseEntity<JsonArray> loadCachesShortList(@PathVariable("clusterId") UUID clusterId) {
-        return ResponseEntity.ok(cfgsSrvc.loadShortCaches(clusterId));
+    public ResponseEntity<JsonArray> loadCachesShortList(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("clusterId") UUID clusterId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadShortCaches(acc.getId(), clusterId));
     }
 
     /**
      * Load cluster models short list.
      *
-     *  @param clusterId Cluster ID.
+     * @param acc Account.
+     * @param clusterId Cluster ID.
+     * @return Models short list.
      */
     @GetMapping(path = "/clusters/{clusterId}/models")
-    public ResponseEntity<JsonArray> loadModelsShortList(@PathVariable("clusterId") UUID clusterId) {
-        return ResponseEntity.ok(cfgsSrvc.loadShortModels(clusterId));
+    public ResponseEntity<JsonArray> loadModelsShortList(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("clusterId") UUID clusterId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadShortModels(acc.getId(), clusterId));
     }
 
     /**
      * Get cluster IGFSs short list.
      *
+     * @param acc Account.
      * @param clusterId Cluster ID.
+     * @return IGFSs short list.
      */
     @GetMapping(path = "/clusters/{clusterId}/igfss")
-    public ResponseEntity<JsonArray> loadIgfssShortList(@PathVariable("clusterId") UUID clusterId) {
-        return ResponseEntity.ok(cfgsSrvc.loadShortIgfss(clusterId));
+    public ResponseEntity<JsonArray> loadIgfssShortList(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("clusterId") UUID clusterId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadShortIgfss(acc.getId(), clusterId));
     }
 
     /**
+     * @param acc Account.
      * @param cacheId Cache ID.
      */
     @GetMapping(path = "/caches/{cacheId}")
-    public ResponseEntity<String> loadCache(@PathVariable("cacheId") UUID cacheId) {
-        return ResponseEntity.ok(cfgsSrvc.loadCache(cacheId));
+    public ResponseEntity<String> loadCache(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("cacheId") UUID cacheId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadCache(acc.getId(), cacheId));
     }
 
     /**
-     * @param modelId Model ID.
+     * @param acc Account.
+     * @param mdlId Model ID.
      */
     @GetMapping(path = "/domains/{modelId}")
-    public ResponseEntity<String> loadModel(@PathVariable("modelId") UUID modelId) {
-        return ResponseEntity.ok(cfgsSrvc.loadModel(modelId));
+    public ResponseEntity<String> loadModel(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("modelId") UUID mdlId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadModel(acc.getId(), mdlId));
     }
 
     /**
      * @param igfsId IGFS ID.
      */
     @GetMapping(path = "/igfs/{igfsId}")
-    public ResponseEntity<String> loadIgfs(@PathVariable("igfsId") UUID igfsId) {
-        return ResponseEntity.ok(cfgsSrvc.loadIgfs(igfsId));
+    public ResponseEntity<String> loadIgfs(
+        @AuthenticationPrincipal Account acc,
+        @PathVariable("igfsId") UUID igfsId
+    ) {
+        return ResponseEntity.ok(cfgsSrvc.loadIgfs(acc.getId(), igfsId));
     }
 
     /**
      * Save cluster.
      *
-     * @param user User.
+     * @param acc Account.
      * @param changedItems Items to save.
      */
     @PutMapping(path = "/clusters", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> saveAdvancedCluster(
-        @AuthenticationPrincipal Account user,
+    public ResponseEntity<Void> saveAdvancedCluster(
+        @AuthenticationPrincipal Account acc,
         @RequestBody JsonObject changedItems
     ) {
-        return ResponseEntity.ok(cfgsSrvc.saveAdvancedCluster(user.getId(), changedItems));
+        cfgsSrvc.saveAdvancedCluster(acc.getId(), changedItems);
+
+        return ResponseEntity.ok().build();
     }
 
     /**
      * Save basic clusters.
      *
-     * @param user User.
+     * @param acc Account.
      * @param changedItems Items to save.
      */
     @PutMapping(path = "/clusters/basic", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> saveBasicCluster(
-        @AuthenticationPrincipal Account user,
+    public ResponseEntity<Void> saveBasicCluster(
+        @AuthenticationPrincipal Account acc,
         @RequestBody JsonObject changedItems
     ) {
-        return ResponseEntity.ok(cfgsSrvc.saveBasicCluster(user.getId(), changedItems));
+        cfgsSrvc.saveBasicCluster(acc.getId(), changedItems);
+
+        return ResponseEntity.ok().build();
     }
 
     /**
      * Delete clusters.
      *
-     * @param user User.
+     * @param acc Account.
      * @param clusterIDs Cluster IDs for removal.
      */
     @PostMapping(path = "/clusters/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<JsonObject> deleteClusters(
-        @AuthenticationPrincipal Account user,
+    public ResponseEntity<Void> deleteClusters(
+        @AuthenticationPrincipal Account acc,
         @RequestBody JsonObject clusterIDs
     ) {
-        return ResponseEntity.ok(cfgsSrvc.deleteClusters(user.getId(), idsFromJson(clusterIDs, "clusterIDs")));
+        cfgsSrvc.deleteClusters(acc.getId(), idsFromJson(clusterIDs, "clusterIDs"));
+
+        return ResponseEntity.ok().build();
     }
 }
-

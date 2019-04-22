@@ -28,8 +28,6 @@ import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.springframework.stereotype.Service;
 
-import static org.apache.ignite.console.json.JsonUtils.rowsAffected;
-
 /**
  * Service to handle configurations.
  */
@@ -55,51 +53,56 @@ public class ConfigurationsService {
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Configuration.
      */
-    public JsonObject loadConfiguration(UUID clusterId) {
-        return cfgsRepo.loadConfiguration(clusterId);
+    public JsonObject loadConfiguration(UUID accId, UUID clusterId) {
+        return cfgsRepo.loadConfiguration(accId, clusterId);
     }
 
     /**
-     * @param userId User ID.
-     * @return List of user clusters.
+     * @param accId Account ID.
+     * @return List of clusters for specified account.
      */
-    public JsonArray loadClusters(UUID userId) {
-        return cfgsRepo.loadClusters(userId);
+    public JsonArray loadClusters(UUID accId) {
+        return cfgsRepo.loadClusters(accId);
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Cluster.
      */
-    public String loadCluster(UUID clusterId) {
-        return cfgsRepo.loadCluster(clusterId).json();
+    public String loadCluster(UUID accId, UUID clusterId) {
+        return cfgsRepo.loadCluster(accId, clusterId).json();
     }
 
     /**
+     * @param accId Account ID.
      * @param cacheId Cache ID.
      * @return Cache.
      */
-    public String loadCache(UUID cacheId) {
-        return cfgsRepo.loadCluster(cacheId).json();
+    public String loadCache(UUID accId, UUID cacheId) {
+        return cfgsRepo.loadCache(accId, cacheId).json();
     }
 
     /**
+     * @param accId Account ID.
      * @param mdlId Model ID.
      * @return Model.
      */
-    public String loadModel(UUID mdlId) {
-        return cfgsRepo.loadCluster(mdlId).json();
+    public String loadModel(UUID accId, UUID mdlId) {
+        return cfgsRepo.loadModel(accId, mdlId).json();
     }
 
     /**
+     * @param accId Account ID.
      * @param igfsId IGFS ID.
      * @return IGFS.
      */
-    public String loadIgfs(UUID igfsId) {
-        return cfgsRepo.loadCluster(igfsId).json();
+    public String loadIgfs(UUID accId, UUID igfsId) {
+        return cfgsRepo.loadIgfs(accId, igfsId).json();
     }
 
     /**
@@ -117,53 +120,50 @@ public class ConfigurationsService {
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster caches.
      */
-    public JsonArray loadShortCaches(UUID clusterId) {
-        return toShortList(cfgsRepo.loadCaches(clusterId));
+    public JsonArray loadShortCaches(UUID accId, UUID clusterId) {
+        return toShortList(cfgsRepo.loadCaches(accId, clusterId));
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster models.
      */
-    public JsonArray loadShortModels(UUID clusterId) {
-        return toShortList(cfgsRepo.loadModels(clusterId));
-    }
-
-    /**
-     * @param clusterId Cluster ID.
-     * @return Collection of cluster IGFSs.
-     */
-    public JsonArray loadShortIgfss(UUID clusterId) {
-        return toShortList(cfgsRepo.loadIgfss(clusterId));
+    public JsonArray loadShortModels(UUID accId, UUID clusterId) {
+        return toShortList(cfgsRepo.loadModels(accId, clusterId));
     }
 
     /**
      * Save full cluster.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param changedItems Items to save.
-     * @return Affected rows JSON object.
      */
-    public JsonObject saveAdvancedCluster(UUID userId, JsonObject changedItems) {
-        cfgsRepo.saveAdvancedCluster(userId, changedItems);
+    public void saveAdvancedCluster(UUID accId, JsonObject changedItems) {
+        cfgsRepo.saveAdvancedCluster(accId, changedItems);
+    }
 
-        return rowsAffected(1);
+    /**
+     * @param accId Account ID.
+     * @param clusterId Cluster ID.
+     * @return Collection of cluster IGFSs.
+     */
+    public JsonArray loadShortIgfss(UUID accId, UUID clusterId) {
+        return toShortList(cfgsRepo.loadIgfss(accId, clusterId));
     }
 
     /**
      * Save basic cluster.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param changedItems Items to save.
-     * @return Affected rows JSON object.
      */
-    public JsonObject saveBasicCluster(UUID userId, JsonObject changedItems) {
-        cfgsRepo.saveBasicCluster(userId, changedItems);
-
-        return rowsAffected(1);
+    public void saveBasicCluster(UUID accId, JsonObject changedItems) {
+        cfgsRepo.saveBasicCluster(accId, changedItems);
     }
 
     /**
@@ -178,13 +178,10 @@ public class ConfigurationsService {
     /**
      * Delete clusters.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param clusterIds Clusters IDs to delete.
-     * @return Affected rows JSON object.
      */
-    public JsonObject deleteClusters(UUID userId, TreeSet<UUID> clusterIds) {
-        int rmvCnt = cfgsRepo.deleteClusters(userId, clusterIds);
-
-        return rowsAffected(rmvCnt);
+    public void deleteClusters(UUID accId, TreeSet<UUID> clusterIds) {
+        cfgsRepo.deleteClusters(accId, clusterIds);
     }
 }

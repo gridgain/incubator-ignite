@@ -151,13 +151,4 @@ public class JsonUtils {
     public static <T> T attribute(Map<String, Object> attrs, String name) {
         return (T)attrs.get(name);
     }
-
-    /**
-     * @param rows Number of rows.
-     * @return JSON with number of affected rows.
-     */
-    public static JsonObject rowsAffected(int rows) {
-        return new JsonObject()
-            .add("rowsAffected", rows);
-    }
 }

@@ -27,8 +27,6 @@ import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import static org.apache.ignite.console.json.JsonUtils.rowsAffected;
-
 /**
  * Service to handle administrator actions.
  */
@@ -99,38 +97,30 @@ public class AdminService {
     /**
      * Remove account.
      *
-     * @param userId User ID.
-     * @return Affected rows JSON object.
+     * @param accId Account ID.
      */
-    public JsonObject remove(UUID userId) {
-        int rows;
-
+    public void remove(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
-            cfgsSvc.deleteByAccountId(userId);
-            notebooksSvc.deleteAll(userId);
-            rows = accountsSvc.delete(userId);
+            cfgsSvc.deleteByAccountId(accId);
+            notebooksSvc.deleteAll(accId);
+            accountsSvc.delete(accId);
 
             tx.commit();
         }
-
-        return rowsAffected(rows);
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param admin Admin flag.
-     * @return Affected rows JSON object.
      */
-    public JsonObject toggle(UUID userId, boolean admin) {
-        accountsSvc.toggle(userId, admin);
-
-        return rowsAffected(1);
+    public void toggle(UUID accId, boolean admin) {
+        accountsSvc.toggle(accId, admin);
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      */
-    public void become(UUID userId) {
+    public void become(UUID accId) {
         throw new UnsupportedOperationException("Not implemented yet!");
     }
 }

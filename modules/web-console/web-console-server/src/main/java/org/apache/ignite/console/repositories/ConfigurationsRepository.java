@@ -19,6 +19,7 @@ package org.apache.ignite.console.repositories;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
@@ -48,7 +49,10 @@ import static org.apache.ignite.console.json.JsonUtils.toJson;
  * Repository to work with configurations.
  */
 @Repository
-public class ConfigurationsRepository extends AbstractRepository {
+public class ConfigurationsRepository {
+    /** */
+    protected final TransactionManager txMgr;
+
     /** */
     private final Table<Cluster> clustersTbl;
 
@@ -73,12 +77,15 @@ public class ConfigurationsRepository extends AbstractRepository {
     /** */
     private final OneToManyIndex igfssIdx;
 
+    /** */
+    protected final OneToManyIndex configIdx;
+
     /**
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
      */
     public ConfigurationsRepository(Ignite ignite, TransactionManager txMgr) {
-        super(ignite, txMgr);
+        this.txMgr = txMgr;
 
         clustersTbl = new Table<Cluster>(ignite, "wc_account_clusters")
             .addUniqueIndex(Cluster::name, (cluster) -> "Cluster '" + cluster + "' already exits");
@@ -91,18 +98,23 @@ public class ConfigurationsRepository extends AbstractRepository {
         cachesIdx = new OneToManyIndex(ignite, "wc_cluster_caches_idx");
         modelsIdx = new OneToManyIndex(ignite, "wc_cluster_models_idx");
         igfssIdx = new OneToManyIndex(ignite, "wc_cluster_igfss_idx");
+
+        configIdx = new OneToManyIndex(ignite, "wc_account_configs_idx");
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Configuration in JSON format.
      */
-    public JsonObject loadConfiguration(UUID clusterId) {
-        try (Transaction ignored = txStart()) {
+    public JsonObject loadConfiguration(UUID accId, UUID clusterId) {
+        try (Transaction ignored = txMgr.txStart()) {
             Cluster cluster = clustersTbl.load(clusterId);
 
             if (cluster == null)
                 throw new IllegalStateException("Cluster not found for ID: " + clusterId);
+
+            clustersIdx.validate(accId, cluster.getId());
 
             Collection<Cache> caches = cachesTbl.loadAll(cachesIdx.load(clusterId));
             Collection<Model> models = modelsTbl.loadAll(modelsIdx.load(clusterId));
@@ -137,12 +149,12 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      * @return List of user clusters.
      */
-    public JsonArray loadClusters(UUID userId) {
-        try (Transaction ignored = txStart()) {
-            TreeSet<UUID> clusterIds = clustersIdx.load(userId);
+    public JsonArray loadClusters(UUID accId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            TreeSet<UUID> clusterIds = clustersIdx.load(accId);
 
             Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
 
@@ -155,86 +167,137 @@ public class ConfigurationsRepository extends AbstractRepository {
     }
 
     /**
-     * @param id Object ID.
-     * @return DTO.
-     */
-    private <T extends DataObject> T loadObject(UUID id, Table<? extends DataObject> tbl, String objName) {
-        T obj;
-
-        try (Transaction ignored = txStart()) {
-            obj = (T)tbl.load(id);
-        }
-
-        if (obj == null)
-            throw new IllegalStateException(objName + " not found for ID: " + id);
-
-        return obj;
-    }
-
-    /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Cluster.
      */
-    public Cluster loadCluster(UUID clusterId) {
-        return loadObject(clusterId, clustersTbl, "Cluster");
+    public Cluster loadCluster(UUID accId, UUID clusterId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            clustersIdx.validate(accId, clusterId);
+
+            Cluster cluster = clustersTbl.load(clusterId);
+
+            if (cluster == null)
+                throw new IllegalStateException("Cluster not found for ID: " + clusterId);
+
+            return cluster;
+        }
     }
 
     /**
+     * @param accId Account ID.
      * @param cacheId Cache ID.
      * @return Cache.
      */
-    public Cache loadCache(UUID cacheId) {
-        return loadObject(cacheId, cachesTbl, "Cache");
+    public Cache loadCache(UUID accId, UUID cacheId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            configIdx.validate(accId, cacheId);
+
+            Cache cache = cachesTbl.load(cacheId);
+
+            if (cache == null)
+                throw new IllegalStateException("Cache not found for ID: " + cacheId);
+
+            return cache;
+        }
     }
 
     /**
+     * @param accId Account ID.
      * @param mdlId Model ID.
      * @return Model.
      */
-    public Model loadModel(UUID mdlId) {
-        return loadObject(mdlId, modelsTbl, "Model");
+    public Model loadModel(UUID accId, UUID mdlId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            configIdx.validate(accId, mdlId);
+
+            Model mdl = modelsTbl.load(mdlId);
+
+            if (mdl == null)
+                throw new IllegalStateException("Model not found for ID: " + mdlId);
+
+            return mdl;
+        }
     }
 
     /**
+     * @param accId Account ID.
      * @param igfsId IGFS ID.
      * @return IGFS.
      */
-    public Igfs loadIgfs(UUID igfsId) {
-        return loadObject(igfsId, modelsTbl, "IGFS");
+    public Igfs loadIgfs(UUID accId, UUID igfsId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            configIdx.validate(accId, igfsId);
+
+            Igfs igfs = igfssTbl.load(igfsId);
+
+            if (igfs == null)
+                throw new IllegalStateException("IGFS not found for ID: " + igfsId);
+
+            return igfs;
+        }
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster caches.
      */
-    public Collection<Cache> loadCaches(UUID clusterId) {
-        return loadList(clusterId, cachesIdx, cachesTbl);
+    public Collection<Cache> loadCaches(UUID accId, UUID clusterId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            TreeSet<UUID> cachesIds = cachesIdx.load(clusterId);
+
+            configIdx.validateAll(accId, cachesIds);
+
+            return cachesTbl.loadAll(cachesIds);
+        }
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster models.
      */
-    public Collection<Model> loadModels(UUID clusterId) {
-        return loadList(clusterId, modelsIdx, modelsTbl);
+    public Collection<Model> loadModels(UUID accId, UUID clusterId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            TreeSet<UUID> modelsIds = modelsIdx.load(clusterId);
+
+            configIdx.validateAll(accId, modelsIds);
+
+            return modelsTbl.loadAll(modelsIds);
+        }
     }
 
     /**
+     * @param accId Account ID.
      * @param clusterId Cluster ID.
      * @return Collection of cluster IGFSs.
      */
-    public Collection<Igfs> loadIgfss(UUID clusterId) {
-        return loadList(clusterId, igfssIdx, igfssTbl);
+    public Collection<Igfs> loadIgfss(UUID accId, UUID clusterId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            configIdx.validate(accId, clusterId);
+
+            TreeSet<UUID> igfsIds = igfssIdx.load(clusterId);
+
+            configIdx.validateAll(accId, igfsIds);
+
+            return igfssTbl.loadAll(igfsIds);
+        }
     }
 
     /**
      * Handle objects that was deleted from cluster.
      *
+     * @param accId Account ID.
+     * @param tbl Table with DTOs.
+     * @param idx Foreign key.
+     * @param clusterId Cluster ID.
      * @param oldCluster Old cluster JSON.
      * @param newCluster New cluster JSON.
      * @param fld Field name that holds IDs to check for deletion.
      */
     private void removedInCluster(
+        UUID accId,
         Table<? extends DataObject> tbl,
         OneToManyIndex idx,
         UUID clusterId,
@@ -248,34 +311,38 @@ public class ConfigurationsRepository extends AbstractRepository {
         TreeSet<UUID> deletedIds = diff(oldIds, newIds);
 
         if (!F.isEmpty(deletedIds)) {
+            configIdx.validateAll(accId, deletedIds);
+
             tbl.deleteAll(deletedIds);
             idx.removeAll(clusterId, deletedIds);
         }
     }
 
     /**
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param changedItems Items to save.
      * @return Saved cluster.
      */
-    private Cluster saveCluster(UUID userId, JsonObject changedItems) {
+    private Cluster saveCluster(UUID accId, JsonObject changedItems) {
         JsonObject jsonCluster = changedItems.getJsonObject("cluster");
 
         Cluster newCluster = Cluster.fromJson(jsonCluster);
 
         UUID clusterId = newCluster.getId();
 
+        clustersIdx.validateSave(accId, clusterId, clustersTbl);
+
         Cluster oldCluster = clustersTbl.load(clusterId);
 
         if (oldCluster != null) {
             JsonObject oldClusterJson = fromJson(oldCluster.json());
 
-            removedInCluster(cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
-            removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
-            removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
+            removedInCluster(accId, cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
+            removedInCluster(accId, modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
+            removedInCluster(accId, igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
         }
 
-        clustersIdx.add(userId, clusterId);
+        clustersIdx.add(accId, clusterId);
 
         clustersTbl.save(newCluster);
 
@@ -287,7 +354,7 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param json JSON data.
      * @param basic {@code true} in case of saving basic cluster.
      */
-    private void saveCaches(Cluster cluster, JsonObject json, boolean basic) {
+    private void saveCaches(UUID accId, Cluster cluster, JsonObject json, boolean basic) {
         JsonArray jsonCaches = json.getJsonArray("caches");
 
         if (F.isEmpty(jsonCaches))
@@ -298,8 +365,12 @@ public class ConfigurationsRepository extends AbstractRepository {
             .map(item -> Cache.fromJson(asJson(item)))
             .collect(toMap(Cache::getId, c -> c));
 
+        Set<UUID> cacheIds = caches.keySet();
+
+        configIdx.validateSaveAll(accId, cacheIds, cachesTbl);
+
         if (basic) {
-            Collection<Cache> oldCaches = cachesTbl.loadAll(new TreeSet<>(caches.keySet()));
+            Collection<Cache> oldCaches = cachesTbl.loadAll(new TreeSet<>(cacheIds));
 
             oldCaches.forEach(oldCache -> {
                 Cache newCache = caches.get(oldCache.getId());
@@ -313,7 +384,9 @@ public class ConfigurationsRepository extends AbstractRepository {
             });
         }
 
-        cachesIdx.addAll(cluster.getId(), caches.keySet());
+        configIdx.addAll(accId, cacheIds);
+
+        cachesIdx.addAll(cluster.getId(), cacheIds);
 
         cachesTbl.saveAll(caches);
     }
@@ -322,7 +395,7 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param cluster Cluster.
      * @param json JSON data.
      */
-    private void saveModels(Cluster cluster, JsonObject json) {
+    private void saveModels(UUID accId, Cluster cluster, JsonObject json) {
         JsonArray jsonModels = json.getJsonArray("models");
 
         if (F.isEmpty(jsonModels))
@@ -333,7 +406,13 @@ public class ConfigurationsRepository extends AbstractRepository {
             .map(item -> Model.fromJson(asJson(item)))
             .collect(toMap(Model::getId, m -> m));
 
-        modelsIdx.addAll(cluster.getId(), mdls.keySet());
+        Set<UUID> mdlIds = mdls.keySet();
+
+        configIdx.validateSaveAll(accId, mdlIds, modelsTbl);
+
+        configIdx.addAll(accId, mdlIds);
+
+        modelsIdx.addAll(cluster.getId(), mdlIds);
 
         modelsTbl.saveAll(mdls);
     }
@@ -342,7 +421,7 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param cluster Cluster.
      * @param json JSON data.
      */
-    private void saveIgfss(Cluster cluster, JsonObject json) {
+    private void saveIgfss(UUID accId, Cluster cluster, JsonObject json) {
         JsonArray jsonIgfss = json.getJsonArray("igfss");
 
         if (F.isEmpty(jsonIgfss))
@@ -353,7 +432,13 @@ public class ConfigurationsRepository extends AbstractRepository {
             .map(item -> Igfs.fromJson(asJson(item)))
             .collect(toMap(Igfs::getId, i -> i));
 
-        igfssIdx.addAll(cluster.getId(), igfss.keySet());
+        Set<UUID> igfsIds = igfss.keySet();
+
+        configIdx.validateSaveAll(accId, igfsIds, igfssTbl);
+
+        configIdx.addAll(accId, igfsIds);
+
+        igfssIdx.addAll(cluster.getId(), igfsIds);
 
         igfssTbl.saveAll(igfss);
     }
@@ -361,16 +446,16 @@ public class ConfigurationsRepository extends AbstractRepository {
     /**
      * Save full cluster.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param json Configuration in JSON format.
      */
-    public void saveAdvancedCluster(UUID userId, JsonObject json) {
-        try (Transaction tx = txStart()) {
-            Cluster cluster = saveCluster(userId, json);
+    public void saveAdvancedCluster(UUID accId, JsonObject json) {
+        try (Transaction tx = txMgr.txStart()) {
+            Cluster cluster = saveCluster(accId, json);
 
-            saveCaches(cluster, json, false);
-            saveModels(cluster, json);
-            saveIgfss(cluster, json);
+            saveCaches(accId, cluster, json, false);
+            saveModels(accId, cluster, json);
+            saveIgfss(accId, cluster, json);
 
             tx.commit();
         }
@@ -379,14 +464,14 @@ public class ConfigurationsRepository extends AbstractRepository {
     /**
      * Save basic cluster.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param json Configuration in JSON format.
      */
-    public void saveBasicCluster(UUID userId, JsonObject json) {
-        try (Transaction tx = txStart()) {
-            Cluster cluster = saveCluster(userId, json);
+    public void saveBasicCluster(UUID accId, JsonObject json) {
+        try (Transaction tx = txMgr.txStart()) {
+            Cluster cluster = saveCluster(accId, json);
 
-            saveCaches(cluster, json, true);
+            saveCaches(accId, cluster, json, true);
 
             tx.commit();
         }
@@ -399,8 +484,11 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param fkIdx Foreign key.
      * @param tbl Table with children.
      */
-    private void deleteClusterObjects(UUID clusterId, OneToManyIndex fkIdx, Table<? extends DataObject> tbl) {
+    private void deleteClusterObjects(UUID accId, UUID clusterId, OneToManyIndex fkIdx, Table<? extends DataObject> tbl) {
         TreeSet<UUID> ids = fkIdx.delete(clusterId);
+
+        configIdx.validateAll(accId, ids);
+        configIdx.removeAll(accId, ids);
 
         tbl.deleteAll(ids);
     }
@@ -410,30 +498,29 @@ public class ConfigurationsRepository extends AbstractRepository {
      *
      * @param clusterId Cluster ID.
      */
-    protected void deleteAllClusterObjects(UUID clusterId) {
-        deleteClusterObjects(clusterId, cachesIdx, cachesTbl);
-        deleteClusterObjects(clusterId, modelsIdx, modelsTbl);
-        deleteClusterObjects(clusterId, igfssIdx, igfssTbl);
+    protected void deleteAllClusterObjects(UUID accId, UUID clusterId) {
+        deleteClusterObjects(accId, clusterId, cachesIdx, cachesTbl);
+        deleteClusterObjects(accId, clusterId, modelsIdx, modelsTbl);
+        deleteClusterObjects(accId, clusterId, igfssIdx, igfssTbl);
     }
 
     /**
      * Delete clusters.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param clusterIds Cluster IDs to delete.
-     * @return Number of deleted clusters.
      */
-    public int deleteClusters(UUID userId, TreeSet<UUID> clusterIds) {
-        try (Transaction tx = txStart()) {
-            clusterIds.forEach(this::deleteAllClusterObjects);
+    public void deleteClusters(UUID accId, TreeSet<UUID> clusterIds) {
+        try (Transaction tx = txMgr.txStart()) {
+            configIdx.validateAll(accId, clusterIds);
+
+            clusterIds.forEach(clusterId -> deleteAllClusterObjects(accId, clusterId));
 
             clustersTbl.deleteAll(clusterIds);
-            clustersIdx.removeAll(userId, clusterIds);
+            clustersIdx.removeAll(accId, clusterIds);
 
             tx.commit();
         }
-
-        return clusterIds.size();
     }
 
     /**
@@ -442,10 +529,10 @@ public class ConfigurationsRepository extends AbstractRepository {
      * @param accId Account ID.
      */
     public void deleteByAccountId(UUID accId) {
-        try (Transaction tx = txStart()) {
+        try (Transaction tx = txMgr.txStart()) {
             TreeSet<UUID> clusterIds = clustersIdx.delete(accId);
 
-            clusterIds.forEach(this::deleteAllClusterObjects);
+            clusterIds.forEach(clusterId -> deleteAllClusterObjects(accId, clusterId));
 
             clustersTbl.deleteAll(clusterIds);
 

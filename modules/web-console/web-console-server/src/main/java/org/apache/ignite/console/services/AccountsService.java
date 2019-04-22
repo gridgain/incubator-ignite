@@ -115,10 +115,9 @@ public class AccountsService implements UserDetailsService {
      * Delete account by ID.
      *
      * @param accId Account ID.
-     * @return Number of removed accounts.
      */
-    public int delete(UUID accId) {
-        return accountsRepo.delete(accId);
+    public void delete(UUID accId) {
+        accountsRepo.delete(accId);
     }
 
     /**
@@ -128,7 +127,7 @@ public class AccountsService implements UserDetailsService {
      * @param adminFlag New value for admin flag.
      */
     public void toggle(UUID accId, boolean adminFlag) {
-        try (Transaction tx = accountsRepo.txStart()) {
+        try (Transaction tx = txMgr.txStart()) {
             Account account = accountsRepo.getById(accId);
 
             if (account.admin() != adminFlag) {
@@ -148,7 +147,7 @@ public class AccountsService implements UserDetailsService {
      * @param changes Changes to apply to user.
      */
     public void save(UUID accId, ChangeUserRequest changes) {
-        try (Transaction tx = accountsRepo.txStart()) {
+        try (Transaction tx = txMgr.txStart()) {
             Account acc = accountsRepo.getById(accId);
 
             String pwd = changes.getPassword();
