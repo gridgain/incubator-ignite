@@ -17,15 +17,23 @@
 
 package org.apache.ignite.console.db;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.dto.AbstractDto;
+import org.apache.ignite.internal.util.typedef.F;
+
+import static java.util.stream.Collectors.toSet;
 
 /**
  * Index for one to many relation.
  */
 public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
+    /** */
+    private static final String ERR_DATA_ACCESS_VIOLATION = "Data access violation";
+
     /**
      * Constructor.
      *
@@ -116,5 +124,60 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      */
     public TreeSet<UUID> delete(UUID parent) {
         return ensure(cache.getAndRemove(parent));
+    }
+
+    /**
+     * Validate that parent has specified child.
+     *
+     * @param parent Parent key.
+     * @param child Child key.
+     */
+    public void validate(UUID parent, UUID child) {
+        TreeSet<UUID> children = load(parent);
+
+        if (!children.contains(child))
+            throw new IllegalStateException(ERR_DATA_ACCESS_VIOLATION);
+    }
+
+    /**
+     * Validate that child can be saved to parent.
+     *
+     * @param parent Parent key.
+     * @param child Child key.
+     * @param tbl Table.
+     */
+    public void validateSave(UUID parent, UUID child, Table<? extends AbstractDto> tbl) {
+        if (!tbl.contains(child))
+            return;
+
+        validate(parent, child);
+    }
+
+    /**
+     * Validate that parent has all specified children.
+     *
+     * @param parent Parent key.
+     * @param children Children keys.
+     */
+    public void validateAll(UUID parent, Collection<UUID> children) {
+        TreeSet<UUID> allChildren = load(parent);
+
+        if (!allChildren.containsAll(children))
+            throw new IllegalStateException(ERR_DATA_ACCESS_VIOLATION);
+    }
+
+    /**
+     * Validate that children can be saved to parent.
+     *
+     * @param parent Parent key.
+     * @param children Children keys.
+     */
+    public void validateSaveAll(UUID parent, Collection<UUID> children, Table<? extends AbstractDto> tbl) {
+        Set<UUID> existing = children.stream().filter(tbl::contains).collect(toSet());
+
+        if (F.isEmpty(existing))
+            return;
+
+        validateAll(parent, existing);
     }
 }

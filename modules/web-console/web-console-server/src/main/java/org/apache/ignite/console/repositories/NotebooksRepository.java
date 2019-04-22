@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.ForeignKeyIndex;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
@@ -43,9 +42,6 @@ public class NotebooksRepository {
     /** */
     private final OneToManyIndex notebooksIdx;
 
-    /** */
-    private final ForeignKeyIndex accFkIdx;
-
     /**
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
@@ -57,8 +53,6 @@ public class NotebooksRepository {
             .addUniqueIndex(Notebook::getName, (notebook) -> "Notebook '" + notebook.getName() + "' already exits");
 
         notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
-
-        accFkIdx = new ForeignKeyIndex(ignite, "wc_accounts_fk_idx");
     }
 
     /**
@@ -81,7 +75,7 @@ public class NotebooksRepository {
      */
     public void save(UUID accId, Notebook notebook) {
         try (Transaction tx = txMgr.txStart()) {
-            accFkIdx.add(accId, notebook.getId());
+            notebooksIdx.validateSave(accId, notebook.getId(), notebooksTbl);
 
             notebooksTbl.save(notebook);
 
@@ -99,11 +93,11 @@ public class NotebooksRepository {
      */
     public void delete(UUID accId, UUID notebookId) {
         try (Transaction tx = txMgr.txStart()) {
+            notebooksIdx.validate(accId, notebookId);
+
             Notebook notebook = notebooksTbl.load(notebookId);
 
             if (notebook != null) {
-                accFkIdx.delete(accId, notebook.getId());
-
                 notebooksTbl.delete(notebookId);
 
                 notebooksIdx.remove(accId, notebookId);
@@ -121,8 +115,6 @@ public class NotebooksRepository {
     public void deleteAll(UUID accId) {
         try(Transaction tx = txMgr.txStart()) {
             TreeSet<UUID> notebooksIds = notebooksIdx.delete(accId);
-
-            accFkIdx.deleteAll(accId, notebooksIds);
 
             notebooksTbl.deleteAll(notebooksIds);
 
