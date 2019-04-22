@@ -99,6 +99,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .and()
             .authorizeRequests()
             .antMatchers(PUBLIC_ROUTES).permitAll()
+            .antMatchers("/api/v1/admin/**").hasRole("ADMIN")
+            .antMatchers("/api/v1/**").hasRole("USER")
             .anyRequest().authenticated()
             .and()
             .addFilterBefore(authenticationFilter(), UsernamePasswordAuthenticationFilter.class)
