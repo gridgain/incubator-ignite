@@ -15,11 +15,11 @@
 # limitations under the License.
 #
 
+spring.messages.basename: i18/messages,i18/notifications
+
 spring.mail:
   host: your.smtp.com
   username: ds
   password: ds
-
-messages:
-  templates:
-    BASE: templates/mail/base.html
+  messages:
+    defaultTemplatePath: templates/mail/base.html

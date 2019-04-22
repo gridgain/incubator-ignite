@@ -18,19 +18,21 @@
 package org.apache.ignite.console.notification.config;
 
 import java.util.Map;
-import org.apache.ignite.console.model.NotificationType;
+import org.apache.ignite.console.notification.model.NotificationDescriptor;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * Mail configuration.
  */
-@ConfigurationProperties(prefix = "messages")
+@Component
+@ConfigurationProperties(prefix = "spring.mail.templates")
 public class MessagesProperties {
     private String defaultTemplatePath;
 
     /** Templates path. */
-    private Map<NotificationType, String> templates;
+    private Map<NotificationDescriptor, String> templates;
 
     public String getDefaultTemplatePath() {
         return defaultTemplatePath;
@@ -43,21 +45,21 @@ public class MessagesProperties {
     /**
      * @param type Notification type.
      */
-    public String getTemplatePath(NotificationType type) {
+    public String getTemplatePath(NotificationDescriptor type) {
         return templates == null ? defaultTemplatePath : templates.getOrDefault(type, defaultTemplatePath);
     }
 
     /**
      * @return Templates path.
      */
-    public Map<NotificationType, String> getTemplates() {
+    public Map<NotificationDescriptor, String> getTemplates() {
         return templates;
     }
 
     /**
      * @param templates New templates path.
      */
-    public void setTemplates(Map<NotificationType, String> templates) {
+    public void setTemplates(Map<NotificationDescriptor, String> templates) {
         this.templates = templates;
     }
 

@@ -17,6 +17,9 @@
 
 server.port: 3000
 
+app:
+  activation.enabled: false
+
 websocket:
   ssl.enabled: false
   allowed.origin: https://localhost
@@ -24,3 +27,14 @@ websocket:
 agent:
   folder.name: agent_dists
   file.regexp: ignite\-web\-console\-agent.*\.zip
+
+spring.mail:
+  host: smtp.gmail.com
+  port: 587
+  username: anovikov@gridgain.com
+  password: extHB2aXgb
+  properties.mail.smtp:
+    auth: true
+    starttls.enable: true
+  messages:
+    defaultTemplatePath: templates/mail/base.html

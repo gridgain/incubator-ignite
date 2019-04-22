@@ -19,7 +19,7 @@ package org.apache.ignite.console.dto;
 
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.console.model.Recipient;
+import org.apache.ignite.console.notification.model.Recipient;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -252,8 +252,15 @@ public class Account extends AbstractDto implements UserDetails, Recipient {
     /**
      * @return Reset password token.
      */
-    public String resetPasswordToken() {
+    public String getResetPasswordToken() {
         return resetPwdTok;
+    }
+
+    /**
+     * @param resetPwdTok Reset password token.
+     */
+    public void setResetPasswordToken(String resetPwdTok) {
+        this.resetPwdTok = resetPwdTok;
     }
 
     /** {@inheritDoc} */

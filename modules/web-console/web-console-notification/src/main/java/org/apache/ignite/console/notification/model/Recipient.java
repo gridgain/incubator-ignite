@@ -15,8 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.model;
+package org.apache.ignite.console.notification.model;
 
-public enum NotificationType {
-    BASE;
+public interface Recipient {
+    /**
+     * @return Email.
+     */
+    public String getEmail();
+
+    /**
+     * @return Phone.
+     */
+    public String getPhone();
 }

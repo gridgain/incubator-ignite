@@ -26,8 +26,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  * Notification service launcher.
  */
 @SpringBootApplication
-@EnableConfigurationProperties(MessagesProperties.class)
-public class Application {              
+public class Application {
     /**
      * @param args Args.
      */

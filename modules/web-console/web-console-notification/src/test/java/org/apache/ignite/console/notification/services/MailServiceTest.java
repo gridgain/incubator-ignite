@@ -18,14 +18,12 @@
 package org.apache.ignite.console.notification.services;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Properties;
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.internet.MimeMessage;
-import org.apache.ignite.console.model.Notification;
-import org.apache.ignite.console.model.NotificationType;
-import org.apache.ignite.console.model.Recipient;
+import org.apache.ignite.console.notification.model.Notification;
+import org.apache.ignite.console.notification.model.Recipient;
 import org.apache.ignite.console.notification.config.MessagesProperties;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +32,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.MessageSource;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import static org.junit.Assert.assertEquals;
@@ -44,6 +44,10 @@ import static org.mockito.Mockito.when;
 @RunWith(MockitoJUnitRunner.class)
 @SpringBootTest
 public class MailServiceTest {
+    /** Message source. */
+    @Autowired
+    private MessageSource msgSrc;
+
     /** JavaMail sender. */
     @Mock
     private JavaMailSender mailSnd;
@@ -60,9 +64,7 @@ public class MailServiceTest {
     public void setup() {
         MessagesProperties cfg = new MessagesProperties();
 
-        cfg.setTemplates(new HashMap<>());
-
-        srvc = new MailService(mailSnd, cfg);
+        srvc = new MailService(msgSrc, mailSnd, cfg);
 
         when(mailSnd.createMimeMessage())
             .thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
@@ -70,7 +72,14 @@ public class MailServiceTest {
 
     @Test
     public void shouldSendEmail() throws MessagingException, IOException {
-        Notification notification = new Notification(new TestRecipient(), NotificationType.BASE, "subject", "text");
+        Notification notification = new Notification(
+            "http://test.com",
+            new TestRecipient(),
+            null
+        );
+
+//        notification.setSubject("subject");
+//        notification.setMessage("text");
 
         srvc.send(notification);
 
@@ -83,13 +92,15 @@ public class MailServiceTest {
     }
 
     @Test
-    public void shouldSendEmailWithTemplate() throws MessagingException, IOException {
+    public void shouldSendEmailWithExpressionInSubject() throws MessagingException, IOException {
         Notification notification = new Notification(
+            "http://test.com",
             new TestRecipient(),
-            NotificationType.BASE,
-            "Hello ${recipient.firstName} ${recipient.lastName}! subject",
-            "Hello ${recipient.firstName} ${recipient.lastName}! text"
+            null
         );
+
+//        notification.setSubject("Hello ${recipient.firstName} ${recipient.lastName}! subject");
+//        notification.setMessage("text");
 
         srvc.send(notification);
 
@@ -98,13 +109,13 @@ public class MailServiceTest {
         MimeMessage msg = captor.getValue();
 
         assertEquals("Hello firstName lastName! subject", msg.getSubject());
-        assertEquals("Hello firstName lastName! text", msg.getContent());
+        assertEquals("text", msg.getContent());
     }
 
     /** */
     private static class TestRecipient implements Recipient {
         /** First name. */
-        public String firstName = "firstName";
+        private String fn = "firstName";
         /** Last name. */
         public String lastName = "lastName";
 
@@ -116,6 +127,13 @@ public class MailServiceTest {
         /** {@inheritDoc} */
         @Override public String getPhone() {
             return null;
+        }
+
+        /**
+         * @return First name.
+         */
+        public String getFirstName() {
+            return fn;
         }
     }
 }

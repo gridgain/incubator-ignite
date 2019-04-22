@@ -21,13 +21,16 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Scanner;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
-import org.apache.ignite.console.model.Notification;
-import org.apache.ignite.console.model.NotificationType;
 import org.apache.ignite.console.notification.config.MessagesProperties;
+import org.apache.ignite.console.notification.model.Notification;
+import org.apache.ignite.console.notification.model.NotificationDescriptor;
+import org.apache.ignite.console.notification.model.Recipient;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.springframework.context.MessageSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.ExpressionParser;
@@ -42,10 +45,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class MailService {
     /** Expression parser. */
-    private final ExpressionParser parser = new SpelExpressionParser();
+    private static final ExpressionParser parser = new SpelExpressionParser();
 
     /** Template parser context. */
-    private final TemplateParserContext templateParserCtx = new TemplateParserContext("${", "}");
+    private static final TemplateParserContext templateParserCtx = new TemplateParserContext("${", "}");
+
+    /** Message source. */
+    private MessageSource msgSrc;
 
     /** JavaMail sender */
     private JavaMailSender mailSnd;
@@ -54,11 +60,12 @@ public class MailService {
     private MessagesProperties cfg;
 
     /**
+     * @param msgSrc Message source.
      * @param mailSnd Mail sender.
      * @param cfg Mail properties.
-     *
      */
-    public MailService(JavaMailSender mailSnd, MessagesProperties cfg) {
+    public MailService(MessageSource msgSrc, JavaMailSender mailSnd, MessagesProperties cfg) {
+        this.msgSrc = msgSrc;
         this.mailSnd = mailSnd;
         this.cfg = cfg;
     }
@@ -70,21 +77,24 @@ public class MailService {
      */
     public void send(Notification notification) {
         try {
+            NotificationWrapper ctxObj = new NotificationWrapper(notification);
+
+            EvaluationContext ctx = createContext(ctxObj);
+
+            NotificationDescriptor desc = notification.getDescriptor();
+
+            ctxObj.setSubject(processExpressions(getMessage(desc.subjectCode()), ctx));
+            ctxObj.setMessage(processExpressions(getMessage(desc.messageCode()), ctx));
+
+            String template = loadMessageTemplate(notification.getDescriptor());
+
             MimeMessage msg = mailSnd.createMimeMessage();
 
             MimeMessageHelper msgHelper = new MimeMessageHelper(msg);
 
             msgHelper.setTo(notification.getRecipient().getEmail());
-
-            EvaluationContext ctx = createContext(notification);
-
-            String sbj = processExpressions(notification.getSubject(), ctx);
-
-            msgHelper.setSubject(sbj);
-
-            String template = loadMessageTemplate(notification.getType());
-            
-            msgHelper.setText(processExpressions(template == null ? notification.getMessage() : template, ctx), true);
+            msgHelper.setSubject(ctxObj.getSubject());
+            msgHelper.setText(template == null ? ctxObj.getMessage() : processExpressions(template, ctx), true);
 
             mailSnd.send(msg);
         }
@@ -94,16 +104,9 @@ public class MailService {
     }
 
     /**
-     * @param notification Notification.
-     */
-    private EvaluationContext createContext(Notification notification) {
-        return new StandardEvaluationContext(notification);
-    }
-
-    /**
      * @param type Notification type.
      */
-    private String loadMessageTemplate(NotificationType type) throws IOException {
+    private String loadMessageTemplate(NotificationDescriptor type) throws IOException {
         String path = cfg.getTemplatePath(type);
 
         if (path == null)
@@ -129,10 +132,61 @@ public class MailService {
     }
 
     /**
-     * @param template Template.
+     * @param rootObj the root object to use.
+     */
+    private EvaluationContext createContext(Object rootObj) {
+        return new StandardEvaluationContext(rootObj);
+    }
+
+    /**
+     * @param expression The raw expression string to parse.
      * @param ctx Context.
      */
-    private String processExpressions(String template, EvaluationContext ctx) {
-        return parser.parseExpression(template, templateParserCtx).getValue(ctx, String.class);
+    private String processExpressions(String expression, EvaluationContext ctx) {
+        return parser.parseExpression(expression, templateParserCtx).getValue(ctx, String.class);
+    }
+
+    /**
+     * Try to resolve the message.
+     * @param code Code.
+     */
+    private String getMessage(String code) {
+        return msgSrc.getMessage(code, null, Locale.US);
+    }
+
+    private static class NotificationWrapper extends StandardEvaluationContext {
+        private String origin;
+        private Recipient rcpt;
+        private String subject;
+        private String message;
+
+        private NotificationWrapper(Notification notification) {
+            this.origin = notification.getOrigin();
+            this.rcpt = notification.getRecipient();
+        }
+
+        public String getOrigin() {
+            return origin;
+        }
+
+        public Recipient getRecipient() {
+            return rcpt;
+        }
+
+        public String getSubject() {
+            return subject;
+        }
+
+        public void setSubject(String subject) {
+            this.subject = subject;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 }

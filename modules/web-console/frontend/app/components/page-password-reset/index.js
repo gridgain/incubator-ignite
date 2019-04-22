@@ -42,7 +42,7 @@ export default angular
             template: '<ui-view></ui-view>'
         })
         .state('password.reset', {
-            url: '/reset?{token}',
+            url: '/reset?{email}{token}',
             views: {
                 '@': {
                     template: publicTemplate
