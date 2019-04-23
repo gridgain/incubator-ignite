@@ -69,7 +69,7 @@ export default class IgniteAdminData {
                 this.Messages.showInfo(`Admin rights was successfully ${admin ? 'granted' : 'revoked'} for user: "${user.userName}"`);
             })
             .catch((res) => {
-                this.Messages.showError(`Failed to ${admin ? 'grant' : 'revoke'} admin rights for user: "${user.userName}"`, res);
+                this.Messages.showError(`Failed to ${admin ? 'grant' : 'revoke'} admin rights for user: "${user.userName}". <br/>`, res);
             });
     }
 
