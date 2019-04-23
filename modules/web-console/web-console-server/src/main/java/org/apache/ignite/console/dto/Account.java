@@ -140,7 +140,7 @@ public class Account extends AbstractDto implements UserDetails, Recipient {
     /**
      * @param lastName New last name.
      */
-    public void lastName(String lastName) {
+    public void setLastName(String lastName) {
         this.lastName = lastName;
     }
 

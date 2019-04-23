@@ -30,6 +30,7 @@ import org.apache.ignite.console.notification.model.Notification;
 import org.apache.ignite.console.notification.model.NotificationDescriptor;
 import org.apache.ignite.console.notification.model.Recipient;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.expression.EvaluationContext;
@@ -44,6 +45,14 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class MailService {
+    /** From. */
+    @Value("${spring.mail.username}")
+    private String from;
+
+    /** From alias. */
+    @Value("${spring.mail.from.alias}")
+    private String fromAlias;
+
     /** Expression parser. */
     private static final ExpressionParser parser = new SpelExpressionParser();
 
@@ -93,6 +102,7 @@ public class MailService {
             MimeMessageHelper msgHelper = new MimeMessageHelper(msg);
 
             msgHelper.setTo(notification.getRecipient().getEmail());
+            msgHelper.setFrom(from, fromAlias);
             msgHelper.setSubject(ctxObj.getSubject());
             msgHelper.setText(template == null ? ctxObj.getMessage() : processExpressions(template, ctx), true);
 

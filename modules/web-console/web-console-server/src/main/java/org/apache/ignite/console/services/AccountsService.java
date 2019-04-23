@@ -181,7 +181,7 @@ public class AccountsService implements UserDetailsService {
             }
 
             acc.setFirstName(changes.getFirstName());
-            acc.lastName(changes.getLastName());
+            acc.setLastName(changes.getLastName());
             acc.setPhone(changes.getPhone());
             acc.setCountry(changes.getCountry());
             acc.setCompany(changes.getCompany());
