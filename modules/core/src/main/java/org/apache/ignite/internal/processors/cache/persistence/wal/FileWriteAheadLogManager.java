@@ -1090,6 +1090,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     private long lastArchivedIndex() {
         long lastIdx = -1;
 
+        if (log.isInfoEnabled())
+            log.info("Checking wal archive directory for last archived index: " + walArchiveDir);
+
         for (File file : walArchiveDir.listFiles(WAL_SEGMENT_COMPACTED_OR_RAW_FILE_FILTER)) {
             try {
                 long idx = Long.parseLong(file.getName().substring(0, 16));
@@ -1252,7 +1255,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
                 RecordSerializer ser = new RecordSerializerFactoryImpl(cctx).createSerializer(serVer);
 
-                if (log.isInfoEnabled())
+                    if (log.isInfoEnabled())
                     log.info("Resuming logging to WAL segment [file=" + curFile.getAbsolutePath() +
                         ", offset=" + off + ", ver=" + serVer + ']');
 
