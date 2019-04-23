@@ -43,7 +43,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(value = {AuthenticationException.class})
     protected ResponseEntity<Object> handleLockedException(AuthenticationException ex, WebRequest req) {
-        return handleExceptionInternal(ex, new ErrorResponse(errorMessage(ex)), null, FORBIDDEN, req);
+        return handleExceptionInternal(ex, new ErrorResponse(FORBIDDEN, errorMessage(ex)), null, FORBIDDEN, req);
     }
 
     /**
@@ -55,7 +55,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(value = {Exception.class})
     protected ResponseEntity<Object> handleGenericException(Exception ex, WebRequest req) {
-        return handleExceptionInternal(ex, new ErrorResponse(errorMessage(ex)),
+        return handleExceptionInternal(ex, new ErrorResponse(INTERNAL_SERVER_ERROR, errorMessage(ex)),
             null, INTERNAL_SERVER_ERROR, req);
     }
 }

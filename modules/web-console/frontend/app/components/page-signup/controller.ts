@@ -80,11 +80,9 @@ export default class PageSignup implements ng.IPostLink {
                 if (isEmailConfirmationError(err))
                     return;
 
-                const errMsg = _.get(err, 'data.message', _.get(err, 'data.errorMessage', err.data));
+                this.IgniteMessages.showError(null, err.data);
 
-                this.IgniteMessages.showError(null, errMsg);
-
-                this.setServerError(errMsg);
+                this.setServerError(_.get(err, 'data.message', err.data));
             })
             .finally(() => this.isLoading = false);
     }

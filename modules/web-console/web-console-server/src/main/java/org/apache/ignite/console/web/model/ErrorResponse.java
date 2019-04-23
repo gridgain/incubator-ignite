@@ -18,11 +18,15 @@
 package org.apache.ignite.console.web.model;
 
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.springframework.http.HttpStatus;
 
 /**
  * Error response JSON bean with the error code and technical error message.
  */
 public class ErrorResponse {
+    /** */
+    private int code;
+
     /** */
     private String msg;
 
@@ -36,10 +40,36 @@ public class ErrorResponse {
     /**
      * Full constructor.
      *
+     * @param code Error code.
      * @param msg Error message.
      */
-    public ErrorResponse(String msg) {
+    public ErrorResponse(int code, String msg) {
+        this.code = code;
         this.msg = msg;
+    }
+
+    /**
+     * Full constructor.
+     *
+     * @param status HTTP status.
+     * @param msg Error message.
+     */
+    public ErrorResponse(HttpStatus status, String msg) {
+        this(status.value(), msg);
+    }
+
+    /**
+     * @return Error code.
+     */
+    public int getCode() {
+        return code;
+    }
+
+    /**
+     * @param code Error code.
+     */
+    public void setCode(int code) {
+        this.code = code;
     }
 
     /**
@@ -50,10 +80,10 @@ public class ErrorResponse {
     }
 
     /**
-     * @param errMsg Error message.
+     * @param msg Error message.
      */
-    public void setMessage(String errMsg) {
-        this.msg = errMsg;
+    public void setMessage(String msg) {
+        this.msg = msg;
     }
 
     /** {@inheritDoc} */
