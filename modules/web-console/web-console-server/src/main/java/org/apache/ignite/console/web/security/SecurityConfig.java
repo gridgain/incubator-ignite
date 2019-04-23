@@ -71,7 +71,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     /** Public routes. */
     private static final String[] PUBLIC_ROUTES = new String[] {
         AGENTS_PATH,
-        SIGN_IN_ROUTE, SIGN_UP_ROUTE, LOGOUT_ROUTE,
+        SIGN_IN_ROUTE, SIGN_UP_ROUTE,
         FORGOT_PASSWORD_ROUTE, RESET_PASSWORD_ROUTE
     };
 
@@ -98,7 +98,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             .and()
             .authorizeRequests()
-            .antMatchers(PUBLIC_ROUTES).permitAll()
+            .antMatchers(PUBLIC_ROUTES).anonymous()
             .antMatchers("/api/v1/admin/**").hasRole("ADMIN")
             .antMatchers("/api/v1/**").hasRole("USER")
             .anyRequest().authenticated()
