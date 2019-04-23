@@ -31,6 +31,7 @@ import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Repository;
 
@@ -64,13 +65,14 @@ public class AccountsRepository {
      *
      * @param accId Account ID.
      * @return Account.
+     * @throws UsernameNotFoundException If user not found.
      */
-    public Account getById(UUID accId) {
+    public Account getById(UUID accId) throws UsernameNotFoundException {
         try (Transaction ignored = txMgr.txStart()) {
             Account account = accountsTbl.load(accId);
 
             if (account == null)
-                throw new IllegalStateException("Account not found with ID: " + accId);
+                throw new UsernameNotFoundException("Account not found with ID: " + accId);
 
             return account;
         }
@@ -101,14 +103,16 @@ public class AccountsRepository {
      * Save account.
      *
      * @param account Account to save.
+     * @return Saved account.
+     * @throws AuthenticationServiceException if failed to save account.
      */
     @SuppressWarnings("unchecked")
-    public Account create(Account account) {
+    public Account create(Account account) throws AuthenticationServiceException {
         try (Transaction tx = txMgr.txStart()) {
             IgniteCache cache = accountsTbl.cache();
 
             if (accountsTbl.getByIndex(account.getUsername()) != null)
-                throw new IgniteException("Account with email already exists: " + account.getUsername());
+                throw new AuthenticationServiceException("Account with email already exists: " + account.getUsername());
 
             Object firstUserMarker = cache.getAndPutIfAbsent(FIRST_USER_MARKER_KEY, account.getId());
 
