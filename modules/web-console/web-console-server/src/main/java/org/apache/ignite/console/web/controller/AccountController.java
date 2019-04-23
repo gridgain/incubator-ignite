@@ -112,7 +112,7 @@ public class AccountController {
      */
     @PostMapping(path = "/api/v1/password/forgot", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> forgotPassword(@RequestBody SignInRequest req) {
-        accountsSrvc.forgotPassword(currentRequestOrigin(), req.getEmail());
+        accountsSrvc.forgotPassword(req.getEmail());
 
         return ResponseEntity.ok().build();
     }
@@ -122,7 +122,7 @@ public class AccountController {
      */
     @PostMapping(path = "/api/v1/password/reset")
     public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
-        accountsSrvc.resetPasswordByToken(currentRequestOrigin(), req.getEmail(), req.getToken(), req.getPassword());
+        accountsSrvc.resetPasswordByToken(req.getEmail(), req.getToken(), req.getPassword());
 
         return ResponseEntity.ok().build();
     }

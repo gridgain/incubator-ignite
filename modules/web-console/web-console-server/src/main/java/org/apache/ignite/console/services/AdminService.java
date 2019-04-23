@@ -27,6 +27,8 @@ import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACCOUNT_DELETED;
+
 /**
  * Service to handle administrator actions.
  */
@@ -44,6 +46,9 @@ public class AdminService {
     /** */
     private final NotebooksService notebooksSvc;
 
+    /** */
+    private final NotificationService notificationSrvc;
+
     /**
      * @param txMgr Transactions manager.
      * @param accountsSvc Service to work with accounts.
@@ -55,12 +60,14 @@ public class AdminService {
         TransactionManager txMgr,
         AccountsService accountsSvc,
         ConfigurationsService cfgsSvc,
-        NotebooksService notebooksSvc
+        NotebooksService notebooksSvc,
+        NotificationService notificationSrvc
     ) {
         this.txMgr = txMgr;
         this.accountsSvc = accountsSvc;
         this.cfgsSvc = cfgsSvc;
         this.notebooksSvc = notebooksSvc;
+        this.notificationSrvc = notificationSrvc;
     }
 
     /**
@@ -99,13 +106,15 @@ public class AdminService {
      *
      * @param accId Account ID.
      */
-    public void remove(UUID accId) {
+    public void delete(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
             cfgsSvc.deleteByAccountId(accId);
-            notebooksSvc.deleteAll(accId);
-            accountsSvc.delete(accId);
+            notebooksSvc.deleteByAccountId(accId);
+            Account acc = accountsSvc.delete(accId);
 
             tx.commit();
+
+            notificationSrvc.sendEmail(ACCOUNT_DELETED, acc);
         }
     }
 

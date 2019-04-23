@@ -35,8 +35,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACTIVATION_LINK;
 import static org.apache.ignite.console.notification.model.NotificationDescriptor.PASSWORD_CHANGED;
 import static org.apache.ignite.console.notification.model.NotificationDescriptor.PASSWORD_RESET;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.WELCOME_LETTER;
 
 /**
  * Service to handle accounts.
@@ -92,17 +94,21 @@ public class AccountsService implements UserDetailsService {
      * @return Registered account.
      */
     public Account register(SignUpRequest params) {
-        Account account = new Account(
-            params.getEmail(),
-            encoder.encode(params.getPassword()),
-            params.getFirstName(),
-            params.getLastName(),
-            params.getPhone(),
-            params.getCompany(),
-            params.getCountry()
+        Account acc = accountsRepo.create(
+            new Account(
+                params.getEmail(),
+                encoder.encode(params.getPassword()),
+                params.getFirstName(),
+                params.getLastName(),
+                params.getPhone(),
+                params.getCompany(),
+                params.getCountry()
+            )
         );
 
-        return accountsRepo.create(account);
+        notificationSrvc.sendEmail(acc.isEnabled() ? WELCOME_LETTER : ACTIVATION_LINK, acc);
+        
+        return acc;
     }
 
     /**
@@ -119,8 +125,8 @@ public class AccountsService implements UserDetailsService {
      *
      * @param accId Account ID.
      */
-    public void delete(UUID accId) {
-        accountsRepo.delete(accId);
+    Account delete(UUID accId) {
+        return accountsRepo.delete(accId);
     }
 
     /**
@@ -216,10 +222,9 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
-     * @param origin Request origin, required for composing reset link.
      * @param email User email to send reset password link.
      */
-    public void forgotPassword(String origin, String email) {
+    public void forgotPassword(String email) {
         try (Transaction tx = txMgr.txStart()) {
             Account acc = accountsRepo.getByEmail(email);
 
@@ -231,17 +236,16 @@ public class AccountsService implements UserDetailsService {
 
             tx.commit();
 
-            notificationSrvc.sendEmail(origin, PASSWORD_RESET, acc);
+            notificationSrvc.sendEmail(PASSWORD_RESET, acc);
         }
     }
 
     /**
-     * @param origin Request origin required for composing reset link.
      * @param email E-mail of user that request password reset.
      * @param resetPwdTok Reset password token.
      * @param newPwd New password.
      */
-    public void resetPasswordByToken(String origin, String email, String resetPwdTok, String newPwd) {
+    public void resetPasswordByToken(String email, String resetPwdTok, String newPwd) {
         try (Transaction tx = txMgr.txStart()) {
             Account acc = accountsRepo.getByEmail(email);
 
@@ -257,7 +261,7 @@ public class AccountsService implements UserDetailsService {
 
             tx.commit();
 
-            notificationSrvc.sendEmail(origin, PASSWORD_CHANGED, acc);
+            notificationSrvc.sendEmail(PASSWORD_CHANGED, acc);
         }
     }
 }

@@ -69,8 +69,8 @@ public class AdminController {
      * @param params Parameters.
      */
     @PostMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> remove(@RequestBody JsonObject params) {
-        adminSrvc.remove(params.getUuid("id"));
+    public ResponseEntity<Void> delete(@RequestBody JsonObject params) {
+        adminSrvc.delete(params.getUuid("id"));
 
         return ResponseEntity.ok().build();
     }

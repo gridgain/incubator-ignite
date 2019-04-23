@@ -19,6 +19,24 @@ package org.apache.ignite.console.notification.model;
 
 public enum NotificationDescriptor {
     /** */
+    ADMIN_WELCOME_LETTER(
+        "notifications.admin.welcome.letter.sbj",
+        "notifications.admin.welcome.letter.msg"
+    ),
+
+    /** */
+    WELCOME_LETTER(
+        "notifications.welcome.letter.sbj",
+        "notifications.welcome.letter.msg"
+    ),
+
+    /** */
+    ACTIVATION_LINK(
+        "notifications.activation.link.sbj",
+        "notifications.activation.link.msg"
+    ),
+
+    /** */
     PASSWORD_RESET(
         "notifications.password.reset.sbj",
         "notifications.password.reset.msg"
@@ -28,8 +46,13 @@ public enum NotificationDescriptor {
     PASSWORD_CHANGED(
         "notifications.password.changed.sbj",
         "notifications.password.changed.msg"
-    )
-    ;
+    ),
+
+    /** */
+    ACCOUNT_DELETED(
+        "notifications.account.deleted.sbj",
+        "notifications.account.deleted.msg"
+    );
 
     /** */
     private final String sbjCode;

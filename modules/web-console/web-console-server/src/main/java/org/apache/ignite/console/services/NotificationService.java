@@ -23,6 +23,8 @@ import org.apache.ignite.console.notification.model.NotificationDescriptor;
 import org.apache.ignite.console.notification.services.MailService;
 import org.springframework.stereotype.Service;
 
+import static org.apache.ignite.console.common.Utils.currentRequestOrigin;
+
 /**
  * // TODO WC-940 Implement real e-mail service.
  */
@@ -35,9 +37,9 @@ public class NotificationService {
         mailSrvc = srvc;
     }
 
-    public void sendEmail(String origin, NotificationDescriptor type, Account acc) {
+    public void sendEmail(NotificationDescriptor type, Account acc) {
         try {
-            Notification notification = new Notification(origin, acc, type);
+            Notification notification = new Notification(currentRequestOrigin(), acc, type);
 
             mailSrvc.send(notification);
         }
