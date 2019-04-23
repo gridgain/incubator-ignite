@@ -157,18 +157,18 @@ public class WebSocketManager extends TextWebSocketHandler {
      */
     private void sendToAgent(WebSocketSession wsBrowser, WebSocketEvent evt) {
         try {
-            String token = token(wsBrowser);
+            String tok = token(wsBrowser);
 
             WebSocketSession wsAgent = agents
                 .entrySet()
                 .stream()
-                .filter(e -> e.getValue().contains(token))
+                .filter(e -> e.getValue().contains(tok))
                 .findFirst()
                 .map(Map.Entry::getKey)
-                .orElseThrow(() -> new IllegalStateException("Agent not found for token: " + token));
+                .orElseThrow(() -> new IllegalStateException("Agent not found for token: " + tok));
 
             if (log.isDebugEnabled())
-                log.debug("Found agent session [token=" + token + ", session=" + wsAgent + ", event=" + evt + "]");
+                log.debug("Found agent session [token=" + tok + ", session=" + wsAgent + ", event=" + evt + "]");
 
             sendMessage(wsAgent, evt);
         }

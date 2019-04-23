@@ -25,7 +25,6 @@ import org.apache.ignite.console.web.model.ResetPasswordRequest;
 import org.apache.ignite.console.web.model.SignInRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.UserResponse;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -100,7 +99,6 @@ public class AccountController {
     /**
      * @param acc Current user.
      * @param changes Changes to apply to user.
-     * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @Valid @RequestBody ChangeUserRequest changes) {
@@ -111,7 +109,6 @@ public class AccountController {
 
     /**
      * @param req Forgot password request.
-     * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/forgot", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> forgotPassword(@RequestBody SignInRequest req) {
@@ -122,7 +119,6 @@ public class AccountController {
 
     /**
      * @param req Reset password request.
-     * @return {@linkplain HttpStatus#OK OK} on success.
      */
     @PostMapping(path = "/api/v1/password/reset")
     public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {

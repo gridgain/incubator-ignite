@@ -20,13 +20,22 @@ package org.apache.ignite.console.dto;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.console.notification.model.Recipient;
+import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import static org.springframework.security.core.authority.AuthorityUtils.createAuthorityList;
 
 /**
  * DTO for Account.
  */
-public class Account extends AbstractDto implements UserDetails, Recipient {
+public class Account extends AbstractDto implements UserDetails, CredentialsContainer, Recipient {
+    /** */
+    private static final String ROLE_USER = "ROLE_USER";
+
+    /** */
+    private static final String ROLE_ADMIN = "ROLE_ADMIN";
+
     /** Email. */
     private String email;
 
@@ -265,7 +274,9 @@ public class Account extends AbstractDto implements UserDetails, Recipient {
 
     /** {@inheritDoc} */
     @Override public Collection<? extends GrantedAuthority> getAuthorities() {
-        return null; // TODO IGNITE-5617 Implement or may be return empty collection.
+        return admin
+            ? createAuthorityList(ROLE_USER, ROLE_ADMIN)
+            : createAuthorityList(ROLE_USER);
     }
 
     /** {@inheritDoc} */
@@ -303,5 +314,10 @@ public class Account extends AbstractDto implements UserDetails, Recipient {
     /** {@inheritDoc} */
     @Override public boolean isEnabled() {
         return true;
+    }
+
+    /** */
+    @Override public void eraseCredentials() {
+        this.hashedPwd = null;
     }
 }

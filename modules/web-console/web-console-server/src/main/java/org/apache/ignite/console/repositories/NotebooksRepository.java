@@ -26,14 +26,16 @@ import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 /**
  * Repository to work with notebooks.
  */
 @Repository
-public class NotebooksRepository extends AbstractRepository<Notebook> {
+public class NotebooksRepository {
+    /** */
+    private final TransactionManager txMgr;
+
     /** */
     private final Table<Notebook> notebooksTbl;
 
@@ -44,9 +46,8 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
      * @param ignite Ignite.
      * @param txMgr Transactions manager.
      */
-    @Autowired
     public NotebooksRepository(Ignite ignite, TransactionManager txMgr) {
-        super(ignite, txMgr);
+        this.txMgr = txMgr;
 
         notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
             .addUniqueIndex(Notebook::getName, (notebook) -> "Notebook '" + notebook.getName() + "' already exits");
@@ -55,24 +56,30 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
     }
 
     /**
-     * @param userId User ID.
-     * @return List of user notebooks.
+     * @param accId Account ID.
+     * @return List of notebooks for specified account.
      */
-    public Collection<Notebook> list(UUID userId) {
-        return loadList(userId, notebooksIdx, notebooksTbl);
+    public Collection<Notebook> list(UUID accId) {
+        try (Transaction ignored = txMgr.txStart()) {
+            TreeSet<UUID> notebooksIds = notebooksIdx.load(accId);
+
+            return notebooksTbl.loadAll(notebooksIds);
+        }
     }
 
     /**
      * Save notebook.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param notebook Notebook to save.
      */
-    public void save(UUID userId, Notebook notebook) {
-        try (Transaction tx = txStart()) {
+    public void save(UUID accId, Notebook notebook) {
+        try (Transaction tx = txMgr.txStart()) {
+            notebooksIdx.validateSave(accId, notebook.getId(), notebooksTbl);
+
             notebooksTbl.save(notebook);
 
-            notebooksIdx.add(userId, notebook.getId());
+            notebooksIdx.add(accId, notebook.getId());
 
             tx.commit();
         }
@@ -81,15 +88,19 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
     /**
      * Delete notebook.
      *
-     * @param userId User ID.
+     * @param accId Account ID.
      * @param notebookId Notebook ID to delete.
      */
-    public void delete(UUID userId, UUID notebookId) {
-        try (Transaction tx = txStart()) {
-            Notebook notebook = notebooksTbl.delete(notebookId);
+    public void delete(UUID accId, UUID notebookId) {
+        try (Transaction tx = txMgr.txStart()) {
+            notebooksIdx.validate(accId, notebookId);
+
+            Notebook notebook = notebooksTbl.load(notebookId);
 
             if (notebook != null) {
-                notebooksIdx.remove(userId, notebookId);
+                notebooksTbl.delete(notebookId);
+
+                notebooksIdx.remove(accId, notebookId);
 
                 tx.commit();
             }
@@ -97,15 +108,15 @@ public class NotebooksRepository extends AbstractRepository<Notebook> {
     }
 
     /**
-     * Delete all notebook for specified user.
+     * Delete all notebook for specified account.
      *
      * @param accId Account ID.
      */
     public void deleteAll(UUID accId) {
-        try(Transaction tx = txStart()) {
-            TreeSet<UUID> ids = notebooksIdx.delete(accId);
+        try(Transaction tx = txMgr.txStart()) {
+            TreeSet<UUID> notebooksIds = notebooksIdx.delete(accId);
 
-            notebooksTbl.deleteAll(ids);
+            notebooksTbl.deleteAll(notebooksIds);
 
             tx.commit();
         }

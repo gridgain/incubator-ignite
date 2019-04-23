@@ -73,6 +73,14 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
 
     /**
      * @param id ID.
+     * @return {@code true} If table contains specified key.
+     */
+    public boolean contains(UUID id) {
+        return cache.containsKey(id);
+    }
+
+    /**
+     * @param id ID.
      * @return DTO.
      */
     @Nullable public T load(UUID id) {
