@@ -19,6 +19,7 @@ package org.apache.ignite.console.web.controller;
 
 import java.util.UUID;
 import javax.validation.Valid;
+import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
@@ -27,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -62,11 +64,18 @@ public class AdminController {
     }
 
     /**
+     * @param acc Account.
      * @param params Parameters.
      */
     @PostMapping(path = "/toggle", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> toggle(@RequestBody JsonObject params) {
-        adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false));
+    public ResponseEntity<Void> toggle(@AuthenticationPrincipal Account acc, @RequestBody JsonObject params) {
+        UUID accId = params.getUuid("id");
+        boolean admin = params.getBoolean("admin", false);
+
+        if (acc.getId().equals(accId) && !admin)
+            throw new IllegalStateException("Self revoke of administrator rights is prohibited");
+
+        adminSrvc.toggle(accId, admin);
 
         return ResponseEntity.ok().build();
     }
