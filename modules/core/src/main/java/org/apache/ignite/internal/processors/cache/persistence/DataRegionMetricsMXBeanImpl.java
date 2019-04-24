@@ -193,4 +193,8 @@ class DataRegionMetricsMXBeanImpl implements DataRegionMetricsMXBean {
     @Override public long getOffheapUsedSize() {
         return memMetrics.getOffheapUsedSize();
     }
+
+    @Override public long getUsedSpaceEx() {
+        return memMetrics.getUsedSpaceEx();
+    }
 }
