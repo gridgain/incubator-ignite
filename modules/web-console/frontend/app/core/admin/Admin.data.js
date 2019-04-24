@@ -45,7 +45,7 @@ export default class IgniteAdminData {
      */
     removeUser(user) {
         return this.$http
-            .delete(`/api/v1/admin/accounts/${user.id}`)
+            .delete(`/api/v1/admin/users/${user.id}`)
             .then(() => this.Messages.showInfo(`User has been removed: "${user.userName}"`))
             .catch(({data, status}) => {
                 if (status === 503)

@@ -17,11 +17,14 @@
 
 package org.apache.ignite.console.web.controller;
 
+import java.util.UUID;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -66,11 +69,11 @@ public class AdminController {
     }
 
     /**
-     * @param params Parameters.
+     * @param accId Account ID.
      */
-    @PostMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> delete(@RequestBody JsonObject params) {
-        adminSrvc.delete(params.getUuid("id"));
+    @DeleteMapping(path = "/users/{accountId}")
+    public ResponseEntity<Void> delete(@PathVariable("accountId") UUID accId) {
+        adminSrvc.delete(accId);
 
         return ResponseEntity.ok().build();
     }

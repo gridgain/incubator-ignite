@@ -102,7 +102,7 @@ public class AdminService {
     }
 
     /**
-     * Remove account.
+     * Delete account by ID.
      *
      * @param accId Account ID.
      */
