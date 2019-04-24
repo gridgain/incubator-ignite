@@ -502,7 +502,9 @@ public class WebSocketManager extends TextWebSocketHandler {
      * @param evt Task event.
      */
     private void prepareNodeVisorParams(WebSocketEvent evt) {
-        JsonObject params = fromJson(evt.getPayload()).getJsonObject("params");
+        JsonObject payload = fromJson(evt.getPayload());
+
+        JsonObject params = payload.getJsonObject("params");
 
         String taskId = params.getString("taskId");
 
@@ -529,6 +531,8 @@ public class WebSocketManager extends TextWebSocketHandler {
 
         args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
 
-        evt.setPayload(toJson(exeParams));
+        payload.put("params", exeParams);
+
+        evt.setPayload(toJson(payload));
     }
 }
