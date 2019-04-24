@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.PostConstruct;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.web.model.VisorTaskDescriptor;
@@ -179,6 +180,9 @@ public class WebSocketManager extends TextWebSocketHandler {
 
             if (log.isDebugEnabled())
                 log.debug("Found agent session [token=" + tok + ", session=" + wsAgent + ", event=" + evt + "]");
+
+            if (NODE_VISOR.equals(evt.getEventType()))
+                prepareNodeVisorParams(evt);
 
             sendMessage(wsAgent, evt);
         }
@@ -493,13 +497,26 @@ public class WebSocketManager extends TextWebSocketHandler {
     }
 
     /**
-     * TODO IGNITE-5617
-     * @param desc Task descriptor.
-     * @param nids Node IDs.
-     * @param args Task arguments.
-     * @return JSON object with VisorGatewayTask REST descriptor.
+     * Prepare task event for execution on agent.
+     *
+     * @param evt Task event.
      */
-    protected JsonObject prepareNodeVisorParams(VisorTaskDescriptor desc, String nids, List<Object> args) {
+    private void prepareNodeVisorParams(WebSocketEvent evt) {
+        JsonObject params = fromJson(evt.getPayload()).getJsonObject("params");
+
+        String taskId = params.getString("taskId");
+
+        if (F.isEmpty(taskId))
+            throw new IllegalStateException("Task ID not specified [evt=" + evt + "]");
+
+        String nids = params.getString("nids");
+        JsonArray args = params.getJsonArray("args");
+
+        VisorTaskDescriptor desc = visorTasks.get(taskId);
+
+        if (desc == null)
+            throw new IllegalStateException("Unknown task  [taskId=" + taskId + ", evt=" + evt + "]");
+
         JsonObject exeParams =  new JsonObject()
             .add("cmd", "exe")
             .add("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
@@ -512,6 +529,6 @@ public class WebSocketManager extends TextWebSocketHandler {
 
         args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
 
-        return exeParams;
+        evt.setPayload(toJson(exeParams));
     }
 }
