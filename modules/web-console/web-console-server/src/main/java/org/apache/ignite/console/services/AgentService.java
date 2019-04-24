@@ -28,78 +28,6 @@ import org.apache.ignite.console.json.JsonObject;
  * Service to handle requests to Visor tasks.
  */
 public class AgentService {
-    /** */
-    protected final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
-
-    /** */
-    private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
-
-    /**
-     * @param taskId Task ID.
-     * @param taskCls Task class name.
-     * @param argCls Arguments classes names.
-     */
-    protected void registerVisorTask(String taskId, String taskCls, String... argCls) {
-        visorTasks.put(taskId, new VisorTaskDescriptor(taskCls, argCls));
-    }
-
-    /**
-     * @param shortName Class short name.
-     * @return Full class name.
-     */
-    protected String igniteVisor(String shortName) {
-        return VISOR_IGNITE + shortName;
-    }
-
-    /**
-     * Register Visor tasks.
-     */
-    protected void registerVisorTasks() {
-        registerVisorTask("querySql", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArg"));
-        registerVisorTask("querySqlV2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV2"));
-        registerVisorTask("querySqlV3", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV3"));
-        registerVisorTask("querySqlX2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryTaskArg"));
-
-        registerVisorTask("queryScanX2", igniteVisor("query.VisorScanQueryTask"), igniteVisor("query.VisorScanQueryTaskArg"));
-
-        registerVisorTask("queryFetch", igniteVisor("query.VisorQueryNextPageTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.Integer");
-        registerVisorTask("queryFetchX2", igniteVisor("query.VisorQueryNextPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
-
-        registerVisorTask("queryFetchFirstPage", igniteVisor("query.VisorQueryFetchFirstPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
-
-        registerVisorTask("queryClose", igniteVisor("query.VisorQueryCleanupTask"), "java.util.Map", "java.util.UUID", "java.util.Set");
-        registerVisorTask("queryCloseX2", igniteVisor("query.VisorQueryCleanupTask"), igniteVisor("query.VisorQueryCleanupTaskArg"));
-
-        registerVisorTask("toggleClusterState", igniteVisor("misc.VisorChangeGridActiveStateTask"), igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
-
-        registerVisorTask("cacheNamesCollectorTask", igniteVisor("cache.VisorCacheNamesCollectorTask"), "java.lang.Void");
-
-        registerVisorTask("cacheNodesTask", igniteVisor("cache.VisorCacheNodesTask"), "java.lang.String");
-        registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
-    }
-
-    /**
-     * TODO IGNITE-5617
-     * @param desc Task descriptor.
-     * @param nids Node IDs.
-     * @param args Task arguments.
-     * @return JSON object with VisorGatewayTask REST descriptor.
-     */
-    protected JsonObject prepareNodeVisorParams(VisorTaskDescriptor desc, String nids, List<Object> args) {
-        JsonObject exeParams =  new JsonObject()
-            .add("cmd", "exe")
-            .add("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
-            .add("p1", nids)
-            .add("p2", desc.getTaskClass());
-
-        AtomicInteger idx = new AtomicInteger(3);
-
-        Arrays.stream(desc.getArgumentsClasses()).forEach(arg ->  exeParams.put("p" + idx.getAndIncrement(), arg));
-
-        args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
-
-        return exeParams;
-    }
 
 //    /**
 //     * @param be Bridge event
@@ -142,37 +70,5 @@ public class AgentService {
      *
      * TODO IGNITE-5617 Move to separate class?
      */
-    public static class VisorTaskDescriptor {
-        /** */
-        private static final String[] EMPTY = new String[0];
 
-        /** */
-        private final String taskCls;
-
-        /** */
-        private final String[] argCls;
-
-        /**
-         * @param taskCls Visor task class.
-         * @param argCls Visor task arguments classes.
-         */
-        private VisorTaskDescriptor(String taskCls, String[] argCls) {
-            this.taskCls = taskCls;
-            this.argCls = argCls != null ? argCls : EMPTY;
-        }
-
-        /**
-         * @return Visor task class.
-         */
-        public String getTaskClass() {
-            return taskCls;
-        }
-
-        /**
-         * @return Visor task arguments classes.
-         */
-        public String[] getArgumentsClasses() {
-            return argCls;
-        }
-    }
 }
