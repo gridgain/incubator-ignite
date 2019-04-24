@@ -17,58 +17,9 @@
 
 package org.apache.ignite.console.services;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.console.json.JsonObject;
-
 /**
  * Service to handle requests to Visor tasks.
  */
 public class AgentService {
-
-//    /**
-//     * @param be Bridge event
-//     */
-//    protected void handleNodeVisorMessages(BridgeEvent be) {
-//        if (be.type() == BridgeEventType.SEND) {
-//            JsonObject msg = be.getRawMessage();
-//
-//            if (msg != null) {
-//                String addr = msg.getString("address");
-//
-//                if ("node:visor".equals(addr)) {
-//                    JsonObject body = msg.getJsonObject("body");
-//
-//                    if (body != null) {
-//                        JsonObject params = body.getJsonObject("params");
-//
-//                        String taskId = params.getString("taskId");
-//
-//                        if (!F.isEmpty(taskId)) {
-//                            VisorTaskDescriptor desc = visorTasks.get(taskId);
-//
-//                            JsonObject exeParams = prepareNodeVisorParams(desc, params.getString("nids"), params.getJsonArray("args"));
-//
-//                            body.put("params", exeParams);
-//
-//                            msg.put("body", body);
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        be.complete(true);
-//    }
-//
-
-    /**
-     * Visor task descriptor.
-     *
-     * TODO IGNITE-5617 Move to separate class?
-     */
-
+    // TODO Implement separate service for agent.
 }
