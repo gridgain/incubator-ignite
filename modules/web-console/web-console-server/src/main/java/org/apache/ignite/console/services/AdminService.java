@@ -23,11 +23,16 @@ import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.stereotype.Service;
 
 import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACCOUNT_DELETED;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACTIVATION_LINK;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.ADMIN_WELCOME_LETTER;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.WELCOME_LETTER;
 
 /**
  * Service to handle administrator actions.
@@ -81,8 +86,8 @@ public class AdminService {
         accounts.forEach(account ->
             res.add(new JsonObject()
                 .add("id", account.getId())
-                .add("getFirstName", account.getFirstName())
-                .add("getLastName", account.getLastName())
+                .add("firstName", account.getFirstName())
+                .add("lastName", account.getLastName())
                 .add("admin", account.getAdmin())
                 .add("email", account.getUsername())
                 .add("company", account.getCompany())
@@ -131,5 +136,14 @@ public class AdminService {
      */
     public void become(UUID accId) {
         throw new UnsupportedOperationException("Not implemented yet!");
+    }
+
+    /**
+     * @param params SignUp params.
+     */
+    public void registerUser(SignUpRequest params) {
+        Account acc = accountsSvc.create(params);
+
+        notificationSrvc.sendEmail(ADMIN_WELCOME_LETTER, acc);
     }
 }

@@ -45,18 +45,13 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
  */
 @RestController
 public class AccountController {
-    /** Authentication manager. */
-    private final AuthenticationManager authMgr;
-
     /** Accounts service. */
     private final AccountsService accountsSrvc;
 
     /**
-     * @param authMgr Authentication manager.
      * @param accountsSrvc Accounts service.
      */
-    public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc) {
-        this.authMgr = authMgr;
+    public AccountController(AccountsService accountsSrvc) {
         this.accountsSrvc = accountsSrvc;
     }
 
@@ -84,14 +79,7 @@ public class AccountController {
      */
     @PostMapping(path = "/api/v1/signup")
     public ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
-        Account account = accountsSrvc.register(params);
-
-        if (account.isEnabled()) {
-            Authentication authentication = authMgr.authenticate(
-                new UsernamePasswordAuthenticationToken(params.getEmail(), params.getPassword()));
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        }
+        accountsSrvc.register(params);
 
         return ResponseEntity.ok().build();
     }

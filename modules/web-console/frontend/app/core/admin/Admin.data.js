@@ -100,4 +100,13 @@ export default class IgniteAdminData {
             .then((users) => _.map(users, this.prepareUsers.bind(this)))
             .catch(this.Messages.showError);
     }
+
+    /**
+     * @param userInfo
+     */
+    registerUser(userInfo) {
+        return this.$http.put('/api/v1/admin/users', userInfo)
+            .then(({ data }) => data)
+            .catch(this.Messages.showError);
+    }
 }

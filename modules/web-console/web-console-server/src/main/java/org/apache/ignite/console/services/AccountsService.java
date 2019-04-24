@@ -29,6 +29,10 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -45,6 +49,9 @@ import static org.apache.ignite.console.notification.model.NotificationDescripto
  */
 @Service
 public class AccountsService implements UserDetailsService {
+    /** Authentication manager. */
+    private final AuthenticationManager authMgr;
+
     /** */
     private final TransactionManager txMgr;
 
@@ -65,17 +72,20 @@ public class AccountsService implements UserDetailsService {
     private boolean activationEnabled;
 
     /**
+     * @param authMgr Authentication manager.
      * @param txMgr Transactions manager.
      * @param accountsRepo Accounts repository.
      * @param wsm Websocket manager.
      * @param notificationSrvc Mail service.
      */
     public AccountsService(
+        AuthenticationManager authMgr,
         TransactionManager txMgr,
         AccountsRepository accountsRepo,
         WebSocketManager wsm,
         NotificationService notificationSrvc
     ) {
+        this.authMgr = authMgr;
         this.txMgr = txMgr;
         this.accountsRepo = accountsRepo;
         this.wsm = wsm;
@@ -90,11 +100,13 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
-     * @param params SignUp params.
+     * Create account for user.
+     * 
+     * @param params Sign up params.
      * @return Registered account.
      */
-    public Account register(SignUpRequest params) {
-        Account acc = accountsRepo.create(
+    Account create(SignUpRequest params) {
+        return accountsRepo.create(
             new Account(
                 params.getEmail(),
                 encoder.encode(params.getPassword()),
@@ -105,10 +117,22 @@ public class AccountsService implements UserDetailsService {
                 params.getCountry()
             )
         );
+    }
+
+    /**
+     * Register account for user.
+     * 
+     * @param params SignUp params.
+     */
+    public void register(SignUpRequest params) {
+        Account acc = create(params);
+
+        Authentication authentication = authMgr.authenticate(
+            new UsernamePasswordAuthenticationToken(params.getEmail(), params.getPassword()));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         notificationSrvc.sendEmail(acc.isEnabled() ? WELCOME_LETTER : ACTIVATION_LINK, acc);
-        
-        return acc;
     }
 
     /**

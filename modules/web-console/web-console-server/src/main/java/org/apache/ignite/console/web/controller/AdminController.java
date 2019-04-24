@@ -18,14 +18,17 @@
 package org.apache.ignite.console.web.controller;
 
 import java.util.UUID;
+import javax.validation.Valid;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
+import org.apache.ignite.console.web.model.SignUpRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -64,6 +67,16 @@ public class AdminController {
     @PostMapping(path = "/toggle", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> toggle(@RequestBody JsonObject params) {
         adminSrvc.toggle(params.getUuid("id"), params.getBoolean("admin", false));
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @param params SignUp params.
+     */
+    @PutMapping(path = "/users")
+    public ResponseEntity<Void> delete(@Valid @RequestBody SignUpRequest params) {
+        adminSrvc.registerUser(params);
 
         return ResponseEntity.ok().build();
     }

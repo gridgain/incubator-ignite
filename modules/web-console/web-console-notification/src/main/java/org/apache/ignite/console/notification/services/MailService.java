@@ -84,33 +84,28 @@ public class MailService {
      *
      * @param notification Notification.
      */
-    public void send(Notification notification) {
-        try {
-            NotificationWrapper ctxObj = new NotificationWrapper(notification);
+    public void send(Notification notification) throws IOException, MessagingException {
+        NotificationWrapper ctxObj = new NotificationWrapper(notification);
 
-            EvaluationContext ctx = createContext(ctxObj);
+        EvaluationContext ctx = createContext(ctxObj);
 
-            NotificationDescriptor desc = notification.getDescriptor();
+        NotificationDescriptor desc = notification.getDescriptor();
 
-            ctxObj.setSubject(processExpressions(getMessage(desc.subjectCode()), ctx));
-            ctxObj.setMessage(processExpressions(getMessage(desc.messageCode()), ctx));
+        ctxObj.setSubject(processExpressions(getMessage(desc.subjectCode()), ctx));
+        ctxObj.setMessage(processExpressions(getMessage(desc.messageCode()), ctx));
 
-            String template = loadMessageTemplate(notification.getDescriptor());
+        String template = loadMessageTemplate(notification.getDescriptor());
 
-            MimeMessage msg = mailSnd.createMimeMessage();
+        MimeMessage msg = mailSnd.createMimeMessage();
 
-            MimeMessageHelper msgHelper = new MimeMessageHelper(msg);
+        MimeMessageHelper msgHelper = new MimeMessageHelper(msg);
 
-            msgHelper.setTo(notification.getRecipient().getEmail());
-            msgHelper.setFrom(from, fromAlias);
-            msgHelper.setSubject(ctxObj.getSubject());
-            msgHelper.setText(template == null ? ctxObj.getMessage() : processExpressions(template, ctx), true);
+        msgHelper.setTo(notification.getRecipient().getEmail());
+        msgHelper.setFrom(from, fromAlias);
+        msgHelper.setSubject(ctxObj.getSubject());
+        msgHelper.setText(template == null ? ctxObj.getMessage() : processExpressions(template, ctx), true);
 
-            mailSnd.send(msg);
-        }
-        catch (MessagingException | MailException | IOException e) {
-
-        }
+        mailSnd.send(msg);
     }
 
     /**
