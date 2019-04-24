@@ -31,15 +31,15 @@ agent:
 spring.messages.basename: i18/messages,i18/notifications
 
 spring.mail:
-  host: smtp.gmail.com
-  port: 587
-  username: no-reply@gridgain.com
-  password: "d#Ky%1mLaEtcCZt"
-  from.alias: GridGain Web Console
+  host:
+  port:
+  username:
+  password:
+  from.alias:
   properties.mail:
     smtp:
-      auth: true
-      starttls.enable: true
+      auth:
+      starttls.enable:
 
   templates:
     defaultTemplatePath: templates/mail/base.html
