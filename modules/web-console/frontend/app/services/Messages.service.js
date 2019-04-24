@@ -54,6 +54,7 @@ export default function factory($alert, errorParser) {
         /**
          * @param {string|CancellationError} message
          * @param [err]
+         * @param duration Popover visibility duration in seconds.
          */
         showError(message, err, duration = 10) {
             if (message instanceof CancellationError)
@@ -65,6 +66,7 @@ export default function factory($alert, errorParser) {
         },
         /**
          * @param {string} message
+         * @param duration Popover visibility duration in seconds.
          */
         showInfo(message, duration = 5) {
             _showMessage(message, null, 'success', duration);
