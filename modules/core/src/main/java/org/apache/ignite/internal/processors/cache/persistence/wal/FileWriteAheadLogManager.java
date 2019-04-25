@@ -952,6 +952,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
         if (inArchive)
             return true;
 
+        if (log.isDebugEnabled())
+            log.debug(String.format("File for segment %s not found in archive", segmentName));
+
         if (absIdx <= lastArchivedIndex())
             return false;
 
@@ -1255,7 +1258,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
                 RecordSerializer ser = new RecordSerializerFactoryImpl(cctx).createSerializer(serVer);
 
-                    if (log.isInfoEnabled())
+                if (log.isInfoEnabled())
                     log.info("Resuming logging to WAL segment [file=" + curFile.getAbsolutePath() +
                         ", offset=" + off + ", ver=" + serVer + ']');
 
