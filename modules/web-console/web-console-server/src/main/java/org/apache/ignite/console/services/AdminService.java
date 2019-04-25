@@ -20,9 +20,10 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.tx.TransactionManager;
+import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -121,6 +122,13 @@ public class AdminService {
      * @param accId Account ID.
      */
     public void become(UUID accId) {
+        throw new UnsupportedOperationException("Not implemented yet!");
+    }
+
+    /**
+     * @param announcement Announcement.
+     */
+    public void announcement(Announcement announcement) {
         throw new UnsupportedOperationException("Not implemented yet!");
     }
 }

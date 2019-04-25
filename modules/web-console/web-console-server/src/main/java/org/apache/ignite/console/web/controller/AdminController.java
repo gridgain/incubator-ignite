@@ -19,6 +19,7 @@ package org.apache.ignite.console.web.controller;
 
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
@@ -26,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -91,6 +93,16 @@ public class AdminController {
     @PostMapping(path = "/become", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> become(@RequestBody JsonObject params) {
         adminSrvc.become(params.getUuid("id"));
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @param announcement Announcement to show for all users.
+     */
+    @PutMapping(path = "/announcement", consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> notification(@RequestBody Announcement announcement) {
+        adminSrvc.announcement(announcement);
 
         return ResponseEntity.ok().build();
     }
