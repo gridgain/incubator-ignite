@@ -123,7 +123,7 @@ public class WebSocketManager extends TextWebSocketHandler {
     private final Map<String, String> supportedAgents;
 
     /** */
-    protected final Map<String, VisorTaskDescriptor> visorTasks;
+    private final Map<String, VisorTaskDescriptor> visorTasks;
 
     /**
      * @param accRepo Service to work with accounts.
