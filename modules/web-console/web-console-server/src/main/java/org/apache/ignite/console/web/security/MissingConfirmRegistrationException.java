@@ -15,23 +15,30 @@
  * limitations under the License.
  */
 
-import {UIRouter} from '@uirouter/angularjs';
+package org.apache.ignite.console.web.security;
 
-registerInterceptor.$inject = ['$httpProvider'];
+import org.springframework.security.authentication.DisabledException;
 
-export function registerInterceptor(http: ng.IHttpProvider) {
-    emailConfirmationInterceptor.$inject = ['$q', '$injector'];
+/**
+ * Thrown if an authentication request is rejected because the account is disabled.
+ */
+public class MissingConfirmRegistrationException extends DisabledException {
+    /** Username. */
+    private String username;
 
-    function emailConfirmationInterceptor($q: ng.IQService, $injector: ng.auto.IInjectorService): ng.IHttpInterceptor {
-        return {
-            responseError(res) {
-                if (res.status === 403 && res.data && res.data.code === 10104)
-                    $injector.get<UIRouter>('$uiRouter').stateService.go('signup-confirmation', {email: res.data.email});
+    /**
+     * @param msg Message.
+     */
+    public MissingConfirmRegistrationException(String msg, String username) {
+        super(msg);
 
-                return $q.reject(res);
-            }
-        };
+        this.username = username;
     }
 
-    http.interceptors.push(emailConfirmationInterceptor as ng.IHttpInterceptorFactory);
+    /**
+     * @return Username of disabled account.
+     */
+    public String getUsername() {
+        return username;
+    }
 }

@@ -15,23 +15,37 @@
  * limitations under the License.
  */
 
-import {UIRouter} from '@uirouter/angularjs';
+package org.apache.ignite.console.web.model;
 
-registerInterceptor.$inject = ['$httpProvider'];
+import javax.validation.constraints.NotNull;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.hibernate.validator.constraints.NotEmpty;
 
-export function registerInterceptor(http: ng.IHttpProvider) {
-    emailConfirmationInterceptor.$inject = ['$q', '$injector'];
+/**
+ * Web model of forgot password request.
+ */
+public class EmailRequest {
+    /** Email. */
+    @NotNull
+    @NotEmpty
+    private String email;
 
-    function emailConfirmationInterceptor($q: ng.IQService, $injector: ng.auto.IInjectorService): ng.IHttpInterceptor {
-        return {
-            responseError(res) {
-                if (res.status === 403 && res.data && res.data.code === 10104)
-                    $injector.get<UIRouter>('$uiRouter').stateService.go('signup-confirmation', {email: res.data.email});
-
-                return $q.reject(res);
-            }
-        };
+    /**
+     * @return Email.
+     */
+    public String getEmail() {
+        return email;
     }
 
-    http.interceptors.push(emailConfirmationInterceptor as ng.IHttpInterceptorFactory);
+    /**
+     * @param email New email.
+     */
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(EmailRequest.class, this);
+    }
 }

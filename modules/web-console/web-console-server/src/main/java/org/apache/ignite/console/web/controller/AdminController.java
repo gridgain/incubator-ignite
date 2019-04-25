@@ -84,7 +84,7 @@ public class AdminController {
      * @param params SignUp params.
      */
     @PutMapping(path = "/users")
-    public ResponseEntity<Void> delete(@Valid @RequestBody SignUpRequest params) {
+    public ResponseEntity<Void> registerUser(@Valid @RequestBody SignUpRequest params) {
         adminSrvc.registerUser(params);
 
         return ResponseEntity.ok().build();

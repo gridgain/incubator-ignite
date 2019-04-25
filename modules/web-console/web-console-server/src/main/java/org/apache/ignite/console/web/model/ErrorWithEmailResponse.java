@@ -15,23 +15,46 @@
  * limitations under the License.
  */
 
-import {UIRouter} from '@uirouter/angularjs';
+package org.apache.ignite.console.web.model;
 
-registerInterceptor.$inject = ['$httpProvider'];
+/**
+ * Error with email response.
+ */
+public class ErrorWithEmailResponse extends ErrorResponse {
+    /** */
+    private String email;
 
-export function registerInterceptor(http: ng.IHttpProvider) {
-    emailConfirmationInterceptor.$inject = ['$q', '$injector'];
-
-    function emailConfirmationInterceptor($q: ng.IQService, $injector: ng.auto.IInjectorService): ng.IHttpInterceptor {
-        return {
-            responseError(res) {
-                if (res.status === 403 && res.data && res.data.code === 10104)
-                    $injector.get<UIRouter>('$uiRouter').stateService.go('signup-confirmation', {email: res.data.email});
-
-                return $q.reject(res);
-            }
-        };
+    /**
+     * Default constructor for serialization.
+     */
+    public ErrorWithEmailResponse() {
+        // No-op.
     }
 
-    http.interceptors.push(emailConfirmationInterceptor as ng.IHttpInterceptorFactory);
+    /**
+     * Full constructor.
+     *
+     * @param code Error code.
+     * @param msg Error message.
+     * @param username User name.
+     */
+    public ErrorWithEmailResponse(int code, String msg, String username) {
+        super(code, msg);
+
+        this.email = username;
+    }
+
+    /**
+     * @return Email.
+     */
+    public String getEmail() {
+        return email;
+    }
+
+    /**
+     * @param email Email.
+     */
+    public void setEmail(String email) {
+        this.email = email;
+    }
 }

@@ -17,7 +17,9 @@
 
 package org.apache.ignite.console.dto;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Date;
 import java.util.UUID;
 import org.apache.ignite.console.notification.model.Recipient;
 import org.springframework.security.core.CredentialsContainer;
@@ -63,26 +65,23 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
     /** Reset password token. */
     private String resetPwdTok;
 
-    /** Registered. */
-    private String registered;
-
     /** Last login. */
     private String lastLogin;
 
     /** Last activity. */
     private String lastActivity;
 
-    /** Last event. */
-    private String lastEvt;
-
     /** Administration. */
     private boolean admin;
 
-    /** Activated. */
-    private boolean activated;
+    /** Indicates whether the user is enabled or disabled. */
+    private boolean enabled;
 
-    /** Demo created. */
-    private boolean demoCreated;
+    /** Latest activation token. */
+    private UUID activationTok;
+
+    /** Latest activation token was sent at. */
+    private LocalDateTime activationSentAt;
 
     /**
      * Default constructor for serialization.
@@ -238,13 +237,6 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
     }
 
     /**
-     * @return Activated flag.
-     */
-    public boolean activated() {
-        return activated;
-    }
-
-    /**
      * @return Last login.
      */
     public String lastLogin() {
@@ -270,6 +262,37 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
      */
     public void setResetPasswordToken(String resetPwdTok) {
         this.resetPwdTok = resetPwdTok;
+    }
+
+    /**
+     * @return Latest activation token.
+     */
+    public UUID getActivationToken() {
+        return activationTok;
+    }
+
+    /**
+     * @return Latest activation token was sent at.
+     */
+    public LocalDateTime getActivationSentAt() {
+        return activationSentAt;
+    }
+
+    /**
+     * Activate account.
+     */
+    public void activate() {
+        enabled = true;
+        activationTok = null;
+        activationSentAt = null;
+    }
+
+    /**
+     * Reset activation token.
+     */
+    public void resetActivationToken() {
+        activationTok = UUID.randomUUID();
+        activationSentAt = LocalDateTime.now();
     }
 
     /** {@inheritDoc} */
@@ -313,10 +336,10 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
 
     /** {@inheritDoc} */
     @Override public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 
-    /** */
+    /** {@inheritDoc} */
     @Override public void eraseCredentials() {
         this.hashedPwd = null;
     }

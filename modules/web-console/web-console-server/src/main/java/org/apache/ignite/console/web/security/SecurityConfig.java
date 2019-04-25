@@ -25,6 +25,7 @@ import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.services.AccountsService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetailsChecker;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
@@ -68,12 +70,24 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     /** Reset password route. */
     private static final String RESET_PASSWORD_ROUTE = "/api/v1/password/reset";
 
+    /** Resend activation token. */
+    private static final String ACTIVATION_RESEND = "/api/v1/activation/resend/";
+
+
     /** Public routes. */
     private static final String[] PUBLIC_ROUTES = new String[] {
         AGENTS_PATH,
         SIGN_IN_ROUTE, SIGN_UP_ROUTE,
-        FORGOT_PASSWORD_ROUTE, RESET_PASSWORD_ROUTE
+        FORGOT_PASSWORD_ROUTE, RESET_PASSWORD_ROUTE, ACTIVATION_RESEND
     };
+
+    /** */
+    @Value("${app.activation.enabled:false}")
+    private boolean activationEnabled;
+
+    /** */
+    @Value("${app.activation.timeout:1800000}")
+    private long activationTimeout;
 
     /** */
     private final AccountsService accountsSrvc;
@@ -81,13 +95,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     /** */
     private final PasswordEncoder encoder;
 
+    /** */
+    private UserDetailsChecker userDetailsChecker;
+
     /**
      * @param encoder Service for encoding user passwords.
      * @param accountsSrvc User details service.
      */
     @Autowired
-    public SecurityConfig(PasswordEncoder encoder, AccountsService accountsSrvc) {
+    public SecurityConfig(PasswordEncoder encoder, UserDetailsChecker userDetailsChecker, AccountsService accountsSrvc) {
         this.encoder = encoder;
+        this.userDetailsChecker = userDetailsChecker;
         this.accountsSrvc = accountsSrvc;
     }
 
@@ -110,13 +128,22 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.OK));
     }
 
+    /**
+     * @param auth Auth.
+     */
+    @Autowired
+    public void configureGlobal(AuthenticationManagerBuilder auth) {
+        configure(auth);
+    }
+
     /** {@inheritDoc} */
     @Override protected void configure(AuthenticationManagerBuilder auth) {
-        final DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        DaoAuthenticationProvider authProvider = activationEnabled ?
+            new CustomAuthenticationProvider(activationTimeout) : new DaoAuthenticationProvider();
 
+        authProvider.setPreAuthenticationChecks(userDetailsChecker);
         authProvider.setUserDetailsService(accountsSrvc);
         authProvider.setPasswordEncoder(encoder);
-
 
         auth.authenticationProvider(authProvider);
     }

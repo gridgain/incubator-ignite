@@ -24,15 +24,16 @@ import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
+import org.apache.ignite.console.web.security.AccountStatusChecker;
+import org.apache.ignite.console.web.security.MissingConfirmRegistrationException;
 import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.context.support.MessageSourceAccessor;
+import org.springframework.security.core.SpringSecurityMessageSource;
+import org.springframework.security.core.userdetails.UserDetailsChecker;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -49,8 +50,8 @@ import static org.apache.ignite.console.notification.model.NotificationDescripto
  */
 @Service
 public class AccountsService implements UserDetailsService {
-    /** Authentication manager. */
-    private final AuthenticationManager authMgr;
+    /** */
+    private final MessageSourceAccessor messages = SpringSecurityMessageSource.getAccessor();
 
     /** */
     private final TransactionManager txMgr;
@@ -67,31 +68,32 @@ public class AccountsService implements UserDetailsService {
     /** */
     private final PasswordEncoder encoder;
 
+    /** User details checker. */
+    private UserDetailsChecker userDetailsChecker;
+
     /** */
     @Value("${app.activation.enabled}")
     private boolean activationEnabled;
 
     /**
-     * @param authMgr Authentication manager.
      * @param txMgr Transactions manager.
      * @param accountsRepo Accounts repository.
      * @param wsm Websocket manager.
      * @param notificationSrvc Mail service.
      */
     public AccountsService(
-        AuthenticationManager authMgr,
         TransactionManager txMgr,
         AccountsRepository accountsRepo,
         WebSocketManager wsm,
         NotificationService notificationSrvc
     ) {
-        this.authMgr = authMgr;
         this.txMgr = txMgr;
         this.accountsRepo = accountsRepo;
         this.wsm = wsm;
         this.notificationSrvc = notificationSrvc;
 
         this.encoder = encoder();
+        this.userDetailsChecker = checker();
     }
 
     /** {@inheritDoc} */
@@ -101,38 +103,43 @@ public class AccountsService implements UserDetailsService {
 
     /**
      * Create account for user.
-     * 
+     *
      * @param params Sign up params.
      * @return Registered account.
      */
     Account create(SignUpRequest params) {
-        return accountsRepo.create(
-            new Account(
-                params.getEmail(),
-                encoder.encode(params.getPassword()),
-                params.getFirstName(),
-                params.getLastName(),
-                params.getPhone(),
-                params.getCompany(),
-                params.getCountry()
-            )
+        Account acc = new Account(
+            params.getEmail(),
+            encoder.encode(params.getPassword()),
+            params.getFirstName(),
+            params.getLastName(),
+            params.getPhone(),
+            params.getCompany(),
+            params.getCountry()
         );
+
+        if (activationEnabled)
+            acc.resetActivationToken();
+
+        return accountsRepo.create(acc);
     }
 
     /**
      * Register account for user.
-     * 
+     *
      * @param params SignUp params.
      */
     public void register(SignUpRequest params) {
         Account acc = create(params);
 
-        Authentication authentication = authMgr.authenticate(
-            new UsernamePasswordAuthenticationToken(params.getEmail(), params.getPassword()));
+        if (activationEnabled) {
+            notificationSrvc.sendEmail(ACTIVATION_LINK, acc);
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+            throw new MissingConfirmRegistrationException(messages.getMessage(
+                "AccountsService.confirmEmail", "Confirm your email"), acc.getEmail());
+        }
 
-        notificationSrvc.sendEmail(acc.isEnabled() ? WELCOME_LETTER : ACTIVATION_LINK, acc);
+        notificationSrvc.sendEmail(WELCOME_LETTER, acc);
     }
 
     /**
@@ -170,6 +177,42 @@ public class AccountsService implements UserDetailsService {
 
                 tx.commit();
             }
+        }
+    }
+
+    /**
+     * Reset activation token for account
+     *
+     * @param accId Account id.
+     */
+    public void activateAccount(UUID accId) {
+        try (Transaction tx = txMgr.txStart()) {
+            Account acc = accountsRepo.getById(accId);
+
+            acc.activate();
+
+            accountsRepo.save(acc);
+
+            tx.commit();
+        }
+    }
+
+    /**
+     * Reset activation token for account
+     *
+     * @param email Email.
+     */
+    public void resetActivationToken(String email) {
+        try (Transaction tx = txMgr.txStart()) {
+            Account acc = accountsRepo.getByEmail(email);
+
+            acc.resetActivationToken();
+
+            accountsRepo.save(acc);
+
+            tx.commit();
+
+            notificationSrvc.sendEmail(ACTIVATION_LINK, acc);
         }
     }
 
@@ -237,12 +280,11 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
-     * @param acc Account to check.
-     * @throws IllegalStateException If account was not activated.
+     * @return Checker for status of the loaded <tt>UserDetails</tt> object.
      */
-    private void checkAccountActivated(Account acc) throws IllegalStateException {
-        if (activationEnabled && !acc.activated())
-            throw new IllegalStateException("Account was not activated by email: " + acc.getEmail());
+    @Bean
+    public UserDetailsChecker checker() {
+        return new AccountStatusChecker(activationEnabled);
     }
 
     /**
@@ -252,7 +294,7 @@ public class AccountsService implements UserDetailsService {
         try (Transaction tx = txMgr.txStart()) {
             Account acc = accountsRepo.getByEmail(email);
 
-            checkAccountActivated(acc);
+            userDetailsChecker.check(acc);
 
             acc.setResetPasswordToken(UUID.randomUUID().toString());
 
@@ -276,7 +318,7 @@ public class AccountsService implements UserDetailsService {
             if (!resetPwdTok.equals(acc.getResetPasswordToken()))
                 throw new IllegalStateException("Failed to find account with this token! Please check link from email.");
 
-            checkAccountActivated(acc);
+            userDetailsChecker.check(acc);
 
             acc.setPassword(encoder.encode(newPwd));
             acc.setResetPasswordToken(null);

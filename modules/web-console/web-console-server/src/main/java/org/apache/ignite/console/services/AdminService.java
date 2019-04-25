@@ -94,7 +94,7 @@ public class AdminService {
                 .add("country", account.getCountry())
                 .add("lastLogin", account.lastLogin())
                 .add("lastActivity", account.lastActivity())
-                .add("activated", account.activated())
+                .add("activated", account.isEnabled())
                 .add("counters", new JsonObject()
                     .add("clusters", 0)
                     .add("caches", 0)
