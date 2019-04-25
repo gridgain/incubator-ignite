@@ -81,6 +81,27 @@ public class WebSocketManager extends TextWebSocketHandler {
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
 
     /** */
+    protected static final String JAVA_TUPLE = "org.apache.ignite.lang.IgniteBiTuple";
+
+    /** */
+    protected static final String JAVA_STRING = "java.lang.String";
+
+    /** */
+    protected static final String JAVA_INTEGER = "java.lang.Integer";
+
+    /** */
+    protected static final String JAVA_VOID = "java.lang.Void";
+
+    /** */
+    protected static final String JAVA_MAP = "java.util.Map";
+
+    /** */
+    protected static final String JAVA_SET = "java.util.Set";
+
+    /** */
+    protected static final String JAVA_UUID = "java.util.UUID";
+
+    /** */
     private static final PingMessage PING = new PingMessage(UTF_8.encode("PING"));
 
     /** */
@@ -473,27 +494,62 @@ public class WebSocketManager extends TextWebSocketHandler {
      */
     @PostConstruct
     protected void registerVisorTasks() {
-        registerVisorTask("querySql", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArg"));
-        registerVisorTask("querySqlV2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV2"));
-        registerVisorTask("querySqlV3", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV3"));
-        registerVisorTask("querySqlX2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryTaskArg"));
+        registerVisorTask(
+            "querySql",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryArg"));
 
-        registerVisorTask("queryScanX2", igniteVisor("query.VisorScanQueryTask"), igniteVisor("query.VisorScanQueryTaskArg"));
+        registerVisorTask("querySqlV2",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryArgV2"));
 
-        registerVisorTask("queryFetch", igniteVisor("query.VisorQueryNextPageTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.Integer");
-        registerVisorTask("queryFetchX2", igniteVisor("query.VisorQueryNextPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
+        registerVisorTask("querySqlV3",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryArgV3"));
 
-        registerVisorTask("queryFetchFirstPage", igniteVisor("query.VisorQueryFetchFirstPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
+        registerVisorTask("querySqlX2",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryTaskArg"));
 
-        registerVisorTask("queryClose", igniteVisor("query.VisorQueryCleanupTask"), "java.util.Map", "java.util.UUID", "java.util.Set");
-        registerVisorTask("queryCloseX2", igniteVisor("query.VisorQueryCleanupTask"), igniteVisor("query.VisorQueryCleanupTaskArg"));
+        registerVisorTask("queryScanX2",
+            igniteVisor("query.VisorScanQueryTask"),
+            igniteVisor("query.VisorScanQueryTaskArg"));
 
-        registerVisorTask("toggleClusterState", igniteVisor("misc.VisorChangeGridActiveStateTask"), igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
+        registerVisorTask("queryFetch",
+            igniteVisor("query.VisorQueryNextPageTask"),
+            JAVA_TUPLE, JAVA_STRING, JAVA_INTEGER);
 
-        registerVisorTask("cacheNamesCollectorTask", igniteVisor("cache.VisorCacheNamesCollectorTask"), "java.lang.Void");
+        registerVisorTask("queryFetchX2",
+            igniteVisor("query.VisorQueryNextPageTask"),
+            igniteVisor("query.VisorQueryNextPageTaskArg"));
 
-        registerVisorTask("cacheNodesTask", igniteVisor("cache.VisorCacheNodesTask"), "java.lang.String");
-        registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
+        registerVisorTask("queryFetchFirstPage",
+            igniteVisor("query.VisorQueryFetchFirstPageTask"),
+            igniteVisor("query.VisorQueryNextPageTaskArg"));
+
+        registerVisorTask("queryClose",
+            igniteVisor("query.VisorQueryCleanupTask"),
+            JAVA_MAP, JAVA_UUID, JAVA_SET);
+
+        registerVisorTask("queryCloseX2",
+            igniteVisor("query.VisorQueryCleanupTask"),
+            igniteVisor("query.VisorQueryCleanupTaskArg"));
+
+        registerVisorTask("toggleClusterState",
+            igniteVisor("misc.VisorChangeGridActiveStateTask"),
+            igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
+
+        registerVisorTask("cacheNamesCollectorTask",
+            igniteVisor("cache.VisorCacheNamesCollectorTask"),
+            JAVA_VOID);
+
+        registerVisorTask("cacheNodesTask",
+            igniteVisor("cache.VisorCacheNodesTask"),
+            JAVA_STRING);
+
+        registerVisorTask("cacheNodesTaskX2",
+            igniteVisor("cache.VisorCacheNodesTask"),
+            igniteVisor("cache.VisorCacheNodesTaskArg"));
     }
 
     /**

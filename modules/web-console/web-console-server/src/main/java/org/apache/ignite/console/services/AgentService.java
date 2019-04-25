@@ -21,5 +21,5 @@ package org.apache.ignite.console.services;
  * Service to handle requests to Visor tasks.
  */
 public class AgentService {
-    // TODO Implement separate service for agent.
+    // TODO WC-1068 Implement separate service for agent.
 }
