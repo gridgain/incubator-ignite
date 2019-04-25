@@ -18,11 +18,14 @@
 package org.apache.ignite.console.notification.model;
 
 /**
- *
+ * Notification model.
  */
 public class Notification {
+    /** */
     private String origin;
+    /** */
     private Recipient rcpt;
+    /** */
     private NotificationDescriptor desc;
 
     public Notification(String origin, Recipient rcpt, NotificationDescriptor desc) {
@@ -60,7 +63,7 @@ public class Notification {
     }
 
     /**
-     * @return Вescriptor.
+     * @return Descriptor.
      */
     public NotificationDescriptor getDescriptor() {
         return desc;

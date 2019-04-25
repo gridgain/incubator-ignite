@@ -17,6 +17,9 @@
 
 package org.apache.ignite.console.notification.model;
 
+/**
+ * Recipient for notification.
+ */
 public interface Recipient {
     /**
      * @return Email.

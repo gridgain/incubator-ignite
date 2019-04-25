@@ -1,4 +1,5 @@
 /*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -38,14 +39,16 @@ import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.common.TemplateParserContext;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+/**
+ * Mail sending service.
+ */
 @Service
 public class MailService {
-    /** From. */
+    /** From email. */
     @Value("${spring.mail.username}")
     private String from;
 
@@ -159,10 +162,17 @@ public class MailService {
         return msgSrc.getMessage(code, null, Locale.US);
     }
 
+    /**
+     * Context for email templates.
+     */
     private static class NotificationWrapper extends StandardEvaluationContext {
+        /** Origin. */
         private String origin;
+        /** Recipient. */
         private Recipient rcpt;
+        /** Subject. */
         private String subject;
+        /** Message. */
         private String message;
 
         private NotificationWrapper(Notification notification) {
@@ -170,26 +180,44 @@ public class MailService {
             this.rcpt = notification.getRecipient();
         }
 
+        /**
+         * @return Origin.
+         */
         public String getOrigin() {
             return origin;
         }
 
+        /**
+         * @return Recipient.
+         */
         public Recipient getRecipient() {
             return rcpt;
         }
 
+        /**
+         * @return Subject.
+         */
         public String getSubject() {
             return subject;
         }
 
+        /**
+         * @param subject Subject.
+         */
         public void setSubject(String subject) {
             this.subject = subject;
         }
 
+        /**
+         * @return Message.
+         */
         public String getMessage() {
             return message;
         }
 
+        /**
+         * @param message Message.
+         */
         public void setMessage(String message) {
             this.message = message;
         }

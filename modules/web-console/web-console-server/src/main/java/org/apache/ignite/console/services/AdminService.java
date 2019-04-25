@@ -26,13 +26,10 @@ import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.stereotype.Service;
 
 import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACCOUNT_DELETED;
-import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACTIVATION_LINK;
 import static org.apache.ignite.console.notification.model.NotificationDescriptor.ADMIN_WELCOME_LETTER;
-import static org.apache.ignite.console.notification.model.NotificationDescriptor.WELCOME_LETTER;
 
 /**
  * Service to handle administrator actions.

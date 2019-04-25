@@ -17,10 +17,8 @@
 
 package org.apache.ignite.console.notification;
 
-import org.apache.ignite.console.notification.config.MessagesProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /**
  * Notification service launcher.

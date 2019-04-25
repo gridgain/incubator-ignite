@@ -29,15 +29,22 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "spring.mail.templates")
 public class MessagesProperties {
+    /** Default template path. */
     private String defaultTemplatePath;
 
     /** Templates path. */
     private Map<NotificationDescriptor, String> templates;
 
+    /**
+     * @return Default template path.
+     */
     public String getDefaultTemplatePath() {
         return defaultTemplatePath;
     }
 
+    /**
+     * @param defaultTemplatePath Default template path.
+     */
     public void setDefaultTemplatePath(String defaultTemplatePath) {
         this.defaultTemplatePath = defaultTemplatePath;
     }
