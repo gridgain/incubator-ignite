@@ -72,7 +72,7 @@ public class AccountsService implements UserDetailsService {
     private UserDetailsChecker userDetailsChecker;
 
     /** */
-    @Value("${app.activation.enabled}")
+    @Value("${app.activation.enabled:false}")
     private boolean activationEnabled;
 
     /**
