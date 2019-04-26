@@ -39,6 +39,7 @@ import org.apache.ignite.console.websocket.AgentHandshakeResponse;
 import org.apache.ignite.console.websocket.TopologySnapshot;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jsr166.ConcurrentLinkedHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,27 +80,6 @@ public class WebSocketManager extends TextWebSocketHandler {
 
     /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
-
-    /** */
-    protected static final String JAVA_TUPLE = "org.apache.ignite.lang.IgniteBiTuple";
-
-    /** */
-    protected static final String JAVA_STRING = "java.lang.String";
-
-    /** */
-    protected static final String JAVA_INTEGER = "java.lang.Integer";
-
-    /** */
-    protected static final String JAVA_VOID = "java.lang.Void";
-
-    /** */
-    protected static final String JAVA_MAP = "java.util.Map";
-
-    /** */
-    protected static final String JAVA_SET = "java.util.Set";
-
-    /** */
-    protected static final String JAVA_UUID = "java.util.UUID";
 
     /** */
     private static final PingMessage PING = new PingMessage(UTF_8.encode("PING"));
@@ -517,7 +497,7 @@ public class WebSocketManager extends TextWebSocketHandler {
 
         registerVisorTask("queryFetch",
             igniteVisor("query.VisorQueryNextPageTask"),
-            JAVA_TUPLE, JAVA_STRING, JAVA_INTEGER);
+            IgniteBiTuple.class.getName(), String.class.getName(), Integer.class.getName());
 
         registerVisorTask("queryFetchX2",
             igniteVisor("query.VisorQueryNextPageTask"),
@@ -529,7 +509,7 @@ public class WebSocketManager extends TextWebSocketHandler {
 
         registerVisorTask("queryClose",
             igniteVisor("query.VisorQueryCleanupTask"),
-            JAVA_MAP, JAVA_UUID, JAVA_SET);
+            Map.class.getName(), UUID.class.getName(), Set.class.getName());
 
         registerVisorTask("queryCloseX2",
             igniteVisor("query.VisorQueryCleanupTask"),
@@ -541,11 +521,11 @@ public class WebSocketManager extends TextWebSocketHandler {
 
         registerVisorTask("cacheNamesCollectorTask",
             igniteVisor("cache.VisorCacheNamesCollectorTask"),
-            JAVA_VOID);
+            Void.class.getName());
 
         registerVisorTask("cacheNodesTask",
             igniteVisor("cache.VisorCacheNodesTask"),
-            JAVA_STRING);
+            String.class.getName());
 
         registerVisorTask("cacheNodesTaskX2",
             igniteVisor("cache.VisorCacheNodesTask"),
