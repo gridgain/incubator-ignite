@@ -15,33 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.web.model.admin;
-
-import java.util.UUID;
-import javax.validation.constraints.NotNull;
-import org.apache.ignite.console.web.model.UserResponse;
-import org.hibernate.validator.constraints.NotEmpty;
+package org.apache.ignite.console.web.model;
 
 /**
- * Web model of the user.
+ * Descriptor of Visor task.
  */
-public class UserDetailsResponse extends UserResponse {
-    /** ID */
-    @NotNull
-    @NotEmpty
-    private UUID id;
+public class VisorTaskDescriptor {
+    /** */
+    private static final String[] EMPTY = new String[0];
+
+    /** */
+    private final String taskCls;
+
+    /** */
+    private final String[] argCls;
 
     /**
-     * @return ID.
+     * @param taskCls Visor task class.
+     * @param argCls Visor task arguments classes.
      */
-    public UUID getId() {
-        return id;
+    public VisorTaskDescriptor(String taskCls, String[] argCls) {
+        this.taskCls = taskCls;
+        this.argCls = argCls != null ? argCls : EMPTY;
     }
 
     /**
-     * @param id New ID.
+     * @return Visor task class.
      */
-    public void setId(UUID id) {
-        this.id = id;
+    public String getTaskClass() {
+        return taskCls;
+    }
+
+    /**
+     * @return Visor task arguments classes.
+     */
+    public String[] getArgumentsClasses() {
+        return argCls;
     }
 }
