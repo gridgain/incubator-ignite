@@ -20,23 +20,29 @@ package org.apache.ignite.console.web.socket;
 import java.io.IOException;
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.PostConstruct;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.json.JsonArray;
+import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.console.web.model.VisorTaskDescriptor;
 import org.apache.ignite.console.websocket.AgentHandshakeRequest;
 import org.apache.ignite.console.websocket.AgentHandshakeResponse;
 import org.apache.ignite.console.websocket.TopologySnapshot;
 import org.apache.ignite.console.websocket.WebSocketEvent;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jsr166.ConcurrentLinkedHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -73,7 +79,13 @@ public class WebSocketManager extends TextWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(WebSocketManager.class);
 
     /** */
+    private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
+
+    /** */
     private static final PingMessage PING = new PingMessage(UTF_8.encode("PING"));
+
+    /** */
+    private final AccountsRepository accRepo;
 
     /** */
     private final Map<WebSocketSession, Set<String>> agents;
@@ -91,12 +103,11 @@ public class WebSocketManager extends TextWebSocketHandler {
     private final Map<String, String> supportedAgents;
 
     /** */
-    private final AccountsRepository accRepo;
+    private final Map<String, VisorTaskDescriptor> visorTasks;
 
     /**
      * @param accRepo Service to work with accounts.
      */
-    @Autowired
     public WebSocketManager(AccountsRepository accRepo) {
         this.accRepo = accRepo;
 
@@ -105,6 +116,7 @@ public class WebSocketManager extends TextWebSocketHandler {
         browsers = new ConcurrentHashMap<>();
         requests = new ConcurrentHashMap<>();
         supportedAgents = new ConcurrentHashMap<>();
+        visorTasks = new ConcurrentHashMap<>();
     }
 
     /**
@@ -169,6 +181,9 @@ public class WebSocketManager extends TextWebSocketHandler {
 
             if (log.isDebugEnabled())
                 log.debug("Found agent session [token=" + tok + ", session=" + wsAgent + ", event=" + evt + "]");
+
+            if (NODE_VISOR.equals(evt.getEventType()))
+                prepareNodeVisorParams(evt);
 
             sendMessage(wsAgent, evt);
         }
@@ -435,5 +450,125 @@ public class WebSocketManager extends TextWebSocketHandler {
     public void pingClients() {
         agents.keySet().forEach(this::ping);
         browsers.keySet().forEach(this::ping);
+    }
+
+    /**
+     * @param shortName Class short name.
+     * @return Full class name.
+     */
+    protected String igniteVisor(String shortName) {
+        return VISOR_IGNITE + shortName;
+    }
+
+    /**
+     * @param taskId Task ID.
+     * @param taskCls Task class name.
+     * @param argCls Arguments classes names.
+     */
+    protected void registerVisorTask(String taskId, String taskCls, String... argCls) {
+        visorTasks.put(taskId, new VisorTaskDescriptor(taskCls, argCls));
+    }
+
+    /**
+     * Register Visor tasks.
+     */
+    @PostConstruct
+    protected void registerVisorTasks() {
+        registerVisorTask(
+            "querySql",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryArg"));
+
+        registerVisorTask("querySqlV2",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryArgV2"));
+
+        registerVisorTask("querySqlV3",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryArgV3"));
+
+        registerVisorTask("querySqlX2",
+            igniteVisor("query.VisorQueryTask"),
+            igniteVisor("query.VisorQueryTaskArg"));
+
+        registerVisorTask("queryScanX2",
+            igniteVisor("query.VisorScanQueryTask"),
+            igniteVisor("query.VisorScanQueryTaskArg"));
+
+        registerVisorTask("queryFetch",
+            igniteVisor("query.VisorQueryNextPageTask"),
+            IgniteBiTuple.class.getName(), String.class.getName(), Integer.class.getName());
+
+        registerVisorTask("queryFetchX2",
+            igniteVisor("query.VisorQueryNextPageTask"),
+            igniteVisor("query.VisorQueryNextPageTaskArg"));
+
+        registerVisorTask("queryFetchFirstPage",
+            igniteVisor("query.VisorQueryFetchFirstPageTask"),
+            igniteVisor("query.VisorQueryNextPageTaskArg"));
+
+        registerVisorTask("queryClose",
+            igniteVisor("query.VisorQueryCleanupTask"),
+            Map.class.getName(), UUID.class.getName(), Set.class.getName());
+
+        registerVisorTask("queryCloseX2",
+            igniteVisor("query.VisorQueryCleanupTask"),
+            igniteVisor("query.VisorQueryCleanupTaskArg"));
+
+        registerVisorTask("toggleClusterState",
+            igniteVisor("misc.VisorChangeGridActiveStateTask"),
+            igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
+
+        registerVisorTask("cacheNamesCollectorTask",
+            igniteVisor("cache.VisorCacheNamesCollectorTask"),
+            Void.class.getName());
+
+        registerVisorTask("cacheNodesTask",
+            igniteVisor("cache.VisorCacheNodesTask"),
+            String.class.getName());
+
+        registerVisorTask("cacheNodesTaskX2",
+            igniteVisor("cache.VisorCacheNodesTask"),
+            igniteVisor("cache.VisorCacheNodesTaskArg"));
+    }
+
+    /**
+     * Prepare task event for execution on agent.
+     *
+     * @param evt Task event.
+     */
+    private void prepareNodeVisorParams(WebSocketEvent evt) {
+        JsonObject payload = fromJson(evt.getPayload());
+
+        JsonObject params = payload.getJsonObject("params");
+
+        String taskId = params.getString("taskId");
+
+        if (F.isEmpty(taskId))
+            throw new IllegalStateException("Task ID not specified [evt=" + evt + "]");
+
+        String nids = params.getString("nids");
+        JsonArray args = params.getJsonArray("args");
+
+        VisorTaskDescriptor desc = visorTasks.get(taskId);
+
+        if (desc == null)
+            throw new IllegalStateException("Unknown task  [taskId=" + taskId + ", evt=" + evt + "]");
+
+        JsonObject exeParams =  new JsonObject()
+            .add("cmd", "exe")
+            .add("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
+            .add("p1", nids)
+            .add("p2", desc.getTaskClass());
+
+        AtomicInteger idx = new AtomicInteger(3);
+
+        Arrays.stream(desc.getArgumentsClasses()).forEach(arg ->  exeParams.put("p" + idx.getAndIncrement(), arg));
+
+        args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
+
+        payload.put("params", exeParams);
+
+        evt.setPayload(toJson(payload));
     }
 }

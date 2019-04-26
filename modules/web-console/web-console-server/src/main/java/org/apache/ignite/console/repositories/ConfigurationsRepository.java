@@ -66,7 +66,7 @@ public class ConfigurationsRepository {
     private final Table<Igfs> igfssTbl;
 
     /** */
-    private final OneToManyIndex clustersIdx;
+    protected final OneToManyIndex clustersIdx;
 
     /** */
     private final OneToManyIndex cachesIdx;
@@ -78,7 +78,7 @@ public class ConfigurationsRepository {
     private final OneToManyIndex igfssIdx;
 
     /** */
-    protected final OneToManyIndex configIdx;
+    private final OneToManyIndex configIdx;
 
     /**
      * @param ignite Ignite.
