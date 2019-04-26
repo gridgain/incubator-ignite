@@ -23,22 +23,23 @@ import org.springframework.security.authentication.DisabledException;
  * Thrown if an authentication request is rejected because the account is disabled.
  */
 public class MissingConfirmRegistrationException extends DisabledException {
-    /** Username. */
-    private String username;
+    /** User name. */
+    private String userName;
 
     /**
      * @param msg Message.
+     * @param userName User name.
      */
-    public MissingConfirmRegistrationException(String msg, String username) {
+    public MissingConfirmRegistrationException(String msg, String userName) {
         super(msg);
 
-        this.username = username;
+        this.userName = userName;
     }
 
     /**
-     * @return Username of disabled account.
+     * @return User name of disabled account.
      */
-    public String getUsername() {
-        return username;
+    public String getUserName() {
+        return userName;
     }
 }

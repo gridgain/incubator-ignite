@@ -138,8 +138,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     /** {@inheritDoc} */
     @Override protected void configure(AuthenticationManagerBuilder auth) {
-        DaoAuthenticationProvider authProvider = activationEnabled ?
-            new CustomAuthenticationProvider(activationTimeout) : new DaoAuthenticationProvider();
+        DaoAuthenticationProvider authProvider = activationEnabled
+            ? new CustomAuthenticationProvider(activationTimeout)
+            : new DaoAuthenticationProvider();
 
         authProvider.setPreAuthenticationChecks(userDetailsChecker);
         authProvider.setUserDetailsService(accountsSrvc);

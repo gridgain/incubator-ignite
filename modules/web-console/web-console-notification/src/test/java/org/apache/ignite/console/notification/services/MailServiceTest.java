@@ -41,6 +41,9 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Mail service test.
+ */
 @RunWith(MockitoJUnitRunner.class)
 @SpringBootTest
 public class MailServiceTest {
@@ -70,6 +73,7 @@ public class MailServiceTest {
             .thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
     }
 
+    /** Test send e-mail. */
     @Test
     public void shouldSendEmail() throws MessagingException, IOException {
         Notification notification = new Notification(
@@ -91,6 +95,7 @@ public class MailServiceTest {
         assertEquals("text", msg.getContent());
     }
 
+    /** */
     @Test
     public void shouldSendEmailWithExpressionInSubject() throws MessagingException, IOException {
         Notification notification = new Notification(
@@ -116,6 +121,7 @@ public class MailServiceTest {
     private static class TestRecipient implements Recipient {
         /** First name. */
         private String fn = "firstName";
+
         /** Last name. */
         public String lastName = "lastName";
 

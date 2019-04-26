@@ -17,6 +17,9 @@
 
 package org.apache.ignite.console.notification.model;
 
+/**
+ * Notification descriptors.
+ */
 public enum NotificationDescriptor {
     /** */
     ADMIN_WELCOME_LETTER(

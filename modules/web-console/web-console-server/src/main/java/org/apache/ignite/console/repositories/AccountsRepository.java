@@ -32,7 +32,6 @@ import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.security.authentication.AuthenticationServiceException;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Repository;
 
@@ -147,7 +146,7 @@ public class AccountsRepository {
      */
     public Account delete(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
-            @Nullable Account acc = accountsTbl.delete(accId);
+            Account acc = accountsTbl.delete(accId);
 
             if (acc == null)
                 throw new IllegalStateException("Account not found for ID: " + accId);
