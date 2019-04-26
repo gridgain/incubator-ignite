@@ -168,8 +168,6 @@ export default class AgentManager {
 
     wsSubject = new Subject();
 
-    _visorTasks = new Map();
-
     /** @type {Set<() => Promise>} */
     switchClusterListeners = new Set();
 
@@ -245,41 +243,6 @@ export default class AgentManager {
                 }
             });
         }
-    }
-
-    // TODO WC-1030: Move to backend.
-    registerVisorTask(taskId, taskCls, ...argCls) {
-        this._visorTasks.set(taskId, {
-            taskCls,
-            argCls
-        });
-    }
-
-    // TODO WC-1030: Move to backend.
-    registerVisorTasks() {
-        const internalVisor = (postfix) => `org.apache.ignite.internal.visor.${postfix}`;
-
-        this.registerVisorTask('querySql', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryArg'));
-        this.registerVisorTask('querySqlV2', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryArgV2'));
-        this.registerVisorTask('querySqlV3', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryArgV3'));
-        this.registerVisorTask('querySqlX2', internalVisor('query.VisorQueryTask'), internalVisor('query.VisorQueryTaskArg'));
-
-        this.registerVisorTask('queryScanX2', internalVisor('query.VisorScanQueryTask'), internalVisor('query.VisorScanQueryTaskArg'));
-
-        this.registerVisorTask('queryFetch', internalVisor('query.VisorQueryNextPageTask'), 'org.apache.ignite.lang.IgniteBiTuple', 'java.lang.String', 'java.lang.Integer');
-        this.registerVisorTask('queryFetchX2', internalVisor('query.VisorQueryNextPageTask'), internalVisor('query.VisorQueryNextPageTaskArg'));
-
-        this.registerVisorTask('queryFetchFirstPage', internalVisor('query.VisorQueryFetchFirstPageTask'), internalVisor('query.VisorQueryNextPageTaskArg'));
-
-        this.registerVisorTask('queryClose', internalVisor('query.VisorQueryCleanupTask'), 'java.util.Map', 'java.util.UUID', 'java.util.Set');
-        this.registerVisorTask('queryCloseX2', internalVisor('query.VisorQueryCleanupTask'), internalVisor('query.VisorQueryCleanupTaskArg'));
-
-        this.registerVisorTask('toggleClusterState', internalVisor('misc.VisorChangeGridActiveStateTask'), internalVisor('misc.VisorChangeGridActiveStateTaskArg'));
-
-        this.registerVisorTask('cacheNamesCollectorTask', internalVisor('cache.VisorCacheNamesCollectorTask'), 'java.lang.Void');
-
-        this.registerVisorTask('cacheNodesTask', internalVisor('cache.VisorCacheNodesTask'), 'java.lang.String');
-        this.registerVisorTask('cacheNodesTaskX2', internalVisor('cache.VisorCacheNodesTask'), internalVisor('cache.VisorCacheNodesTaskArg'));
     }
 
     isDemoMode() {
@@ -746,30 +709,11 @@ export default class AgentManager {
      * @param {Array.<Object>} args
      */
     visorTask(taskId, nids, ...args) {
-        if (_.isEmpty(this._visorTasks))
-            this.registerVisorTasks();
-
-        const desc = this._visorTasks.get(taskId);
-
-        if (_.isNil(desc))
-            return Promise.reject(`Failed to find Visor task for ID: ${taskId}`);
-
         args = _.map(args, (arg) => maskNull(arg));
 
         nids = _.isArray(nids) ? nids.join(';') : maskNull(nids);
 
-        const exeParams = {
-            taskId,
-            nids,
-            cmd: 'exe',
-            name: 'org.apache.ignite.internal.visor.compute.VisorGatewayTask',
-            p1: nids,
-            p2: desc.taskCls
-        };
-
-        _.forEach(_.concat(desc.argCls, args), (param, idx) => { exeParams[`p${idx + 3}`] = param; });
-
-        return this._executeOnCluster('node:visor', exeParams);
+        return this._executeOnCluster('node:visor', {taskId, nids, args});
     }
 
     /**

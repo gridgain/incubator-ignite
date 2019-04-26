@@ -15,11 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.services;
+package org.apache.ignite.console.web.model;
+
+import java.util.UUID;
+import javax.validation.constraints.NotNull;
+import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Service to handle requests to Visor tasks.
+ * Web model of the user.
  */
-public class AgentService {
-    // TODO WC-1068 Implement separate service for agent.
+public class UserDetailsResponse extends UserResponse {
+    /** ID */
+    @NotNull
+    @NotEmpty
+    private UUID id;
+
+    /**
+     * @return ID.
+     */
+    public UUID getId() {
+        return id;
+    }
+
+    /**
+     * @param id New ID.
+     */
+    public void setId(UUID id) {
+        this.id = id;
+    }
 }
