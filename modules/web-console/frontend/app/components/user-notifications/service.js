@@ -19,7 +19,6 @@ import _ from 'lodash';
 
 import controller from './controller';
 import templateUrl from './template.tpl.pug';
-import {CancellationError} from 'app/errors/CancellationError';
 
 export default class UserNotificationsService {
     static $inject = ['$modal', '$q'];
@@ -58,11 +57,8 @@ export default class UserNotificationsService {
             controllerAs: '$ctrl'
         });
 
-        const modalHide = modal.hide;
-
-        modal.hide = () => deferred.reject(new CancellationError());
-
-        return deferred.promise
-            .finally(modalHide);
+        return deferred
+            .promise
+            .finally(modal.hide);
     }
 }
