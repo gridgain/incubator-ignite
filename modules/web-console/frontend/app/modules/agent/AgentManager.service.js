@@ -116,16 +116,6 @@ class ConnectionState {
             this.state = State.CLUSTER_DISCONNECTED;
     }
 
-    useConnectedCluster() {
-        if (nonEmpty(this.clusters) && !this.cluster.connected) {
-            this.cluster = _.head(this.clusters);
-
-            this.cluster.connected = true;
-
-            this.state = State.CONNECTED;
-        }
-    }
-
     disconnect() {
         if (this.cluster)
             this.cluster.disconnect = true;
@@ -291,8 +281,6 @@ export default class AgentManager {
 
                     this.connectionSbj.next(conn);
                 }
-                else if (eventType === 'cluster:changed')
-                    this.updateCluster(payload);
                 else if (eventType === 'user:notifications')
                     this.UserNotifications.notification = payload;
                 else {
@@ -348,17 +336,20 @@ export default class AgentManager {
     }
 
     updateCluster(newCluster) {
-        const state = this.connectionSbj.getValue();
+        const conn = this.connectionSbj.getValue();
 
-        const oldCluster = _.find(state.clusters, (cluster) => cluster.id === newCluster.id);
+        const oldCluster = _.find(conn.clusters, (cluster) => cluster.id === newCluster.id);
 
-        if (!_.isNil(oldCluster)) {
+        if (oldCluster) {
             oldCluster.nids = newCluster.nids;
             oldCluster.addresses = newCluster.addresses;
             oldCluster.clusterVersion = newCluster.clusterVersion;
             oldCluster.active = newCluster.active;
 
-            this.connectionSbj.next(state);
+            if (conn.cluster && conn.cluster.id === newCluster.id)
+                conn.cluster.active = newCluster.active;
+
+            this.connectionSbj.next(conn);
         }
     }
 
