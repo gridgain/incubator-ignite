@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.dto;
 
+import java.util.UUID;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
@@ -28,6 +29,27 @@ public class Announcement extends AbstractDto {
 
     /** */
     private boolean visible;
+
+    /**
+     * Default constructor for serialization.
+     */
+    public Announcement() {
+        // No-op.
+    }
+
+    /**
+     * Full constructor.
+     *
+     * @param id ID.
+     * @param msg Message.
+     * @param visible Visibility flag.
+     */
+    public Announcement(UUID id, String msg, boolean visible) {
+        super(id);
+
+        this.msg = msg;
+        this.visible = visible;
+    }
 
     /**
      * @return Notification message.

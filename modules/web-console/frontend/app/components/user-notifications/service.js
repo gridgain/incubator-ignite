@@ -22,30 +22,26 @@ import templateUrl from './template.tpl.pug';
 import {CancellationError} from 'app/errors/CancellationError';
 
 export default class UserNotificationsService {
-    static $inject = ['$http', '$modal', '$q', 'IgniteMessages'];
+    static $inject = ['$modal', '$q'];
 
     /** @type {ng.IQService} */
     $q;
 
     /**
-     * @param {ng.IHttpService} $http    
-     * @param {mgcrea.ngStrap.modal.IModalService} $modal   
+     * @param {mgcrea.ngStrap.modal.IModalService} $modal
      * @param {ng.IQService} $q       
-     * @param {ReturnType<typeof import('app/services/Messages.service').default>} Messages
      */
-    constructor($http, $modal, $q, Messages) {
-        this.$http = $http;
+    constructor($modal, $q) {
         this.$modal = $modal;
         this.$q = $q;
-        this.Messages = Messages;
 
         this.message = null;
         this.visible = false;
     }
 
-    set notification(notification) {
-        this.message = _.get(notification, 'message');
-        this.visible = _.get(notification, 'visible');
+    set announcement(ann) {
+        this.message = _.get(ann, 'message');
+        this.visible = _.get(ann, 'visible');
     }
 
     editor() {
@@ -67,10 +63,6 @@ export default class UserNotificationsService {
         modal.hide = () => deferred.reject(new CancellationError());
 
         return deferred.promise
-            .finally(modalHide)
-            .then(({ message, visible }) => {
-                this.$http.put('/api/v1/admin/announcement', { message, visible })
-                    .catch(this.Messages.showError);
-            });
+            .finally(modalHide);
     }
 }

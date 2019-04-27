@@ -20,12 +20,10 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.transactions.Transaction;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -37,38 +35,37 @@ public class AdminService {
     private final TransactionManager txMgr;
 
     /** */
-    private final AccountsService accountsSvc;
+    private final AccountsService accountsSrvc;
 
     /** */
-    private final ConfigurationsService cfgsSvc;
+    private final ConfigurationsService cfgsSrvc;
 
     /** */
-    private final NotebooksService notebooksSvc;
+    private final NotebooksService notebooksSrvc;
 
     /**
      * @param txMgr Transactions manager.
-     * @param accountsSvc Service to work with accounts.
-     * @param cfgsSvc Service to work with configurations.
-     * @param notebooksSvc Service to work with notebooks.
+     * @param accountsSrvc Service to work with accounts.
+     * @param cfgsSrvc Service to work with configurations.
+     * @param notebooksSrvc Service to work with notebooks.
      */
-    @Autowired
     public AdminService(
         TransactionManager txMgr,
-        AccountsService accountsSvc,
-        ConfigurationsService cfgsSvc,
-        NotebooksService notebooksSvc
+        AccountsService accountsSrvc,
+        ConfigurationsService cfgsSrvc,
+        NotebooksService notebooksSrvc
     ) {
         this.txMgr = txMgr;
-        this.accountsSvc = accountsSvc;
-        this.cfgsSvc = cfgsSvc;
-        this.notebooksSvc = notebooksSvc;
+        this.accountsSrvc = accountsSrvc;
+        this.cfgsSrvc = cfgsSrvc;
+        this.notebooksSrvc = notebooksSrvc;
     }
 
     /**
      * @return List of all users.
      */
     public JsonArray list() {
-        List<Account> accounts = accountsSvc.list();
+        List<Account> accounts = accountsSrvc.list();
 
         JsonArray res = new JsonArray();
 
@@ -102,9 +99,9 @@ public class AdminService {
      */
     public void remove(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
-            cfgsSvc.deleteByAccountId(accId);
-            notebooksSvc.deleteAll(accId);
-            accountsSvc.delete(accId);
+            cfgsSrvc.deleteByAccountId(accId);
+            notebooksSrvc.deleteAll(accId);
+            accountsSrvc.delete(accId);
 
             tx.commit();
         }
@@ -115,20 +112,13 @@ public class AdminService {
      * @param admin Admin flag.
      */
     public void toggle(UUID accId, boolean admin) {
-        accountsSvc.toggle(accId, admin);
+        accountsSrvc.toggle(accId, admin);
     }
 
     /**
      * @param accId Account ID.
      */
     public void become(UUID accId) {
-        throw new UnsupportedOperationException("Not implemented yet!");
-    }
-
-    /**
-     * @param announcement Announcement.
-     */
-    public void announcement(Announcement announcement) {
         throw new UnsupportedOperationException("Not implemented yet!");
     }
 }

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +31,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.PostConstruct;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
+import org.apache.ignite.console.repositories.AnnouncementRepository;
 import org.apache.ignite.console.web.model.VisorTaskDescriptor;
 import org.apache.ignite.console.websocket.AgentHandshakeRequest;
 import org.apache.ignite.console.websocket.AgentHandshakeResponse;
@@ -57,6 +60,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.json.JsonUtils.errorToJson;
 import static org.apache.ignite.console.json.JsonUtils.fromJson;
 import static org.apache.ignite.console.json.JsonUtils.toJson;
+import static org.apache.ignite.console.websocket.WebSocketConsts.ADMIN_ANNOUNCEMENT;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENTS_PATH;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_HANDSHAKE;
 import static org.apache.ignite.console.websocket.WebSocketConsts.AGENT_REVOKE_TOKEN;
@@ -88,6 +92,9 @@ public class WebSocketManager extends TextWebSocketHandler {
     private final AccountsRepository accRepo;
 
     /** */
+    private final AnnouncementRepository annRepo;
+
+    /** */
     private final Map<WebSocketSession, Set<String>> agents;
 
     /** */
@@ -106,10 +113,12 @@ public class WebSocketManager extends TextWebSocketHandler {
     private final Map<String, VisorTaskDescriptor> visorTasks;
 
     /**
-     * @param accRepo Service to work with accounts.
+     * @param accRepo Repository to work with accounts.
+     * @param annRepo Repository to work with announcement.
      */
-    public WebSocketManager(AccountsRepository accRepo) {
+    public WebSocketManager(AccountsRepository accRepo, AnnouncementRepository annRepo) {
         this.accRepo = accRepo;
+        this.annRepo = annRepo;
 
         agents = new ConcurrentLinkedHashMap<>();
         clusters = new ConcurrentHashMap<>();
@@ -262,6 +271,8 @@ public class WebSocketManager extends TextWebSocketHandler {
         browsers.put(ws, token(ws));
 
         updateAgentStatus();
+
+        sendAnnouncement(ws);
     }
 
     /**
@@ -338,6 +349,11 @@ public class WebSocketManager extends TextWebSocketHandler {
         WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
         switch (evt.getEventType()) {
+            case ADMIN_ANNOUNCEMENT:
+                updateAnnouncement(evt);
+
+                break;
+
             case SCHEMA_IMPORT_DRIVERS:
             case SCHEMA_IMPORT_SCHEMAS:
             case SCHEMA_IMPORT_METADATA:
@@ -352,6 +368,46 @@ public class WebSocketManager extends TextWebSocketHandler {
             default:
                 log.warn("Unknown event: " + evt);
         }
+    }
+
+    /**
+     * @param evt Event.
+     */
+    private void updateAnnouncement(WebSocketEvent evt) {
+        try {
+            Announcement ann = fromJson(evt.getPayload(), Announcement.class);
+
+            annRepo.save(ann);
+
+            sendAnnouncement(browsers.keySet(), ann);
+        }
+        catch (Throwable e) {
+            log.error("Failed to update announcement: " + evt, e);
+        }
+    }
+
+    /**
+     * @param browserWs Browser to send current announcement.
+     */
+    private void sendAnnouncement(WebSocketSession browserWs) {
+        try {
+            sendAnnouncement(Collections.singleton(browserWs), annRepo.load());
+        }
+        catch (Throwable e) {
+            log.error("Failed to send announcement to: " + browserWs);
+        }
+    }
+
+    /**
+     * @param browsers Browsers to send announcement.
+     * @param ann Announcement.
+     * @throws IOException If failed to send announcement.
+     */
+    private void sendAnnouncement(Set<WebSocketSession> browsers, Announcement ann) throws IOException {
+        WebSocketEvent evt = new WebSocketEvent(ADMIN_ANNOUNCEMENT, toJson(ann));
+
+        for (WebSocketSession ws : browsers)
+            sendMessage(ws, evt);
     }
 
     /**

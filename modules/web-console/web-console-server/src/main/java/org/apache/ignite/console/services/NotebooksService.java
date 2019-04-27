@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.repositories.NotebooksRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -29,13 +28,12 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class NotebooksService {
-    /** Repository to work with notebooks. */
+    /** */
     private final NotebooksRepository notebooksRepo;
 
     /**
-     * @param notebooksRepo Notebooks repository.
+     * @param notebooksRepo Repository to work with notebooks.
      */
-    @Autowired
     public NotebooksService(NotebooksRepository notebooksRepo) {
         this.notebooksRepo = notebooksRepo;
     }

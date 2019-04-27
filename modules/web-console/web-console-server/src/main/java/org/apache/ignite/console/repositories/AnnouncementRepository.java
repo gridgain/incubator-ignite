@@ -17,10 +17,12 @@
 
 package org.apache.ignite.console.repositories;
 
+import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.tx.TransactionManager;
+import org.apache.ignite.transactions.Transaction;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -28,6 +30,9 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public class AnnouncementRepository {
+    /** Announcement ID. */
+    private static final UUID ID = UUID.fromString("46e47a4b-fb92-4462-808a-4350fd9855de");
+
     /** */
     private final TransactionManager txMgr;
 
@@ -41,73 +46,40 @@ public class AnnouncementRepository {
     public AnnouncementRepository(Ignite ignite, TransactionManager txMgr) {
         this.txMgr = txMgr;
 
-        announcementTbl = new Table<Announcement>(ignite, "wc_announcement");
+        announcementTbl = new Table<>(ignite, "wc_announcement");
     }
 
-//    /**
-//     * @param accId Account ID.
-//     * @return List of notebooks for specified account.
-//     */
-//    public Collection<Notebook> list(UUID accId) {
-//        try (Transaction ignored = txMgr.txStart()) {
-//            TreeSet<UUID> notebooksIds = notebooksIdx.load(accId);
-//
-//            return notebooksTbl.loadAll(notebooksIds);
-//        }
-//    }
-//
-//    /**
-//     * Save notebook.
-//     *
-//     * @param accId Account ID.
-//     * @param notebook Notebook to save.
-//     */
-//    public void save(UUID accId, Notebook notebook) {
-//        try (Transaction tx = txMgr.txStart()) {
-//            notebooksIdx.validateSave(accId, notebook.getId(), notebooksTbl);
-//
-//            notebooksTbl.save(notebook);
-//
-//            notebooksIdx.add(accId, notebook.getId());
-//
-//            tx.commit();
-//        }
-//    }
-//
-//    /**
-//     * Delete notebook.
-//     *
-//     * @param accId Account ID.
-//     * @param notebookId Notebook ID to delete.
-//     */
-//    public void delete(UUID accId, UUID notebookId) {
-//        try (Transaction tx = txMgr.txStart()) {
-//            notebooksIdx.validate(accId, notebookId);
-//
-//            Notebook notebook = notebooksTbl.load(notebookId);
-//
-//            if (notebook != null) {
-//                notebooksTbl.delete(notebookId);
-//
-//                notebooksIdx.remove(accId, notebookId);
-//
-//                tx.commit();
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Delete all notebook for specified account.
-//     *
-//     * @param accId Account ID.
-//     */
-//    public void deleteAll(UUID accId) {
-//        try(Transaction tx = txMgr.txStart()) {
-//            TreeSet<UUID> notebooksIds = notebooksIdx.delete(accId);
-//
-//            notebooksTbl.deleteAll(notebooksIds);
-//
-//            tx.commit();
-//        }
-//    }
+    /**
+     * @return Announcement.
+     */
+    public Announcement load() {
+        try (Transaction tx = txMgr.txStart()) {
+            Announcement ann = announcementTbl.load(ID);
+
+            if (ann == null) {
+                ann = new Announcement(ID, "", false);
+
+                announcementTbl.save(ann);
+            }
+
+            tx.commit();
+
+            return ann;
+        }
+    }
+
+    /**
+     * Save announcement.
+     *
+     * @param ann Announcement.
+     */
+    public void save(Announcement ann) {
+        try (Transaction tx = txMgr.txStart()) {
+            ann.setId(ID);
+
+            announcementTbl.save(ann);
+
+            tx.commit();
+        }
+    }
 }

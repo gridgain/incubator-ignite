@@ -16,12 +16,13 @@
  */
 
 export default class UserNotificationsController {
-    static $inject = ['deferred', 'message', 'visible'];
+    static $inject = ['deferred', 'message', 'visible', 'AgentManager'];
 
-    constructor(deferred, message, visible) {
+    constructor(deferred, message, visible, AgentManager) {
         this.deferred = deferred;
         this.message = message;
         this.visible = visible;
+        this.AgentManager = AgentManager;
     }
 
     onLoad(editor) {
@@ -45,6 +46,8 @@ export default class UserNotificationsController {
     }
 
     submit() {
-        this.deferred.resolve({message: this.message, visible: this.visible});
+        this.AgentManager.announcement({message: this.message, visible: this.visible});
+
+        this.deferred.resolve();
     }
 }

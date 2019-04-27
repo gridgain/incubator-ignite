@@ -40,6 +40,9 @@ public interface WebSocketConsts {
     public static final String AGENT_STATUS = "agent:status";
 
     /** */
+    public static final String ADMIN_ANNOUNCEMENT = "admin:announcement";
+
+    /** */
     public static final String SCHEMA_IMPORT_DRIVERS = "schemaImport:drivers";
 
     /** */

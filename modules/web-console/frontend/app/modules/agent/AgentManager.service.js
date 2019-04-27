@@ -281,8 +281,8 @@ export default class AgentManager {
 
                     this.connectionSbj.next(conn);
                 }
-                else if (eventType === 'user:notifications')
-                    this.UserNotifications.notification = payload;
+                else if (eventType === 'admin:announcement')
+                    this.UserNotifications.announcement = payload;
                 else {
                     this.wsSubject.next({
                         requestId: evt.requestId,
@@ -866,5 +866,9 @@ export default class AgentManager {
 
     hasCredentials(clusterId) {
         return this.clustersSecrets.get(clusterId).hasCredentials();
+    }
+
+    announcement(ann) {
+        this._sendWebSocketEvent(uuidv4(), 'admin:announcement', ann);
     }
 }
