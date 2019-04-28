@@ -1,6 +1,8 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
 
 import java.nio.LongBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.util.GridUnsafe;
 
 public class OffHeapLockLog extends LockLog {
@@ -40,20 +42,37 @@ public class OffHeapLockLog extends LockLog {
     }
 
     @Override public LockLogSnapshot dump0() {
-        LongBuffer buf = LongBuffer.allocate(LOG_SIZE);
-
-        GridUnsafe.copyMemory(null, ptr, buf.array(), GridUnsafe.LONG_ARR_OFF, LOG_SIZE);
-
-        long[] lockLog = buf.array();
-
         return new LockLogSnapshot(
             name,
             System.currentTimeMillis(),
             headIdx,
-            lockLog,
+            toList(),
             nextOp,
             nextOpStructureId,
             nextOpPageId
         );
+    }
+
+    @Override protected List<LockLogSnapshot.LogEntry> toList() {
+        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(LOG_CAPACITY);
+
+        for (int i = 0; i < headIdx; i += 2) {
+            long metaOnLock = getByIndex(i + 1);
+
+            assert metaOnLock != 0;
+
+            int idx = ((int)(metaOnLock >> 32) & LOCK_IDX_MASK) >> OP_OFFSET;
+
+            assert idx >= 0;
+
+            long pageId = getByIndex(i);
+
+            int op = (int)((metaOnLock >> 32) & LOCK_OP_MASK);
+            int structureId = (int)(metaOnLock);
+
+            lockLog.add(new LockLogSnapshot.LogEntry(pageId, structureId, op, idx));
+        }
+
+        return lockLog;
     }
 }

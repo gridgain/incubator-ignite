@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.Dump;
 import org.apache.ignite.internal.util.typedef.internal.SB;
@@ -27,7 +28,7 @@ public class LockLogSnapshot implements Dump {
 
     public final int headIdx;
 
-    public final long[] pageLockLog;
+    public final List<LogEntry> locklog;
 
     public final int nextOp;
     public final int nextOpStructureId;
@@ -37,7 +38,7 @@ public class LockLogSnapshot implements Dump {
         String name,
         long time,
         int headIdx,
-        long[] locklog,
+        List<LogEntry> locklog,
         int nextOp,
         int nextOpStructureId,
         long nextOpPageId
@@ -45,10 +46,27 @@ public class LockLogSnapshot implements Dump {
         this.name = name;
         this.time = time;
         this.headIdx = headIdx;
-        this.pageLockLog = locklog;
+        this.locklog = locklog;
         this.nextOp = nextOp;
         this.nextOpStructureId = nextOpStructureId;
         this.nextOpPageId = nextOpPageId;
+    }
+
+    public static class LogEntry {
+        private final long pageId;
+
+        private final int structureId;
+
+        private final int operation;
+
+        private final int holdedLocks;
+
+        public LogEntry(long pageId, int structureId, int operation, int holdedLock) {
+            this.pageId = pageId;
+            this.structureId = structureId;
+            this.operation = operation;
+            this.holdedLocks = holdedLock;
+        }
     }
 
     @Override public String toString() {
@@ -60,21 +78,13 @@ public class LockLogSnapshot implements Dump {
 
         SB logLocksStr = new SB();
 
-        for (int i = 0; i < headIdx; i += 2) {
-            long metaOnLock = pageLockLog[i + 1];
-
-            assert metaOnLock != 0;
-
-            int idx = ((int)(metaOnLock >> 32) & LOCK_IDX_MASK) >> OP_OFFSET;
-
-            assert idx >= 0;
-
-            long pageId = pageLockLog[i];
-
-            int op = (int)((metaOnLock >> 32) & LOCK_OP_MASK);
-            int cacheId = (int)(metaOnLock);
-
+        for (LogEntry entry : locklog) {
             String opStr = "N/A";
+
+            int op = entry.operation;
+            long pageId = entry.pageId;
+            int cacheId = entry.structureId;
+            int idx = entry.holdedLocks;
 
             switch (op) {
                 case READ_LOCK:

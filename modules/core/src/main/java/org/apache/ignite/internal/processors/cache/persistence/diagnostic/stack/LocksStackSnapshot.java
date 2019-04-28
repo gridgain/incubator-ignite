@@ -55,9 +55,9 @@ public class LocksStackSnapshot implements Dump {
             String str = "N/A";
 
             if (nextOp == BEFORE_READ_LOCK)
-                str = "obtain read lock";
+                str = "read lock";
             else if (nextOp == BEFORE_WRITE_LOCK)
-                str = "obtain write lock";
+                str = "write lock";
 
             res.a("\t-> try " + str + ", " + pageIdToString(nextOpPageId) + "\n");
         }

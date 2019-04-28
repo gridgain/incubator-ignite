@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
 
-import static java.util.Arrays.copyOf;
+import java.util.ArrayList;
+import java.util.List;
 
 public class HeapArrayLockLog extends LockLog {
     private static final int LOG_SIZE = 128;
@@ -24,16 +25,37 @@ public class HeapArrayLockLog extends LockLog {
     }
 
     @Override public LockLogSnapshot dump0() {
-        long[] lockLog = copyOf(pageIdsLockLog, pageIdsLockLog.length);
-
         return new LockLogSnapshot(
             name,
             System.currentTimeMillis(),
             headIdx,
-            lockLog,
+            toList(),
             nextOp,
             nextOpStructureId,
             nextOpPageId
         );
+    }
+
+    @Override protected List<LockLogSnapshot.LogEntry> toList() {
+        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(LOG_SIZE);
+
+        for (int i = 0; i < headIdx; i += 2) {
+            long metaOnLock = getByIndex(i + 1);
+
+            assert metaOnLock != 0;
+
+            int idx = ((int)(metaOnLock >> 32) & LOCK_IDX_MASK) >> OP_OFFSET;
+
+            assert idx >= 0;
+
+            long pageId = getByIndex(i);
+
+            int op = (int)((metaOnLock >> 32) & LOCK_OP_MASK);
+            int structureId = (int)(metaOnLock);
+
+            lockLog.add(new LockLogSnapshot.LogEntry(pageId, structureId, op, idx));
+        }
+
+        return lockLog;
     }
 }

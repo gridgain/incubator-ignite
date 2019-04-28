@@ -202,7 +202,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteFuture dumpSync() {
+    @Override public IgniteFuture<T> dumpSync() {
         //TODO
         throw new UnsupportedOperationException();
     }

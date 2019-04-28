@@ -1,5 +1,6 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
 
+import java.util.List;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker;
 
 public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
@@ -109,4 +110,6 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
 
         return major | minor;
     }
+
+    protected abstract List<LockLogSnapshot.LogEntry> toList();
 }

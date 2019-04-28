@@ -97,7 +97,7 @@ public class DataStructurePageLockListener implements PageLockListener, DumpSupp
         return new ThreadDumpLocks(idToStrcutureName, idToThreadName, dumps);
     }
 
-    @Override public IgniteFuture dumpSync() {
+    @Override public IgniteFuture<ThreadDumpLocks> dumpSync() {
         throw new UnsupportedOperationException();
     }
 }
