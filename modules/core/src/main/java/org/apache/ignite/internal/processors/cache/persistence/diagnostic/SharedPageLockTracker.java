@@ -1,17 +1,14 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.HeapArrayLockStack;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
 import org.apache.ignite.lang.IgniteFuture;
 
-public class DataStructurePageLockListener implements PageLockListener, DumpSupported<ThreadDumpLocks> {
-    public static final DataStructurePageLockListener LOCK_TRACKER = new DataStructurePageLockListener();
+public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
+    public static final SharedPageLockTracker LOCK_TRACKER = new SharedPageLockTracker();
 
     private final Map<Long, PageLockTracker> threadStacks = new ConcurrentHashMap<>();
     private final Map<Long, String> idToThreadName = new ConcurrentHashMap<>();
@@ -36,7 +33,7 @@ public class DataStructurePageLockListener implements PageLockListener, DumpSupp
         return stack;
     });
 
-    private DataStructurePageLockListener() {
+    private SharedPageLockTracker() {
 
     }
 
