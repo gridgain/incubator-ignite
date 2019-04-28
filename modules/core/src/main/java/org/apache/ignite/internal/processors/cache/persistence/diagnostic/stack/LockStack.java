@@ -2,7 +2,7 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack
 
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker;
 
-public abstract class LockStack extends PageLockTracker<LocksStackSnapshot> {
+public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
     protected int headIdx;
 
     protected int nextOp;

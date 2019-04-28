@@ -53,13 +53,13 @@ public class LockLogSnapshot implements Dump {
     }
 
     public static class LogEntry {
-        private final long pageId;
+        public final long pageId;
 
-        private final int structureId;
+        public final int structureId;
 
-        private final int operation;
+        public final int operation;
 
-        private final int holdedLocks;
+        public final int holdedLocks;
 
         public LogEntry(long pageId, int structureId, int operation, int holdedLock) {
             this.pageId = pageId;

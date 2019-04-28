@@ -12,7 +12,7 @@ import static org.apache.ignite.internal.processors.cache.persistence.diagnostic
 import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 
-public class LocksStackSnapshot implements Dump {
+public class LockStackSnapshot implements Dump {
     private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     public final String name;
@@ -27,7 +27,7 @@ public class LocksStackSnapshot implements Dump {
     public final int nextOpStructureId;
     public final long nextOpPageId;
 
-    public LocksStackSnapshot(
+    public LockStackSnapshot(
         String name,
         long time,
         int headIdx,

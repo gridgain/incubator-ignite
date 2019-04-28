@@ -36,11 +36,11 @@ public class OffHeapLockLog extends LockLog {
         return ptr;
     }
 
-    @Override public LockLogSnapshot dump0() {
+    @Override public LockLogSnapshot snapshot() {
         return new LockLogSnapshot(
             name,
             System.currentTimeMillis(),
-            headIdx,
+            headIdx / 2,
             toList(),
             nextOp,
             nextOpStructureId,

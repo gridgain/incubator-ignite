@@ -20,10 +20,10 @@ public class HeapArrayLockStack extends LockStack {
     }
 
     /** {@inheritDoc} */
-    @Override public LocksStackSnapshot dump0() {
+    @Override public LockStackSnapshot snapshot() {
         long[] stack = copyOf(pageIdLocksStack, pageIdLocksStack.length);
 
-        return new LocksStackSnapshot(
+        return new LockStackSnapshot(
             name,
             System.currentTimeMillis(),
             headIdx,

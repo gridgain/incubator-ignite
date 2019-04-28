@@ -1,16 +1,11 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
 
 import java.util.Arrays;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.IntStream;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.LockStack;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.LocksStackSnapshot;
-import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.LockStackSnapshot;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -33,7 +28,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long page = 2;
         long pageAddr = 3;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         lockStack.onBeforeReadLock(STRUCTURE_ID, pageId, page);
 
@@ -80,7 +75,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long pageAddr1 = 3;
         long pageAddr2 = 13;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         lockStack.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -165,7 +160,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long pageAddr2 = 13;
         long pageAddr3 = 133;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         lockStack.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -289,7 +284,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long pageAddr2 = 13;
         long pageAddr3 = 133;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         lockStack.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -409,7 +404,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long pageAddr2 = 13;
         long pageAddr3 = 133;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         lockStack.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -527,7 +522,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long page = 2;
         long pageAddr = 3;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         // Lock stack should be invalid after this operation because we can not unlock page
         // which was not locked.
@@ -559,7 +554,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long pageAddr1 = 3;
         long pageAddr2 = 13;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         lockStack.onReadLock(STRUCTURE_ID, pageId1, page1, pageAddr1);
 
@@ -599,7 +594,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long pageAddr3 = 133;
         long pageAddr4 = 1333;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         lockStack.onReadLock(STRUCTURE_ID, pageId1, page1, pageAddr1);
         lockStack.onReadLock(STRUCTURE_ID, pageId2, page2, pageAddr2);
@@ -634,7 +629,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long page = 2;
         long pageAddr = 3;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         // Lock stack should be invalid after this operation because we can get lock more that
         // stack capacity, +1 for overflow.
@@ -663,7 +658,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         long page = 2;
         long pageAddr = 3;
 
-        LocksStackSnapshot dump;
+        LockStackSnapshot dump;
 
         // Lock stack should be invalid after this operation because we can not unlock page
         // which was not locked.
@@ -722,17 +717,17 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
 
     @Test
     public void testThreadDump() throws IgniteCheckedException {
-        PageLockTracker<LocksStackSnapshot> lockStack = createLockStackTracer(Thread.currentThread().getName());
+        PageLockTracker<LockStackSnapshot> lockStack = createLockStackTracer(Thread.currentThread().getName());
 
         long pageId = 1;
         long page = 2;
         long pageAddr = 3;
 
-        int cntDumps = 10_000;
+        int cntDumps = 5_000;
 
         AtomicBoolean done = new AtomicBoolean();
 
-        int maxWaitTime = 1000;
+        int maxWaitTime = 500;
 
         int maxdeep = 16;
 
@@ -768,7 +763,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
 
             long time = System.nanoTime();
 
-            LocksStackSnapshot dump = lockStack.dump();
+            LockStackSnapshot dump = lockStack.dump();
 
             long dumpTime = System.nanoTime() - time;
 

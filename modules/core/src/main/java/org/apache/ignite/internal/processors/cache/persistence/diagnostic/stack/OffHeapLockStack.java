@@ -44,7 +44,7 @@ public class OffHeapLockStack extends LockStack {
         return ptr;
     }
 
-    @Override public LocksStackSnapshot dump0() {
+    @Override public LockStackSnapshot snapshot() {
         LongBuffer buf = LongBuffer.allocate(stackSize);
 
         GridUnsafe.copyMemory(null, ptr, buf.array(), GridUnsafe.LONG_ARR_OFF, stackSize);
@@ -53,7 +53,7 @@ public class OffHeapLockStack extends LockStack {
 
         assert stack.length == stackSize;
 
-        return new LocksStackSnapshot(
+        return new LockStackSnapshot(
             name,
             System.currentTimeMillis(),
             headIdx,

@@ -145,7 +145,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
     protected abstract void setByIndex(int idx, long val);
 
     protected void invalid(String msg) {
-        T dump = dump0();
+        T dump = snapshot();
 
         invalidCtx = new InvalidContext<>(msg, dump);
     }
@@ -185,7 +185,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
-    protected abstract T dump0();
+    protected abstract T snapshot();
 
     @Override public synchronized boolean acquireSafePoint() {
         return dump ? false : (dump = true);
@@ -201,7 +201,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
 
         awaitLocks();
 
-        T dump0 = dump0();
+        T dump0 = snapshot();
 
         if (needRelease)
             releaseSafePoint();
