@@ -2,6 +2,7 @@ package org.apache.ignite.internal.benchmarks.jmh.diagnostic;
 
 import org.apache.ignite.internal.benchmarks.jmh.JmhAbstractBenchmark;
 import org.apache.ignite.internal.benchmarks.jmh.runner.JmhIdeBenchmarkRunner;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.HeapArrayLockLog;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.OffHeapLockLog;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.HeapArrayLockStack;
@@ -14,6 +15,11 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.HEAP_LOG;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.HEAP_STACK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.OFF_HEAP_LOG;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.OFF_HEAP_STACK;
 
 public class JmhPageLockTrackerBenchmark extends JmhAbstractBenchmark {
     // without sync
@@ -119,15 +125,15 @@ public class JmhPageLockTrackerBenchmark extends JmhAbstractBenchmark {
     private static PageLockListener create(String name, String type) {
         switch (type) {
             case "HeapArrayLockStack":
-                return new HeapArrayLockStack(name);
+                return LockTracerFactory.create(HEAP_STACK, name);
             case "HeapArrayLockLog":
-                return new HeapArrayLockLog(name);
+                return LockTracerFactory.create(HEAP_LOG, name);
             case "OffHeapLockStack":
-                return new OffHeapLockStack(name);
+                return LockTracerFactory.create(OFF_HEAP_STACK, name);
             case "OffHeapLockLog":
-                return new OffHeapLockLog(name);
+                return LockTracerFactory.create(OFF_HEAP_LOG, name);
+            default:
+                throw new IllegalArgumentException("type:" + type);
         }
-
-        return null;
     }
 }

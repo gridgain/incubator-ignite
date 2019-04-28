@@ -27,7 +27,7 @@ public class DataStructurePageLockListener implements PageLockListener, DumpSupp
         String threadName = thread.getName();
         long threadId = thread.getId();
 
-        PageLockTracker stack = createLockTracker(threadName + "[" + threadId + "]");
+        PageLockTracker stack = LockTracerFactory.create(threadName + "[" + threadId + "]");
 
         threadStacks.put(threadId, stack);
 
@@ -71,13 +71,6 @@ public class DataStructurePageLockListener implements PageLockListener, DumpSupp
 
     @Override public void onReadUnlock(int structureId, long pageId, long page, long pageAddr) {
         lockTracker.get().onReadUnlock(structureId, pageId, page, pageAddr);
-    }
-
-    private PageLockTracker createLockTracker(String name) {
-        //return new OffHeapLockLog(name);
-        //return new HeapArrayLockLog(name);
-        //return new OffHeapLockStack(name);
-        return new HeapArrayLockStack(name);
     }
 
     @Override public synchronized ThreadDumpLocks dump() {

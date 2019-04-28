@@ -16,8 +16,8 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
     protected int nextOpStructureId;
     protected long nextOpPageId;
 
-    protected LockLog(String name) {
-        super(name);
+    protected LockLog(String name, int capacity) {
+        super(name, capacity);
     }
 
     @Override protected void onBeforeWriteLock0(int structureId, long pageId, long page) {

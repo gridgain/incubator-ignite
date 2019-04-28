@@ -4,16 +4,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HeapArrayLockLog extends LockLog {
-    private static final int LOG_SIZE = 128;
+    private final int logSize;
 
-    private final long[] pageIdsLockLog = new long[LOG_SIZE * 2];
+    private final long[] pageIdsLockLog;
 
-    public HeapArrayLockLog(String name) {
-        super(name);
+    public HeapArrayLockLog(String name, int capacity) {
+        super(name, capacity);
+
+        this.pageIdsLockLog = new long[capacity * 2];
+        this.logSize = capacity;
     }
 
     @Override public int capacity() {
-        return LOG_SIZE;
+        return logSize;
     }
 
     @Override protected long getByIndex(int idx) {
@@ -37,7 +40,7 @@ public class HeapArrayLockLog extends LockLog {
     }
 
     @Override protected List<LockLogSnapshot.LogEntry> toList() {
-        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(LOG_SIZE);
+        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(logSize);
 
         for (int i = 0; i < headIdx; i += 2) {
             long metaOnLock = getByIndex(i + 1);

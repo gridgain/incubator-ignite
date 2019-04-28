@@ -3,18 +3,12 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack
 import static java.util.Arrays.copyOf;
 
 public class HeapArrayLockStack extends LockStack {
-    private static final int STACK_SIZE = 128;
-
     private final long[] pageIdLocksStack;
 
-    public HeapArrayLockStack(String name) {
-        super(name);
+    public HeapArrayLockStack(String name, int capacity) {
+        super(name, capacity);
 
-        this.pageIdLocksStack = new long[STACK_SIZE];
-    }
-
-    @Override public int capacity() {
-        return STACK_SIZE;
+        this.pageIdLocksStack = new long[capacity];
     }
 
     @Override protected long getByIndex(int idx) {

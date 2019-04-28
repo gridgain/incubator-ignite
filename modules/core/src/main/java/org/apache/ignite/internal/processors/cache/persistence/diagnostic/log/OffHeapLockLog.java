@@ -1,24 +1,19 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
 
-import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.util.GridUnsafe;
 
 public class OffHeapLockLog extends LockLog {
-    private static final int LOG_CAPACITY = 128;
-    private static final int LOG_SIZE = (LOG_CAPACITY * 8) * 2;
+    private final int logSize;
 
     private final long ptr;
 
-    public OffHeapLockLog(String name) {
-        super(name);
+    public OffHeapLockLog(String name, int capacity) {
+        super(name, capacity);
 
-        this.ptr = allocate(LOG_SIZE);
-    }
-
-    @Override public int capacity() {
-        return LOG_CAPACITY;
+        this.logSize = (capacity * 8) * 2;
+        this.ptr = allocate(logSize);
     }
 
     @Override protected long getByIndex(int idx) {
@@ -36,7 +31,7 @@ public class OffHeapLockLog extends LockLog {
     private long allocate(int size) {
         long ptr = GridUnsafe.allocateMemory(size);
 
-        GridUnsafe.setMemory(ptr, LOG_SIZE, (byte)0);
+        GridUnsafe.setMemory(ptr, logSize, (byte)0);
 
         return ptr;
     }
@@ -54,7 +49,7 @@ public class OffHeapLockLog extends LockLog {
     }
 
     @Override protected List<LockLogSnapshot.LogEntry> toList() {
-        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(LOG_CAPACITY);
+        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(capacity);
 
         for (int i = 0; i < headIdx; i += 2) {
             long metaOnLock = getByIndex(i + 1);

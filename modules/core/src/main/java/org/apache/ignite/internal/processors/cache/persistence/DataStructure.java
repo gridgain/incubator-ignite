@@ -62,7 +62,7 @@ public abstract class DataStructure implements PageLockListener {
     protected ReuseList reuseList;
 
     /** */
-    protected final PageLockListener delegate;
+    protected final PageLockListener tracker;
 
     /** Name (for debug purposes). */
     protected final String name;
@@ -83,7 +83,7 @@ public abstract class DataStructure implements PageLockListener {
         this.grpId = cacheId;
         this.pageMem = pageMem;
         this.wal = wal;
-        this.delegate = LOCK_TRACKER.registrateStructure(name);
+        this.tracker = LOCK_TRACKER.registrateStructure(name);
         this.name = name;
     }
 
@@ -420,26 +420,26 @@ public abstract class DataStructure implements PageLockListener {
     }
 
     @Override public void onBeforeWriteLock(int cacheId, long pageId, long page) {
-        delegate.onBeforeWriteLock(cacheId, pageId, page);
+        tracker.onBeforeWriteLock(cacheId, pageId, page);
     }
 
     @Override public void onWriteLock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onWriteLock(cacheId, pageId, page, pageAddr);
+        tracker.onWriteLock(cacheId, pageId, page, pageAddr);
     }
 
     @Override public void onWriteUnlock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onWriteUnlock(cacheId, pageId, page, pageAddr);
+        tracker.onWriteUnlock(cacheId, pageId, page, pageAddr);
     }
 
     @Override public void onBeforeReadLock(int cacheId, long pageId, long page) {
-        delegate.onBeforeReadLock(cacheId, pageId, page);
+        tracker.onBeforeReadLock(cacheId, pageId, page);
     }
 
     @Override public void onReadLock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onReadLock(cacheId, pageId, page, pageAddr);
+        tracker.onReadLock(cacheId, pageId, page, pageAddr);
     }
 
     @Override public void onReadUnlock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onReadUnlock(cacheId, pageId, page, pageAddr);
+        tracker.onReadUnlock(cacheId, pageId, page, pageAddr);
     }
 }

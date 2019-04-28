@@ -19,14 +19,17 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
 
     protected final String name;
 
+    protected final int capacity;
+
     private volatile boolean dump;
 
     private volatile boolean locked;
 
     private volatile InvalidContext<T> invalidCtx;
 
-    protected PageLockTracker(String name) {
+    protected PageLockTracker(String name, int capacity) {
         this.name = name;
+        this.capacity = capacity;
     }
 
     @Override public void onBeforeWriteLock(int structureId, long pageId, long page) {
@@ -133,7 +136,9 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         return invalidCtx;
     }
 
-    public abstract int capacity();
+    public int capacity() {
+        return capacity;
+    }
 
     protected abstract long getByIndex(int idx);
 

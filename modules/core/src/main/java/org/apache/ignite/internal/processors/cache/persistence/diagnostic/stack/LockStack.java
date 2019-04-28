@@ -9,8 +9,8 @@ public abstract class LockStack extends PageLockTracker<LocksStackSnapshot> {
     protected int nextOpStructureId;
     protected long nextOpPageId;
 
-    protected LockStack(String name) {
-        super(name);
+    protected LockStack(String name, int capacity) {
+        super(name, capacity);
     }
 
     @Override protected void onBeforeWriteLock0(int structureId, long pageId, long page) {
