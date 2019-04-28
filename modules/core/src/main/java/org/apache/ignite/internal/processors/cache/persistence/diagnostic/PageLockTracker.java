@@ -187,14 +187,24 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
 
     protected abstract T dump0();
 
+    @Override public synchronized boolean acquireSafePoint() {
+        return dump ? false : (dump = true);
+
+    }
+
+    @Override public synchronized boolean releaseSafePoint() {
+        return !dump ? false : !(dump = false);
+    }
+
     @Override public synchronized T dump() {
-        dump = true;
+        boolean needRelease = acquireSafePoint();
 
         awaitLocks();
 
         T dump0 = dump0();
 
-        dump = false;
+        if (needRelease)
+            releaseSafePoint();
 
         return dump0;
     }

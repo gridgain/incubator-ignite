@@ -1,5 +1,6 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,7 +14,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
     private final Map<Long, PageLockTracker> threadStacks = new ConcurrentHashMap<>();
     private final Map<Long, String> idToThreadName = new ConcurrentHashMap<>();
 
-    private int idx;
+    private int idGen;
 
     private final Map<String, Integer> structureNameToId = new HashMap<>();
 
@@ -38,12 +39,12 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
     }
 
     public synchronized PageLockListener registrateStructure(String structureName) {
-        Integer idx = structureNameToId.get(structureName);
+        Integer id = structureNameToId.get(structureName);
 
-        if (idx == null)
-            structureNameToId.put(structureName, idx = (++this.idx));
+        if (id == null)
+            structureNameToId.put(structureName, id = (++idGen));
 
-        return new PageLockListenerIndexAdapter(idx, this);
+        return new PageLockListenerIndexAdapter(id, this);
     }
 
     @Override public void onBeforeWriteLock(int structureId, long pageId, long page) {
@@ -70,11 +71,40 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         lockTracker.get().onReadUnlock(structureId, pageId, page, pageAddr);
     }
 
+    @Override public boolean acquireSafePoint() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override public boolean releaseSafePoint() {
+        throw new UnsupportedOperationException();
+    }
+
     @Override public synchronized ThreadDumpLocks dump() {
+        Collection<PageLockTracker> trackers = threadStacks.values();
+
+        Map<PageLockTracker, Boolean> needReleaseMap = new HashMap<>(threadStacks.size());
+
+        for (PageLockTracker tracker : trackers) {
+            boolean acquired = tracker.acquireSafePoint();
+
+            needReleaseMap.put(tracker, acquired);
+        }
+
         Map<Long, Dump> dumps = threadStacks.entrySet().stream()
             .collect(Collectors.toMap(
                 Map.Entry::getKey,
-                e -> e.getValue().dump()
+                e -> {
+                    PageLockTracker tracker = e.getValue();
+
+                    Dump dump = tracker.dump();
+
+                    Boolean needRelease = needReleaseMap.get(tracker);
+
+                    if (needRelease)
+                        tracker.releaseSafePoint();
+
+                    return dump;
+                }
             ));
 
         Map<Integer, String> idToStrcutureName =
