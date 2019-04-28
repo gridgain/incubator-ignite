@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack;
 
 import java.nio.LongBuffer;
 import org.apache.ignite.internal.util.GridUnsafe;

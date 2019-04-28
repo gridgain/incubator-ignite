@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log;
 
 import java.util.ArrayList;
 import java.util.List;

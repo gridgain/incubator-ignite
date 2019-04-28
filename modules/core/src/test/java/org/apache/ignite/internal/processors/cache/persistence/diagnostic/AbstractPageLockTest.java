@@ -3,7 +3,7 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.LockLogSnapshot;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.LockLogSnapshot;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static java.util.Arrays.stream;

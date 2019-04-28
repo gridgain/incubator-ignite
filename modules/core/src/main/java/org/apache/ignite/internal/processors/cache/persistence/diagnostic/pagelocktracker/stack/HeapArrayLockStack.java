@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack;
 
 import static java.util.Arrays.copyOf;
 

@@ -1,23 +1,20 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.Dump;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.Dump;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageIndex;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.BEFORE_READ_LOCK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.BEFORE_WRITE_LOCK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.READ_LOCK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.READ_UNLOCK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.WRITE_LOCK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.WRITE_UNLOCK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.LockLog.LOCK_IDX_MASK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.LockLog.LOCK_OP_MASK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.LockLog.OP_OFFSET;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.BEFORE_READ_LOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.BEFORE_WRITE_LOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.READ_LOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.READ_UNLOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.WRITE_LOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.WRITE_UNLOCK;
 import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 

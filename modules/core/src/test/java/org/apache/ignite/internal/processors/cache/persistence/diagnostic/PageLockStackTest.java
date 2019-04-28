@@ -4,8 +4,9 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.LockStack;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.LockStackSnapshot;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.LockStack;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.LockStackSnapshot;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -13,7 +14,7 @@ import org.junit.Test;
 import static java.time.Duration.ofMinutes;
 import static java.util.Arrays.stream;
 import static java.util.stream.IntStream.range;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.BEFORE_READ_LOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.BEFORE_READ_LOCK;
 
 public abstract class PageLockStackTest extends AbstractPageLockTest {
     protected static final int STRUCTURE_ID = 123;

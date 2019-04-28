@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
 public class InvalidContext<T extends Dump> {
     public final String msg;

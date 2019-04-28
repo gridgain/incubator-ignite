@@ -2,11 +2,7 @@ package org.apache.ignite.internal.benchmarks.jmh.diagnostic;
 
 import org.apache.ignite.internal.benchmarks.jmh.JmhAbstractBenchmark;
 import org.apache.ignite.internal.benchmarks.jmh.runner.JmhIdeBenchmarkRunner;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.HeapArrayLockLog;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.OffHeapLockLog;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.HeapArrayLockStack;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.OffHeapLockStack;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -16,10 +12,10 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.HEAP_LOG;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.HEAP_STACK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.OFF_HEAP_LOG;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.LockTracerFactory.OFF_HEAP_STACK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.HEAP_LOG;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.HEAP_STACK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_LOG;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_STACK;
 
 public class JmhPageLockTrackerBenchmark extends JmhAbstractBenchmark {
     // without sync

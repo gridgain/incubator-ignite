@@ -1,14 +1,14 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack;
 
 import java.text.SimpleDateFormat;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.Dump;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.Dump;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageIndex;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.BEFORE_READ_LOCK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker.BEFORE_WRITE_LOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.BEFORE_READ_LOCK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.BEFORE_WRITE_LOCK;
 import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 

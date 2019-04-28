@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
 

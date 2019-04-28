@@ -1,9 +1,9 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.HeapArrayLockLog;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.OffHeapLockLog;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.HeapArrayLockStack;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.OffHeapLockStack;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.HeapArrayLockLog;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.OffHeapLockLog;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.HeapArrayLockStack;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.OffHeapLockStack;
 
 import static java.lang.String.valueOf;
 

@@ -1,7 +1,7 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic.log;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log;
 
 import java.util.List;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockTracker;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker;
 
 public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
     public static final int OP_OFFSET = 16;

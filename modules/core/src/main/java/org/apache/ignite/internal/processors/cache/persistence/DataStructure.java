@@ -40,7 +40,7 @@ import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.MAX_ITEMID_NUM;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.SharedPageLockTracker.LOCK_TRACKER;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.SharedPageLockTracker.LOCK_TRACKER;
 
 /**
  * Base class for all the data structures based on {@link PageMemory}.

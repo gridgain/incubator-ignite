@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
 import java.util.Collection;
 import java.util.HashMap;
