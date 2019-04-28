@@ -48,12 +48,12 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         log(structureId, pageId, READ_UNLOCK);
     }
 
-    private void log(int cacheId, long pageId, int flags) {
+    private void log(int structureId, long pageId, int op) {
         assert pageId > 0;
 
         if ((headIdx + 2) / 2 > capacity()) {
             invalid("Log overflow, size:" + capacity() +
-                " nextOpCacheId=" + cacheId + ", nextOpPageId=" + pageId + ", flags=" + flags);
+                ", headIdx=" + headIdx + " " + argsToString(structureId, pageId, op));
 
             return;
         }
@@ -62,26 +62,26 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
 
         if (pageId0 != 0L && pageId0 != pageId) {
             invalid("Head should be empty, headIdx=" + headIdx + " " +
-                argsToString(cacheId, pageId, flags));
+                argsToString(structureId, pageId, op));
 
             return;
         }
 
         setByIndex(headIdx, pageId);
 
-        if (READ_LOCK == flags || WRITE_LOCK == flags)
+        if (READ_LOCK == op || WRITE_LOCK == op)
             holdedLockCnt++;
 
-        if (READ_UNLOCK == flags || WRITE_UNLOCK == flags)
+        if (READ_UNLOCK == op || WRITE_UNLOCK == op)
             holdedLockCnt--;
 
         int curIdx = holdedLockCnt << OP_OFFSET & LOCK_IDX_MASK;
 
-        long meta = meta(cacheId, curIdx | flags);
+        long meta = meta(structureId, curIdx | op);
 
         setByIndex(headIdx + 1, meta);
 
-        if (BEFORE_READ_LOCK == flags || BEFORE_WRITE_LOCK == flags)
+        if (BEFORE_READ_LOCK == op || BEFORE_WRITE_LOCK == op)
             return;
 
         headIdx += 2;
@@ -89,10 +89,11 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         if (holdedLockCnt == 0)
             reset();
 
-        if (this.nextOpPageId == pageId && this.nextOpStructureId == cacheId) {
-            this.nextOpStructureId = 0;
-            this.nextOpPageId = 0;
-            this.nextOp = 0;
+        if (op != BEFORE_READ_LOCK && op != BEFORE_WRITE_LOCK &&
+            nextOpPageId == pageId && nextOpStructureId == structureId) {
+            nextOpStructureId = 0;
+            nextOpPageId = 0;
+            nextOp = 0;
         }
     }
 
@@ -103,10 +104,10 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         headIdx = 0;
     }
 
-    private long meta(int cacheId, int flags) {
+    private long meta(int structureId, int flags) {
         long major = ((long)flags) << 32;
 
-        long minor = (long)cacheId;
+        long minor = (long)structureId;
 
         return major | minor;
     }
