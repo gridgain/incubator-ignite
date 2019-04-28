@@ -5,6 +5,8 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.log.Of
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.HeapArrayLockStack;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.stack.OffHeapLockStack;
 
+import static java.lang.String.valueOf;
+
 public final class LockTracerFactory {
     public static final int HEAP_STACK = 1;
     public static final int HEAP_LOG = 2;
@@ -34,7 +36,7 @@ public final class LockTracerFactory {
                 return new OffHeapLockLog(name, size);
 
             default:
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException(valueOf(type));
         }
     }
 }
