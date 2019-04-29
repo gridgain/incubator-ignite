@@ -116,17 +116,17 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
-    protected abstract void onBeforeWriteLock0(int structureId, long pageId, long page);
+    public abstract void onBeforeWriteLock0(int structureId, long pageId, long page);
 
-    protected abstract void onWriteLock0(int structureId, long pageId, long page, long pageAddr);
+    public abstract void onWriteLock0(int structureId, long pageId, long page, long pageAddr);
 
-    protected abstract void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr);
+    public abstract void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr);
 
-    protected abstract void onBeforeReadLock0(int structureId, long pageId, long page);
+    public abstract void onBeforeReadLock0(int structureId, long pageId, long page);
 
-    protected abstract void onReadLock0(int structureId, long pageId, long page, long pageAddr);
+    public abstract void onReadLock0(int structureId, long pageId, long page, long pageAddr);
 
-    protected abstract void onReadUnlock0(int structureId, long pageId, long page, long pageAddr);
+    public abstract void onReadUnlock0(int structureId, long pageId, long page, long pageAddr);
 
     public boolean isInvalid() {
         return invalidCtx != null;

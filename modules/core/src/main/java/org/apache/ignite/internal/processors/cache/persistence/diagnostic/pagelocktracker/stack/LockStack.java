@@ -13,29 +13,29 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         super(name, capacity);
     }
 
-    @Override protected void onBeforeWriteLock0(int structureId, long pageId, long page) {
+    @Override public void onBeforeWriteLock0(int structureId, long pageId, long page) {
         nextOpPageId = pageId;
         nextOp = BEFORE_WRITE_LOCK;
     }
 
-    @Override protected void onWriteLock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onWriteLock0(int structureId, long pageId, long page, long pageAddr) {
         push(structureId, pageId, WRITE_LOCK);
     }
 
-    @Override protected void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr) {
         pop(structureId, pageId, WRITE_UNLOCK);
     }
 
-    @Override protected void onBeforeReadLock0(int structureId, long pageId, long page) {
+    @Override public void onBeforeReadLock0(int structureId, long pageId, long page) {
         nextOpPageId = pageId;
         nextOp = BEFORE_READ_LOCK;
     }
 
-    @Override protected void onReadLock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onReadLock0(int structureId, long pageId, long page, long pageAddr) {
         push(structureId, pageId, READ_LOCK);
     }
 
-    @Override protected void onReadUnlock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onReadUnlock0(int structureId, long pageId, long page, long pageAddr) {
         pop(structureId, pageId, READ_UNLOCK);
     }
 

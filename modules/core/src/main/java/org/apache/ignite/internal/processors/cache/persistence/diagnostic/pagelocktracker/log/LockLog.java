@@ -20,31 +20,31 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         super(name, capacity);
     }
 
-    @Override protected void onBeforeWriteLock0(int structureId, long pageId, long page) {
+    @Override public void onBeforeWriteLock0(int structureId, long pageId, long page) {
         this.nextOp = BEFORE_WRITE_LOCK;
         this.nextOpStructureId = structureId;
         this.nextOpPageId = pageId;
     }
 
-    @Override protected void onWriteLock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onWriteLock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, WRITE_LOCK);
     }
 
-    @Override protected void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, WRITE_UNLOCK);
     }
 
-    @Override protected void onBeforeReadLock0(int structureId, long pageId, long page) {
+    @Override public void onBeforeReadLock0(int structureId, long pageId, long page) {
         this.nextOp = BEFORE_READ_LOCK;
         this.nextOpStructureId = structureId;
         this.nextOpPageId = pageId;
     }
 
-    @Override protected void onReadLock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onReadLock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, READ_LOCK);
     }
 
-    @Override protected void onReadUnlock0(int structureId, long pageId, long page, long pageAddr) {
+    @Override public void onReadUnlock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, READ_UNLOCK);
     }
 
