@@ -17,7 +17,9 @@
 
 package org.apache.ignite.console.web.controller;
 
+import org.apache.ignite.console.web.model.ErrorWithEmailResponse;
 import org.apache.ignite.console.web.model.ErrorResponse;
+import org.apache.ignite.console.web.security.MissingConfirmRegistrationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -35,6 +37,18 @@ import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 @ControllerAdvice
 public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     /**
+     * Handles account disabled exceptions.
+     *
+     * @param e Service exception.
+     * @param req Web request.
+     * @return {@link ErrorResponse} instance with error code and message.
+     */
+    @ExceptionHandler(value = {MissingConfirmRegistrationException.class})
+    protected ResponseEntity<Object> handleDisabledAccountException(MissingConfirmRegistrationException e, WebRequest req) {
+        return handleExceptionInternal(e, new ErrorWithEmailResponse(10104, errorMessage(e), e.getUsername()), null, FORBIDDEN, req);
+    }
+
+    /**
      * Handles authentication exceptions.
      *
      * @param ex Service exception.
@@ -42,7 +56,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
      * @return {@link ErrorResponse} instance with error code and message.
      */
     @ExceptionHandler(value = {AuthenticationException.class})
-    protected ResponseEntity<Object> handleLockedException(AuthenticationException ex, WebRequest req) {
+    protected ResponseEntity<Object> handleAuthException(AuthenticationException ex, WebRequest req) {
         return handleExceptionInternal(ex, new ErrorResponse(FORBIDDEN, errorMessage(ex)), null, FORBIDDEN, req);
     }
 

@@ -24,22 +24,35 @@ import org.apache.ignite.console.repositories.AccountsRepository;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
+import org.apache.ignite.console.web.security.AccountStatusChecker;
+import org.apache.ignite.console.web.security.MissingConfirmRegistrationException;
 import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.support.MessageSourceAccessor;
+import org.springframework.security.core.SpringSecurityMessageSource;
+import org.springframework.security.core.userdetails.UserDetailsChecker;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACTIVATION_LINK;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.PASSWORD_CHANGED;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.PASSWORD_RESET;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.WELCOME_LETTER;
+
 /**
  * Service to handle accounts.
  */
 @Service
 public class AccountsService implements UserDetailsService {
+    /** */
+    private final MessageSourceAccessor messages = SpringSecurityMessageSource.getAccessor();
+
     /** */
     private final TransactionManager txMgr;
 
@@ -50,33 +63,39 @@ public class AccountsService implements UserDetailsService {
     private final WebSocketManager wsm;
 
     /** */
-    private final MailService mailSrvc;
+    private final NotificationService notificationSrvc;
 
     /** */
     private final PasswordEncoder encoder;
 
+    /** User details checker. */
+    private UserDetailsChecker userDetailsChecker;
+
     /** */
-    @Value("${app.activation.enabled}")
+    @Value("${app.activation.enabled:false}")
     private boolean activationEnabled;
 
     /**
      * @param txMgr Transactions manager.
+     * @param encoder Service interface for encoding passwords.
      * @param accountsRepo Accounts repository.
      * @param wsm Websocket manager.
-     * @param mailSrvc Mail service.
+     * @param notificationSrvc Mail service.
      */
     public AccountsService(
-        TransactionManager txMgr,
-        AccountsRepository accountsRepo,
         WebSocketManager wsm,
-        MailService mailSrvc
+        PasswordEncoder encoder,
+        UserDetailsChecker userDetailsChecker,
+        AccountsRepository accountsRepo,
+        TransactionManager txMgr,
+        NotificationService notificationSrvc
     ) {
-        this.txMgr = txMgr;
-        this.accountsRepo = accountsRepo;
         this.wsm = wsm;
-        this.mailSrvc = mailSrvc;
-
-        this.encoder = encoder();
+        this.encoder = encoder;
+        this.userDetailsChecker = userDetailsChecker;
+        this.accountsRepo = accountsRepo;
+        this.txMgr = txMgr;
+        this.notificationSrvc = notificationSrvc;
     }
 
     /** {@inheritDoc} */
@@ -85,11 +104,13 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
-     * @param params SignUp params.
+     * Create account for user.
+     *
+     * @param params Sign up params.
      * @return Registered account.
      */
-    public Account register(SignUpRequest params) {
-        Account account = new Account(
+    Account create(SignUpRequest params) {
+        Account acc = new Account(
             params.getEmail(),
             encoder.encode(params.getPassword()),
             params.getFirstName(),
@@ -99,7 +120,28 @@ public class AccountsService implements UserDetailsService {
             params.getCountry()
         );
 
-        return accountsRepo.create(account);
+        if (activationEnabled)
+            acc.resetActivationToken();
+
+        return accountsRepo.create(acc);
+    }
+
+    /**
+     * Register account for user.
+     *
+     * @param params SignUp params.
+     */
+    public void register(SignUpRequest params) {
+        Account acc = create(params);
+
+        if (activationEnabled) {
+            notificationSrvc.sendEmail(ACTIVATION_LINK, acc);
+
+            throw new MissingConfirmRegistrationException(messages.getMessage(
+                "AccountsService.confirmEmail", "Confirm your email"), acc.getEmail());
+        }
+
+        notificationSrvc.sendEmail(WELCOME_LETTER, acc);
     }
 
     /**
@@ -116,8 +158,8 @@ public class AccountsService implements UserDetailsService {
      *
      * @param accId Account ID.
      */
-    public void delete(UUID accId) {
-        accountsRepo.delete(accId);
+    Account delete(UUID accId) {
+        return accountsRepo.delete(accId);
     }
 
     /**
@@ -130,13 +172,49 @@ public class AccountsService implements UserDetailsService {
         try (Transaction tx = txMgr.txStart()) {
             Account account = accountsRepo.getById(accId);
 
-            if (account.admin() != adminFlag) {
-                account.admin(adminFlag);
+            if (account.getAdmin() != adminFlag) {
+                account.setAdmin(adminFlag);
 
                 accountsRepo.save(account);
 
                 tx.commit();
             }
+        }
+    }
+
+    /**
+     * Reset activation token for account
+     *
+     * @param accId Account id.
+     */
+    public void activateAccount(UUID accId) {
+        try (Transaction tx = txMgr.txStart()) {
+            Account acc = accountsRepo.getById(accId);
+
+            acc.activate();
+
+            accountsRepo.save(acc);
+
+            tx.commit();
+        }
+    }
+
+    /**
+     * Reset activation token for account
+     *
+     * @param email Email.
+     */
+    public void resetActivationToken(String email) {
+        try (Transaction tx = txMgr.txStart()) {
+            Account acc = accountsRepo.getByEmail(email);
+
+            acc.resetActivationToken();
+
+            accountsRepo.save(acc);
+
+            tx.commit();
+
+            notificationSrvc.sendEmail(ACTIVATION_LINK, acc);
         }
     }
 
@@ -155,32 +233,32 @@ public class AccountsService implements UserDetailsService {
             if (!F.isEmpty(pwd))
                 acc.setPassword(encoder.encode(pwd));
 
-            String oldTok = acc.token();
+            String oldTok = acc.getToken();
             String newTok = changes.getToken();
 
             if (!oldTok.equals(newTok)) {
                 wsm.revokeToken(oldTok);
 
-                acc.token(newTok);
+                acc.setToken(newTok);
             }
 
-            String oldEmail = acc.email();
+            String oldEmail = acc.getEmail();
             String newEmail = changes.getEmail();
 
             if (!oldEmail.equals(newEmail)) {
                 Account accByEmail = accountsRepo.getByEmail(oldEmail);
 
                 if (acc.getId().equals(accByEmail.getId()))
-                    acc.email(changes.getEmail());
+                    acc.setEmail(changes.getEmail());
                 else
                     throw new IllegalStateException("User with this email already registered");
             }
 
-            acc.firstName(changes.getFirstName());
-            acc.lastName(changes.getLastName());
-            acc.phone(changes.getPhone());
-            acc.country(changes.getCountry());
-            acc.company(changes.getCompany());
+            acc.setFirstName(changes.getFirstName());
+            acc.setLastName(changes.getLastName());
+            acc.setPhone(changes.getPhone());
+            acc.setCountry(changes.getCountry());
+            acc.setCompany(changes.getCompany());
 
             accountsRepo.save(acc);
 
@@ -189,72 +267,46 @@ public class AccountsService implements UserDetailsService {
     }
 
     /**
-     * @return Service for encoding user passwords.
-     */
-    @Bean
-    public PasswordEncoder encoder() {
-        // Pbkdf2PasswordEncoder is compatible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
-        // We can return to Pbkdf2PasswordEncoder if we decided to import old users.
-        //  Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH); // HASH_WIDTH = 512
-        //
-        //  encoder.setAlgorithm(PBKDF2WithHmacSHA256);
-        //  encoder.setEncodeHashAsBase64(true);
-
-        return new BCryptPasswordEncoder();
-    }
-
-    /**
-     * @param acc Account to check.
-     * @throws IllegalStateException If account was not activated.
-     */
-    private void checkAccountActivated(Account acc) throws IllegalStateException {
-        if (activationEnabled && !acc.activated())
-            throw new IllegalStateException("Account was not activated by email: " + acc.email());
-    }
-
-    /**
-     * @param origin Request origin, required for composing reset link.
      * @param email User email to send reset password link.
      */
-    public void forgotPassword(String origin, String email) {
+    public void forgotPassword(String email) {
         try (Transaction tx = txMgr.txStart()) {
             Account acc = accountsRepo.getByEmail(email);
 
-            checkAccountActivated(acc);
+            userDetailsChecker.check(acc);
 
-            acc.resetPasswordToken(UUID.randomUUID().toString());
+            acc.setResetPasswordToken(UUID.randomUUID().toString());
 
             accountsRepo.save(acc);
 
             tx.commit();
 
-            mailSrvc.sendResetLink(origin, acc);
+            notificationSrvc.sendEmail(PASSWORD_RESET, acc);
         }
     }
 
     /**
-     * @param origin Request origin required for composing reset link.
      * @param email E-mail of user that request password reset.
      * @param resetPwdTok Reset password token.
      * @param newPwd New password.
      */
-    public void resetPasswordByToken(String origin, String email, String resetPwdTok, String newPwd) {
+    public void resetPasswordByToken(String email, String resetPwdTok, String newPwd) {
         try (Transaction tx = txMgr.txStart()) {
             Account acc = accountsRepo.getByEmail(email);
 
-            if (!resetPwdTok.equals(acc.resetPasswordToken()))
+            if (!resetPwdTok.equals(acc.getResetPasswordToken()))
                 throw new IllegalStateException("Failed to find account with this token! Please check link from email.");
 
-            checkAccountActivated(acc);
+            userDetailsChecker.check(acc);
 
             acc.setPassword(encoder.encode(newPwd));
-            acc.resetPasswordToken(null);
+            acc.setResetPasswordToken(null);
 
             accountsRepo.save(acc);
 
             tx.commit();
 
-            mailSrvc.sendPasswordChanged(origin, acc);
+            notificationSrvc.sendEmail(PASSWORD_CHANGED, acc);
         }
     }
 }

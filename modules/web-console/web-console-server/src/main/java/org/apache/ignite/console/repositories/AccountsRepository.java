@@ -116,7 +116,7 @@ public class AccountsRepository {
 
             Object firstUserMarker = cache.getAndPutIfAbsent(FIRST_USER_MARKER_KEY, account.getId());
 
-            account.admin(firstUserMarker == null);
+            account.setAdmin(firstUserMarker == null);
 
             save(account);
 
@@ -144,11 +144,16 @@ public class AccountsRepository {
      *
      * @param accId Account ID.
      */
-    public void delete(UUID accId) {
+    public Account delete(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
-            accountsTbl.delete(accId);
+            Account acc = accountsTbl.delete(accId);
+
+            if (acc == null)
+                throw new IllegalStateException("Account not found for ID: " + accId);
 
             tx.commit();
+
+            return acc;
         }
     }
 
@@ -178,7 +183,7 @@ public class AccountsRepository {
             .stream()
             .map(Cache.Entry::getValue)
             .filter(item -> item instanceof Account)
-            .map(item -> ((Account)item).token())
+            .map(item -> ((Account)item).getToken())
             .collect(Collectors.toSet());
 
         Set<String> validTokens = new HashSet<>(tokens);

@@ -45,7 +45,7 @@ export default class IgniteAdminData {
      */
     removeUser(user) {
         return this.$http
-            .post('/api/v1/admin/remove', {id: user.id})
+            .delete(`/api/v1/admin/users/${user.id}`)
             .then(() => this.Messages.showInfo(`User has been removed: "${user.userName}"`))
             .catch(({data, status}) => {
                 if (status === 503)
@@ -98,6 +98,15 @@ export default class IgniteAdminData {
         return this.$http.post('/api/v1/admin/list', params)
             .then(({ data }) => data)
             .then((users) => _.map(users, this.prepareUsers.bind(this)))
+            .catch(this.Messages.showError);
+    }
+
+    /**
+     * @param userInfo
+     */
+    registerUser(userInfo) {
+        return this.$http.put('/api/v1/admin/users', userInfo)
+            .then(({ data }) => data)
             .catch(this.Messages.showError);
     }
 }

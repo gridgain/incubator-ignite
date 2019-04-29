@@ -17,19 +17,27 @@
 
 package org.apache.ignite.console.web.model;
 
+import javax.validation.constraints.NotNull;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.hibernate.validator.constraints.NotEmpty;
 
 /**
  * Web model of reset password request.
  */
 public class ResetPasswordRequest {
     /** Email. */
+    @NotNull
+    @NotEmpty
     private String email;
 
     /** Password. */
+    @NotNull
+    @NotEmpty
     private String pwd;
 
     /** Reset password token. */
+    @NotNull
+    @NotEmpty
     private String tok;
 
     /**

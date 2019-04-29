@@ -17,20 +17,27 @@
 
 package org.apache.ignite.console.web.model;
 
+import java.util.UUID;
+import javax.validation.constraints.NotNull;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.hibernate.validator.constraints.NotEmpty;
 
 /**
  * Web model of sign in request.
  */
 public class SignInRequest {
     /** Email. */
+    @NotNull
+    @NotEmpty
     private String email;
 
     /** Password. */
+    @NotNull
+    @NotEmpty
     private String pwd;
 
     /** Activation token. */
-    private String activationTok;
+    private UUID activationTok;
 
     /**
      * @return Email.
@@ -63,14 +70,14 @@ public class SignInRequest {
     /**
      * @return Activation token.
      */
-    public String getActivationToken() {
+    public UUID getActivationToken() {
         return activationTok;
     }
 
     /**
      * @param activationTok New activation token.
      */
-    public void setActivationToken(String activationTok) {
+    public void setActivationToken(UUID activationTok) {
         this.activationTok = activationTok;
     }
 
