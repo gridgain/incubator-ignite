@@ -24,22 +24,22 @@ import org.springframework.security.authentication.DisabledException;
  */
 public class MissingConfirmRegistrationException extends DisabledException {
     /** User name. */
-    private String userName;
+    private String username;
 
     /**
      * @param msg Message.
-     * @param userName User name.
+     * @param username User name.
      */
-    public MissingConfirmRegistrationException(String msg, String userName) {
+    public MissingConfirmRegistrationException(String msg, String username) {
         super(msg);
 
-        this.userName = userName;
+        this.username = username;
     }
 
     /**
      * @return User name of disabled account.
      */
-    public String getUserName() {
-        return userName;
+    public String getUsername() {
+        return username;
     }
 }

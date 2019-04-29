@@ -63,7 +63,7 @@ public class AccountController {
     /**
      * @param user User.
      */
-    @ApiOperation(value = "${AccountController.user}")
+    @ApiOperation(value = "Get current user.")
     @GetMapping(path = "/api/v1/user")
     public ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
@@ -83,6 +83,7 @@ public class AccountController {
     /**
      * @param params SignUp params.
      */
+    @ApiOperation(value = "Register user.")
     @PostMapping(path = "/api/v1/signup")
     public ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
         accountsSrvc.register(params);
@@ -99,8 +100,12 @@ public class AccountController {
      * @param acc Current user.
      * @param changes Changes to apply to user.
      */
+    @ApiOperation(value = "Save user.")
     @PostMapping(path = "/api/v1/profile/save", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> save(@AuthenticationPrincipal Account acc, @Valid @RequestBody ChangeUserRequest changes) {
+    public ResponseEntity<Void> save(
+        @AuthenticationPrincipal Account acc,
+        @Valid @RequestBody ChangeUserRequest changes
+    ) {
         accountsSrvc.save(acc.getId(), changes);
 
         return ResponseEntity.ok().build();
@@ -109,6 +114,7 @@ public class AccountController {
     /**
      * @param req Forgot password request.
      */
+    @ApiOperation(value = "Send password reset token.")
     @PostMapping(path = "/api/v1/password/forgot", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity forgotPassword(@Valid @RequestBody EmailRequest req) {
         accountsSrvc.forgotPassword(req.getEmail());
@@ -119,6 +125,7 @@ public class AccountController {
     /**
      * @param req Reset password request.
      */
+    @ApiOperation(value = "Reset user password.")
     @PostMapping(path = "/api/v1/password/reset")
     public ResponseEntity resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
         accountsSrvc.resetPasswordByToken(req.getEmail(), req.getToken(), req.getPassword());
@@ -129,6 +136,7 @@ public class AccountController {
     /**
      * @param req Forgot password request.
      */
+    @ApiOperation(value = "Resend activation token.")
     @PostMapping(path = "/api/v1/activation/resend", consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity activationResend(@Valid @RequestBody EmailRequest req) {
         accountsSrvc.resetActivationToken(req.getEmail());
