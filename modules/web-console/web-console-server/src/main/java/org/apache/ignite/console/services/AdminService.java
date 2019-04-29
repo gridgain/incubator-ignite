@@ -23,8 +23,12 @@ import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.tx.TransactionManager;
+import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.stereotype.Service;
+
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACCOUNT_DELETED;
+import static org.apache.ignite.console.notification.model.NotificationDescriptor.ADMIN_WELCOME_LETTER;
 
 /**
  * Service to handle administrator actions.
@@ -43,22 +47,28 @@ public class AdminService {
     /** */
     private final NotebooksService notebooksSrvc;
 
+    /** */
+    private final NotificationService notificationSrvc;
+
     /**
      * @param txMgr Transactions manager.
      * @param accountsSrvc Service to work with accounts.
      * @param cfgsSrvc Service to work with configurations.
      * @param notebooksSrvc Service to work with notebooks.
+     * @param notificationSrvc Service to send notifications.
      */
     public AdminService(
         TransactionManager txMgr,
         AccountsService accountsSrvc,
         ConfigurationsService cfgsSrvc,
-        NotebooksService notebooksSrvc
+        NotebooksService notebooksSrvc,
+        NotificationService notificationSrvc
     ) {
         this.txMgr = txMgr;
         this.accountsSrvc = accountsSrvc;
         this.cfgsSrvc = cfgsSrvc;
         this.notebooksSrvc = notebooksSrvc;
+        this.notificationSrvc = notificationSrvc;
     }
 
     /**
@@ -72,15 +82,15 @@ public class AdminService {
         accounts.forEach(account ->
             res.add(new JsonObject()
                 .add("id", account.getId())
-                .add("firstName", account.firstName())
-                .add("lastName", account.lastName())
-                .add("admin", account.admin())
+                .add("firstName", account.getFirstName())
+                .add("lastName", account.getLastName())
+                .add("admin", account.getAdmin())
                 .add("email", account.getUsername())
-                .add("company", account.company())
-                .add("country", account.country())
+                .add("company", account.getCompany())
+                .add("country", account.getCountry())
                 .add("lastLogin", account.lastLogin())
                 .add("lastActivity", account.lastActivity())
-                .add("activated", account.activated())
+                .add("activated", account.isEnabled())
                 .add("counters", new JsonObject()
                     .add("clusters", 0)
                     .add("caches", 0)
@@ -93,17 +103,19 @@ public class AdminService {
     }
 
     /**
-     * Remove account.
+     * Delete account by ID.
      *
      * @param accId Account ID.
      */
-    public void remove(UUID accId) {
+    public void delete(UUID accId) {
         try (Transaction tx = txMgr.txStart()) {
             cfgsSrvc.deleteByAccountId(accId);
-            notebooksSrvc.deleteAll(accId);
-            accountsSrvc.delete(accId);
+            notebooksSrvc.deleteByAccountId(accId);
+            Account acc = accountsSrvc.delete(accId);
 
             tx.commit();
+
+            notificationSrvc.sendEmail(ACCOUNT_DELETED, acc);
         }
     }
 
@@ -120,5 +132,14 @@ public class AdminService {
      */
     public void become(UUID accId) {
         throw new UnsupportedOperationException("Not implemented yet!");
+    }
+
+    /**
+     * @param params SignUp params.
+     */
+    public void registerUser(SignUpRequest params) {
+        Account acc = accountsSvc.create(params);
+
+        notificationSrvc.sendEmail(ADMIN_WELCOME_LETTER, acc);
     }
 }

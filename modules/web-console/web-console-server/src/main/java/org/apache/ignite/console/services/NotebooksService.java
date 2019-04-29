@@ -43,7 +43,7 @@ public class NotebooksService {
      *
      * @param accId Account ID.
      */
-    void deleteAll(UUID accId) {
+    void deleteByAccountId(UUID accId) {
         notebooksRepo.deleteAll(accId);
     }
 

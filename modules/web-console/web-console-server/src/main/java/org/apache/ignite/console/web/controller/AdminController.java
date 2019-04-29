@@ -18,13 +18,18 @@
 package org.apache.ignite.console.web.controller;
 
 import java.util.UUID;
+import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
+import org.apache.ignite.console.web.model.SignUpRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -74,11 +79,21 @@ public class AdminController {
     }
 
     /**
-     * @param params Parameters.
+     * @param params SignUp params.
      */
-    @PostMapping(path = "/remove", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> remove(@RequestBody JsonObject params) {
-        adminSrvc.remove(params.getUuid("id"));
+    @PutMapping(path = "/users")
+    public ResponseEntity<Void> registerUser(@Valid @RequestBody SignUpRequest params) {
+        adminSrvc.registerUser(params);
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @param accId Account ID.
+     */
+    @DeleteMapping(path = "/users/{accountId}")
+    public ResponseEntity<Void> delete(@PathVariable("accountId") UUID accId) {
+        adminSrvc.delete(accId);
 
         return ResponseEntity.ok().build();
     }

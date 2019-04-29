@@ -42,6 +42,7 @@
     <modules>
         <module>web-console-common</module>
         <module>web-console-server</module>
+        <module>web-console-notification</module>
         <module>web-agent</module>
     </modules>
 

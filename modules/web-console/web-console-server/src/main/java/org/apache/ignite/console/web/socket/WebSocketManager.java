@@ -292,7 +292,7 @@ public class WebSocketManager extends TextWebSocketHandler {
             if (tp instanceof Account) {
                 Account acc = (Account)tp;
 
-                return acc.token();
+                return acc.getToken();
             }
         }
 

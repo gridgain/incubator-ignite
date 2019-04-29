@@ -21,8 +21,8 @@ import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
 import org.apache.ignite.console.web.model.ChangeUserRequest;
+import org.apache.ignite.console.web.model.EmailRequest;
 import org.apache.ignite.console.web.model.ResetPasswordRequest;
-import org.apache.ignite.console.web.model.SignInRequest;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.model.UserResponse;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +37,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import static org.apache.ignite.console.common.Utils.currentRequestOrigin;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 /**
@@ -55,7 +54,7 @@ public class AccountController {
      * @param authMgr Authentication manager.
      * @param accountsSrvc Accounts service.
      */
-    public AccountController(AuthenticationManager authMgr,  AccountsService accountsSrvc) {
+    public AccountController(AuthenticationManager authMgr, AccountsService accountsSrvc) {
         this.authMgr = authMgr;
         this.accountsSrvc = accountsSrvc;
     }
@@ -68,14 +67,14 @@ public class AccountController {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
 
         return ResponseEntity.ok(new UserResponse(
-            acc.email(),
-            acc.firstName(),
-            acc.lastName(),
-            acc.phone(),
-            acc.company(),
-            acc.country(),
-            acc.token(),
-            acc.admin()
+            acc.getEmail(),
+            acc.getFirstName(),
+            acc.getLastName(),
+            acc.getPhone(),
+            acc.getCompany(),
+            acc.getCountry(),
+            acc.getToken(),
+            acc.getAdmin()
         ));
     }
 
@@ -84,14 +83,12 @@ public class AccountController {
      */
     @PostMapping(path = "/api/v1/signup")
     public ResponseEntity<Void> signup(@Valid @RequestBody SignUpRequest params) {
-        Account account = accountsSrvc.register(params);
+        accountsSrvc.register(params);
 
-        if (account.isEnabled()) {
-            Authentication authentication = authMgr.authenticate(
-                new UsernamePasswordAuthenticationToken(params.getEmail(), params.getPassword()));
+        Authentication authentication = authMgr.authenticate(
+            new UsernamePasswordAuthenticationToken(params.getEmail(), params.getPassword()));
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        }
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         return ResponseEntity.ok().build();
     }
@@ -111,8 +108,8 @@ public class AccountController {
      * @param req Forgot password request.
      */
     @PostMapping(path = "/api/v1/password/forgot", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> forgotPassword(@RequestBody SignInRequest req) {
-        accountsSrvc.forgotPassword(currentRequestOrigin(), req.getEmail());
+    public ResponseEntity forgotPassword(@Valid @RequestBody EmailRequest req) {
+        accountsSrvc.forgotPassword(req.getEmail());
 
         return ResponseEntity.ok().build();
     }
@@ -121,8 +118,18 @@ public class AccountController {
      * @param req Reset password request.
      */
     @PostMapping(path = "/api/v1/password/reset")
-    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest req) {
-        accountsSrvc.resetPasswordByToken(currentRequestOrigin(), req.getEmail(), req.getToken(), req.getPassword());
+    public ResponseEntity resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        accountsSrvc.resetPasswordByToken(req.getEmail(), req.getToken(), req.getPassword());
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * @param req Forgot password request.
+     */
+    @PostMapping(path = "/api/v1/activation/resend", consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity activationResend(@Valid @RequestBody EmailRequest req) {
+        accountsSrvc.resetActivationToken(req.getEmail());
 
         return ResponseEntity.ok().build();
     }

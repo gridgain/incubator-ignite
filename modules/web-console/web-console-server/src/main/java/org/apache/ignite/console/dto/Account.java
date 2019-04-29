@@ -17,8 +17,10 @@
 
 package org.apache.ignite.console.dto;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.UUID;
+import org.apache.ignite.console.notification.model.IRecipient;
 import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,7 +30,7 @@ import static org.springframework.security.core.authority.AuthorityUtils.createA
 /**
  * DTO for Account.
  */
-public class Account extends AbstractDto implements UserDetails, CredentialsContainer {
+public class Account extends AbstractDto implements UserDetails, CredentialsContainer, IRecipient {
     /** */
     private static final String ROLE_USER = "ROLE_USER";
 
@@ -62,26 +64,23 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
     /** Reset password token. */
     private String resetPwdTok;
 
-    /** Registered. */
-    private String registered;
-
     /** Last login. */
     private String lastLogin;
 
     /** Last activity. */
     private String lastActivity;
 
-    /** Last event. */
-    private String lastEvt;
-
     /** Administration. */
     private boolean admin;
 
-    /** Activated. */
-    private boolean activated;
+    /** Indicates whether the user is enabled or disabled. */
+    private boolean enabled;
 
-    /** Demo created. */
-    private boolean demoCreated;
+    /** Latest activation token. */
+    private UUID activationTok;
+
+    /** Latest activation token was sent at. */
+    private LocalDateTime activationSentAt;
 
     /**
      * Default constructor for serialization.
@@ -127,120 +126,113 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
     /**
      * @return First name.
      */
-    public String firstName() {
+    public String getFirstName() {
         return firstName;
     }
 
     /**
      * @param firstName New first name.
      */
-    public void firstName(String firstName) {
+    public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
 
     /**
      * @return Last name.
      */
-    public String lastName() {
+    public String getLastName() {
         return lastName;
     }
 
     /**
      * @param lastName New last name.
      */
-    public void lastName(String lastName) {
+    public void setLastName(String lastName) {
         this.lastName = lastName;
     }
 
     /**
      * @return e-mail.
      */
-    public String email() {
+    @Override public String getEmail() {
         return email;
     }
 
     /**
      * @param email New email.
      */
-    public void email(String email) {
+    public void setEmail(String email) {
         this.email = email;
     }
 
     /**
      * @return Phone.
      */
-    public String phone() {
+    @Override public String getPhone() {
         return phone;
     }
 
     /**
      * @param phone New phone.
      */
-    public void phone(String phone) {
+    public void setPhone(String phone) {
         this.phone = phone;
     }
 
     /**
      * @return Company.
      */
-    public String company() {
+    public String getCompany() {
         return company;
     }
 
     /**
      * @param company New company.
      */
-    public void company(String company) {
+    public void setCompany(String company) {
         this.company = company;
     }
 
     /**
      * @return Country.
      */
-    public String country() {
+    public String getCountry() {
         return country;
     }
 
     /**
      * @param country New country.
      */
-    public void country(String country) {
+    public void setCountry(String country) {
         this.country = country;
     }
 
     /**
      * @return Token.
      */
-    public String token() {
+    public String getToken() {
         return tok;
     }
 
     /**
      * @param tok New token.
      */
-    public void token(String tok) {
+    public void setToken(String tok) {
         this.tok = tok;
     }
 
     /**
      * @return Admin flag.
      */
-    public boolean admin() {
+    public boolean getAdmin() {
         return admin;
     }
 
     /**
      * @param admin Admin flag.
      */
-    public void admin(boolean admin) {
+    public void setAdmin(boolean admin) {
         this.admin = admin;
-    }
-
-    /**
-     * @return Activated flag.
-     */
-    public boolean activated() {
-        return activated;
     }
 
     /**
@@ -260,15 +252,46 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
     /**
      * @return Reset password token.
      */
-    public String resetPasswordToken() {
+    public String getResetPasswordToken() {
         return resetPwdTok;
     }
 
     /**
      * @param resetPwdTok Reset password token.
      */
-    public void resetPasswordToken(String resetPwdTok) {
+    public void setResetPasswordToken(String resetPwdTok) {
         this.resetPwdTok = resetPwdTok;
+    }
+
+    /**
+     * @return Latest activation token.
+     */
+    public UUID getActivationToken() {
+        return activationTok;
+    }
+
+    /**
+     * @return Latest activation token was sent at.
+     */
+    public LocalDateTime getActivationSentAt() {
+        return activationSentAt;
+    }
+
+    /**
+     * Activate account.
+     */
+    public void activate() {
+        enabled = true;
+        activationTok = null;
+        activationSentAt = null;
+    }
+
+    /**
+     * Reset activation token.
+     */
+    public void resetActivationToken() {
+        activationTok = UUID.randomUUID();
+        activationSentAt = LocalDateTime.now();
     }
 
     /** {@inheritDoc} */
@@ -312,10 +335,10 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
 
     /** {@inheritDoc} */
     @Override public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 
-    /** */
+    /** {@inheritDoc} */
     @Override public void eraseCredentials() {
         this.hashedPwd = null;
     }

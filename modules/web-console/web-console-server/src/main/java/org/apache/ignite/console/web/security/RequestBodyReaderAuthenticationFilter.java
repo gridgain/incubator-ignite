@@ -45,6 +45,8 @@ public class RequestBodyReaderAuthenticationFilter extends UsernamePasswordAuthe
             // Configure auth token.
             setDetails(req, tok);
 
+            tok.setDetails(params.getActivationToken());
+
             return getAuthenticationManager().authenticate(tok);
         }
         catch (IOException e) {
