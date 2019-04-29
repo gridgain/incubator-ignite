@@ -15,20 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.notification;
+package org.apache.ignite.console.web.model;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import java.util.UUID;
+import javax.validation.constraints.NotNull;
+import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Notification service launcher.
+ * Web model of the user.
  */
-@SpringBootApplication
-public class Application {
+public class UserDetailsResponse extends UserResponse {
+    /** ID */
+    @NotNull
+    @NotEmpty
+    private UUID id;
+
     /**
-     * @param args Args.
+     * @return ID.
      */
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
+    public UUID getId() {
+        return id;
+    }
+
+    /**
+     * @param id New ID.
+     */
+    public void setId(UUID id) {
+        this.id = id;
     }
 }

@@ -210,7 +210,7 @@ export default class ConfigEffects {
 
         this.errorNotificationsEffect$ = this.ConfigureState.actions$.pipe(
             filter((a) => a.error),
-            tap((action) => this.IgniteMessages.showError(action.error)),
+            tap((action) => this.IgniteMessages.showError(action.error.message)),
             ignoreElements()
         );
 

@@ -18,7 +18,7 @@
 package org.apache.ignite.console.notification.model;
 
 /**
- * Notification descriptor.
+ * Notification descriptors.
  */
 public enum NotificationDescriptor implements INotificationDescriptor {
     /** */

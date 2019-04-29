@@ -43,7 +43,7 @@ public class AccountStatusChecker implements UserDetailsChecker {
     }
 
     /** {@inheritDoc} */
-    public void check(UserDetails user) {
+    @Override public void check(UserDetails user) {
         if (!user.isAccountNonLocked()) {
             throw new LockedException(messages.getMessage(
                 "AccountStatusUserDetailsChecker.locked", "User account is locked"));
@@ -56,14 +56,12 @@ public class AccountStatusChecker implements UserDetailsChecker {
 
         if (!user.isAccountNonExpired()) {
             throw new AccountExpiredException(
-                messages.getMessage("AccountStatusUserDetailsChecker.expired",
-                    "User account has expired"));
+                messages.getMessage("AccountStatusUserDetailsChecker.expired", "User account has expired"));
         }
 
         if (!user.isCredentialsNonExpired()) {
             throw new CredentialsExpiredException(messages.getMessage(
-                "AccountStatusUserDetailsChecker.credentialsExpired",
-                "User credentials have expired"));
+                "AccountStatusUserDetailsChecker.credentialsExpired", "User credentials have expired"));
         }
     }
 }

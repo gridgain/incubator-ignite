@@ -48,7 +48,9 @@ import static org.mockito.Matchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** */
+/**
+ * Mail service test.
+ */
 @RunWith(MockitoJUnitRunner.class)
 @SpringBootTest
 public class MailServiceTest {
@@ -76,7 +78,7 @@ public class MailServiceTest {
     @Before
     public void setup() {
         ReflectionTestUtils.setField(srvc, "from", "");
-        
+
         when(msgSrc.getMessage(anyString(), isNull(Object[].class), anyString(), eq(Locale.US)))
             .thenAnswer(invocation -> invocation.getArguments()[2]);
 
@@ -84,7 +86,7 @@ public class MailServiceTest {
             .thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
     }
 
-    /** */
+    /** Test send e-mail. */
     @Test
     public void shouldSendEmail() throws MessagingException, IOException, URISyntaxException {
         INotificationDescriptor desc = new INotificationDescriptor() {
@@ -113,7 +115,7 @@ public class MailServiceTest {
         assertEquals("text", msg.getContent());
     }
 
-    /** */
+    /** Test send e-mail with message template. */
     @Test
     public void shouldSendEmailWithExpressionInSubject() throws MessagingException, IOException, URISyntaxException {
         INotificationDescriptor desc = new INotificationDescriptor() {
@@ -147,7 +149,7 @@ public class MailServiceTest {
         /** First name. */
         @SuppressWarnings("FieldCanBeLocal")
         private String fn = "firstName";
-        
+
         /** Last name. */
         public String lastName = "lastName";
 

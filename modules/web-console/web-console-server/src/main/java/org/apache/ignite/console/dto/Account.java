@@ -154,7 +154,7 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
     /**
      * @return e-mail.
      */
-    public String getEmail() {
+    @Override public String getEmail() {
         return email;
     }
 
@@ -168,7 +168,7 @@ public class Account extends AbstractDto implements UserDetails, CredentialsCont
     /**
      * @return Phone.
      */
-    public String getPhone() {
+    @Override public String getPhone() {
         return phone;
     }
 

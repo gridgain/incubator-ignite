@@ -17,23 +17,35 @@
 
 package org.apache.ignite.console.notification.model;
 
+import org.apache.ignite.internal.util.typedef.internal.S;
+
 /**
  * Notification model.
  */
 public class Notification {
     /** */
     private String origin;
+
     /** */
     private IRecipient rcpt;
     /** */
     private INotificationDescriptor desc;
 
     /**
+     * Default constructor for serialization.
+     */
+    public Notification() {
+        // No-op.
+    }
+
+    /**
+     * Full constructor.
+     *
      * @param origin Origin.
      * @param rcpt Recipient.
-     * @param desc Description.
+     * @param desc Descriptor.
      */
-    public Notification(String origin, IRecipient rcpt, INotificationDescriptor desc) {
+    public Notification(String origin, IRecipient rcpt, NotificationDescriptor desc) {
         this.origin = origin;
         this.rcpt = rcpt;
         this.desc = desc;
@@ -79,5 +91,10 @@ public class Notification {
      */
     public void setDescriptor(INotificationDescriptor desc) {
         this.desc = desc;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(Notification.class, this);
     }
 }

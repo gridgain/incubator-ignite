@@ -120,6 +120,7 @@ public class MailService {
 
     /**
      * @param desc Notification type.
+     * @return Message template or empty string.
      */
     private String loadMessageTemplate(INotificationDescriptor desc) throws IOException, URISyntaxException {
         String path = cfg.getTemplatePath(desc);
@@ -143,14 +144,15 @@ public class MailService {
     }
 
     /**
-     * @param rootObj the root object to use.
+     * @param rootObj Root object to use.
+     * @return Context.
      */
     private EvaluationContext createContext(Object rootObj) {
         return new StandardEvaluationContext(rootObj);
     }
 
     /**
-     * @param expression The raw expression string to parse.
+     * @param expression Raw expression to parse.
      * @param ctx Context.
      */
     private String processExpressions(String expression, EvaluationContext ctx) {
@@ -159,7 +161,9 @@ public class MailService {
 
     /**
      * Try to resolve the message.
+     *
      * @param code Code.
+     * @return Message.
      */
     private String getMessage(String code) {
         return msgSrc.getMessage(code, null, code, Locale.US);
@@ -171,13 +175,19 @@ public class MailService {
     private static class NotificationWrapper extends StandardEvaluationContext {
         /** Origin. */
         private String origin;
+
         /** Recipient. */
         private IRecipient rcpt;
+
         /** Subject. */
         private String subject;
+
         /** Message. */
         private String message;
 
+        /**
+         * @param notification Notification.
+         */
         private NotificationWrapper(Notification notification) {
             this.origin = notification.getOrigin();
             this.rcpt = notification.getRecipient();
