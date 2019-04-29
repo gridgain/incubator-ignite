@@ -20,7 +20,7 @@ package org.apache.ignite.console.dto;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.console.notification.model.Recipient;
+import org.apache.ignite.console.notification.model.IRecipient;
 import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -30,7 +30,7 @@ import static org.springframework.security.core.authority.AuthorityUtils.createA
 /**
  * DTO for Account.
  */
-public class Account extends AbstractDto implements UserDetails, CredentialsContainer, Recipient {
+public class Account extends AbstractDto implements UserDetails, CredentialsContainer, IRecipient {
     /** */
     private static final String ROLE_USER = "ROLE_USER";
 

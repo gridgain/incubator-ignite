@@ -77,23 +77,25 @@ public class AccountsService implements UserDetailsService {
 
     /**
      * @param txMgr Transactions manager.
+     * @param encoder Service interface for encoding passwords.
      * @param accountsRepo Accounts repository.
      * @param wsm Websocket manager.
      * @param notificationSrvc Mail service.
      */
     public AccountsService(
-        TransactionManager txMgr,
-        AccountsRepository accountsRepo,
         WebSocketManager wsm,
+        PasswordEncoder encoder,
+        UserDetailsChecker userDetailsChecker,
+        AccountsRepository accountsRepo,
+        TransactionManager txMgr,
         NotificationService notificationSrvc
     ) {
-        this.txMgr = txMgr;
-        this.accountsRepo = accountsRepo;
         this.wsm = wsm;
+        this.encoder = encoder;
+        this.userDetailsChecker = userDetailsChecker;
+        this.accountsRepo = accountsRepo;
+        this.txMgr = txMgr;
         this.notificationSrvc = notificationSrvc;
-
-        this.encoder = encoder();
-        this.userDetailsChecker = checker();
     }
 
     /** {@inheritDoc} */
@@ -262,29 +264,6 @@ public class AccountsService implements UserDetailsService {
 
             tx.commit();
         }
-    }
-
-    /**
-     * @return Service for encoding user passwords.
-     */
-    @Bean
-    public PasswordEncoder encoder() {
-        // Pbkdf2PasswordEncoder is compatible with passport.js, but BCryptPasswordEncoder is recommended by Spring.
-        // We can return to Pbkdf2PasswordEncoder if we decided to import old users.
-        //  Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder("", 25000, HASH_WIDTH); // HASH_WIDTH = 512
-        //
-        //  encoder.setAlgorithm(PBKDF2WithHmacSHA256);
-        //  encoder.setEncodeHashAsBase64(true);
-
-        return new BCryptPasswordEncoder();
-    }
-
-    /**
-     * @return Checker for status of the loaded <tt>UserDetails</tt> object.
-     */
-    @Bean
-    public UserDetailsChecker checker() {
-        return new AccountStatusChecker(activationEnabled);
     }
 
     /**

@@ -21,30 +21,43 @@ import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.notification.model.Notification;
 import org.apache.ignite.console.notification.model.NotificationDescriptor;
 import org.apache.ignite.console.notification.services.MailService;
+import org.apache.ignite.console.web.socket.WebSocketManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import static org.apache.ignite.console.common.Utils.currentRequestOrigin;
 
 /**
- * // TODO WC-940 Implement real e-mail service.
+ * Notification service.
  */
 @Service
 public class NotificationService {
+    /** */
+    private static final Logger log = LoggerFactory.getLogger(WebSocketManager.class);
+
     /** Mail service. */
     private MailService mailSrvc;
 
+    /**
+     * @param srvc Mail service.
+     */
     public NotificationService(MailService srvc) {
         mailSrvc = srvc;
     }
 
-    public void sendEmail(NotificationDescriptor type, Account acc) {
+    /**
+     * @param desc Notification description.
+     * @param acc Account.
+     */
+    public void sendEmail(NotificationDescriptor desc, Account acc) {
         try {
-            Notification notification = new Notification(currentRequestOrigin(), acc, type);
+            Notification notification = new Notification(currentRequestOrigin(), acc, desc);
 
             mailSrvc.send(notification);
         }
         catch (Throwable e) {
-            System.out.println("TODO WC-940 Failed to send reset password link: " + e.getMessage());
+            log.error("Failed to send email", e);
         }
     }
 }

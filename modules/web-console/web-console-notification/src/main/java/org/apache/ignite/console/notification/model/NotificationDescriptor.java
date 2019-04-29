@@ -17,7 +17,10 @@
 
 package org.apache.ignite.console.notification.model;
 
-public enum NotificationDescriptor {
+/**
+ * Notification descriptor.
+ */
+public enum NotificationDescriptor implements INotificationDescriptor {
     /** */
     ADMIN_WELCOME_LETTER(
         "notifications.admin.welcome.letter.sbj",
@@ -69,16 +72,12 @@ public enum NotificationDescriptor {
         this.msgCode = msgCode;
     }
 
-    /**
-     * @return Subject code.
-     */
+    /** {@inheritDoc} */
     public String subjectCode() {
         return sbjCode;
     }
 
-    /**
-     * @return Message code.
-     */
+    /** {@inheritDoc} */
     public String messageCode() {
         return msgCode;
     }

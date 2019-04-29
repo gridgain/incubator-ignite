@@ -24,11 +24,16 @@ public class Notification {
     /** */
     private String origin;
     /** */
-    private Recipient rcpt;
+    private IRecipient rcpt;
     /** */
-    private NotificationDescriptor desc;
+    private INotificationDescriptor desc;
 
-    public Notification(String origin, Recipient rcpt, NotificationDescriptor desc) {
+    /**
+     * @param origin Origin.
+     * @param rcpt Recipient.
+     * @param desc Description.
+     */
+    public Notification(String origin, IRecipient rcpt, INotificationDescriptor desc) {
         this.origin = origin;
         this.rcpt = rcpt;
         this.desc = desc;
@@ -51,28 +56,28 @@ public class Notification {
     /**
      * @return Recipient.
      */
-    public Recipient getRecipient() {
+    public IRecipient getRecipient() {
         return rcpt;
     }
 
     /**
      * @param rcpt New recipient.
      */
-    public void setRecipient(Recipient rcpt) {
+    public void setRecipient(IRecipient rcpt) {
         this.rcpt = rcpt;
     }
 
     /**
      * @return Descriptor.
      */
-    public NotificationDescriptor getDescriptor() {
+    public INotificationDescriptor getDescriptor() {
         return desc;
     }
 
     /**
      * @param desc New descriptor.
      */
-    public void setDescriptor(NotificationDescriptor desc) {
+    public void setDescriptor(INotificationDescriptor desc) {
         this.desc = desc;
     }
 }

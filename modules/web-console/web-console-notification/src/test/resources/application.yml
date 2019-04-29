@@ -19,6 +19,7 @@ spring.mail:
   host: your.smtp.com
   username: ds
   password: ds
+  from.alias: ds
 
 messages:
   templates:

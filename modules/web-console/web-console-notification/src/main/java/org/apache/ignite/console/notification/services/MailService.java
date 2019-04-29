@@ -20,16 +20,17 @@ package org.apache.ignite.console.notification.services;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Locale;
-import java.util.Scanner;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
-import org.apache.ignite.console.notification.config.MessagesProperties;
+import org.apache.ignite.console.notification.config.MessageProperties;
+import org.apache.ignite.console.notification.model.INotificationDescriptor;
 import org.apache.ignite.console.notification.model.Notification;
-import org.apache.ignite.console.notification.model.NotificationDescriptor;
-import org.apache.ignite.console.notification.model.Recipient;
+import org.apache.ignite.console.notification.model.IRecipient;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
@@ -53,7 +54,7 @@ public class MailService {
     private String from;
 
     /** From alias. */
-    @Value("${spring.mail.from.alias}")
+    @Value("${spring.mail.from.alias:''}")
     private String fromAlias;
 
     /** Expression parser. */
@@ -69,14 +70,20 @@ public class MailService {
     private JavaMailSender mailSnd;
 
     /** Mail config. */
-    private MessagesProperties cfg;
+    private MessageProperties cfg;
+
+    /**
+     * Default constructor.
+     */
+    public MailService() {
+    }
 
     /**
      * @param msgSrc Message source.
      * @param mailSnd Mail sender.
      * @param cfg Mail properties.
      */
-    public MailService(MessageSource msgSrc, JavaMailSender mailSnd, MessagesProperties cfg) {
+    public MailService(MessageSource msgSrc, JavaMailSender mailSnd, MessageProperties cfg) {
         this.msgSrc = msgSrc;
         this.mailSnd = mailSnd;
         this.cfg = cfg;
@@ -87,12 +94,12 @@ public class MailService {
      *
      * @param notification Notification.
      */
-    public void send(Notification notification) throws IOException, MessagingException {
+    public void send(Notification notification) throws IOException, MessagingException, URISyntaxException {
         NotificationWrapper ctxObj = new NotificationWrapper(notification);
 
         EvaluationContext ctx = createContext(ctxObj);
 
-        NotificationDescriptor desc = notification.getDescriptor();
+        INotificationDescriptor desc = notification.getDescriptor();
 
         ctxObj.setSubject(processExpressions(getMessage(desc.subjectCode()), ctx));
         ctxObj.setMessage(processExpressions(getMessage(desc.messageCode()), ctx));
@@ -112,10 +119,10 @@ public class MailService {
     }
 
     /**
-     * @param type Notification type.
+     * @param desc Notification type.
      */
-    private String loadMessageTemplate(NotificationDescriptor type) throws IOException {
-        String path = cfg.getTemplatePath(type);
+    private String loadMessageTemplate(INotificationDescriptor desc) throws IOException, URISyntaxException {
+        String path = cfg.getTemplatePath(desc);
 
         if (path == null)
             return null;
@@ -132,11 +139,7 @@ public class MailService {
                 url = new ClassPathResource(path).getURL();
         }
 
-        try (Scanner scanner = new Scanner(url.openStream(), StandardCharsets.UTF_8.toString())) {
-            scanner.useDelimiter("\\A");
-
-            return scanner.hasNext() ? scanner.next() : "";
-        }
+        return new String(Files.readAllBytes(Paths.get(url.toURI())));
     }
 
     /**
@@ -159,7 +162,7 @@ public class MailService {
      * @param code Code.
      */
     private String getMessage(String code) {
-        return msgSrc.getMessage(code, null, Locale.US);
+        return msgSrc.getMessage(code, null, code, Locale.US);
     }
 
     /**
@@ -169,7 +172,7 @@ public class MailService {
         /** Origin. */
         private String origin;
         /** Recipient. */
-        private Recipient rcpt;
+        private IRecipient rcpt;
         /** Subject. */
         private String subject;
         /** Message. */
@@ -190,7 +193,7 @@ public class MailService {
         /**
          * @return Recipient.
          */
-        public Recipient getRecipient() {
+        public IRecipient getRecipient() {
             return rcpt;
         }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.console.notification.config;
 
 import java.util.Map;
+import org.apache.ignite.console.notification.model.INotificationDescriptor;
 import org.apache.ignite.console.notification.model.NotificationDescriptor;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -28,9 +29,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConfigurationProperties(prefix = "spring.mail.templates")
-public class MessagesProperties {
+public class MessageProperties {
     /** Default template path. */
-    private String defaultTemplatePath;
+    private String dfltTemplatePath;
 
     /** Templates path. */
     private Map<NotificationDescriptor, String> templates;
@@ -39,21 +40,21 @@ public class MessagesProperties {
      * @return Default template path.
      */
     public String getDefaultTemplatePath() {
-        return defaultTemplatePath;
+        return dfltTemplatePath;
     }
 
     /**
-     * @param defaultTemplatePath Default template path.
+     * @param dfltTemplatePath Default template path.
      */
-    public void setDefaultTemplatePath(String defaultTemplatePath) {
-        this.defaultTemplatePath = defaultTemplatePath;
+    public void setDefaultTemplatePath(String dfltTemplatePath) {
+        this.dfltTemplatePath = dfltTemplatePath;
     }
 
     /**
-     * @param type Notification type.
+     * @param desc Notification type.
      */
-    public String getTemplatePath(NotificationDescriptor type) {
-        return templates == null ? defaultTemplatePath : templates.getOrDefault(type, defaultTemplatePath);
+    public String getTemplatePath(INotificationDescriptor desc) {
+        return templates == null ? dfltTemplatePath : templates.getOrDefault(desc, dfltTemplatePath);
     }
 
     /**
@@ -72,6 +73,6 @@ public class MessagesProperties {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MessagesProperties.class, this);
+        return S.toString(MessageProperties.class, this);
     }
 }
