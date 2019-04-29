@@ -35,9 +35,6 @@ public class WebConsoleConfiguration {
     /** Accounts configuration. */
     private AccountConfiguration accountCfg;
 
-    /** Mail configuration. */
-    private MailConfiguration mailCfg;
-
     /** SSL configuration. */
     private SslConfiguration sslCfg;
 
@@ -57,7 +54,6 @@ public class WebConsoleConfiguration {
        webRoot = cc.getWebRoot();
        port = cc.getPort();
        accountCfg = cc.getAccountConfiguration();
-       mailCfg = cc.getMailConfiguration();
        sslCfg = cc.getSslConfiguration();
     }
 
@@ -108,23 +104,6 @@ public class WebConsoleConfiguration {
      */
     public WebConsoleConfiguration setAccountConfiguration(AccountConfiguration activationCfg) {
         this.accountCfg = activationCfg;
-
-        return this;
-    }
-
-    /**
-     * @return Mail configuration.
-     */
-    public MailConfiguration getMailConfiguration() {
-        return mailCfg;
-    }
-
-    /**
-     * @param mailCfg Mail configuration.
-     * @return {@code this} for chaining.
-     */
-    public WebConsoleConfiguration setMailConfiguration(MailConfiguration mailCfg) {
-        this.mailCfg = mailCfg;
 
         return this;
     }

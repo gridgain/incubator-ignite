@@ -102,6 +102,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
             <version>${commons.compress.version}</version>
@@ -129,6 +135,12 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-web-console-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-web-console-notification</artifactId>
             <version>${project.version}</version>
         </dependency>
 
