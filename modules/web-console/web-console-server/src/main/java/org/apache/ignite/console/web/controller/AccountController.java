@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.web.controller;
 
+import io.swagger.annotations.ApiOperation;
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.services.AccountsService;
@@ -63,6 +64,7 @@ public class AccountController {
     /**
      * @param user User.
      */
+    @ApiOperation(value = "${AccountController.user}")
     @GetMapping(path = "/api/v1/user")
     public ResponseEntity<UserResponse> user(@AuthenticationPrincipal UserDetails user) {
         Account acc = accountsSrvc.loadUserByUsername(user.getUsername());
