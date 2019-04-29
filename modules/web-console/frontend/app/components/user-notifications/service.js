@@ -61,8 +61,7 @@ export default class UserNotificationsService {
             controllerAs: '$ctrl'
         });
 
-        return deferred
-            .promise
+        return deferred.promise
             .then((ann) => {
                 this.$http.put('/api/v1/admin/announcement', ann)
                     .catch(this.Messages.showError);
