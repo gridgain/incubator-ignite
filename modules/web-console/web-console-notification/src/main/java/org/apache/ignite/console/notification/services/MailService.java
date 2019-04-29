@@ -183,7 +183,7 @@ public class MailService {
         private String subject;
 
         /** Message. */
-        private String message;
+        private String msg;
 
         /**
          * @param notification Notification.
@@ -225,14 +225,14 @@ public class MailService {
          * @return Message.
          */
         public String getMessage() {
-            return message;
+            return msg;
         }
 
         /**
-         * @param message Message.
+         * @param msg Message.
          */
-        public void setMessage(String message) {
-            this.message = message;
+        public void setMessage(String msg) {
+            this.msg = msg;
         }
     }
 }
