@@ -349,11 +349,6 @@ public class WebSocketManager extends TextWebSocketHandler {
         WebSocketEvent evt = fromJson(msg.getPayload(), WebSocketEvent.class);
 
         switch (evt.getEventType()) {
-            case ADMIN_ANNOUNCEMENT:
-                updateAnnouncement(evt);
-
-                break;
-
             case SCHEMA_IMPORT_DRIVERS:
             case SCHEMA_IMPORT_SCHEMAS:
             case SCHEMA_IMPORT_METADATA:
@@ -371,18 +366,16 @@ public class WebSocketManager extends TextWebSocketHandler {
     }
 
     /**
-     * @param evt Event.
+     * @param ann Announcement.
      */
-    private void updateAnnouncement(WebSocketEvent evt) {
+    public void updateAnnouncement(Announcement ann) {
         try {
-            Announcement ann = fromJson(evt.getPayload(), Announcement.class);
-
             annRepo.save(ann);
 
             sendAnnouncement(browsers.keySet(), ann);
         }
         catch (Throwable e) {
-            log.error("Failed to update announcement: " + evt, e);
+            log.error("Failed to update announcement: " + ann, e);
         }
     }
 

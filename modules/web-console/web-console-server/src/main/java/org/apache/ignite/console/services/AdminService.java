@@ -20,10 +20,12 @@ package org.apache.ignite.console.services;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.web.model.SignUpRequest;
+import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.transactions.Transaction;
 import org.springframework.stereotype.Service;
 
@@ -50,25 +52,31 @@ public class AdminService {
     /** */
     private final NotificationService notificationSrvc;
 
+    /** */
+    private final WebSocketManager wsm;
+
     /**
      * @param txMgr Transactions manager.
      * @param accountsSrvc Service to work with accounts.
      * @param cfgsSrvc Service to work with configurations.
      * @param notebooksSrvc Service to work with notebooks.
      * @param notificationSrvc Service to send notifications.
+     * @param wsm Web sockets manager.
      */
     public AdminService(
         TransactionManager txMgr,
         AccountsService accountsSrvc,
         ConfigurationsService cfgsSrvc,
         NotebooksService notebooksSrvc,
-        NotificationService notificationSrvc
+        NotificationService notificationSrvc,
+        WebSocketManager wsm
     ) {
         this.txMgr = txMgr;
         this.accountsSrvc = accountsSrvc;
         this.cfgsSrvc = cfgsSrvc;
         this.notebooksSrvc = notebooksSrvc;
         this.notificationSrvc = notificationSrvc;
+        this.wsm = wsm;
     }
 
     /**
@@ -138,8 +146,15 @@ public class AdminService {
      * @param params SignUp params.
      */
     public void registerUser(SignUpRequest params) {
-        Account acc = accountsSvc.create(params);
+        Account acc = accountsSrvc.create(params);
 
         notificationSrvc.sendEmail(ADMIN_WELCOME_LETTER, acc);
+    }
+
+    /**
+     * @param ann Announcement.
+     */
+    public void announcement(Announcement ann) {
+        wsm.updateAnnouncement(ann);
     }
 }

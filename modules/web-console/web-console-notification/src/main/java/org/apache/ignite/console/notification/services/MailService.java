@@ -50,7 +50,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class MailService {
     /** From email. */
-    @Value("${spring.mail.username}")
+    @Value("${spring.mail.username:''}")
     private String from;
 
     /** From alias. */

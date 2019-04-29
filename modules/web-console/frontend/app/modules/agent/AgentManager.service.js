@@ -867,8 +867,4 @@ export default class AgentManager {
     hasCredentials(clusterId) {
         return this.clustersSecrets.get(clusterId).hasCredentials();
     }
-
-    announcement(ann) {
-        this._sendWebSocketEvent(uuidv4(), 'admin:announcement', ann);
-    }
 }

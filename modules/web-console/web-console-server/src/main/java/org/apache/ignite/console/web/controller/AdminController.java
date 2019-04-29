@@ -20,6 +20,7 @@ package org.apache.ignite.console.web.controller;
 import java.util.UUID;
 import javax.validation.Valid;
 import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.services.AdminService;
@@ -107,4 +108,13 @@ public class AdminController {
 
         return ResponseEntity.ok().build();
     }
-}
+
+    /**
+     * @param ann Announcement to show for all users.
+     */
+    @PutMapping(path = "/announcement", consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> notification(@RequestBody Announcement ann) {
+        adminSrvc.announcement(ann);
+
+        return ResponseEntity.ok().build();
+    }}
