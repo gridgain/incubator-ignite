@@ -45,7 +45,7 @@ public class Notification {
      * @param rcpt Recipient.
      * @param desc Descriptor.
      */
-    public Notification(String origin, IRecipient rcpt, NotificationDescriptor desc) {
+    public Notification(String origin, IRecipient rcpt, INotificationDescriptor desc) {
         this.origin = origin;
         this.rcpt = rcpt;
         this.desc = desc;
