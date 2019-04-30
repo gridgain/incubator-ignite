@@ -18,6 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.swagger.annotations.ApiModelProperty;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
@@ -25,9 +26,11 @@ import org.apache.ignite.internal.util.typedef.internal.S;
  */
 public class Announcement extends AbstractDto {
     /** */
+    @ApiModelProperty(value = "Announcement text.")
     private String msg;
 
     /** */
+    @ApiModelProperty(value = "Announcement visibility.")
     private boolean visible;
 
     /**

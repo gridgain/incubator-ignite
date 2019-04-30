@@ -20,29 +20,53 @@ package org.apache.ignite.console.web.model;
 import java.util.UUID;
 import io.swagger.annotations.ApiModelProperty;
 import javax.validation.constraints.NotNull;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
 
 /**
- * Web model of the user.
+ * Web model of toggle admin right request.
  */
-public class UserDetailsResponse extends UserResponse {
-    /** ID */
-    @ApiModelProperty(value = "User id.")
+public class ToggleRequest {
+    /** Email. */
+    @ApiModelProperty(value = "User id.", required = true)
     @NotNull
     @NotEmpty
     private UUID id;
 
+    /** Admin flag. */
+    @ApiModelProperty(value = "Admin flag.", required = true)
+    private boolean admin;
+
     /**
-     * @return ID.
+     * @return Email.
      */
     public UUID getId() {
         return id;
     }
 
     /**
-     * @param id New ID.
+     * @param id New email.
      */
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    /**
+     * @return Admin flag.
+     */
+    public boolean isAdmin() {
+        return admin;
+    }
+
+    /**
+     * @param admin Admin flag.
+     */
+    public void setAdmin(boolean admin) {
+        this.admin = admin;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(ToggleRequest.class, this);
     }
 }
