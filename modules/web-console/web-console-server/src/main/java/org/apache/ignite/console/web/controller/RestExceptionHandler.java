@@ -45,7 +45,7 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(value = {MissingConfirmRegistrationException.class})
     protected ResponseEntity<Object> handleDisabledAccountException(MissingConfirmRegistrationException e, WebRequest req) {
-        return handleExceptionInternal(e, new ErrorWithEmailResponse(10104, errorMessage(e), e.getUserName()), null, FORBIDDEN, req);
+        return handleExceptionInternal(e, new ErrorWithEmailResponse(10104, errorMessage(e), e.getUsername()), null, FORBIDDEN, req);
     }
 
     /**
