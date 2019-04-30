@@ -373,7 +373,7 @@ public class WebSocketManager extends TextWebSocketHandler {
                 sendAnnouncement(browsers.keySet(), ann);
         }
         catch (Throwable e) {
-            log.error("Failed to update announcement: " + ann, e);
+            log.error("Failed to broadcast announcement: " + ann, e);
         }
     }
 
@@ -381,27 +381,25 @@ public class WebSocketManager extends TextWebSocketHandler {
      * @param browserWs Browser to send current announcement.
      */
     private void sendAnnouncement(WebSocketSession browserWs) {
-        try {
-            if (lastAnn != null)
-                throw new IllegalStateException("Announcement must be initialized on application start");
-
+        if (lastAnn != null)
             sendAnnouncement(Collections.singleton(browserWs), lastAnn);
-        }
-        catch (Throwable e) {
-            log.error("Failed to send announcement to: " + browserWs);
-        }
     }
 
     /**
      * @param browsers Browsers to send announcement.
      * @param ann Announcement.
-     * @throws IOException If failed to send announcement.
      */
-    private void sendAnnouncement(Set<WebSocketSession> browsers, Announcement ann) throws IOException {
+    private void sendAnnouncement(Set<WebSocketSession> browsers, Announcement ann) {
         WebSocketEvent evt = new WebSocketEvent(ADMIN_ANNOUNCEMENT, toJson(ann));
 
-        for (WebSocketSession ws : browsers)
-            sendMessage(ws, evt);
+        for (WebSocketSession browserWs : browsers) {
+            try {
+                sendMessage(browserWs, evt);
+            }
+            catch (Throwable e) {
+                log.error("Failed to send announcement to: " + browserWs, e);
+            }
+        }
     }
 
     /**
