@@ -110,11 +110,11 @@ public class AdminController {
     }
 
     /**
-     * @param ann Announcement to show for all users.
+     * @param ann Update announcement to be shown for all users.
      */
     @PutMapping(path = "/announcement", consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> notification(@RequestBody Announcement ann) {
-        adminSrvc.announcement(ann);
+    public ResponseEntity<Void> updateAnnouncement(@RequestBody Announcement ann) {
+        adminSrvc.updateAnnouncement(ann);
 
         return ResponseEntity.ok().build();
     }}

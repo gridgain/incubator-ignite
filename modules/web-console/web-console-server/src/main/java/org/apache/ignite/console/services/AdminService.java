@@ -23,10 +23,13 @@ import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
+import org.apache.ignite.console.repositories.AnnouncementRepository;
 import org.apache.ignite.console.tx.TransactionManager;
 import org.apache.ignite.console.web.model.SignUpRequest;
 import org.apache.ignite.console.web.socket.WebSocketManager;
 import org.apache.ignite.transactions.Transaction;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import static org.apache.ignite.console.notification.model.NotificationDescriptor.ACCOUNT_DELETED;
@@ -53,6 +56,9 @@ public class AdminService {
     private final NotificationService notificationSrvc;
 
     /** */
+    private final AnnouncementRepository annRepo;
+
+    /** */
     private final WebSocketManager wsm;
 
     /**
@@ -61,6 +67,7 @@ public class AdminService {
      * @param cfgsSrvc Service to work with configurations.
      * @param notebooksSrvc Service to work with notebooks.
      * @param notificationSrvc Service to send notifications.
+     * @param annRepo Repository to work with announcement.
      * @param wsm Web sockets manager.
      */
     public AdminService(
@@ -69,6 +76,7 @@ public class AdminService {
         ConfigurationsService cfgsSrvc,
         NotebooksService notebooksSrvc,
         NotificationService notificationSrvc,
+        AnnouncementRepository annRepo,
         WebSocketManager wsm
     ) {
         this.txMgr = txMgr;
@@ -76,6 +84,7 @@ public class AdminService {
         this.cfgsSrvc = cfgsSrvc;
         this.notebooksSrvc = notebooksSrvc;
         this.notificationSrvc = notificationSrvc;
+        this.annRepo = annRepo;
         this.wsm = wsm;
     }
 
@@ -151,10 +160,18 @@ public class AdminService {
         notificationSrvc.sendEmail(ADMIN_WELCOME_LETTER, acc);
     }
 
+    /** */
+    @EventListener(ApplicationReadyEvent.class)
+    public void initAnnouncement() {
+        updateAnnouncement(annRepo.load());
+    }
+
     /**
      * @param ann Announcement.
      */
-    public void announcement(Announcement ann) {
-        wsm.updateAnnouncement(ann);
+    public void updateAnnouncement(Announcement ann) {
+        annRepo.save(ann);
+
+        wsm.broadcastAnnouncement(ann);
     }
 }

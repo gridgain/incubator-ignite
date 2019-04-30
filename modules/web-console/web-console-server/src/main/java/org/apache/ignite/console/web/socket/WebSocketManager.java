@@ -35,7 +35,6 @@ import org.apache.ignite.console.dto.Announcement;
 import org.apache.ignite.console.json.JsonArray;
 import org.apache.ignite.console.json.JsonObject;
 import org.apache.ignite.console.repositories.AccountsRepository;
-import org.apache.ignite.console.repositories.AnnouncementRepository;
 import org.apache.ignite.console.web.model.VisorTaskDescriptor;
 import org.apache.ignite.console.websocket.AgentHandshakeRequest;
 import org.apache.ignite.console.websocket.AgentHandshakeResponse;
@@ -92,9 +91,6 @@ public class WebSocketManager extends TextWebSocketHandler {
     private final AccountsRepository accRepo;
 
     /** */
-    private final AnnouncementRepository annRepo;
-
-    /** */
     private final Map<WebSocketSession, Set<String>> agents;
 
     /** */
@@ -112,13 +108,14 @@ public class WebSocketManager extends TextWebSocketHandler {
     /** */
     private final Map<String, VisorTaskDescriptor> visorTasks;
 
+    /** */
+    volatile private Announcement lastAnn;
+
     /**
      * @param accRepo Repository to work with accounts.
-     * @param annRepo Repository to work with announcement.
      */
-    public WebSocketManager(AccountsRepository accRepo, AnnouncementRepository annRepo) {
+    public WebSocketManager(AccountsRepository accRepo) {
         this.accRepo = accRepo;
-        this.annRepo = annRepo;
 
         agents = new ConcurrentLinkedHashMap<>();
         clusters = new ConcurrentHashMap<>();
@@ -368,11 +365,12 @@ public class WebSocketManager extends TextWebSocketHandler {
     /**
      * @param ann Announcement.
      */
-    public void updateAnnouncement(Announcement ann) {
+    public void broadcastAnnouncement(Announcement ann) {
         try {
-            annRepo.save(ann);
+            lastAnn = ann;
 
-            sendAnnouncement(browsers.keySet(), ann);
+            if (!browsers.isEmpty())
+                sendAnnouncement(browsers.keySet(), ann);
         }
         catch (Throwable e) {
             log.error("Failed to update announcement: " + ann, e);
@@ -384,7 +382,10 @@ public class WebSocketManager extends TextWebSocketHandler {
      */
     private void sendAnnouncement(WebSocketSession browserWs) {
         try {
-            sendAnnouncement(Collections.singleton(browserWs), annRepo.load());
+            if (lastAnn != null)
+                throw new IllegalStateException("Announcement must be initialized on application start");
+
+            sendAnnouncement(Collections.singleton(browserWs), lastAnn);
         }
         catch (Throwable e) {
             log.error("Failed to send announcement to: " + browserWs);
