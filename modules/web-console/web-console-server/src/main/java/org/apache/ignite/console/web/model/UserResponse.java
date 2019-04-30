@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.web.model;
 
+import io.swagger.annotations.ApiModelProperty;
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
@@ -26,11 +27,13 @@ import org.hibernate.validator.constraints.NotEmpty;
  */
 public class UserResponse extends User {
     /** Agent token. */
+    @ApiModelProperty(value = "Agent token.")
     @NotNull
     @NotEmpty
     private String tok;
 
-    /** Agent token. */
+    /** Admin flag. */
+    @ApiModelProperty(value = "Admin flag.")
     private boolean admin;
 
     /**

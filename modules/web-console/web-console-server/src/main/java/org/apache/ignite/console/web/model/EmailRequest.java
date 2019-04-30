@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.web.model;
 
+import io.swagger.annotations.ApiModelProperty;
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.hibernate.validator.constraints.NotEmpty;
@@ -26,6 +27,7 @@ import org.hibernate.validator.constraints.NotEmpty;
  */
 public class EmailRequest {
     /** Email. */
+    @ApiModelProperty(value = "User email.", required = true)
     @NotNull
     @NotEmpty
     private String email;

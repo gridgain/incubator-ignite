@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.web.model;
 
+import io.swagger.annotations.ApiModelProperty;
 import javax.validation.constraints.NotNull;
 import org.hibernate.validator.constraints.NotEmpty;
 
@@ -25,9 +26,11 @@ import org.hibernate.validator.constraints.NotEmpty;
  */
 public class ChangeUserRequest extends User {
     /** Password. */
+    @ApiModelProperty(value = "User password.")
     private String pwd;
 
     /** Agent token. */
+    @ApiModelProperty(value = "Agent token.", required = true)
     @NotNull
     @NotEmpty
     private String tok;
