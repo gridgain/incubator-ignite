@@ -2,6 +2,7 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,8 +10,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
 import org.apache.ignite.lang.IgniteFuture;
 
+/**
+ * //TODO Calculate overhad and capacity for all structures.
+ */
 public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
-    private final int threadLImits = 1000;
+    private static final int THREAD_LIMITS = 1000;
 
     private final Map<Long, PageLockTracker> threadStacks = new HashMap<>();
     private final Map<Long, Thread> threadIdToThreadRef = new HashMap<>();
@@ -35,7 +39,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
 
             threadIdToThreadRef.put(threadId, thread);
 
-            if (threadIdToThreadRef.size() > threadLImits)
+            if (threadIdToThreadRef.size() > THREAD_LIMITS)
                 cleanTerminatedThreads();
         }
 
@@ -83,6 +87,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
 
     @Override public synchronized ThreadDumpLocks dump() {
         Collection<PageLockTracker> trackers = threadStacks.values();
+        List<ThreadDumpLocks.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
 
         for (PageLockTracker tracker : trackers) {
             boolean acquired = tracker.acquireSafePoint();
@@ -90,8 +95,6 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
             //TODO
             assert acquired;
         }
-
-        List<ThreadDumpLocks.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
 
         for (Map.Entry<Long, PageLockTracker> entry : threadStacks.entrySet()) {
             Long threadId = entry.getKey();
@@ -118,13 +121,18 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         }
 
         Map<Integer, String> idToStrcutureName0 =
-            structureNameToId.entrySet().stream()
-                .collect(Collectors.toMap(
-                    Map.Entry::getValue,
-                    Map.Entry::getKey
-                ));
+            Collections.unmodifiableMap(
+                structureNameToId.entrySet().stream()
+                    .collect(Collectors.toMap(
+                        Map.Entry::getValue,
+                        Map.Entry::getKey
+                    ))
+            );
 
-        return new ThreadDumpLocks(idToStrcutureName0, threadStates);
+        List<ThreadDumpLocks.ThreadState> threadStates0 =
+            Collections.unmodifiableList(threadStates);
+
+        return new ThreadDumpLocks(idToStrcutureName0, threadStates0);
     }
 
     private synchronized void cleanTerminatedThreads() {

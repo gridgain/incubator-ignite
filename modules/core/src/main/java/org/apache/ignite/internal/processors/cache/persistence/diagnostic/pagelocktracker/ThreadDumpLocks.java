@@ -17,13 +17,13 @@ public class ThreadDumpLocks implements Dump {
     }
 
     public static class ThreadState {
-        final long threadId;
-        final  String threadName;
-        final Thread.State state;
+        public final long threadId;
+        public final String threadName;
+        public final Thread.State state;
 
-        final Dump dump;
+        public final Dump dump;
 
-        final InvalidContext<Dump> invalidContext;
+        public final InvalidContext<Dump> invalidContext;
 
         public ThreadState(
             long threadId,
@@ -38,5 +38,9 @@ public class ThreadDumpLocks implements Dump {
             this.dump = dump;
             this.invalidContext = invalidContext;
         }
+    }
+
+    @Override public void apply(DumpProcessor dumpProcessor) {
+        dumpProcessor.processDump(this);
     }
 }
