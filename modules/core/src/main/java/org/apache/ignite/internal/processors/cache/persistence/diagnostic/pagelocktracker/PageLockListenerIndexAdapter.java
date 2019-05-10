@@ -7,10 +7,7 @@ public class PageLockListenerIndexAdapter implements PageLockListener {
 
     private final PageLockListener delegate;
 
-    public PageLockListenerIndexAdapter(
-        int idx,
-        PageLockListener delegate
-    ) {
+    public PageLockListenerIndexAdapter(int idx, PageLockListener delegate) {
         this.idx = idx;
         this.delegate = delegate;
     }

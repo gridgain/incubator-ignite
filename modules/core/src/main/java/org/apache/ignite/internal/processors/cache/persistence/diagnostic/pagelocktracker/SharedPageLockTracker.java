@@ -1,20 +1,25 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
 import org.apache.ignite.lang.IgniteFuture;
 
 public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
-    private final Map<Long, PageLockTracker> threadStacks = new HashMap<>();
-    private final Map<Long, String> idToThreadName = new HashMap<>();
+    private final int threadLImits = 1000;
 
-    private int idGen;
+    private final Map<Long, PageLockTracker> threadStacks = new HashMap<>();
+    private final Map<Long, Thread> threadIdToThreadRef = new HashMap<>();
 
     private final Map<String, Integer> structureNameToId = new HashMap<>();
+
+    private final Cleaner cleaner = new Cleaner();
+
+    private int idGen;
 
     /** */
     private final ThreadLocal<PageLockTracker> lockTracker = ThreadLocal.withInitial(() -> {
@@ -28,11 +33,20 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         synchronized (this) {
             threadStacks.put(threadId, tracker);
 
-            idToThreadName.put(threadId, threadName);
+            threadIdToThreadRef.put(threadId, thread);
+
+            if (threadIdToThreadRef.size() > threadLImits)
+                cleanTerminatedThreads();
         }
 
         return tracker;
     });
+
+    void onStart() {
+        cleaner.setDaemon(true);
+
+        cleaner.start();
+    }
 
     public synchronized PageLockListener registrateStructure(String structureName) {
         Integer id = structureNameToId.get(structureName);
@@ -80,21 +94,26 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         Map<Long, Dump> dumps = new HashMap<>();
         Map<Long, InvalidContext<Dump>> invalidThreads = new HashMap<>();
 
+        List<ThreadDumpLocks.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
+
         for (Map.Entry<Long, PageLockTracker> entry : threadStacks.entrySet()) {
             Long threadId = entry.getKey();
+            Thread thread = threadIdToThreadRef.get(threadId);
 
             PageLockTracker<Dump> tracker = entry.getValue();
 
             try {
                 Dump dump = tracker.dump();
 
-                if (tracker.isInvalid()) {
-                    InvalidContext<Dump> invalidContext = tracker.invalidContext();
-
-                    invalidThreads.put(threadId, invalidContext);
-                }
-                else
-                    dumps.put(threadId, dump);
+                threadStates.add(
+                    new ThreadDumpLocks.ThreadState(
+                        threadId,
+                        thread.getName(),
+                        thread.getState(),
+                        dump,
+                        tracker.isInvalid() ? tracker.invalidContext() : null
+                    )
+                );
             }
             finally {
                 tracker.releaseSafePoint();
@@ -108,9 +127,37 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
                     Map.Entry::getKey
                 ));
 
-        Map<Long, String> idToThreadName0 = new HashMap<>(idToThreadName);
+        return new ThreadDumpLocks(idToStrcutureName0, threadStates);
+    }
 
-        return new ThreadDumpLocks(idToStrcutureName0, idToThreadName0, dumps, invalidThreads);
+    private synchronized void cleanTerminatedThreads() {
+        for (Thread thread : threadIdToThreadRef.values()) {
+            long threadId = thread.getId();
+
+            if (thread.getState() == Thread.State.TERMINATED) {
+                PageLockTracker tracker = threadStacks.remove(threadId);
+
+                if (tracker != null)
+                    tracker.free();
+
+                threadIdToThreadRef.remove(threadId);
+            }
+        }
+    }
+
+    private class Cleaner extends Thread {
+        @Override public void run() {
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    sleep(60_000);
+
+                    cleanTerminatedThreads();
+                }
+            }
+            catch (InterruptedException e) {
+                // No-op.
+            }
+        }
     }
 
     @Override public IgniteFuture<ThreadDumpLocks> dumpSync() {
