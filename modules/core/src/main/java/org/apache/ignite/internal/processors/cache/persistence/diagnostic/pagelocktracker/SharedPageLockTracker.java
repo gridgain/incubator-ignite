@@ -91,9 +91,6 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
             assert acquired;
         }
 
-        Map<Long, Dump> dumps = new HashMap<>();
-        Map<Long, InvalidContext<Dump>> invalidThreads = new HashMap<>();
-
         List<ThreadDumpLocks.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
 
         for (Map.Entry<Long, PageLockTracker> entry : threadStacks.entrySet()) {

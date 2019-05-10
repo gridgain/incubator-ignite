@@ -81,8 +81,6 @@ public abstract class DataStructure implements PageLockListener {
         this.name = name;
     }
 
-    //protected abstract String name();
-
     /**
      * @return Cache group ID.
      */
