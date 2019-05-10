@@ -19,6 +19,10 @@ public class HeapArrayLockStack extends LockStack {
         pageIdLocksStack[idx] = val;
     }
 
+    @Override protected void free() {
+        // No-op.
+    }
+
     /** {@inheritDoc} */
     @Override public LockStackSnapshot snapshot() {
         long[] stack = copyOf(pageIdLocksStack, pageIdLocksStack.length);

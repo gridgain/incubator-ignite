@@ -27,9 +27,25 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
 
     private volatile InvalidContext<T> invalidCtx;
 
+    protected int nextOp;
+    protected int nextOpStructureId;
+    protected long nextOpPageId;
+
     protected PageLockTracker(String name, int capacity) {
         this.name = name;
         this.capacity = capacity;
+    }
+
+    protected void onBeforeWriteLock0(int structureId, long pageId, long page) {
+        this.nextOp = BEFORE_WRITE_LOCK;
+        this.nextOpStructureId = structureId;
+        this.nextOpPageId = pageId;
+    }
+
+    protected void onBeforeReadLock0(int structureId, long pageId, long page) {
+        this.nextOp = BEFORE_READ_LOCK;
+        this.nextOpStructureId = structureId;
+        this.nextOpPageId = pageId;
     }
 
     @Override public void onBeforeWriteLock(int structureId, long pageId, long page) {
@@ -116,13 +132,9 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
-    public abstract void onBeforeWriteLock0(int structureId, long pageId, long page);
-
     public abstract void onWriteLock0(int structureId, long pageId, long page, long pageAddr);
 
     public abstract void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr);
-
-    public abstract void onBeforeReadLock0(int structureId, long pageId, long page);
 
     public abstract void onReadLock0(int structureId, long pageId, long page, long pageAddr);
 
@@ -143,6 +155,8 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
     protected abstract long getByIndex(int idx);
 
     protected abstract void setByIndex(int idx, long val);
+
+    protected abstract void free();
 
     protected void invalid(String msg) {
         T dump = snapshot();
@@ -185,6 +199,26 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
+    protected boolean validateOperation(int structureId, long pageId, int op) {
+        if (nextOpStructureId == 0 || nextOp == 0 || nextOpPageId == 0)
+            return true;
+
+        if ((op == READ_LOCK && nextOp != BEFORE_READ_LOCK) ||
+            (op == WRITE_LOCK && nextOp != BEFORE_WRITE_LOCK) ||
+            (structureId != nextOpStructureId) ||
+            (pageId != nextOpPageId)) {
+
+            invalid("Unepected operation: " +
+                "exp=" + argsToString(nextOpStructureId, nextOpPageId, nextOp) + "," +
+                "actl=" + argsToString(structureId, pageId, op)
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
     protected abstract T snapshot();
 
     @Override public synchronized boolean acquireSafePoint() {
@@ -207,13 +241,6 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
             releaseSafePoint();
 
         return dump0;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        Dump dump = dump();
-
-        return dump.toString();
     }
 
     /** {@inheritDoc} */

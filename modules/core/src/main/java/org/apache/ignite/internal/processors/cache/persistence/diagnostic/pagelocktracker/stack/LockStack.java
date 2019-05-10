@@ -5,17 +5,8 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelo
 public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
     protected int headIdx;
 
-    protected int nextOp;
-    protected int nextOpStructureId;
-    protected long nextOpPageId;
-
     protected LockStack(String name, int capacity) {
         super(name, capacity);
-    }
-
-    @Override public void onBeforeWriteLock0(int structureId, long pageId, long page) {
-        nextOpPageId = pageId;
-        nextOp = BEFORE_WRITE_LOCK;
     }
 
     @Override public void onWriteLock0(int structureId, long pageId, long page, long pageAddr) {
@@ -26,11 +17,6 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         pop(structureId, pageId, WRITE_UNLOCK);
     }
 
-    @Override public void onBeforeReadLock0(int structureId, long pageId, long page) {
-        nextOpPageId = pageId;
-        nextOp = BEFORE_READ_LOCK;
-    }
-
     @Override public void onReadLock0(int structureId, long pageId, long page, long pageAddr) {
         push(structureId, pageId, READ_LOCK);
     }
@@ -39,12 +25,15 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         pop(structureId, pageId, READ_UNLOCK);
     }
 
-    private void push(int structureId, long pageId, int flags) {
-        reset(flags);
+    private void push(int structureId, long pageId, int op) {
+        if (!validateOperation(structureId, pageId, op))
+            return;
+
+        reset();
 
         if (headIdx + 1 > capacity()) {
             invalid("Stack overflow, size=" + capacity() +
-                ", headIdx=" + headIdx + " " + argsToString(structureId, pageId, flags));
+                ", headIdx=" + headIdx + " " + argsToString(structureId, pageId, op));
 
             return;
         }
@@ -53,7 +42,7 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
 
         if (pageId0 != 0L) {
             invalid("Head element should be empty, headIdx=" + headIdx +
-                ", pageIdOnHead=" + pageId0 + " " + argsToString(structureId, pageId, flags));
+                ", pageIdOnHead=" + pageId0 + " " + argsToString(structureId, pageId, op));
 
             return;
         }
@@ -63,18 +52,11 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         headIdx++;
     }
 
-    private void reset(int flags) {
-        if (flags != READ_LOCK || flags != WRITE_LOCK) {
-            //TODO asserts
-        }
+    private void pop(int structureId, long pageId, int op) {
+        if (!validateOperation(structureId, pageId, op))
+            return;
 
-        nextOpPageId = 0;
-        nextOp = 0;
-        nextOpStructureId = 0;
-    }
-
-    private void pop(int structureId, long pageId, int flags) {
-        reset(flags);
+        reset();
 
         if (headIdx > 1) {
             int last = headIdx - 1;
@@ -88,7 +70,7 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
                 do {
                     headIdx--;
                 }
-                while (headIdx - 1 >= 0 && getByIndex(headIdx - 1) == 0);
+                while (headIdx > 0 && getByIndex(headIdx - 1) == 0);
             }
             else {
                 for (int idx = last - 1; idx >= 0; idx--) {
@@ -100,13 +82,13 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
                 }
 
                 invalid("Can not find pageId in stack, headIdx=" + headIdx + " "
-                    + argsToString(structureId, pageId, flags));
+                    + argsToString(structureId, pageId, op));
             }
         }
         else {
             if (headIdx < 0) {
                 invalid("HeadIdx can not be less, headIdx="
-                    + headIdx + ", " + argsToString(structureId, pageId, flags));
+                    + headIdx + ", " + argsToString(structureId, pageId, op));
 
                 return;
             }
@@ -114,7 +96,7 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
             long val = getByIndex(0);
 
             if (val == 0) {
-                invalid("Stack is empty, can not pop elemnt" + argsToString(structureId, pageId, flags));
+                invalid("Stack is empty, can not pop elemnt" + argsToString(structureId, pageId, op));
 
                 return;
             }
@@ -126,7 +108,13 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
             }
             else
                 invalid("Can not find pageId in stack, headIdx=" + headIdx + " "
-                    + argsToString(structureId, pageId, flags));
+                    + argsToString(structureId, pageId, op));
         }
+    }
+
+    private void reset() {
+        nextOpPageId = 0;
+        nextOp = 0;
+        nextOpStructureId = 0;
     }
 }

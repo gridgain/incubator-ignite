@@ -9,10 +9,8 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLoc
 import org.apache.ignite.lang.IgniteFuture;
 
 public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
-    public static final SharedPageLockTracker LOCK_TRACKER = new SharedPageLockTracker();
-
-    private final Map<Long, PageLockTracker> threadStacks = new ConcurrentHashMap<>();
-    private final Map<Long, String> idToThreadName = new ConcurrentHashMap<>();
+    private final Map<Long, PageLockTracker> threadStacks = new HashMap<>();
+    private final Map<Long, String> idToThreadName = new HashMap<>();
 
     private int idGen;
 
@@ -25,18 +23,16 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         String threadName = thread.getName();
         long threadId = thread.getId();
 
-        PageLockTracker stack = LockTracerFactory.create(threadName + "[" + threadId + "]");
+        PageLockTracker tracker = LockTracerFactory.create(threadName + "[" + threadId + "]");
 
-        threadStacks.put(threadId, stack);
+        synchronized (this) {
+            threadStacks.put(threadId, tracker);
 
-        idToThreadName.put(threadId, threadName);
+            idToThreadName.put(threadId, threadName);
+        }
 
-        return stack;
+        return tracker;
     });
-
-    private SharedPageLockTracker() {
-
-    }
 
     public synchronized PageLockListener registrateStructure(String structureName) {
         Integer id = structureNameToId.get(structureName);
@@ -71,53 +67,61 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         lockTracker.get().onReadUnlock(structureId, pageId, page, pageAddr);
     }
 
-    @Override public boolean acquireSafePoint() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override public boolean releaseSafePoint() {
-        throw new UnsupportedOperationException();
-    }
-
     @Override public synchronized ThreadDumpLocks dump() {
         Collection<PageLockTracker> trackers = threadStacks.values();
-
-        Map<PageLockTracker, Boolean> needReleaseMap = new HashMap<>(threadStacks.size());
 
         for (PageLockTracker tracker : trackers) {
             boolean acquired = tracker.acquireSafePoint();
 
-            needReleaseMap.put(tracker, acquired);
+            //TODO
+            assert acquired;
         }
 
-        Map<Long, Dump> dumps = threadStacks.entrySet().stream()
-            .collect(Collectors.toMap(
-                Map.Entry::getKey,
-                e -> {
-                    PageLockTracker tracker = e.getValue();
+        Map<Long, Dump> dumps = new HashMap<>();
+        Map<Long, InvalidContext<Dump>> invalidThreads = new HashMap<>();
 
-                    Dump dump = tracker.dump();
+        for (Map.Entry<Long, PageLockTracker> entry : threadStacks.entrySet()) {
+            Long threadId = entry.getKey();
 
-                    Boolean needRelease = needReleaseMap.get(tracker);
+            PageLockTracker<Dump> tracker = entry.getValue();
 
-                    if (needRelease)
-                        tracker.releaseSafePoint();
+            try {
+                Dump dump = tracker.dump();
 
-                    return dump;
+                if (tracker.isInvalid()) {
+                    InvalidContext<Dump> invalidContext = tracker.invalidContext();
+
+                    invalidThreads.put(threadId, invalidContext);
                 }
-            ));
+                else
+                    dumps.put(threadId, dump);
+            }
+            finally {
+                tracker.releaseSafePoint();
+            }
+        }
 
-        Map<Integer, String> idToStrcutureName =
+        Map<Integer, String> idToStrcutureName0 =
             structureNameToId.entrySet().stream()
                 .collect(Collectors.toMap(
                     Map.Entry::getValue,
                     Map.Entry::getKey
                 ));
 
-        return new ThreadDumpLocks(idToStrcutureName, idToThreadName, dumps);
+        Map<Long, String> idToThreadName0 = new HashMap<>(idToThreadName);
+
+        return new ThreadDumpLocks(idToStrcutureName0, idToThreadName0, dumps, invalidThreads);
     }
 
     @Override public IgniteFuture<ThreadDumpLocks> dumpSync() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override public boolean acquireSafePoint() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override public boolean releaseSafePoint() {
         throw new UnsupportedOperationException();
     }
 }

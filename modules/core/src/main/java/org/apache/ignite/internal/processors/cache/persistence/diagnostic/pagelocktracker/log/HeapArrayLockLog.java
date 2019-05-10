@@ -27,38 +27,7 @@ public class HeapArrayLockLog extends LockLog {
         pageIdsLockLog[idx] = val;
     }
 
-    @Override public LockLogSnapshot snapshot() {
-        return new LockLogSnapshot(
-            name,
-            System.currentTimeMillis(),
-            headIdx / 2,
-            toList(),
-            nextOp,
-            nextOpStructureId,
-            nextOpPageId
-        );
-    }
-
-    @Override protected List<LockLogSnapshot.LogEntry> toList() {
-        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(logSize);
-
-        for (int i = 0; i < headIdx; i += 2) {
-            long metaOnLock = getByIndex(i + 1);
-
-            assert metaOnLock != 0;
-
-            int holdedLocks = ((int)(metaOnLock >> 32) & LOCK_IDX_MASK) >> OP_OFFSET;
-
-            assert holdedLocks >= 0;
-
-            long pageId = getByIndex(i);
-
-            int op = (int)((metaOnLock >> 32) & LOCK_OP_MASK);
-            int structureId = (int)(metaOnLock);
-
-            lockLog.add(new LockLogSnapshot.LogEntry(pageId, structureId, op, holdedLocks));
-        }
-
-        return lockLog;
+    @Override protected void free() {
+        // No-op.
     }
 }

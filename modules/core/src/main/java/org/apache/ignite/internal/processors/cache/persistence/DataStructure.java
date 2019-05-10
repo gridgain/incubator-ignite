@@ -40,8 +40,6 @@ import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.MAX_ITEMID_NUM;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.SharedPageLockTracker.LOCK_TRACKER;
-
 /**
  * Base class for all the data structures based on {@link PageMemory}.
  */
@@ -60,9 +58,6 @@ public abstract class DataStructure implements PageLockListener {
 
     /** */
     protected ReuseList reuseList;
-
-    /** */
-    protected final PageLockListener tracker;
 
     /** Name (for debug purposes). */
     protected final String name;
@@ -83,7 +78,6 @@ public abstract class DataStructure implements PageLockListener {
         this.grpId = cacheId;
         this.pageMem = pageMem;
         this.wal = wal;
-        this.tracker = LOCK_TRACKER.registrateStructure(name);
         this.name = name;
     }
 
@@ -420,26 +414,26 @@ public abstract class DataStructure implements PageLockListener {
     }
 
     @Override public void onBeforeWriteLock(int cacheId, long pageId, long page) {
-        tracker.onBeforeWriteLock(cacheId, pageId, page);
+        // No-op.
     }
 
     @Override public void onWriteLock(int cacheId, long pageId, long page, long pageAddr) {
-        tracker.onWriteLock(cacheId, pageId, page, pageAddr);
+        // No-op.
     }
 
     @Override public void onWriteUnlock(int cacheId, long pageId, long page, long pageAddr) {
-        tracker.onWriteUnlock(cacheId, pageId, page, pageAddr);
+        // No-op.
     }
 
     @Override public void onBeforeReadLock(int cacheId, long pageId, long page) {
-        tracker.onBeforeReadLock(cacheId, pageId, page);
+        // No-op.
     }
 
     @Override public void onReadLock(int cacheId, long pageId, long page, long pageAddr) {
-        tracker.onReadLock(cacheId, pageId, page, pageAddr);
+        // No-op.
     }
 
     @Override public void onReadUnlock(int cacheId, long pageId, long page, long pageAddr) {
-        tracker.onReadUnlock(cacheId, pageId, page, pageAddr);
+        // No-op.
     }
 }

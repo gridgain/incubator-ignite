@@ -44,14 +44,14 @@ public class OffHeapLockStack extends LockStack {
         return ptr;
     }
 
+    @Override protected void free() {
+        GridUnsafe.freeMemory(ptr);
+    }
+
     @Override public LockStackSnapshot snapshot() {
-        LongBuffer buf = LongBuffer.allocate(stackSize);
+        long[] stack = new long[stackSize];
 
-        GridUnsafe.copyMemory(null, ptr, buf.array(), GridUnsafe.LONG_ARR_OFF, stackSize);
-
-        long[] stack = buf.array();
-
-        assert stack.length == stackSize;
+        GridUnsafe.copyMemory(null, ptr, stack, GridUnsafe.LONG_ARR_OFF, stackSize);
 
         return new LockStackSnapshot(
             name,

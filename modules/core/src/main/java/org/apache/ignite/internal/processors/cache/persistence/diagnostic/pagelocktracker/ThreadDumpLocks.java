@@ -3,20 +3,23 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 import java.util.Map;
 
 public class ThreadDumpLocks implements Dump {
+    public final Map<Integer, String> structureIdToStrcutureName;
 
-    public final Map<Integer, String> idToStrcutureName;
+    public final Map<Long, String> threadIdToThreadName;
 
-    public final Map<Long, String> idToThreadName;
+    public final Map<Long, Dump> threadIdToDump;
 
-    public final Map<Long, Dump> dumps;
+    private final Map<Long, InvalidContext<Dump>> invalidThreads;
 
     public ThreadDumpLocks(
-        Map<Integer, String> idToStrcutureName,
-        Map<Long, String> idToThreadName,
-        Map<Long, Dump> dumps
+        Map<Integer, String> structureIdToStrcutureName,
+        Map<Long, String> threadIdToThreadName,
+        Map<Long, Dump> threadIdToDump,
+        Map<Long, InvalidContext<Dump>> invalidThreads
     ) {
-        this.idToStrcutureName = idToStrcutureName;
-        this.idToThreadName = idToThreadName;
-        this.dumps = dumps;
+        this.structureIdToStrcutureName = structureIdToStrcutureName;
+        this.threadIdToThreadName = threadIdToThreadName;
+        this.threadIdToDump = threadIdToDump;
+        this.invalidThreads = invalidThreads;
     }
 }

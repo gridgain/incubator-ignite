@@ -1,6 +1,6 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
-public interface PageLockMXBean extends PageLockManager {
+public interface PageLockMXBean {
     void enableTracking();
 
     void disableTracking();
@@ -11,7 +11,7 @@ public interface PageLockMXBean extends PageLockManager {
 
     void dumpLocksToLog();
 
-    void dumpLocksToFile();
+    String dumpLocksToFile();
 
-    void dumpLocksToFile(String path);
+    String dumpLocksToFile(String path);
 }
