@@ -41,18 +41,28 @@ import static org.apache.ignite.internal.processors.cache.persistence.diagnostic
 import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 
+/**
+ * Proccessor for buils string from {@link Dump}.
+ */
 public class ToStringDumpProcessor {
+    /** Date format. */
     private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
+    /**
+     * @param dump Dump.
+     * @return String representation of dump.
+     */
     public static String toStringDump(Dump dump) {
         SB sb = new SB();
 
         dump.apply(new DumpProcessor() {
+            /** Helper class for track lock/unlok count. */
             class LockState {
                 int readlock;
                 int writelock;
             }
-            
+
+            /** {@inheritDoc} */
             @Override public void processDump(LockLogSnapshot snapshot) {
                 String name = snapshot.name;
                 List<LockLogSnapshot.LogEntry> locklog = snapshot.locklog;
@@ -169,6 +179,7 @@ public class ToStringDumpProcessor {
                 sb.a(logLocksStr);
             }
 
+            /** {@inheritDoc} */
             @Override public void processDump(LockStackSnapshot snapshot) {
                 String name = snapshot.name;
                 long time = snapshot.time;
@@ -209,6 +220,7 @@ public class ToStringDumpProcessor {
                 sb.a("\n");
             }
 
+            /** {@inheritDoc} */
             @Override public void processDump(ThreadDumpLocks snapshot) {
 
             }

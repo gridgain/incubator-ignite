@@ -37,14 +37,17 @@ public class OffHeapLockStack extends LockStack {
         this.ptr = allocate(stackSize);
     }
 
+    /** {@inheritDoc} */
     @Override public int capacity() {
         return capacity;
     }
 
+    /** {@inheritDoc} */
     @Override protected long getByIndex(int idx) {
         return GridUnsafe.getLong(ptr + offset(idx));
     }
 
+    /** {@inheritDoc} */
     @Override protected void setByIndex(int idx, long val) {
         GridUnsafe.putLong(ptr + offset(idx), val);
     }
@@ -61,10 +64,12 @@ public class OffHeapLockStack extends LockStack {
         return ptr;
     }
 
+    /** {@inheritDoc} */
     @Override protected void free() {
         GridUnsafe.freeMemory(ptr);
     }
 
+    /** {@inheritDoc} */
     @Override public LockStackSnapshot snapshot() {
         long[] stack = new long[stackSize];
 

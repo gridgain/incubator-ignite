@@ -34,26 +34,32 @@ public class LockTrackerNoBarrier implements PageLockListener {
         this.delegate = delegate;
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeWriteLock(int cacheId, long pageId, long page) {
         delegate.onBeforeWriteLock0(cacheId, pageId, page);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteLock(int cacheId, long pageId, long page, long pageAddr) {
         delegate.onWriteLock0(cacheId, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteUnlock(int cacheId, long pageId, long page, long pageAddr) {
         delegate.onWriteUnlock0(cacheId, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeReadLock(int cacheId, long pageId, long page) {
         delegate.onBeforeReadLock0(cacheId, pageId, page);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadLock(int cacheId, long pageId, long page, long pageAddr) {
         delegate.onReadLock0(cacheId, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadUnlock(int cacheId, long pageId, long page, long pageAddr) {
         delegate.onReadUnlock(cacheId, pageId, page, pageAddr);
     }

@@ -21,36 +21,58 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker;
 
+/**
+ * Abstract page lock log class.
+ **/
 public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
+    /** */
     public static final int OP_OFFSET = 16;
+    /** */
     public static final int LOCK_IDX_MASK = 0xFFFF0000;
+    /** */
     public static final int LOCK_OP_MASK = 0x000000000000FF;
-
+    /** */
     protected int headIdx;
-
+    /** Counter for track lock/unlock operations. */
     protected int holdedLockCnt;
 
+    /**
+     * Constructor.
+     *
+     * @param name Page lock log name.
+     * @param capacity Capacity.
+     */
     protected LockLog(String name, int capacity) {
         super(name, capacity);
     }
 
-
+    /** {@inheritDoc} */
     @Override public void onWriteLock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, WRITE_LOCK);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, WRITE_UNLOCK);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadLock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, READ_LOCK);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadUnlock0(int structureId, long pageId, long page, long pageAddr) {
         log(structureId, pageId, READ_UNLOCK);
     }
 
+    /**
+     * Log lock operation.
+     *
+     * @param structureId Structure id.
+     * @param pageId Page id.
+     * @param op Operation.
+     */
     private void log(int structureId, long pageId, int op) {
         if (!validateOperation(structureId, pageId, op))
             return;
@@ -101,6 +123,9 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         }
     }
 
+    /**
+     * Reset log state.
+     */
     private void reset() {
         for (int i = 0; i < headIdx; i++)
             setByIndex(i, 0);
@@ -108,6 +133,12 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         headIdx = 0;
     }
 
+    /**
+     * Build long from two int.
+     *
+     * @param structureId Structure id.
+     * @param flags Flags.
+     */
     private long meta(int structureId, int flags) {
         long major = ((long)flags) << 32;
 
@@ -116,6 +147,7 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         return major | minor;
     }
 
+    /** {@inheritDoc} */
     @Override public LockLogSnapshot snapshot() {
         return new LockLogSnapshot(
             name,
@@ -128,6 +160,11 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
         );
     }
 
+    /**
+     * Convert log to list {@link LockLogSnapshot.LogEntry}.
+     *
+     * @return List of {@link LockLogSnapshot.LogEntry}.
+     */
     protected List<LockLogSnapshot.LogEntry> toList() {
         List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(capacity);
 

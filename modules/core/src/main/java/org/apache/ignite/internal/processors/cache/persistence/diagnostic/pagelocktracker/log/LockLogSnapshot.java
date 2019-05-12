@@ -23,19 +23,28 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelo
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 
+/**
+ * Page lock log snapshot.
+ */
 public class LockLogSnapshot implements Dump {
+    /** Page lock log name. */
     public final String name;
-
+    /** Creation time. */
     public final long time;
-
+    /** Head position. */
     public final int headIdx;
-
+    /** List of log entries. */
     public final List<LogEntry> locklog;
-
+    /** Next operation. */
     public final int nextOp;
+    /** Next data structure. */
     public final int nextOpStructureId;
+    /** Next page id. */
     public final long nextOpPageId;
 
+    /**
+     *
+     */
     public LockLogSnapshot(
         String name,
         long time,
@@ -54,15 +63,19 @@ public class LockLogSnapshot implements Dump {
         this.nextOpPageId = nextOpPageId;
     }
 
+    /**
+     * Log entry.
+     */
     public static class LogEntry {
+        /** */
         public final long pageId;
-
+        /** */
         public final int structureId;
-
+        /** */
         public final int operation;
-
+        /** */
         public final int holdedLocks;
-
+        /** */
         public LogEntry(long pageId, int structureId, int operation, int holdedLock) {
             this.pageId = pageId;
             this.structureId = structureId;
@@ -71,6 +84,7 @@ public class LockLogSnapshot implements Dump {
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void apply(DumpProcessor dumpProcessor) {
         dumpProcessor.processDump(this);
     }

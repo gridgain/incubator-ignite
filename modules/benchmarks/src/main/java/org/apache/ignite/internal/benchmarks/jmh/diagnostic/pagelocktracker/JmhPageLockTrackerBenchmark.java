@@ -39,8 +39,13 @@ import static org.apache.ignite.internal.processors.cache.persistence.diagnostic
 import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_LOG;
 import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_STACK;
 
+/**
+ * Benchmark PageLockTracker (factory LockTracerFactory)
+ */
 public class JmhPageLockTrackerBenchmark {
-
+    /**
+     * @param args Params.
+     */
     public static void main(String[] args) throws Exception {
         Options opt = new OptionsBuilder()
             .include(JmhPageLockTrackerBenchmark.class.getSimpleName())
@@ -49,6 +54,7 @@ public class JmhPageLockTrackerBenchmark {
         new Runner(opt).run();
     }
 
+    /** */
     @State(Scope.Thread)
     public static class ThreadLocalState {
         PageLockListener pl;
@@ -75,6 +81,9 @@ public class JmhPageLockTrackerBenchmark {
         }
     }
 
+    /**
+     *  Mesure cost for (beforelock -> lock -> unlock) operation.
+     */
     @Benchmark
     @BenchmarkMode(Mode.Throughput)
     @Fork(1)
@@ -99,6 +108,15 @@ public class JmhPageLockTrackerBenchmark {
         }
     }
 
+    /**
+     * Factory method.
+     *
+     * @param name Lock tracer name.
+     * @param type Lock tracer type.
+     * @param barrier If {@code True} use real implementation,
+     * if {@code False} use implementation with safety dump barrier.
+     * @return Page lock tracker as PageLockListener.
+     */
     private static PageLockListener create(String name, String type, boolean barrier) {
         PageLockTracker tracker;
 

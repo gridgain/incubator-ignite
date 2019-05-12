@@ -26,18 +26,22 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         super(name, capacity);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteLock0(int structureId, long pageId, long page, long pageAddr) {
         push(structureId, pageId, WRITE_LOCK);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr) {
         pop(structureId, pageId, WRITE_UNLOCK);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadLock0(int structureId, long pageId, long page, long pageAddr) {
         push(structureId, pageId, READ_LOCK);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadUnlock0(int structureId, long pageId, long page, long pageAddr) {
         pop(structureId, pageId, READ_UNLOCK);
     }

@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.internal.util.GridUnsafe;
 
+/**
+ * Page lock log build in on offheap.
+ */
 public class OffHeapLockLog extends LockLog {
+    /** Log size. */
     private final int logSize;
-
+    /** Offheap pointer to log head. */
     private final long ptr;
 
+    /** */
     public OffHeapLockLog(String name, int capacity) {
         super(name, capacity);
 
@@ -33,18 +36,22 @@ public class OffHeapLockLog extends LockLog {
         this.ptr = allocate(logSize);
     }
 
+    /** {@inheritDoc} */
     @Override protected long getByIndex(int idx) {
         return GridUnsafe.getLong(ptr + offset(idx));
     }
 
+    /** {@inheritDoc} */
     @Override protected void setByIndex(int idx, long val) {
         GridUnsafe.putLong(ptr + offset(idx), val);
     }
 
+    /** */
     private long offset(long headIdx) {
         return headIdx * 8;
     }
 
+    /** */
     private long allocate(int size) {
         long ptr = GridUnsafe.allocateMemory(size);
 
@@ -53,6 +60,7 @@ public class OffHeapLockLog extends LockLog {
         return ptr;
     }
 
+    /** {@inheritDoc} */
     @Override protected void free() {
         GridUnsafe.freeMemory(ptr);
     }

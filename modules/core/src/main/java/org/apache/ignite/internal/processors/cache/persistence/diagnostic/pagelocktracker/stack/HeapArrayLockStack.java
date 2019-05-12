@@ -28,14 +28,17 @@ public class HeapArrayLockStack extends LockStack {
         this.pageIdLocksStack = new long[capacity];
     }
 
+    /** {@inheritDoc} */
     @Override protected long getByIndex(int idx) {
         return pageIdLocksStack[idx];
     }
 
+    /** {@inheritDoc} */
     @Override protected void setByIndex(int idx, long val) {
         pageIdLocksStack[idx] = val;
     }
 
+    /** {@inheritDoc} */
     @Override protected void free() {
         // No-op.
     }

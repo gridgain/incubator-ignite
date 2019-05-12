@@ -53,6 +53,7 @@ public class LockStackSnapshot implements Dump {
         this.nextOpPageId = nextOpPageId;
     }
 
+    /** {@inheritDoc} */
     @Override public void apply(DumpProcessor dumpProcessor) {
         dumpProcessor.processDump(this);
     }

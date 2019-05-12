@@ -17,11 +17,20 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log;
 
+/**
+ * Page lock log build in on heap array.
+ */
 public class HeapArrayLockLog extends LockLog {
+    /** */
     private final int logSize;
 
+    /** */
     private final long[] pageIdsLockLog;
 
+    /**
+     * @param name Page lock log name.
+     * @param capacity Capacity.
+     */
     public HeapArrayLockLog(String name, int capacity) {
         super(name, capacity);
 
@@ -29,18 +38,22 @@ public class HeapArrayLockLog extends LockLog {
         this.logSize = capacity;
     }
 
+    /** {@inheritDoc} */
     @Override public int capacity() {
         return logSize;
     }
 
+    /** {@inheritDoc} */
     @Override protected long getByIndex(int idx) {
         return pageIdsLockLog[idx];
     }
 
+    /** {@inheritDoc} */
     @Override protected void setByIndex(int idx, long val) {
         pageIdsLockLog[idx] = val;
     }
 
+    /** {@inheritDoc} */
     @Override protected void free() {
         // No-op.
     }
