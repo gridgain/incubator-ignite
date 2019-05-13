@@ -29,22 +29,25 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLoc
 import org.apache.ignite.lang.IgniteFuture;
 
 /**
- * //TODO Calculate overhad and capacity for all structures.
- * //TODO Fast local get thread local.
- * //TODO Test deadlock
- * //TODO Dynamic enable/disable tracing.
- * //TODO Collect page content to dump. AG
+ * //TODO Calculate overhad and capacity for all structures. //TODO Fast local get thread local. //TODO Test deadlock
+ * //TODO Dynamic enable/disable tracing. //TODO Collect page content to dump. AG
  */
 public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
+    /** */
     private static final int THREAD_LIMITS = 1000;
 
+    /** */
     private final Map<Long, PageLockTracker> threadStacks = new HashMap<>();
+    /** */
     private final Map<Long, Thread> threadIdToThreadRef = new HashMap<>();
 
+    /** */
     private final Map<String, Integer> structureNameToId = new HashMap<>();
 
+    /** Thread for clean terminated threads from map. */
     private final Cleaner cleaner = new Cleaner();
 
+    /** */
     private int idGen;
 
     /** */
@@ -68,12 +71,14 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         return tracker;
     });
 
+    /** */
     void onStart() {
         cleaner.setDaemon(true);
 
         cleaner.start();
     }
 
+    /** */
     public synchronized PageLockListener registrateStructure(String structureName) {
         Integer id = structureNameToId.get(structureName);
 
@@ -83,30 +88,37 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         return new PageLockListenerIndexAdapter(id, this);
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeWriteLock(int structureId, long pageId, long page) {
         lockTracker.get().onBeforeWriteLock(structureId, pageId, page);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteLock(int structureId, long pageId, long page, long pageAddr) {
         lockTracker.get().onWriteLock(structureId, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteUnlock(int structureId, long pageId, long page, long pageAddr) {
         lockTracker.get().onWriteUnlock(structureId, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeReadLock(int structureId, long pageId, long page) {
         lockTracker.get().onBeforeReadLock(structureId, pageId, page);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadLock(int structureId, long pageId, long page, long pageAddr) {
         lockTracker.get().onReadLock(structureId, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadUnlock(int structureId, long pageId, long page, long pageAddr) {
         lockTracker.get().onReadUnlock(structureId, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public synchronized ThreadDumpLocks dump() {
         Collection<PageLockTracker> trackers = threadStacks.values();
         List<ThreadDumpLocks.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
@@ -157,6 +169,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         return new ThreadDumpLocks(idToStrcutureName0, threadStates0);
     }
 
+    /** */
     private synchronized void cleanTerminatedThreads() {
         Iterator<Map.Entry<Long, Thread>> it = threadIdToThreadRef.entrySet().iterator();
 
@@ -172,11 +185,12 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
                 if (tracker != null)
                     tracker.free();
 
-               it.remove();
+                it.remove();
             }
         }
     }
 
+    /** */
     private class Cleaner extends Thread {
         @Override public void run() {
             try {
@@ -192,14 +206,17 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         }
     }
 
+    /** */
     @Override public IgniteFuture<ThreadDumpLocks> dumpSync() {
         throw new UnsupportedOperationException();
     }
 
+    /** */
     @Override public boolean acquireSafePoint() {
         throw new UnsupportedOperationException();
     }
 
+    /** */
     @Override public boolean releaseSafePoint() {
         throw new UnsupportedOperationException();
     }

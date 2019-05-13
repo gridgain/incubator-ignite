@@ -23,12 +23,18 @@ import org.apache.ignite.internal.util.GridUnsafe;
 import static java.util.Arrays.copyOf;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 
+/**
+ *  Page lock stack build in on offheap.
+ */
 public class OffHeapLockStack extends LockStack {
-
+    /** */
     private final int stackSize;
-
+    /** */
     private final long ptr;
 
+    /**
+     *
+     */
     public OffHeapLockStack(String name, int size) {
         super(name, size);
 
@@ -52,10 +58,12 @@ public class OffHeapLockStack extends LockStack {
         GridUnsafe.putLong(ptr + offset(idx), val);
     }
 
+    /** */
     private long offset(long headIdx) {
         return headIdx * 8;
     }
 
+    /** */
     private long allocate(int size) {
         long ptr = GridUnsafe.allocateMemory(size);
 

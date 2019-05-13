@@ -26,12 +26,15 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertEquals;
 
+/** */
 public abstract class AbstractPageLockTest {
+    /** */
     protected void randomLocks(int deep, Runnable r) {
         for (int i = 0; i < deep; i++)
             r.run();
     }
 
+    /** */
     protected void awaitRandom(int bound) {
         try {
             U.sleep(nextRandomWaitTimeout(bound));

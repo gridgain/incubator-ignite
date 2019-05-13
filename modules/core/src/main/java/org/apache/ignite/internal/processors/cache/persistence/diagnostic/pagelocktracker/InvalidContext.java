@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
+/**
+ * Failure context if any invariant is not satisfied.
+ */
 public class InvalidContext<T extends Dump> {
+    /** */
     public final String msg;
+    /** */
     public final T dump;
 
+    /** */
     public InvalidContext(String msg, T dump) {
         this.msg = msg;
         this.dump = dump;
     }
 
+    /** {@inheritDoc} */
     @Override public String toString() {
         return "Error: " + msg + "\n" + dump.toString();
     }

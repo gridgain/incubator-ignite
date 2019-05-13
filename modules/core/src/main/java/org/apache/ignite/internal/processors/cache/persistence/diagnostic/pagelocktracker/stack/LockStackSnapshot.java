@@ -22,19 +22,28 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelo
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 
+/**
+ * Page lock stack snapshot.
+ */
 public class LockStackSnapshot implements Dump {
+    /** */
     public final String name;
-
+    /** */
     public final long time;
-
+    /** */
     public final int headIdx;
-
+    /** */
     public final long[] pageIdLocksStack;
-
+    /** */
     public final int nextOp;
+    /** */
     public final int nextOpStructureId;
+    /** */
     public final long nextOpPageId;
 
+    /**
+     *
+     */
     public LockStackSnapshot(
         String name,
         long time,

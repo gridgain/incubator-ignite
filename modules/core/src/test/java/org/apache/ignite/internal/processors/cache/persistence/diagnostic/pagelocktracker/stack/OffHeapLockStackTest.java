@@ -22,7 +22,9 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLo
 
 import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_STACK;
 
+/** */
 public class OffHeapLockStackTest extends PageLockStackTest {
+    /** {@inheritDoc} */
     @Override protected LockStack createLockStackTracer(String name) {
         return (LockStack)LockTracerFactory.create(OFF_HEAP_STACK, name);
     }

@@ -19,37 +19,52 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
 
+/**
+ * Page lock listener adapter with Id.
+ */
 public class PageLockListenerIndexAdapter implements PageLockListener {
-    private final int idx;
+    /** Adapter id. */
+    private final int id;
 
+    /** Real listener. */
     private final PageLockListener delegate;
 
-    public PageLockListenerIndexAdapter(int idx, PageLockListener delegate) {
-        this.idx = idx;
+    /**
+     * @param id Adapter id.
+     * @param delegate Real listener.
+     */
+    public PageLockListenerIndexAdapter(int id, PageLockListener delegate) {
+        this.id = id;
         this.delegate = delegate;
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeWriteLock(int cacheId, long pageId, long page) {
-        delegate.onBeforeWriteLock(idx, pageId, page);
+        delegate.onBeforeWriteLock(id, pageId, page);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteLock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onWriteLock(idx, pageId, page, pageAddr);
+        delegate.onWriteLock(id, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteUnlock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onWriteUnlock(idx, pageId, page, pageAddr);
+        delegate.onWriteUnlock(id, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeReadLock(int cacheId, long pageId, long page) {
-        delegate.onBeforeReadLock(idx, pageId, page);
+        delegate.onBeforeReadLock(id, pageId, page);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadLock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onReadLock(idx, pageId, page, pageAddr);
+        delegate.onReadLock(id, pageId, page, pageAddr);
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadUnlock(int cacheId, long pageId, long page, long pageAddr) {
-        delegate.onReadUnlock(idx, pageId, page, pageAddr);
+        delegate.onReadUnlock(id, pageId, page, pageAddr);
     }
 }

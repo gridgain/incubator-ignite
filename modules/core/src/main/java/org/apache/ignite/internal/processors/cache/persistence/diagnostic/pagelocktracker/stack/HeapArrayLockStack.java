@@ -19,9 +19,17 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 
 import static java.util.Arrays.copyOf;
 
+/**
+ *  Page lock stack build in on offheap.
+ */
 public class HeapArrayLockStack extends LockStack {
+    /** */
     private final long[] pageIdLocksStack;
 
+    /**
+     * @param name Page lock tracker name.
+     * @param capacity Capacity.
+     */
     public HeapArrayLockStack(String name, int capacity) {
         super(name, capacity);
 

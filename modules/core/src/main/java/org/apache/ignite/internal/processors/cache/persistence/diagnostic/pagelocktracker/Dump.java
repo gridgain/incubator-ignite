@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
+/**
+ * Interface for page lock tracker structures deump.
+ */
 public interface Dump {
+    /**
+     * @param dumpProcessort Dump processor.
+     */
     void apply(DumpProcessor dumpProcessort);
 }

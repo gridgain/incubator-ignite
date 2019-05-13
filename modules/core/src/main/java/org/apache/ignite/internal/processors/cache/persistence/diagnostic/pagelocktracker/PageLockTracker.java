@@ -26,45 +26,61 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 
+/**
+ * Abstrack page lock tracker.
+ */
 public abstract class PageLockTracker<T extends Dump> implements PageLockListener, DumpSupported<T> {
+    /** Page read lock operation id. */
     public static final int READ_LOCK = 1;
+    /** Page read unlock operation id. */
     public static final int READ_UNLOCK = 2;
+    /** Page write lock operation id. */
     public static final int WRITE_LOCK = 3;
+    /** Page write unlock operation id. */
     public static final int WRITE_UNLOCK = 4;
+    /** Page read before lock operation id. */
     public static final int BEFORE_READ_LOCK = 5;
+    /** Page write before lock operation id. */
     public static final int BEFORE_WRITE_LOCK = 6;
 
+    /** */
     protected final String name;
-
+    /** */
     protected final int capacity;
-
+    /** */
     private volatile boolean dump;
-
+    /** */
     private volatile boolean locked;
-
+    /** */
     private volatile InvalidContext<T> invalidCtx;
-
+    /** */
     protected int nextOp;
+    /** */
     protected int nextOpStructureId;
+    /** */
     protected long nextOpPageId;
 
+    /** */
     protected PageLockTracker(String name, int capacity) {
         this.name = name;
         this.capacity = capacity;
     }
 
+    /** */
     public void onBeforeWriteLock0(int structureId, long pageId, long page) {
         this.nextOp = BEFORE_WRITE_LOCK;
         this.nextOpStructureId = structureId;
         this.nextOpPageId = pageId;
     }
 
+    /** */
     public void onBeforeReadLock0(int structureId, long pageId, long page) {
         this.nextOp = BEFORE_READ_LOCK;
         this.nextOpStructureId = structureId;
         this.nextOpPageId = pageId;
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeWriteLock(int structureId, long pageId, long page) {
         if (isInvalid())
             return;
@@ -79,6 +95,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteLock(int structureId, long pageId, long page, long pageAddr) {
         if (isInvalid())
             return;
@@ -93,6 +110,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void onWriteUnlock(int structureId, long pageId, long page, long pageAddr) {
         if (isInvalid())
             return;
@@ -107,6 +125,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void onBeforeReadLock(int structureId, long pageId, long page) {
         if (isInvalid())
             return;
@@ -121,6 +140,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadLock(int structureId, long pageId, long page, long pageAddr) {
         if (isInvalid())
             return;
@@ -135,6 +155,7 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
+    /** {@inheritDoc} */
     @Override public void onReadUnlock(int structureId, long pageId, long page, long pageAddr) {
         if (isInvalid())
             return;
@@ -149,44 +170,57 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         }
     }
 
+    /** */
     public abstract void onWriteLock0(int structureId, long pageId, long page, long pageAddr);
 
+    /** */
     public abstract void onWriteUnlock0(int structureId, long pageId, long page, long pageAddr);
 
+    /** */
     public abstract void onReadLock0(int structureId, long pageId, long page, long pageAddr);
 
+    /** */
     public abstract void onReadUnlock0(int structureId, long pageId, long page, long pageAddr);
 
+    /** */
     public boolean isInvalid() {
         return invalidCtx != null;
     }
 
+    /** */
     public InvalidContext<T> invalidContext() {
         return invalidCtx;
     }
 
+    /** */
     public int capacity() {
         return capacity;
     }
 
+    /** */
     protected abstract long getByIndex(int idx);
 
+    /** */
     protected abstract void setByIndex(int idx, long val);
 
+    /** */
     protected abstract void free();
 
+    /** */
     protected void invalid(String msg) {
         T dump = snapshot();
 
         invalidCtx = new InvalidContext<>(msg, dump);
     }
 
+    /** */
     private void lock() {
         while (!lock0()) {
             // Busy wait.
         }
     }
 
+    /** */
     private boolean lock0() {
         awaitDump();
 
@@ -200,22 +234,26 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         return true;
     }
 
+    /** */
     private void unLock() {
         locked = false;
     }
 
+    /** */
     private void awaitDump() {
         while (dump) {
             // Busy wait.
         }
     }
 
+    /** */
     private void awaitLocks() {
         while (locked) {
             // Busy wait.
         }
     }
 
+    /** */
     protected boolean validateOperation(int structureId, long pageId, int op) {
         if (nextOpStructureId == 0 || nextOp == 0 || nextOpPageId == 0)
             return true;
@@ -236,17 +274,21 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         return true;
     }
 
+    /** */
     protected abstract T snapshot();
 
+    /** {@inheritDoc} */
     @Override public synchronized boolean acquireSafePoint() {
         return dump ? false : (dump = true);
 
     }
 
+    /** {@inheritDoc} */
     @Override public synchronized boolean releaseSafePoint() {
         return !dump ? false : !(dump = false);
     }
 
+    /** {@inheritDoc} */
     @Override public synchronized T dump() {
         boolean needRelease = acquireSafePoint();
 
@@ -266,10 +308,12 @@ public abstract class PageLockTracker<T extends Dump> implements PageLockListene
         throw new UnsupportedOperationException();
     }
 
+    /** */
     public static String argsToString(int structureId, long pageId, int flags) {
         return "[structureId=" + structureId + ", pageId" + pageIdToString(pageId) + "]";
     }
 
+    /** */
     public static String pageIdToString(long pageId) {
         return "pageId=" + pageId
             + " [pageIdxHex=" + hexLong(pageId)

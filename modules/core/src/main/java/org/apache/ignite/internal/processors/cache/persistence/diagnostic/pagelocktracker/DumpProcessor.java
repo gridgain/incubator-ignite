@@ -20,8 +20,22 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.LockLogSnapshot;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.LockStackSnapshot;
 
+/**
+ * Dump processor.
+ */
 public interface DumpProcessor {
+    /**
+     * @param snapshot Process lock log snapshot.
+     */
     void processDump(LockLogSnapshot snapshot);
+
+    /**
+     * @param snapshot Process lock stack snapshot.
+     */
     void processDump(LockStackSnapshot snapshot);
+
+    /**
+     * @param snapshot Process lock thread dump snapshot.
+     */
     void processDump(ThreadDumpLocks snapshot);
 }

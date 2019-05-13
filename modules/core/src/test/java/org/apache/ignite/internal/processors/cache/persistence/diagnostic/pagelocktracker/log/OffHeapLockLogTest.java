@@ -22,8 +22,9 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLo
 
 import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_LOG;
 
+/** */
 public class OffHeapLockLogTest extends PageLockLogTest {
-
+    /** {@inheritDoc} */
     @Override protected LockLog createLogStackTracer(String name) {
         return (LockLog)LockTracerFactory.create(OFF_HEAP_LOG, name);
     }

@@ -19,9 +19,17 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker;
 
+/**
+ * Abstract page lock stack.
+ */
 public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
+    /** */
     protected int headIdx;
 
+    /**
+     * @param name Page lock stack name.
+     * @param capacity Capacity.
+     */
     protected LockStack(String name, int capacity) {
         super(name, capacity);
     }
@@ -46,6 +54,13 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         pop(structureId, pageId, READ_UNLOCK);
     }
 
+    /**
+     * Push operation on top of stack.
+     *
+     * @param structureId Strcuture id.
+     * @param pageId Page id.
+     * @param op Operation type.
+     */
     private void push(int structureId, long pageId, int op) {
         if (!validateOperation(structureId, pageId, op))
             return;
@@ -73,6 +88,13 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         headIdx++;
     }
 
+    /**
+     * Pop operation from top of stack.
+     *
+     * @param structureId Structure id.
+     * @param pageId Page id.
+     * @param op Operation type.
+     */
     private void pop(int structureId, long pageId, int op) {
         if (!validateOperation(structureId, pageId, op))
             return;
@@ -133,6 +155,9 @@ public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
         }
     }
 
+    /**
+     * Reset next opeation info.
+     */
     private void reset() {
         nextOpPageId = 0;
         nextOp = 0;

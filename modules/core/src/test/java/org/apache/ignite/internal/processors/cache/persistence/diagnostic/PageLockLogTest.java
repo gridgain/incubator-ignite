@@ -36,11 +36,14 @@ import static org.apache.ignite.internal.processors.cache.persistence.diagnostic
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+/** */
 public abstract class PageLockLogTest extends AbstractPageLockTest {
+    /** */
     protected static final int STRUCTURE_ID = 123;
-
+    /** */
     protected abstract LockLog createLogStackTracer(String name);
 
+    /** */
     private void checkLogEntry(LogEntry logEntry, long pageId, int operation, int structureId, int holdedLocks) {
         assertEquals(pageId, logEntry.pageId);
         assertEquals(operation, logEntry.operation);
@@ -48,6 +51,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         assertEquals(holdedLocks, logEntry.holdedLocks);
     }
 
+    /** */
     @Test
     public void testOneReadPageLock() {
         LockLog lockLog = createLogStackTracer(Thread.currentThread().getName());
@@ -88,6 +92,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         checkNextOp(logDump, 0, 0, 0);
     }
 
+    /** */
     @Test
     public void testTwoReadPageLock() {
         LockLog lockLog = createLogStackTracer(Thread.currentThread().getName());
@@ -166,6 +171,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         checkNextOp(logDump, 0, 0, 0);
     }
 
+    /** */
     @Test
     public void testThreeReadPageLock_1() {
         LockLog lockLog = createLogStackTracer(Thread.currentThread().getName());
@@ -284,6 +290,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         checkNextOp(logDump, 0, 0, 0);
     }
 
+    /** */
     @Test
     public void testThreeReadPageLock_2() {
         LockLog lockLog = createLogStackTracer(Thread.currentThread().getName());
@@ -403,6 +410,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         checkNextOp(logDump, 0, 0, 0);
     }
 
+    /** */
     @Test
     public void testThreeReadPageLock_3() {
         LockLog lockLog = createLogStackTracer(Thread.currentThread().getName());
@@ -521,6 +529,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         checkNextOp(logDump, 0, 0, 0);
     }
 
+    /** */
     @Test
     public void testLogOverFlow() {
         LockLog lockLog = createLogStackTracer(Thread.currentThread().getName());
@@ -548,6 +557,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         Assert.assertTrue(msg, msg.contains("Log overflow"));
     }
 
+    /** */
     @Test
     public void testThreadlog() throws IgniteCheckedException {
         LockLog lockLog = createLogStackTracer(Thread.currentThread().getName());

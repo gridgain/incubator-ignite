@@ -27,23 +27,44 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_PAGE_LOCK_TRACKER_
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PAGE_LOCK_TRACKER_TYPE;
 import static org.apache.ignite.IgniteSystemProperties.getInteger;
 
+/**
+ * Page lock tracke factory.
+ *
+ * 1 - HEAP_STACK
+ * 2 - HEAP_LOG
+ * 3 - OFF_HEAP_STACK
+ * 4 - OFF_HEAP_LOG
+ */
 public final class LockTracerFactory {
+    /** */
     public static final int HEAP_STACK = 1;
+    /** */
     public static final int HEAP_LOG = 2;
+    /** */
     public static final int OFF_HEAP_STACK = 3;
+    /** */
     public static final int OFF_HEAP_LOG = 4;
 
+    /** */
     public static final int DEFAULT_CAPACITY = getInteger(IGNITE_PAGE_LOCK_TRACKER_CAPACITY, 128);
+    /** */
     public static final int DEFAULT_TYPE = getInteger(IGNITE_PAGE_LOCK_TRACKER_TYPE, 1);
 
+    /** */
     public static PageLockTracker create(String name) {
         return create(DEFAULT_TYPE, name);
     }
 
+    /** */
     public static PageLockTracker create(int type, String name) {
         return create(type, name, DEFAULT_CAPACITY);
     }
 
+    /**
+     * @param name Page lock tracker name.
+     * @param type Page lock tracker type.
+     * @param size Page lock tracker size (capacity).
+     */
     public static PageLockTracker create(int type, String name, int size) {
         switch (type) {
             case HEAP_STACK:

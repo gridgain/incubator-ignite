@@ -33,11 +33,14 @@ import static java.util.Arrays.stream;
 import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockTracker.BEFORE_READ_LOCK;
 
+/** */
 public abstract class PageLockStackTest extends AbstractPageLockTest {
+    /** */
     protected static final int STRUCTURE_ID = 123;
-
+    /** */
     protected abstract LockStack createLockStackTracer(String name);
 
+    /** */
     @Test
     public void testOneReadPageLock() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -82,6 +85,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testTwoReadPageLock() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -164,6 +168,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testThreeReadPageLock_1() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -288,6 +293,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testThreeReadPageLock_2() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -408,6 +414,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testThreeReadPageLock_3() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -532,6 +539,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testUnlockUnexcpected() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -561,6 +569,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testUnlockUnexcpectedOnNotEmptyStack() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -595,6 +604,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testUnlockUnexcpectedOnNotEmptyStackMultiLocks() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -639,6 +649,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testStackOverFlow() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -668,6 +679,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testStackOperationAfterInvalid() {
         LockStack lockStack = createLockStackTracer(Thread.currentThread().getName());
@@ -733,6 +745,7 @@ public abstract class PageLockStackTest extends AbstractPageLockTest {
         Assert.assertEquals(0, dump.nextOp);
     }
 
+    /** */
     @Test
     public void testThreadDump() throws IgniteCheckedException {
         PageLockTracker<LockStackSnapshot> lockStack = createLockStackTracer(Thread.currentThread().getName());
