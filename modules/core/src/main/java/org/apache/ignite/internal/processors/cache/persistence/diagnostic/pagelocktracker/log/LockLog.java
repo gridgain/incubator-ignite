@@ -142,7 +142,7 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
     private long meta(int structureId, int flags) {
         long major = ((long)flags) << 32;
 
-        long minor = (long)structureId;
+        long minor = structureId & 0xFFFFFFFFL;
 
         return major | minor;
     }

@@ -28,14 +28,14 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_PAGE_LOCK_TRACKER_
 import static org.apache.ignite.IgniteSystemProperties.getInteger;
 
 /**
- * Page lock tracke factory.
+ * Page lock tracker factory.
  *
  * 1 - HEAP_STACK
  * 2 - HEAP_LOG
  * 3 - OFF_HEAP_STACK
  * 4 - OFF_HEAP_LOG
  */
-public final class LockTracerFactory {
+public final class LockTrackerFactory {
     /** */
     public static final int HEAP_STACK = 1;
     /** */
