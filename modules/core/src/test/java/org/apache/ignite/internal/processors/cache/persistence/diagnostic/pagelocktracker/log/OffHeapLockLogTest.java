@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log;
 
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTrackerFactory;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.PageLockLogTest;
 
 import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTrackerFactory.OFF_HEAP_LOG;
 
