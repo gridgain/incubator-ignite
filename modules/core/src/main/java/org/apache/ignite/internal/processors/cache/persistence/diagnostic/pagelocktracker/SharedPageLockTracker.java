@@ -29,13 +29,13 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLoc
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
 
-/**
- * //TODO Calculate overhad and capacity for all structures. DG
- * //TODO Fast local get thread local. DG
- * //TODO Dynamic enable/disable tracing. DG
- * //TODO Collect page content to dump. AG
- * //TODO Crate dump by timeout. AG
- */
+//TODO Calculate overhad and capacity for all structures.
+//TODO Fast local get thread local.
+//TODO Test deadlock
+//TODO Dynamic enable/disable tracing.
+//TODO Collect page content to dump. AG
+//TODO Create dump by timeout.
+/** */
 public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
     /** */
     private static final int THREAD_LIMITS = 1000;
@@ -61,7 +61,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         String threadName = thread.getName();
         long threadId = thread.getId();
 
-        PageLockTracker tracker = LockTracerFactory.create("name=" + threadName);
+        PageLockTracker tracker = LockTrackerFactory.create("name=" + threadName);
 
         synchronized (this) {
             threadStacks.put(threadId, tracker);

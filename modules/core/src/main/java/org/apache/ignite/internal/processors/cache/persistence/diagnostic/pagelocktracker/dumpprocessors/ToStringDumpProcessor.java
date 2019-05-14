@@ -56,7 +56,7 @@ public class ToStringDumpProcessor {
         SB sb = new SB();
 
         dump.apply(new DumpProcessor() {
-            /** Helper class for track lock/unlok count. */
+            /** Helper class for track lock/unlock count. */
             class LockState {
                 int readlock;
                 int writelock;

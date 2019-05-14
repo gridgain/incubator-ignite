@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 
 /**
- * Abstrack page lock tracker.
+ * Abstract page lock tracker.
  */
 public abstract class PageLockTracker<T extends Dump> implements PageLockListener, DumpSupported<T> {
     /** Page read lock operation id. */

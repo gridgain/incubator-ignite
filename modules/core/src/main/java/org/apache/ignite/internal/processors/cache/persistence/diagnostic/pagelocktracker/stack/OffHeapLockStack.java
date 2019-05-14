@@ -67,7 +67,7 @@ public class OffHeapLockStack extends LockStack {
     private long allocate(int size) {
         long ptr = GridUnsafe.allocateMemory(size);
 
-        GridUnsafe.setMemory(ptr, stackSize, (byte)0);
+        GridUnsafe.setMemory(ptr, size, (byte)0);
 
         return ptr;
     }
@@ -79,7 +79,7 @@ public class OffHeapLockStack extends LockStack {
 
     /** {@inheritDoc} */
     @Override public LockStackSnapshot snapshot() {
-        long[] stack = new long[stackSize];
+        long[] stack = new long[capacity];
 
         GridUnsafe.copyMemory(null, ptr, stack, GridUnsafe.LONG_ARR_OFF, stackSize);
 

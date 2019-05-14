@@ -23,8 +23,6 @@ import org.apache.ignite.internal.util.GridUnsafe;
  * Page lock log build in on offheap.
  */
 public class OffHeapLockLog extends LockLog {
-    /** Log size. */
-    private final int logSize;
     /** Offheap pointer to log head. */
     private final long ptr;
 
@@ -32,8 +30,7 @@ public class OffHeapLockLog extends LockLog {
     public OffHeapLockLog(String name, int capacity) {
         super(name, capacity);
 
-        this.logSize = (capacity * 8) * 2;
-        this.ptr = allocate(logSize);
+        ptr = allocate((capacity * 8) * 2);
     }
 
     /** {@inheritDoc} */
@@ -55,7 +52,7 @@ public class OffHeapLockLog extends LockLog {
     private long allocate(int size) {
         long ptr = GridUnsafe.allocateMemory(size);
 
-        GridUnsafe.setMemory(ptr, logSize, (byte)0);
+        GridUnsafe.setMemory(ptr, size, (byte)0);
 
         return ptr;
     }
