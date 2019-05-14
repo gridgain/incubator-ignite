@@ -210,12 +210,10 @@ public class ToStringDumpProcessor {
                     if (pageId == 0 && i == 0)
                         break;
 
-                    if (pageId == 0) {
+                    if (pageId == 0)
                         sb.a("\t" + i + " -\n");
-                    }
-                    else {
+                    else
                         sb.a("\t" + i + " " + pageIdToString(pageId) + "\n");
-                    }
                 }
             }
 

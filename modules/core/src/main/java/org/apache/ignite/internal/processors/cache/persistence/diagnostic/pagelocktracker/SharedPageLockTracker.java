@@ -41,7 +41,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
     private static final int THREAD_LIMITS = 1000;
 
     /** */
-    private final Map<Long, PageLockTracker> threadStacks = new HashMap<>();
+    private final Map<Long, PageLockTracker<? extends PageLockDump>> threadStacks = new HashMap<>();
     /** */
     private final Map<Long, Thread> threadIdToThreadRef = new HashMap<>();
 
@@ -61,7 +61,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         String threadName = thread.getName();
         long threadId = thread.getId();
 
-        PageLockTracker tracker = LockTrackerFactory.create("name=" + threadName);
+        PageLockTracker<? extends PageLockDump> tracker = LockTrackerFactory.create("name=" + threadName);
 
         synchronized (this) {
             threadStacks.put(threadId, tracker);
@@ -124,7 +124,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
 
     /** {@inheritDoc} */
     @Override public synchronized ThreadPageLocksDumpLock dump() {
-        Collection<PageLockTracker> trackers = threadStacks.values();
+        Collection<PageLockTracker<? extends PageLockDump>> trackers = threadStacks.values();
         List<ThreadPageLocksDumpLock.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
 
         for (PageLockTracker tracker : trackers) {
@@ -134,11 +134,11 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
             assert acquired;
         }
 
-        for (Map.Entry<Long, PageLockTracker> entry : threadStacks.entrySet()) {
+        for (Map.Entry<Long, PageLockTracker<? extends PageLockDump>> entry : threadStacks.entrySet()) {
             Long threadId = entry.getKey();
             Thread thread = threadIdToThreadRef.get(threadId);
 
-            PageLockTracker<PageLockDump> tracker = entry.getValue();
+            PageLockTracker<? extends PageLockDump> tracker = entry.getValue();
 
             try {
                 PageLockDump pageLockDump = tracker.dump();
@@ -158,7 +158,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
             }
         }
 
-        Map<Integer, String> idToStrcutureName0 =
+        Map<Integer, String> idToStructureName0 =
             Collections.unmodifiableMap(
                 structureNameToId.entrySet().stream()
                     .collect(Collectors.toMap(
@@ -171,9 +171,9 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
             Collections.unmodifiableList(threadStates);
 
         // Get first thread dump time or current time is threadStates is empty.
-        long time = !threadStates.isEmpty() ? threadStates.get(0).pageLockDump.time() : U.currentTimeMillis();
+        long time = !threadStates.isEmpty() ? threadStates.get(0).pageLockDump.time() : System.currentTimeMillis();
 
-        return new ThreadPageLocksDumpLock(time, idToStrcutureName0, threadStates0);
+        return new ThreadPageLocksDumpLock(time, idToStructureName0, threadStates0);
     }
 
     /** */

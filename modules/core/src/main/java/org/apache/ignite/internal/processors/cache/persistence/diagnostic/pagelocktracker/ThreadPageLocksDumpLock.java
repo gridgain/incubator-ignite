@@ -57,7 +57,7 @@ public class ThreadPageLocksDumpLock implements PageLockDump {
         /** */
         public final PageLockDump pageLockDump;
         /** */
-        public final InvalidContext<PageLockDump> invalidContext;
+        public final InvalidContext<? extends PageLockDump> invalidContext;
 
         /** */
         public ThreadState(
@@ -65,7 +65,7 @@ public class ThreadPageLocksDumpLock implements PageLockDump {
             String threadName,
             Thread.State state,
             PageLockDump pageLockDump,
-            InvalidContext<PageLockDump> invalidContext
+            InvalidContext<? extends PageLockDump> invalidContext
         ) {
             this.threadId = threadId;
             this.threadName = threadName;

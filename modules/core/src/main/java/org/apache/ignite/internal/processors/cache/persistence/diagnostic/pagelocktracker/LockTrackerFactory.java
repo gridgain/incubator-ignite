@@ -51,12 +51,12 @@ public final class LockTrackerFactory {
     public static volatile int DEFAULT_TYPE = getInteger(IGNITE_PAGE_LOCK_TRACKER_TYPE, 1);
 
     /** */
-    public static PageLockTracker create(String name) {
+    public static PageLockTracker<? extends PageLockDump> create(String name) {
         return create(DEFAULT_TYPE, name);
     }
 
     /** */
-    public static PageLockTracker create(int type, String name) {
+    public static PageLockTracker<? extends PageLockDump> create(int type, String name) {
         return create(type, name, DEFAULT_CAPACITY);
     }
 
@@ -65,7 +65,7 @@ public final class LockTrackerFactory {
      * @param type Page lock tracker type.
      * @param size Page lock tracker size (capacity).
      */
-    public static PageLockTracker create(int type, String name, int size) {
+    public static PageLockTracker<? extends PageLockDump> create(int type, String name, int size) {
         switch (type) {
             case HEAP_STACK:
                 return new HeapArrayLockStack(name, size);
