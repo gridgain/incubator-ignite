@@ -46,7 +46,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
  */
 public class ToStringDumpProcessor {
     /** Date format. */
-    private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    public static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     /**
      * @param dump Dump.
@@ -189,8 +189,9 @@ public class ToStringDumpProcessor {
                 long nextOpPageId = snapshot.nextOpPageId;
                 int nextOp = snapshot.nextOp;
 
-                sb.a(name + " (time=" + time + ", " + DATE_FMT.format(new java.util.Date(time)) + ")")
-                    .a(" locked pages stack:\n");
+                sb.a("Locked pages stack: " + name + " time=(" +
+                    time + ", " + DATE_FMT.format(new java.util.Date(time)) + ")")
+                    .a("\n");
 
                 if (nextOpPageId != 0) {
                     String str = "N/A";
@@ -216,13 +217,27 @@ public class ToStringDumpProcessor {
                         sb.a("\t" + i + " " + pageIdToString(pageId) + "\n");
                     }
                 }
-
-                sb.a("\n");
             }
 
             /** {@inheritDoc} */
             @Override public void processDump(ThreadDumpLocks snapshot) {
+                sb.a("Page lock dump:").a("\n").a("\n");
 
+                for (ThreadDumpLocks.ThreadState ths : snapshot.threadStates) {
+                    sb.a("Thread=[name=" + ths.threadName + ", id=" + ths.threadId + "], state=" + ths.state).a("\n");
+
+                    Dump dump0;
+
+                    if (ths.invalidContext == null)
+                        dump0 = ths.dump;
+                    else {
+                        sb.a(ths.invalidContext.msg).a("\n");
+
+                        dump0 = ths.invalidContext.dump;
+                    }
+
+                    sb.a(toStringDump(dump0)).a("\n");
+                }
             }
         });
 

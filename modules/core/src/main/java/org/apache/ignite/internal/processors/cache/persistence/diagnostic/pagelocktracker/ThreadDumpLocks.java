@@ -25,6 +25,9 @@ import java.util.Map;
  */
 public class ThreadDumpLocks implements Dump {
     /** */
+    public final long time;
+
+    /** */
     public final Map<Integer, String> structureIdToStrcutureName;
 
     /** */
@@ -32,9 +35,11 @@ public class ThreadDumpLocks implements Dump {
 
     /** */
     public ThreadDumpLocks(
+        long time,
         Map<Integer, String> structureIdToStrcutureName,
         List<ThreadState> threadStates
     ) {
+        this.time = time;
         this.structureIdToStrcutureName = structureIdToStrcutureName;
         this.threadStates = threadStates;
     }
@@ -71,5 +76,10 @@ public class ThreadDumpLocks implements Dump {
     /** {@inheritDoc} */
     @Override public void apply(DumpProcessor dumpProcessor) {
         dumpProcessor.processDump(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long time() {
+        return time;
     }
 }

@@ -66,4 +66,9 @@ public class LockStackSnapshot implements Dump {
     @Override public void apply(DumpProcessor dumpProcessor) {
         dumpProcessor.processDump(this);
     }
+
+    /** {@inheritDoc} */
+    @Override public long time() {
+        return time;
+    }
 }

@@ -25,4 +25,9 @@ public interface Dump {
      * @param dumpProcessort Dump processor.
      */
     void apply(DumpProcessor dumpProcessort);
+
+    /**
+     * @return Dump creation time.
+     */
+    long time();
 }

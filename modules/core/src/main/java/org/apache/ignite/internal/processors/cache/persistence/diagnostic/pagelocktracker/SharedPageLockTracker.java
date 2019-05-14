@@ -26,11 +26,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
 
 /**
- * //TODO Calculate overhad and capacity for all structures. //TODO Fast local get thread local. //TODO Test deadlock
- * //TODO Dynamic enable/disable tracing. //TODO Collect page content to dump. AG
+ * //TODO Calculate overhad and capacity for all structures. DG
+ * //TODO Fast local get thread local. DG
+ * //TODO Dynamic enable/disable tracing. DG
+ * //TODO Collect page content to dump. AG
+ * //TODO Crate dump by timeout. AG
  */
 public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
     /** */
@@ -57,7 +61,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         String threadName = thread.getName();
         long threadId = thread.getId();
 
-        PageLockTracker tracker = LockTracerFactory.create(threadName + "[" + threadId + "]");
+        PageLockTracker tracker = LockTracerFactory.create("name=" + threadName);
 
         synchronized (this) {
             threadStacks.put(threadId, tracker);
@@ -166,7 +170,10 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
         List<ThreadDumpLocks.ThreadState> threadStates0 =
             Collections.unmodifiableList(threadStates);
 
-        return new ThreadDumpLocks(idToStrcutureName0, threadStates0);
+        // Get first thread dump time or current time is threadStates is empty.
+        long time = !threadStates.isEmpty() ? threadStates.get(0).dump.time() : U.currentTimeMillis();
+
+        return new ThreadDumpLocks(time, idToStrcutureName0, threadStates0);
     }
 
     /** */
