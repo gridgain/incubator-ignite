@@ -28,10 +28,10 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLoc
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.Test;
 
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.HEAP_LOG;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.HEAP_STACK;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_LOG;
-import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTracerFactory.OFF_HEAP_STACK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTrackerFactory.HEAP_LOG;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTrackerFactory.HEAP_STACK;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTrackerFactory.OFF_HEAP_LOG;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.LockTrackerFactory.OFF_HEAP_STACK;
 import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.dumpprocessors.ToStringDumpProcessor.toStringDump;
 import static org.junit.Assert.assertEquals;
 
@@ -44,10 +44,10 @@ public class SharedPageLockTrackerTest extends AbstractPageLockTest {
     public void testTakeDumpByCount() throws Exception {
         int[] trackerTypes = new int[] {HEAP_STACK, HEAP_LOG, OFF_HEAP_STACK, OFF_HEAP_LOG};
 
-        LockTracerFactory.DEFAULT_CAPACITY = 512;
+        LockTrackerFactory.DEFAULT_CAPACITY = 512;
 
         for (int i = 0; i < trackerTypes.length; i++) {
-            LockTracerFactory.DEFAULT_TYPE = trackerTypes[i];
+            LockTrackerFactory.DEFAULT_TYPE = trackerTypes[i];
 
             doTestTakeDumpByCount(5, 1, 10, 1);
 
@@ -64,10 +64,10 @@ public class SharedPageLockTrackerTest extends AbstractPageLockTest {
     public void testTakeDumpByTime() throws Exception {
         int[] trackerTypes = new int[] {HEAP_STACK, HEAP_LOG, OFF_HEAP_STACK, OFF_HEAP_LOG};
 
-        LockTracerFactory.DEFAULT_CAPACITY = 512;
+        LockTrackerFactory.DEFAULT_CAPACITY = 512;
 
         for (int i = 0; i < trackerTypes.length; i++) {
-            LockTracerFactory.DEFAULT_TYPE = trackerTypes[i];
+            LockTrackerFactory.DEFAULT_TYPE = trackerTypes[i];
 
             doTestTakeDumpByTime(5, 1, 40_000, 1);
 
