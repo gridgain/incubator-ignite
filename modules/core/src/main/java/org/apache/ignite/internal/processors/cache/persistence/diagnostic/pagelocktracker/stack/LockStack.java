@@ -22,7 +22,7 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelo
 /**
  * Abstract page lock stack.
  */
-public abstract class LockStack extends PageLockTracker<LockStackSnapshot> {
+public abstract class LockStack extends PageLockTracker<PageLockStackSnapshot> {
     /** */
     protected int headIdx;
 

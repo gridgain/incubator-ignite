@@ -21,11 +21,11 @@ import java.text.SimpleDateFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.Dump;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockDump;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.DumpProcessor;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.ThreadDumpLocks;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.LockLogSnapshot;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.LockStackSnapshot;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.ThreadPageLocksDumpLock;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.PageLockLogSnapshot;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.PageLockStackSnapshot;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.flag;
@@ -42,20 +42,20 @@ import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 
 /**
- * Proccessor for buils string from {@link Dump}.
+ * Proccessor for buils string from {@link PageLockDump}.
  */
 public class ToStringDumpProcessor {
     /** Date format. */
     public static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     /**
-     * @param dump Dump.
+     * @param pageLockDump Dump.
      * @return String representation of dump.
      */
-    public static String toStringDump(Dump dump) {
+    public static String toStringDump(PageLockDump pageLockDump) {
         SB sb = new SB();
 
-        dump.apply(new DumpProcessor() {
+        pageLockDump.apply(new DumpProcessor() {
             /** Helper class for track lock/unlock count. */
             class LockState {
                 int readlock;
@@ -63,9 +63,9 @@ public class ToStringDumpProcessor {
             }
 
             /** {@inheritDoc} */
-            @Override public void processDump(LockLogSnapshot snapshot) {
+            @Override public void processDump(PageLockLogSnapshot snapshot) {
                 String name = snapshot.name;
-                List<LockLogSnapshot.LogEntry> locklog = snapshot.locklog;
+                List<PageLockLogSnapshot.LogEntry> locklog = snapshot.locklog;
                 int nextOp = snapshot.nextOp;
                 long nextOpPageId = snapshot.nextOpPageId;
                 int nextOpStructureId = snapshot.nextOpStructureId;
@@ -76,7 +76,7 @@ public class ToStringDumpProcessor {
 
                 SB logLocksStr = new SB();
 
-                for (LockLogSnapshot.LogEntry entry : locklog) {
+                for (PageLockLogSnapshot.LogEntry entry : locklog) {
                     String opStr = "N/A";
 
                     int op = entry.operation;
@@ -180,7 +180,7 @@ public class ToStringDumpProcessor {
             }
 
             /** {@inheritDoc} */
-            @Override public void processDump(LockStackSnapshot snapshot) {
+            @Override public void processDump(PageLockStackSnapshot snapshot) {
                 String name = snapshot.name;
                 long time = snapshot.time;
 
@@ -220,23 +220,23 @@ public class ToStringDumpProcessor {
             }
 
             /** {@inheritDoc} */
-            @Override public void processDump(ThreadDumpLocks snapshot) {
+            @Override public void processDump(ThreadPageLocksDumpLock snapshot) {
                 sb.a("Page lock dump:").a("\n").a("\n");
 
-                for (ThreadDumpLocks.ThreadState ths : snapshot.threadStates) {
+                for (ThreadPageLocksDumpLock.ThreadState ths : snapshot.threadStates) {
                     sb.a("Thread=[name=" + ths.threadName + ", id=" + ths.threadId + "], state=" + ths.state).a("\n");
 
-                    Dump dump0;
+                    PageLockDump pageLockDump0;
 
                     if (ths.invalidContext == null)
-                        dump0 = ths.dump;
+                        pageLockDump0 = ths.pageLockDump;
                     else {
                         sb.a(ths.invalidContext.msg).a("\n");
 
-                        dump0 = ths.invalidContext.dump;
+                        pageLockDump0 = ths.invalidContext.dump;
                     }
 
-                    sb.a(toStringDump(dump0)).a("\n");
+                    sb.a(toStringDump(pageLockDump0)).a("\n");
                 }
             }
         });

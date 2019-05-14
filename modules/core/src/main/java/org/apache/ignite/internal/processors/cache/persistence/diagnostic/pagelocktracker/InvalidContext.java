@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 /**
  * Failure context if any invariant is not satisfied.
  */
-public class InvalidContext<T extends Dump> {
+public class InvalidContext<T extends PageLockDump> {
     /** */
     public final String msg;
     /** */

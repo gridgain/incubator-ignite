@@ -148,7 +148,7 @@ public class SharedPageLockTrackerTest extends AbstractPageLockTest {
         for (int i = 0; i < dumpCnt; i++) {
             awaitRandom(1000);
 
-            ThreadDumpLocks dump = sharedPageLockTracker.dump();
+            ThreadPageLocksDumpLock dump = sharedPageLockTracker.dump();
 
             System.out.println(toStringDump(dump));
 
@@ -235,7 +235,7 @@ public class SharedPageLockTrackerTest extends AbstractPageLockTest {
             while (!stop.get()) {
                 awaitRandom(20);
 
-                ThreadDumpLocks dump = sharedPageLockTracker.dump();
+                ThreadPageLocksDumpLock dump = sharedPageLockTracker.dump();
 
                 System.out.println(toStringDump(dump));
 

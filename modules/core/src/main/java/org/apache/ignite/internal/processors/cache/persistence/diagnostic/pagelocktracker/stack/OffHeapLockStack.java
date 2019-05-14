@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack;
 
-import java.nio.LongBuffer;
 import org.apache.ignite.internal.util.GridUnsafe;
 
 import static java.util.Arrays.copyOf;
@@ -78,12 +77,12 @@ public class OffHeapLockStack extends LockStack {
     }
 
     /** {@inheritDoc} */
-    @Override public LockStackSnapshot snapshot() {
+    @Override public PageLockStackSnapshot snapshot() {
         long[] stack = new long[capacity];
 
         GridUnsafe.copyMemory(null, ptr, stack, GridUnsafe.LONG_ARR_OFF, stackSize);
 
-        return new LockStackSnapshot(
+        return new PageLockStackSnapshot(
             name,
             System.currentTimeMillis(),
             headIdx,

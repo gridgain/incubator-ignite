@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 /**
  * Interface for page lock tracker structures deump.
  */
-public interface Dump {
+public interface PageLockDump {
     /**
      * @param dumpProcessort Dump processor.
      */

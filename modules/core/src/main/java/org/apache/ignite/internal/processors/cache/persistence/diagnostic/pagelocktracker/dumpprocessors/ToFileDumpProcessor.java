@@ -24,7 +24,7 @@ import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.Dump;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockDump;
 
 import static java.nio.channels.FileChannel.open;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
@@ -41,14 +41,14 @@ public class ToFileDumpProcessor {
     public static final String PREFIX_NAME = "page_lock_dump_";
 
     /**
-     * @param dump Dump.
+     * @param pageLockDump Dump.
      * @param dir Directory to save.
      */
-    public static String toFileDump(Dump dump, File dir) throws IgniteCheckedException {
+    public static String toFileDump(PageLockDump pageLockDump, File dir) throws IgniteCheckedException {
         try {
-            File file = new File(dir, PREFIX_NAME + DATE_FMT.format(new Date(dump.time())));
+            File file = new File(dir, PREFIX_NAME + DATE_FMT.format(new Date(pageLockDump.time())));
 
-            return saveToFile(ToStringDumpProcessor.toStringDump(dump), file);
+            return saveToFile(ToStringDumpProcessor.toStringDump(pageLockDump), file);
         }
         catch (IOException e) {
             throw new IgniteCheckedException(e);

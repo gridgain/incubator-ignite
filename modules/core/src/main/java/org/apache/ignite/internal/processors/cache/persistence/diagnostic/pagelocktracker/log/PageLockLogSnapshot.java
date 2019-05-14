@@ -15,40 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack;
+package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log;
 
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.Dump;
+import java.util.List;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.PageLockDump;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.DumpProcessor;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.dumpprocessors.ToStringDumpProcessor.toStringDump;
 
 /**
- * Page lock stack snapshot.
+ * Page lock log snapshot.
  */
-public class LockStackSnapshot implements Dump {
-    /** */
+public class PageLockLogSnapshot implements PageLockDump {
+    /** Page lock log name. */
     public final String name;
-    /** */
+    /** Creation time. */
     public final long time;
-    /** */
+    /** Head position. */
     public final int headIdx;
-    /** */
-    public final long[] pageIdLocksStack;
-    /** */
+    /** List of log entries. */
+    public final List<LogEntry> locklog;
+    /** Next operation. */
     public final int nextOp;
-    /** */
+    /** Next data structure. */
     public final int nextOpStructureId;
-    /** */
+    /** Next page id. */
     public final long nextOpPageId;
 
     /**
      *
      */
-    public LockStackSnapshot(
+    public PageLockLogSnapshot(
         String name,
         long time,
         int headIdx,
-        long[] pageIdLocksStack,
+        List<LogEntry> locklog,
         int nextOp,
         int nextOpStructureId,
         long nextOpPageId
@@ -56,10 +58,31 @@ public class LockStackSnapshot implements Dump {
         this.name = name;
         this.time = time;
         this.headIdx = headIdx;
-        this.pageIdLocksStack = pageIdLocksStack;
+        this.locklog = locklog;
         this.nextOp = nextOp;
         this.nextOpStructureId = nextOpStructureId;
         this.nextOpPageId = nextOpPageId;
+    }
+
+    /**
+     * Log entry.
+     */
+    public static class LogEntry {
+        /** */
+        public final long pageId;
+        /** */
+        public final int structureId;
+        /** */
+        public final int operation;
+        /** */
+        public final int holdedLocks;
+        /** */
+        public LogEntry(long pageId, int structureId, int operation, int holdedLock) {
+            this.pageId = pageId;
+            this.structureId = structureId;
+            this.operation = operation;
+            this.holdedLocks = holdedLock;
+        }
     }
 
     /** {@inheritDoc} */
@@ -70,5 +93,10 @@ public class LockStackSnapshot implements Dump {
     /** {@inheritDoc} */
     @Override public long time() {
         return time;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return toStringDump(this);
     }
 }

@@ -29,7 +29,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 /**
  * Abstract page lock tracker.
  */
-public abstract class PageLockTracker<T extends Dump> implements PageLockListener, DumpSupported<T> {
+public abstract class PageLockTracker<T extends PageLockDump> implements PageLockListener, DumpSupported<T> {
     /** Page read lock operation id. */
     public static final int READ_LOCK = 1;
     /** Page read unlock operation id. */

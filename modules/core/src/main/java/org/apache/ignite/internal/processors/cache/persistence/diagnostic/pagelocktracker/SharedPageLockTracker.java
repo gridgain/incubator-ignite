@@ -36,7 +36,7 @@ import org.apache.ignite.lang.IgniteFuture;
 //TODO Collect page content to dump. AG
 //TODO Create dump by timeout.
 /** */
-public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadDumpLocks> {
+public class SharedPageLockTracker implements PageLockListener, DumpSupported<ThreadPageLocksDumpLock> {
     /** */
     private static final int THREAD_LIMITS = 1000;
 
@@ -123,9 +123,9 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized ThreadDumpLocks dump() {
+    @Override public synchronized ThreadPageLocksDumpLock dump() {
         Collection<PageLockTracker> trackers = threadStacks.values();
-        List<ThreadDumpLocks.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
+        List<ThreadPageLocksDumpLock.ThreadState> threadStates = new ArrayList<>(threadStacks.size());
 
         for (PageLockTracker tracker : trackers) {
             boolean acquired = tracker.acquireSafePoint();
@@ -138,17 +138,17 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
             Long threadId = entry.getKey();
             Thread thread = threadIdToThreadRef.get(threadId);
 
-            PageLockTracker<Dump> tracker = entry.getValue();
+            PageLockTracker<PageLockDump> tracker = entry.getValue();
 
             try {
-                Dump dump = tracker.dump();
+                PageLockDump pageLockDump = tracker.dump();
 
                 threadStates.add(
-                    new ThreadDumpLocks.ThreadState(
+                    new ThreadPageLocksDumpLock.ThreadState(
                         threadId,
                         thread.getName(),
                         thread.getState(),
-                        dump,
+                        pageLockDump,
                         tracker.isInvalid() ? tracker.invalidContext() : null
                     )
                 );
@@ -167,13 +167,13 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
                     ))
             );
 
-        List<ThreadDumpLocks.ThreadState> threadStates0 =
+        List<ThreadPageLocksDumpLock.ThreadState> threadStates0 =
             Collections.unmodifiableList(threadStates);
 
         // Get first thread dump time or current time is threadStates is empty.
-        long time = !threadStates.isEmpty() ? threadStates.get(0).dump.time() : U.currentTimeMillis();
+        long time = !threadStates.isEmpty() ? threadStates.get(0).pageLockDump.time() : U.currentTimeMillis();
 
-        return new ThreadDumpLocks(time, idToStrcutureName0, threadStates0);
+        return new ThreadPageLocksDumpLock(time, idToStrcutureName0, threadStates0);
     }
 
     /** */
@@ -214,7 +214,7 @@ public class SharedPageLockTracker implements PageLockListener, DumpSupported<Th
     }
 
     /** */
-    @Override public IgniteFuture<ThreadDumpLocks> dumpSync() {
+    @Override public IgniteFuture<ThreadPageLocksDumpLock> dumpSync() {
         throw new UnsupportedOperationException();
     }
 

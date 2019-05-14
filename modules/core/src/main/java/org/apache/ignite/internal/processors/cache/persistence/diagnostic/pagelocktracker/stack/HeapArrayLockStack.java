@@ -52,10 +52,10 @@ public class HeapArrayLockStack extends LockStack {
     }
 
     /** {@inheritDoc} */
-    @Override public LockStackSnapshot snapshot() {
+    @Override public PageLockStackSnapshot snapshot() {
         long[] stack = pageIdLocksStack.clone();
 
-        return new LockStackSnapshot(
+        return new PageLockStackSnapshot(
             name,
             System.currentTimeMillis(),
             headIdx,

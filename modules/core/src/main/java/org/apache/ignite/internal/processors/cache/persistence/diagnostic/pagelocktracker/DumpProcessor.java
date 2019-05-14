@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker;
 
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.LockLogSnapshot;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.LockStackSnapshot;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.PageLockLogSnapshot;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.stack.PageLockStackSnapshot;
 
 /**
  * Dump processor.
@@ -27,15 +27,15 @@ public interface DumpProcessor {
     /**
      * @param snapshot Process lock log snapshot.
      */
-    void processDump(LockLogSnapshot snapshot);
+    void processDump(PageLockLogSnapshot snapshot);
 
     /**
      * @param snapshot Process lock stack snapshot.
      */
-    void processDump(LockStackSnapshot snapshot);
+    void processDump(PageLockStackSnapshot snapshot);
 
     /**
      * @param snapshot Process lock thread dump snapshot.
      */
-    void processDump(ThreadDumpLocks snapshot);
+    void processDump(ThreadPageLocksDumpLock snapshot);
 }

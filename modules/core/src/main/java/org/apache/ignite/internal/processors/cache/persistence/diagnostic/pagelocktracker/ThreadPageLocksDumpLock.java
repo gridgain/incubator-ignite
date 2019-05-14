@@ -20,10 +20,12 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.dumpprocessors.ToStringDumpProcessor.toStringDump;
+
 /**
  *
  */
-public class ThreadDumpLocks implements Dump {
+public class ThreadPageLocksDumpLock implements PageLockDump {
     /** */
     public final long time;
 
@@ -34,7 +36,7 @@ public class ThreadDumpLocks implements Dump {
     public final List<ThreadState> threadStates;
 
     /** */
-    public ThreadDumpLocks(
+    public ThreadPageLocksDumpLock(
         long time,
         Map<Integer, String> structureIdToStrcutureName,
         List<ThreadState> threadStates
@@ -53,22 +55,22 @@ public class ThreadDumpLocks implements Dump {
         /** */
         public final Thread.State state;
         /** */
-        public final Dump dump;
+        public final PageLockDump pageLockDump;
         /** */
-        public final InvalidContext<Dump> invalidContext;
+        public final InvalidContext<PageLockDump> invalidContext;
 
         /** */
         public ThreadState(
             long threadId,
             String threadName,
             Thread.State state,
-            Dump dump,
-            InvalidContext<Dump> invalidContext
+            PageLockDump pageLockDump,
+            InvalidContext<PageLockDump> invalidContext
         ) {
             this.threadId = threadId;
             this.threadName = threadName;
             this.state = state;
-            this.dump = dump;
+            this.pageLockDump = pageLockDump;
             this.invalidContext = invalidContext;
         }
     }
@@ -81,5 +83,10 @@ public class ThreadDumpLocks implements Dump {
     /** {@inheritDoc} */
     @Override public long time() {
         return time;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return toStringDump(this);
     }
 }

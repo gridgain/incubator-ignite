@@ -24,7 +24,7 @@ import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelo
 /**
  * Abstract page lock log class.
  **/
-public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
+public abstract class LockLog extends PageLockTracker<PageLockLogSnapshot> {
     /** */
     public static final int OP_OFFSET = 16;
     /** */
@@ -148,8 +148,8 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
     }
 
     /** {@inheritDoc} */
-    @Override public LockLogSnapshot snapshot() {
-        return new LockLogSnapshot(
+    @Override public PageLockLogSnapshot snapshot() {
+        return new PageLockLogSnapshot(
             name,
             System.currentTimeMillis(),
             headIdx / 2,
@@ -161,12 +161,12 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
     }
 
     /**
-     * Convert log to list {@link LockLogSnapshot.LogEntry}.
+     * Convert log to list {@link PageLockLogSnapshot.LogEntry}.
      *
-     * @return List of {@link LockLogSnapshot.LogEntry}.
+     * @return List of {@link PageLockLogSnapshot.LogEntry}.
      */
-    protected List<LockLogSnapshot.LogEntry> toList() {
-        List<LockLogSnapshot.LogEntry> lockLog = new ArrayList<>(capacity);
+    protected List<PageLockLogSnapshot.LogEntry> toList() {
+        List<PageLockLogSnapshot.LogEntry> lockLog = new ArrayList<>(capacity);
 
         for (int i = 0; i < headIdx; i += 2) {
             long metaOnLock = getByIndex(i + 1);
@@ -182,7 +182,7 @@ public abstract class LockLog extends PageLockTracker<LockLogSnapshot> {
             int op = (int)((metaOnLock >> 32) & LOCK_OP_MASK);
             int structureId = (int)(metaOnLock);
 
-            lockLog.add(new LockLogSnapshot.LogEntry(pageId, structureId, op, idx));
+            lockLog.add(new PageLockLogSnapshot.LogEntry(pageId, structureId, op, idx));
         }
 
         return lockLog;

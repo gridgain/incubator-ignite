@@ -22,7 +22,7 @@ import org.apache.ignite.lang.IgniteFuture;
 /**
  * Interface for all page lock tracker entries which support dumping.
  */
-public interface DumpSupported<T extends Dump> {
+public interface DumpSupported<T extends PageLockDump> {
     /** */
     boolean acquireSafePoint();
 

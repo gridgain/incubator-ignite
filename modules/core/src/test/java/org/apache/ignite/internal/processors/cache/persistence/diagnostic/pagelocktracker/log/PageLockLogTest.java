@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.AbstractPageLockTest;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.LockLogSnapshot.LogEntry;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.PageLockLogSnapshot.LogEntry;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -59,7 +59,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         long page = 2;
         long pageAddr = 3;
 
-        LockLogSnapshot logDump;
+        PageLockLogSnapshot logDump;
 
         lockLog.onBeforeReadLock(STRUCTURE_ID, pageId, page);
 
@@ -103,7 +103,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         long pageAddr1 = 3;
         long pageAddr2 = 13;
 
-        LockLogSnapshot logDump;
+        PageLockLogSnapshot logDump;
 
         lockLog.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -185,7 +185,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         long pageAddr2 = 13;
         long pageAddr3 = 133;
 
-        LockLogSnapshot logDump;
+        PageLockLogSnapshot logDump;
 
         lockLog.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -304,7 +304,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         long pageAddr2 = 13;
         long pageAddr3 = 133;
 
-        LockLogSnapshot logDump;
+        PageLockLogSnapshot logDump;
 
         lockLog.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -424,7 +424,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         long pageAddr2 = 13;
         long pageAddr3 = 133;
 
-        LockLogSnapshot logDump;
+        PageLockLogSnapshot logDump;
 
         lockLog.onBeforeReadLock(STRUCTURE_ID, pageId1, page1);
 
@@ -537,7 +537,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
         long page = 2;
         long pageAddr = 3;
 
-        LockLogSnapshot log;
+        PageLockLogSnapshot log;
 
         // Lock log should be invalid after this operation because we can get lock more that
         // log capacity, +1 for overflow.
@@ -605,7 +605,7 @@ public abstract class PageLockLogTest extends AbstractPageLockTest {
 
             long time = System.nanoTime();
 
-            LockLogSnapshot logDump = lockLog.dump();
+            PageLockLogSnapshot logDump = lockLog.dump();
 
             long logTime = System.nanoTime() - time;
 

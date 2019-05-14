@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagel
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
-import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.LockLogSnapshot;
+import org.apache.ignite.internal.processors.cache.persistence.diagnostic.pagelocktracker.log.PageLockLogSnapshot;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static java.util.Arrays.stream;
@@ -50,7 +50,7 @@ public abstract class AbstractPageLockTest {
         return rnd.nextInt(bound);
     }
 
-    protected void checkNextOp(LockLogSnapshot lockLog, long nextOpPageId, long nextOp, int nextOpStructureId) {
+    protected void checkNextOp(PageLockLogSnapshot lockLog, long nextOpPageId, long nextOp, int nextOpStructureId) {
         assertEquals(nextOpStructureId, lockLog.nextOpStructureId);
         assertEquals(nextOp, lockLog.nextOp);
         assertEquals(nextOpPageId, lockLog.nextOpPageId);
