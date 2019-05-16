@@ -774,9 +774,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                     pageIO.setTreeRoot(pageAddr, metastoreRoot);
                     pageIO.setReuseListRoot(pageAddr, reuseListRoot);
 
-                    if (PageHandler.isWalDeltaRecordNeeded(pageMem, grpId, metaId, metaPage, wal, null)) {
-                        assert pageIO.getType() == PageIO.T_META;
-
+                    if (PageHandler.isWalDeltaRecordNeeded(pageMem, grpId, metaId, metaPage, wal, null))
                         wal.log(new MetaPageInitRecord(
                             grpId,
                             metaId,
@@ -785,7 +783,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                             metastoreRoot,
                             reuseListRoot
                         ));
-                    }
 
                     allocated = true;
                 }
