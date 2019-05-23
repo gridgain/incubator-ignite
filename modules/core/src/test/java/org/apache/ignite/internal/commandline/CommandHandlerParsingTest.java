@@ -438,6 +438,7 @@ public class CommandHandlerParsingTest {
                         assertTrue(args.autoConfirmation());
 
                         BaselineArguments arg = ((BaselineCommand)args.command()).arg();
+
                         assertEquals(baselineAct, arg.getCmd().text());
                         assertEquals(new HashSet<>(Arrays.asList("c_id1","c_id2")), new HashSet<>(arg.getConsistentIds()));
                     }

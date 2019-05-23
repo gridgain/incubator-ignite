@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.commandline.cache;
 
 import java.util.UUID;
@@ -11,7 +28,7 @@ import org.apache.ignite.internal.visor.verify.VisorContentionTask;
 import org.apache.ignite.internal.visor.verify.VisorContentionTaskArg;
 import org.apache.ignite.internal.visor.verify.VisorContentionTaskResult;
 
-import static org.apache.ignite.internal.commandline.CommandLogger.op;
+import static org.apache.ignite.internal.commandline.CommandLogger.optional;
 import static org.apache.ignite.internal.commandline.TaskExecutor.BROADCAST_UUID;
 import static org.apache.ignite.internal.commandline.TaskExecutor.executeTaskByNameOnNode;
 import static org.apache.ignite.internal.commandline.cache.CacheCommands.OP_NODE_ID;
@@ -21,13 +38,13 @@ import static org.apache.ignite.internal.commandline.cache.CacheSubcommands.CONT
 /**
  * Cache contention detection subcommand.
  */
-public class CacheContention extends Command<CacheContention.Arguments> {
+public class CacheContention implements Command<CacheContention.Arguments> {
     /** {@inheritDoc} */
     @Override public void printUsage(CommandLogger logger) {
         String description = "Show the keys that are point of contention for multiple transactions.";
 
         usageCache(logger, CONTENTION, description, null, "minQueueSize",
-            OP_NODE_ID, op("maxPrint"));
+            OP_NODE_ID, optional("maxPrint"));
     }
 
     /**
@@ -85,14 +102,13 @@ public class CacheContention extends Command<CacheContention.Arguments> {
 
     /** {@inheritDoc} */
     @Override public Object execute(GridClientConfiguration clientCfg, CommandLogger logger) throws Exception {
-        VisorContentionTaskArg taskArg = new VisorContentionTaskArg(
-            args.minQueueSize(), args.maxPrint());
+        VisorContentionTaskArg taskArg = new VisorContentionTaskArg(args.minQueueSize(), args.maxPrint());
 
         UUID nodeId = args.nodeId() == null ? BROADCAST_UUID : args.nodeId();
 
         VisorContentionTaskResult res;
 
-        try (GridClient client = startClient(clientCfg);) {
+        try (GridClient client = Command.startClient(clientCfg);) {
             res = executeTaskByNameOnNode(client, VisorContentionTask.class.getName(), taskArg, nodeId, clientCfg);
         }
 

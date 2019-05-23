@@ -75,6 +75,7 @@ public class ConnectionAndSslParameters {
     private Command command;
 
     /**
+     * @param command Command.
      * @param host Host.
      * @param port Port.
      * @param user User.
