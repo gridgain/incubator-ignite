@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.managers.communication.GridIoPolicy;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -124,7 +125,8 @@ public class PartitionsEvictManager extends GridCacheSharedManagerAdapter {
             if (!grpEvictionCtx.partIds.add(part.id()))
                 return;
 
-            bucket = evictionQueue.offer(new PartitionEvictionTask(part, grpEvictionCtx));
+            bucket = evictionQueue.offer(new PartitionEvictionTask(part, grpEvictionCtx,
+                grp.topology().readyTopologyVersion()));
         }
 
         grpEvictionCtx.totalTasks.incrementAndGet();
@@ -389,30 +391,39 @@ public class PartitionsEvictManager extends GridCacheSharedManagerAdapter {
         /** */
         private final GridFutureAdapter<?> finishFut = new GridFutureAdapter<>();
 
+        private final Exception exx;
+
+        private final AffinityTopologyVersion startVer;
+
         /**
          * @param part Partition.
          * @param grpEvictionCtx Eviction context.
          */
         private PartitionEvictionTask(
             GridDhtLocalPartition part,
-            GroupEvictionContext grpEvictionCtx
+            GroupEvictionContext grpEvictionCtx,
+            AffinityTopologyVersion startVer
         ) {
             this.part = part;
             this.grpEvictionCtx = grpEvictionCtx;
 
             size = part.fullSize();
+
+            exx = new Exception();
+            this.startVer = startVer;
         }
 
         /** {@inheritDoc} */
         @Override public void run() {
-            if (grpEvictionCtx.shouldStop()) {
+            // Stop clearing on outdated topology version or if group is about to stop.
+            if (grpEvictionCtx.shouldStop() || part.group().topology().readyTopologyVersion().compareTo(startVer) > 0) {
                 finishFut.onDone();
 
                 return;
             }
 
             try {
-                boolean success = part.tryClear(grpEvictionCtx);
+                boolean success = part.tryClear(grpEvictionCtx, exx);
 
                 if (success) {
                     if (part.state() == GridDhtPartitionState.EVICTED && part.markForDestroy())
@@ -425,18 +436,23 @@ public class PartitionsEvictManager extends GridCacheSharedManagerAdapter {
 
                 // Re-offer partition if clear was unsuccessful due to partition reservation.
                 if (!success)
-                    evictPartitionAsync(grpEvictionCtx.grp, part);
+                    evictPartitionAsync(grpEvictionCtx.grp, part); // TODO add exp delay.
             }
             catch (Throwable ex) {
                 finishFut.onDone(ex);
 
                 if (cctx.kernalContext().isStopping()) {
-                    LT.warn(log, ex, "Partition eviction failed (current node is stopping).",
+                    cctx.kernalContext().tracePartitionState(part, "evictFailedStopping: state=" + part.state(), exx);
+
+                    LT.warn(log, ex, "Partition eviction failed (current node is stopping), part=" + part.id(),
                         false,
                         true);
                 }
-                else
+                else {
+                    cctx.kernalContext().tracePartitionState(part, "evictFailed: state=" + part.state(), exx);
+
                     LT.error(log, ex, "Partition eviction failed, this can cause grid hang.");
+                }
             }
         }
     }

@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.rebalancing;
 
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.cache.PartitionLossPolicy;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
@@ -30,12 +34,18 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
+import org.apache.ignite.internal.GridKernalContextImpl;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.cache.GridCachePartitionExchangeManager;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
+import org.apache.ignite.internal.processors.cache.verify.IdleVerifyResultV2;
+import org.apache.ignite.internal.processors.cache.verify.PartitionHashRecordV2;
+import org.apache.ignite.internal.processors.cache.verify.PartitionKeyV2;
 import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.GridTestUtils.SF;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Assert;
@@ -248,16 +258,16 @@ public class GridCacheRebalancingWithAsyncClearingTest extends GridCommonAbstrac
         // Trigger partition eviction from other nodes.
         resetBaselineTopology();
 
-        stopGrid(3);
+        stopGrid(3); // topVer=5
 
         // Trigger evicting partitions rebalancing.
         resetBaselineTopology();
 
         // Emulate stopping grid during partition eviction.
-        stopGrid(1);
+        stopGrid(1); // topVer=6
 
         // Started node should have partition in RENTING or EVICTED state.
-        startGrid(1);
+        startGrid(1); // topVer=7
 
         awaitPartitionMapExchange();
 
@@ -265,9 +275,42 @@ public class GridCacheRebalancingWithAsyncClearingTest extends GridCommonAbstrac
         for (int k = 1; k <= keysCnt; k++) {
             Integer val = (Integer) ignite.cache(CACHE_NAME).get(k);
 
+            if (val == null) {
+                for (Ignite ig : G.allGrids())
+                    printPartition((IgniteEx)ig, ignite.affinity(CACHE_NAME).partition(k));
+            }
+
             Assert.assertNotNull("Value for " + k + " is null", val);
 
             Assert.assertEquals("Check failed for " + k + " = " + val, k, (int)val);
+        }
+
+        IdleVerifyResultV2 res = idleVerify(ignite, CACHE_NAME);
+
+        Map<PartitionKeyV2, List<PartitionHashRecordV2>> map = res.hashConflicts();
+
+        if (!map.isEmpty()) {
+            Map.Entry<PartitionKeyV2, List<PartitionHashRecordV2>> next = map.entrySet().iterator().next();
+
+            for (Ignite ig : G.allGrids())
+                printPartition((IgniteEx)ig, next.getKey().partitionId());
+        }
+
+        assertPartitionsSame(res);
+    }
+
+    private void printPartition(IgniteEx grid, int part) {
+        GridKernalContextImpl context = (GridKernalContextImpl)grid.context();
+
+        ConcurrentLinkedQueue queue = context.hist.get(part);
+
+        for (Object o : queue) {
+            T2 pair = (T2)o;
+
+            Exception stack = (Exception)pair.get1();
+            String evt = (String)pair.get2();
+
+            log.info("DBG: node=" + grid.name() + ", part=" + part + ", evt=" + evt + ", stack=" + X.getFullStackTrace(stack));
         }
     }
 }

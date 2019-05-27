@@ -523,6 +523,7 @@ public class GridDhtPartitionDemander {
 
                             if (log.isInfoEnabled())
                                 log.info("Started rebalance routine [" + grp.cacheOrGroupName() +
+                                    ", topVer=" + fut.topologyVersion() +
                                     ", supplier=" + node.id() + ", topic=" + topicId +
                                     ", fullPartitions=" + S.compact(stripePartitions.get(topicId).fullSet()) +
                                     ", histPartitions=" + S.compact(stripePartitions.get(topicId).historicalSet()) + "]");
@@ -605,6 +606,8 @@ public class GridDhtPartitionDemander {
                         else {
                             int remaining = clearingPartitions.decrementAndGet();
 
+                            ctx.kernalContext().tracePartitionState(part, "clearFullPartitions_Async remaining=" + remaining + ", ver=" + fut.topologyVersion(), null);
+
                             for (GridCacheContext cctx : grp.caches()) {
                                 if (cctx.statisticsEnabled()) {
                                     final CacheMetricsImpl metrics = cctx.cache().metrics0();
@@ -621,12 +624,17 @@ public class GridDhtPartitionDemander {
                                 clearAllFuture.onDone();
                         }
                     }
-                    else
+                    else {
+                        ctx.kernalContext().tracePartitionState(part, "clearFullPartitions_Async_FutDone ver=" + fut.topologyVersion(), null);
+
                         clearAllFuture.onDone();
+                    }
                 });
             }
             else {
                 int remaining = clearingPartitions.decrementAndGet();
+
+                ctx.kernalContext().tracePartitionState(part, "clearFullPartitions remaining=" + remaining+ ", ver=" + fut.topologyVersion(), null);
 
                 for (GridCacheContext cctx : grp.caches()) {
                     if (cctx.statisticsEnabled()) {
@@ -774,6 +782,9 @@ public class GridDhtPartitionDemander {
                         part.lock();
 
                         try {
+                            if (part.isClearing())
+                                return;
+
                             Iterator<GridCacheEntryInfo> infos = e.getValue().infos().iterator();
 
                             if (grp.mvccEnabled())
@@ -784,6 +795,12 @@ public class GridDhtPartitionDemander {
                             // If message was last for this partition,
                             // then we take ownership.
                             if (last) {
+                                ctx.kernalContext().tracePartitionState(part, "partDone futVer=" + fut.topologyVersion() +
+                                    ", rebTopVer=" + ctx.exchange().rebalanceTopologyVersion() +
+                                    ", clear=" + part.isClearing() +
+                                    ", rebId=" + fut.rebalanceId + ", msgRebId=" + supplyMsg.rebalanceId() +
+                                    ", isDone=" + fut.isDone() + "", null);
+
                                 fut.partitionDone(nodeId, p, true);
 
                                 if (log.isDebugEnabled())
@@ -1284,8 +1301,8 @@ public class GridDhtPartitionDemander {
                 if (isDone())
                     return true;
 
-                U.log(log, "Cancelled rebalancing from all nodes [grp=" + grp.cacheOrGroupName() +
-                    ", topVer=" + topologyVersion() + "]");
+                U.error(log, "Cancelled rebalancing from all nodes [grp=" + grp.cacheOrGroupName() +
+                    ", topVer=" + topologyVersion() + "]", new Exception());
 
                 if (!ctx.kernalContext().isStopping()) {
                     for (UUID nodeId : remaining.keySet())

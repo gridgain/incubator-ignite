@@ -30,6 +30,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.managers.failover.GridFailoverManager;
 import org.apache.ignite.internal.managers.indexing.GridIndexingManager;
 import org.apache.ignite.internal.managers.loadbalancer.GridLoadBalancerManager;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.service.ServiceProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
 import org.apache.ignite.internal.processors.authentication.IgniteAuthenticationProcessor;
@@ -98,6 +101,7 @@ import org.apache.ignite.internal.util.StripedExecutor;
 import org.apache.ignite.internal.util.spring.IgniteSpringHelper;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -1250,6 +1254,23 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
      */
     public void recoveryMode(boolean recoveryMode) {
         this.recoveryMode = recoveryMode;
+    }
+
+    public Map<Integer, ConcurrentLinkedQueue> hist = new ConcurrentHashMap<>();
+
+    @Override public void tracePartitionState(GridDhtLocalPartition p, String evt, Exception asyncE) {
+        ConcurrentLinkedQueue q = hist.get(p);
+
+        if (q == null) {
+            q = new ConcurrentLinkedQueue();
+
+            ConcurrentLinkedQueue prev = hist.putIfAbsent(p.id(), q);
+
+            if (prev != null)
+                q = prev;
+        }
+
+        q.add(new T2<>(asyncE == null ? new Exception() : asyncE, evt));
     }
 
     /** {@inheritDoc} */

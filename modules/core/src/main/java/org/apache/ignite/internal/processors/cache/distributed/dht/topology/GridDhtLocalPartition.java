@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,6 +35,8 @@ import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.failure.FailureContext;
 import org.apache.ignite.failure.FailureType;
+import org.apache.ignite.internal.GridKernalContextImpl;
+import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteFutureTimeoutCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
@@ -61,6 +64,8 @@ import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -83,6 +88,8 @@ import static org.apache.ignite.internal.processors.cache.distributed.dht.topolo
  * Key partition.
  */
 public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements Comparable<GridDhtLocalPartition>, GridReservable {
+    public static volatile boolean delay = false;
+
     /** */
     private static final GridCacheMapEntryFactory ENTRY_FACTORY = GridDhtCacheEntry::new;
 
@@ -241,6 +248,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         if (log.isDebugEnabled())
             log.debug("Partition has been created [grp=" + grp.cacheOrGroupName()
                 + ", p=" + id + ", state=" + state() + "]");
+
+        ctx.kernalContext().tracePartitionState(this, "createNew", null);
     }
 
     /**
@@ -561,6 +570,21 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
             restoreState(toState);
     }
 
+    private void printPartition(IgniteEx grid, int part) {
+        GridKernalContextImpl context = (GridKernalContextImpl)grid.context();
+
+        ConcurrentLinkedQueue queue = context.hist.get(part);
+
+        for (Object o : queue) {
+            T2 pair = (T2)o;
+
+            Exception stack = (Exception)pair.get1();
+            String evt = (String)pair.get2();
+
+            log.info("DBG: node=" + grid.name() + ", part=" + part + ", evt=" + evt + ", stack=" + X.getFullStackTrace(stack));
+        }
+    }
+
     /**
      * @param state Current aggregated value.
      * @param toState State to switch to.
@@ -569,11 +593,30 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
     private boolean casState(long state, GridDhtPartitionState toState) {
         if (grp.persistenceEnabled() && grp.walEnabled()) {
             synchronized (this) {
+//                if (clear && toState == OWNING) {
+//                    System.out.println();
+//
+//                    ConcurrentLinkedQueue queue = ((GridKernalContextImpl)ctx.kernalContext()).hist.get(id);
+//
+//                    for (Object o : queue) {
+//                        T2 pair = (T2)o;
+//
+//                        Exception stack = (Exception)pair.get1();
+//                        String evt = (String)pair.get2();
+//
+//                        log.info("DBG: node=" + ctx.kernalContext().igniteInstanceName() + ", part=" + id + ", evt=" + evt + ", stack=" + X.getFullStackTrace(stack));
+//                    }
+//
+//                    System.out.println();
+//                }
+
                 GridDhtPartitionState prevState = state();
 
                 boolean update = this.state.compareAndSet(state, setPartState(state, toState));
 
                 if (update) {
+                    ctx.kernalContext().tracePartitionState(this, "casState: prev=" + prevState + ", new=" + toState, null);
+
                     try {
                         ctx.wal().log(new PartitionMetaStateRecord(grp.groupId(), id, toState, 0));
                     }
@@ -597,6 +640,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
             boolean update = this.state.compareAndSet(state, setPartState(state, toState));
 
             if (update) {
+                ctx.kernalContext().tracePartitionState(this, "casState: prev=" + prevState + ", new=" + toState, null);
+
                 if (log.isDebugEnabled())
                     log.debug("Partition changed state [grp=" + grp.cacheOrGroupName()
                         + ", p=" + id + ", prev=" + prevState + ", to=" + toState + "]");
@@ -712,6 +757,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         // Clearing process is already running at the moment. No needs to run it again.
         if (!reinitialized)
             return;
+
+        ctx.kernalContext().tracePartitionState(this, "clearAsync0: clearing=" + !clearFuture.isDone() + ", delayedRenting=" + delayedRenting + ", stateBefore=" + partState, null);
 
         // Try fast eviction.
         if (freeAndEmpty(state) && !grp.queriesEnabled() && !groupReserved()) {
@@ -848,6 +895,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
      * Destroys partition data store and invokes appropriate callbacks.
      */
     public void destroy() {
+        ctx.kernalContext().tracePartitionState(this, "destroy state=" + state(), null);
+
         assert state() == EVICTED : this;
         assert evictGuard.get() == -1;
 
@@ -910,13 +959,18 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
      * @return {@code false} if clearing is not started due to existing reservations.
      * @throws NodeStoppingException If node is stopping.
      */
-    public boolean tryClear(EvictionContext evictionCtx) throws NodeStoppingException {
+    public boolean tryClear(EvictionContext evictionCtx, Exception asyncE) throws NodeStoppingException {
         if (clearFuture.isDone())
             return true;
 
         long state = this.state.get();
 
-        if (getReservations(state) != 0 || groupReserved())
+        boolean reserved = getReservations(state) != 0 || groupReserved();
+
+        ctx.kernalContext().tracePartitionState(this, "tryClearStart reserved=" + reserved +
+            ", state=" + getPartState(state) + ", topVer=" + grp.topology().readyTopologyVersion(), asyncE);
+
+        if (reserved)
             return false;
 
         if (addEvicting()) {
@@ -924,8 +978,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
                 // Attempt to evict partition entries from cache.
                 long clearedEntities = clearAll(evictionCtx);
 
-                if (log.isDebugEnabled())
-                    log.debug("Partition has been cleared [grp=" + grp.cacheOrGroupName()
+                //if (log.isDebugEnabled())
+                    log.info("Partition has been cleared [grp=" + grp.cacheOrGroupName()
                         + ", p=" + id + ", state=" + state() + ", clearedCnt=" + clearedEntities + "]");
             }
             catch (NodeStoppingException e) {
@@ -935,6 +989,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
             }
             finally {
                 boolean free = clearEvicting();
+
+                ctx.kernalContext().tracePartitionState(this, "tryClearFinish: free=" + free + ", topVer=" + grp.topology().readyTopologyVersion(), asyncE);
 
                 if (free)
                     clearFuture.finish();

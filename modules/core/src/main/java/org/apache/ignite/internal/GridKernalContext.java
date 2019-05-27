@@ -36,6 +36,7 @@ import org.apache.ignite.internal.managers.loadbalancer.GridLoadBalancerManager;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
 import org.apache.ignite.internal.processors.authentication.IgniteAuthenticationProcessor;
 import org.apache.ignite.internal.processors.cache.GridCacheProcessor;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
 import org.apache.ignite.internal.processors.cache.persistence.filename.PdsFoldersResolver;
 import org.apache.ignite.internal.processors.cacheobject.IgniteCacheObjectProcessor;
@@ -738,4 +739,6 @@ public interface GridKernalContext extends Iterable<GridComponent> {
      * @return {@code True} if node is in recovery mode (before join to topology).
      */
     public boolean recoveryMode();
+
+    public default void tracePartitionState(GridDhtLocalPartition p, String event, Exception asyncE) {};
 }
