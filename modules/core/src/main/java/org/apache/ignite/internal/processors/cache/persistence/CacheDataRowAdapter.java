@@ -333,7 +333,16 @@ public class CacheDataRowAdapter implements CacheDataRow {
         byte type = PageUtils.getByte(addr, off);
         off++;
 
-        byte[] bytes = PageUtils.getBytes(addr, off, len);
+        byte[] bytes;
+
+        if (tmpAlloc) {
+            bytes = ((IgniteThread)Thread.currentThread()).allocator().tmpBuf;
+
+            PageUtils.getBytes(addr, off, bytes, 0, len);
+        }
+        else
+            bytes = PageUtils.getBytes(addr, off, len);
+
         off += len;
 
         val = coctx.kernalContext().cacheObjects().toCacheObject(coctx, type, bytes);
