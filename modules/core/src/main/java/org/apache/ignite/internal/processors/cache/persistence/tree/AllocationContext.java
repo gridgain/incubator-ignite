@@ -22,9 +22,11 @@ package org.apache.ignite.internal.processors.cache.persistence.tree;
  */
 public class AllocationContext {
     public byte[] tmpBuf;
+    public byte[] tmpBuf2;
     public boolean tmpContext;
 
     public AllocationContext(int size) {
         tmpBuf = new byte[size];
+        tmpBuf2 = new byte[size];
     }
 }
