@@ -336,7 +336,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
         byte[] bytes;
 
         if (tmpAlloc) {
-            bytes = ((IgniteThread)Thread.currentThread()).allocator().tmpBuf;
+            bytes = ((IgniteThread)Thread.currentThread()).allocator().tmpBuf2;
 
             PageUtils.getBytes(addr, off, bytes, 0, len);
         }
