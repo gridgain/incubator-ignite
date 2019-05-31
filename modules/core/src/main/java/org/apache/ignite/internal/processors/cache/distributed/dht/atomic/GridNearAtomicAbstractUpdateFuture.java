@@ -808,6 +808,16 @@ public abstract class GridNearAtomicAbstractUpdateFuture extends GridCacheFuture
          * @param cctx Context.
          */
         private void initMapping(List<UUID> nodeIds, GridCacheContext cctx) {
+            for (UUID nodeId: mappedNodes.keySet()) {
+                if (!nodeIds.contains(nodeId)) {
+                    log.warning("Responding node id=" + nodeId +" does not mapped to the operation.");
+
+                    rcvdCnt--;
+
+                    mappedNodes.remove(nodeId);
+                }
+            }
+
             assert rcvdCnt <= nodeIds.size();
 
             expCnt = nodeIds.size();
