@@ -54,6 +54,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtInvalidPartitionException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopologyImpl;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
@@ -779,6 +780,20 @@ public class GridDhtPartitionDemander {
                             ctx.igniteInstanceName() + ", grp=" + grp.cacheOrGroupName() + ", part=" + part + ']';
 
                         part.lock();
+
+                        if (last && grp.cacheOrGroupName().equals("default") && part.id() == 0) {
+                            GridDhtPartitionTopologyImpl t = (GridDhtPartitionTopologyImpl)top;
+
+                            if (t.delayLastSupplyMessage) {
+                                t.l1.countDown();
+                                try {
+                                    t.l2.await();
+                                }
+                                catch (InterruptedException e1) {
+                                    e1.printStackTrace();
+                                }
+                            }
+                        }
 
                         try {
                             Iterator<GridCacheEntryInfo> infos = e.getValue().infos().iterator();

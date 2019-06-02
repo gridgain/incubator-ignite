@@ -29,6 +29,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
@@ -151,6 +152,12 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
     /** */
     private volatile AffinityTopologyVersion rebalancedTopVer = AffinityTopologyVersion.NONE;
+
+    public volatile boolean delayLastSupplyMessage;
+
+    public CountDownLatch l1 = new CountDownLatch(1);
+    public CountDownLatch l2 = new CountDownLatch(1);
+
 
     /**
      * @param ctx Cache shared context.

@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -922,6 +923,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         AffinityTopologyVersion topVer = group().affinity().lastVersion();
 
         if (!startVer.equals(AffinityTopologyVersion.NONE) && topVer.compareTo(startVer) > 0 && state() == MOVING) {
+            log.info("DBG: startVer=" + startVer + ", curVer=" + topVer + ", part=" + this);
             clearFuture.onDone();
 
             return true;
