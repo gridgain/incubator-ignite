@@ -29,7 +29,6 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
@@ -153,11 +152,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
     /** */
     private volatile AffinityTopologyVersion rebalancedTopVer = AffinityTopologyVersion.NONE;
 
-    public volatile boolean delayLastSupplyMessage;
-
-    public CountDownLatch l1 = new CountDownLatch(1);
-    public CountDownLatch l2 = new CountDownLatch(1);
-
+    /** Factory used for re-creating partition during it's lifecycle. */
+    private PartitionFactory partFactory;
 
     /**
      * @param ctx Cache shared context.
@@ -180,6 +176,15 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         locParts = new AtomicReferenceArray<>(grp.affinityFunction().partitions());
 
         cntrMap = new CachePartitionFullCountersMap(locParts.length());
+
+        partFactory = (ctx1, grp1, id) -> new GridDhtLocalPartition(ctx1, grp1, id, false);
+    }
+
+    /**
+     * @param factory Factory. Currently is used for tests.
+     */
+    public void partitionFactory(PartitionFactory factory) {
+        this.partFactory = factory;
     }
 
     /** {@inheritDoc} */
@@ -876,7 +881,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
             if (loc != null)
                 loc.awaitDestroy();
 
-            locParts.set(p, loc = new GridDhtLocalPartition(ctx, grp, p, false));
+            locParts.set(p, loc = partFactory.create(ctx, grp, p));
 
             long updCntr = cntrMap.updateCounter(p);
 
@@ -984,7 +989,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             "[grp=" + grp.cacheOrGroupName() + ", part=" + p + ", topVer=" + topVer +
                             ", this.topVer=" + this.readyTopVer + ']');
 
-                    locParts.set(p, loc = new GridDhtLocalPartition(ctx, grp, p, false));
+                    locParts.set(p, loc = partFactory.create(ctx, grp, p));
 
                     this.updateSeq.incrementAndGet();
 
@@ -2334,6 +2339,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
             else {
                 assert part.state() == EVICTED : part;
 
+                part.awaitDestroy();
+
                 part = getOrCreatePartition(p);
             }
         }
@@ -2341,9 +2348,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         if (part.state() != MOVING)
             part.moving();
 
-        if (clear)
-            part.clearAsync();
-        else
+        if (!clear)
             exchFut.addHistoryPartition(grp, part.id());
 
         assert part.state() == MOVING : part;
@@ -3108,5 +3113,18 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         @Override public void remove() {
             throw new UnsupportedOperationException("remove");
         }
+    }
+
+    /** */
+    public interface PartitionFactory {
+        /**
+         * @param ctx Context.
+         * @param grp Group.
+         * @param id Partition id.
+         * @return Partition instance.
+         */
+        public GridDhtLocalPartition create(GridCacheSharedContext ctx,
+            CacheGroupContext grp,
+            int id);
     }
 }
