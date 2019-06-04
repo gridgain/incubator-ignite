@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import javax.cache.expiry.ExpiryPolicy;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -808,13 +809,18 @@ public abstract class GridNearAtomicAbstractUpdateFuture extends GridCacheFuture
          * @param cctx Context.
          */
         private void initMapping(List<UUID> nodeIds, GridCacheContext cctx) {
-            for (UUID nodeId: mappedNodes.keySet()) {
-                if (!nodeIds.contains(nodeId)) {
-                    log.warning("Responding node id=" + nodeId +" does not mapped to the operation.");
+            if (mappedNodes != null) {
+                assert rcvdCnt == mappedNodes.size() : "rcvdCnt: " + rcvdCnt + " responded nodes: "
+                    + mappedNodes.keySet().stream().map(UUID::toString).collect(Collectors.joining(", "));
 
-                    rcvdCnt--;
+                for (UUID nodeId : mappedNodes.keySet()) {
+                    if (!nodeIds.contains(nodeId)) {
+                        log.warning("Responding node id=" + nodeId + " does not mapped to the operation.");
 
-                    mappedNodes.remove(nodeId);
+                        rcvdCnt--;
+
+                        mappedNodes.remove(nodeId);
+                    }
                 }
             }
 
