@@ -730,7 +730,7 @@ public class GridDhtPartitionDemander {
         }
 
         // Topology already changed (for the future that supply message based on).
-        if (/*topologyChanged(fut) ||*/ !fut.isActual(supplyMsg.rebalanceId())) {
+        if (topologyChanged(fut) || !fut.isActual(supplyMsg.rebalanceId())) {
             if (log.isDebugEnabled())
                 log.debug("Supply message ignored (topology changed) [" + demandRoutineInfo(topicId, nodeId, supplyMsg) + "]");
 

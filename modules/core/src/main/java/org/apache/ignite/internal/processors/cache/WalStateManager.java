@@ -475,7 +475,7 @@ public class WalStateManager extends GridCacheSharedManagerAdapter {
     public void onGroupRebalanceFinished(int grpId, AffinityTopologyVersion topVer) {
         TemporaryDisabledWal session0 = tmpDisabledWal;
 
-        if (session0 == null || session0.topVer.compareTo(topVer) > 0)
+        if (session0 == null /*|| session0.topVer.compareTo(topVer) > 0*/)
             return;
 
         session0.remainingGrps.remove(grpId);

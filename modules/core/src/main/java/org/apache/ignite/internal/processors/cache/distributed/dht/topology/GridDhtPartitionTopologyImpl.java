@@ -2608,7 +2608,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                     try {
                         if (reserved && locPart.state() == MOVING &&
-                            lastAffChangeVer.compareTo(rebFinishedTopVer) <= 0 &&
+                            /*lastAffChangeVer.compareTo(rebFinishedTopVer) <= 0 &&*/
                             rebFinishedTopVer.compareTo(lastTopChangeVer) <= 0)
                                 grp.topology().own(locPart);
                     }
