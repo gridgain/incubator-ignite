@@ -851,7 +851,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
     ) throws IgniteCheckedException {
         assert !cctx.isNear() : cctx.name();
 
-        if (!hasPendingEntries || nextCleanTime > U.currentTimeMillis())
+        if (!hasPendingEntries || nextCleanTimeNanos - System.nanoTime() > 0)
             return false;
 
         // Prevent manager being stopped in the middle of pds operation.
@@ -870,7 +870,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
             // Throttle if there is nothing to clean anymore.
             if (cleared < amount)
-                nextCleanTime = U.currentTimeMillis() + UNWIND_THROTTLING_TIMEOUT;
+                nextCleanTimeNanos = System.nanoTime() + U.millisToNanos(UNWIND_THROTTLING_TIMEOUT);
         }
         finally {
             busyLock.leaveBusy();
@@ -1266,7 +1266,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         /** Timestamp when next clean try will be allowed for current partition.
          * Used for fine-grained throttling on per-partition basis. */
-        private volatile long nextStoreCleanTime;
+        private volatile long nextStoreCleanTimeNanos;
 
         /** */
         private final boolean exists;
@@ -1916,9 +1916,9 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
             int amount) throws IgniteCheckedException {
             CacheDataStore delegate0 = init0(true);
 
-            long now = U.currentTimeMillis();
+            long nowNanos = System.nanoTime();
 
-            if (delegate0 == null || nextStoreCleanTime > now)
+            if (delegate0 == null || nextStoreCleanTimeNanos - nowNanos > 0)
                 return 0;
 
             assert pendingTree != null : "Partition data store was not initialized.";
@@ -1927,7 +1927,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
             // Throttle if there is nothing to clean anymore.
             if (cleared < amount)
-                nextStoreCleanTime = now + UNWIND_THROTTLING_TIMEOUT;
+                nextStoreCleanTimeNanos = nowNanos + U.millisToNanos(UNWIND_THROTTLING_TIMEOUT);
 
             return cleared;
         }

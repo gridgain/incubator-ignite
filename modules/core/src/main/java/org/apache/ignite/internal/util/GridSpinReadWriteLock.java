@@ -334,7 +334,9 @@ public class GridSpinReadWriteLock {
                     break;
             }
 
-            long end = U.currentTimeMillis() + unit.toMillis(timeout);
+            long startNanos = System.nanoTime();
+
+            long timeoutNanos = unit.toNanos(timeout);
 
             while (true) {
                 if (compareAndSet(STATE_OFFS, 0, -1)) {
@@ -348,7 +350,7 @@ public class GridSpinReadWriteLock {
 
                 Thread.sleep(10);
 
-                if (end <= U.currentTimeMillis())
+                if (System.nanoTime() - startNanos >= timeoutNanos)
                     return false;
             }
         }

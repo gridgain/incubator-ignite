@@ -117,7 +117,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
     protected volatile boolean hasPendingEntries;
 
     /** Timestamp when next clean try will be allowed. Used for throttling on per-group basis. */
-    protected volatile long nextCleanTime;
+    protected volatile long nextCleanTimeNanos = System.nanoTime() - 1;
 
     /** */
     private final GridAtomicLong globalRmvId = new GridAtomicLong(U.currentTimeMillis() * 1000_000);
