@@ -31,6 +31,7 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteDiagnosticAware;
 import org.apache.ignite.internal.IgniteDiagnosticPrepareContext;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -152,6 +153,9 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
     /** Remap count. */
     protected volatile int remapCnt;
 
+    /** Transaction label. */
+    private String txLbl;
+
     /**
      * @param cctx Context.
      * @param key Key.
@@ -165,6 +169,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
      * @param skipVals Skip values flag.
      * @param needVer If {@code true} returns values as tuples containing value and version.
      * @param keepCacheObjects Keep cache objects flag.
+     * @param txLbl Transaction label.
      */
     public GridPartitionedSingleGetFuture(
         GridCacheContext cctx,
@@ -180,6 +185,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
         boolean needVer,
         boolean keepCacheObjects,
         boolean recovery,
+        String txLbl,
         @Nullable MvccSnapshot mvccSnapshot
     ) {
         assert key != null;
@@ -208,6 +214,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
         this.keepCacheObjects = keepCacheObjects;
         this.recovery = recovery;
         this.topVer = topVer;
+        this.txLbl = txLbl;
         this.mvccSnapshot = mvccSnapshot;
 
         futId = IgniteUuid.randomUuid();
@@ -267,6 +274,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
                     expiryPlc,
                     skipVals,
                     recovery,
+                    txLbl,
                     mvccSnapshot
                 );
 
@@ -332,6 +340,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
                 needVer,
                 cctx.deploymentEnabled(),
                 recovery,
+                txLbl,
                 mvccSnapshot
             );
 
@@ -447,6 +456,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
                             if (evt) {
                                 cctx.events().readEvent(key,
                                     null,
+                                    txLbl,
                                     row.value(),
                                     subjId,
                                     taskName,
@@ -883,7 +893,8 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
             if (trackable)
                 cctx.mvcc().removeFuture(futId);
 
-            cctx.dht().sendTtlUpdateRequest(expiryPlc);
+            if (!(err instanceof NodeStoppingException))
+                cctx.dht().sendTtlUpdateRequest(expiryPlc);
 
             return true;
         }
