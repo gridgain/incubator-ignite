@@ -3311,7 +3311,7 @@ public abstract class IgniteUtils {
                             curTimeMillis = System.currentTimeMillis();
 
                             try {
-                                Thread.sleep(10);
+                                Thread.sleep(2);
                             }
                             catch (InterruptedException ignored) {
                                 break;
