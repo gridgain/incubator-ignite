@@ -730,6 +730,9 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
         final String fmt = "Failed completing the transaction: [commit=%s, tx=%s, plc=%s]";
 
+        assert cctx != null : "Context null!";
+        assert cctx.gridConfig().getFailureHandler() != null : "Failure handler null!";
+
         try {
             // First try printing a full transaction. This is error prone.
             U.error(log, String.format(fmt, commit, this,
