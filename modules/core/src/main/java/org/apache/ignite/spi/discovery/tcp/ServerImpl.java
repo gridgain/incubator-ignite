@@ -76,6 +76,7 @@ import org.apache.ignite.internal.IgnitionEx;
 import org.apache.ignite.internal.events.DiscoveryCustomEvent;
 import org.apache.ignite.internal.managers.discovery.CustomMessageWrapper;
 import org.apache.ignite.internal.managers.discovery.DiscoveryServerOnlyCustomMessage;
+import org.apache.ignite.internal.processors.cache.CacheAffinityChangeMessage;
 import org.apache.ignite.internal.processors.failure.FailureProcessor;
 import org.apache.ignite.internal.processors.security.SecurityContext;
 import org.apache.ignite.internal.processors.security.SecurityUtils;
@@ -805,18 +806,43 @@ class ServerImpl extends TcpDiscoveryImpl {
         try {
             TcpDiscoveryAbstractMessage msg;
 
+            long start = System.nanoTime();
+
+            byte[] msgBytes = U.marshal(spi.marshaller(), evt);
+
             if (((CustomMessageWrapper)evt).delegate() instanceof DiscoveryServerOnlyCustomMessage)
-                msg = new TcpDiscoveryServerOnlyCustomEventMessage(getLocalNodeId(), evt,
-                    U.marshal(spi.marshaller(), evt));
+                msg = new TcpDiscoveryServerOnlyCustomEventMessage(getLocalNodeId(), evt, msgBytes);
             else
-                msg = new TcpDiscoveryCustomEventMessage(getLocalNodeId(), evt,
-                    U.marshal(spi.marshaller(), evt));
+                msg = new TcpDiscoveryCustomEventMessage(getLocalNodeId(), evt, msgBytes);
+
+            CacheAffinityChangeMessage cacm = cacheAffinityChangeMessage(evt);
+
+            if (cacm != null)
+                logMsg("CacheAffinityChangeMessage marshal", start, msgBytes.length, cacm.toString().length(), cacm);
 
             msgWorker.addMessage(msg);
         }
         catch (IgniteCheckedException e) {
             throw new IgniteSpiException("Failed to marshal custom event: " + evt, e);
         }
+    }
+
+    /** */
+    private static CacheAffinityChangeMessage cacheAffinityChangeMessage(Object obj) {
+        CacheAffinityChangeMessage cacm = obj instanceof CacheAffinityChangeMessage
+            ? (CacheAffinityChangeMessage) obj
+            : ((obj instanceof CustomMessageWrapper && ((CustomMessageWrapper) obj).delegate() instanceof CacheAffinityChangeMessage) ? (CacheAffinityChangeMessage)((CustomMessageWrapper) obj).delegate() : null);
+
+        return cacm;
+    }
+
+    /** */
+    private void logMsg(String logStr, long startTime, int byteSize, int stringSize, Object obj) {
+        String os = obj == null ? "{}" : obj.toString();
+
+        String s = logStr + " time=" + (System.nanoTime() - startTime) + ", byteSize=" + byteSize + ", stringSize=" + stringSize + ", object=" + os;
+
+        log.info(s);
     }
 
     /** {@inheritDoc} */
@@ -5535,7 +5561,14 @@ class ServerImpl extends TcpDiscoveryImpl {
                 DiscoverySpiCustomMessage msgObj;
 
                 try {
+                    long start = System.nanoTime();
+
                     msgObj = msg.message(spi.marshaller(), U.resolveClassLoader(spi.ignite().configuration()));
+
+                    CacheAffinityChangeMessage cacm = cacheAffinityChangeMessage(msgObj);
+
+                    if (cacm != null)
+                        logMsg("CacheAffinityChangeMessage unmarshal", start, msg.messageBytes().length, cacm.toString().length(), cacm);
                 }
                 catch (Throwable t) {
                     throw new IgniteException("Failed to unmarshal discovery custom message: " + msg, t);
