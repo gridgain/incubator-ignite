@@ -353,7 +353,12 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
             assignmentsChange.put(grpId, assignment0);
         }
 
-        return new CacheAffinityChangeMessage(waitInfo.topVer, assignmentsChange, waitInfo.deploymentIds);
+        CacheAffinityChangeMessage msg =
+            new CacheAffinityChangeMessage(waitInfo.topVer, assignmentsChange, waitInfo.deploymentIds);
+
+        U.log(log, String.format("New CacheAffinityChangeMessage. toString() size: %s, object: %s", msg.toString().length(), msg.toString()));
+
+        return msg;
     }
 
     /**

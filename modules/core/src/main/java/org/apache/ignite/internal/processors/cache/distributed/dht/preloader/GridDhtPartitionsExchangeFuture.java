@@ -2932,6 +2932,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             CacheAffinityChangeMessage msg = new CacheAffinityChangeMessage(exchId, m, assignmentChange);
 
+            U.log(log, String.format("New CacheAffinityChangeMessage. toString() size: %s, object: %s", msg.toString().length(), msg.toString()));
+
             if (log.isDebugEnabled())
                 log.debug("Centralized affinity exchange, send affinity change message: " + msg);
 

@@ -19,6 +19,8 @@ package org.apache.ignite.marshaller;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.internal.managers.discovery.CustomMessageWrapper;
+import org.apache.ignite.internal.processors.cache.CacheAffinityChangeMessage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
@@ -55,7 +57,16 @@ public abstract class AbstractNodeNameAwareMarshaller extends AbstractMarshaller
         String oldNodeName = IgniteUtils.setCurrentIgniteName(nodeName);
 
         try {
-            return marshal0(obj);
+            long start = System.nanoTime();
+
+            byte[] res = marshal0(obj);
+
+            CacheAffinityChangeMessage cacm = cacheAffinityChangeMessage(obj);
+
+            if (cacm != null)
+                logMsg(System.nanoTime() - start, res.length, cacm.toString().length(), "CacheAffinityChangeMessage marshal", cacm);
+
+            return res;
         }
         finally {
             IgniteUtils.restoreOldIgniteName(oldNodeName, nodeName);
@@ -67,7 +78,14 @@ public abstract class AbstractNodeNameAwareMarshaller extends AbstractMarshaller
         String oldNodeName = IgniteUtils.setCurrentIgniteName(nodeName);
 
         try {
+            long start = System.nanoTime();
+
             marshal0(obj, out);
+
+            CacheAffinityChangeMessage cacm = cacheAffinityChangeMessage(obj);
+
+            if (cacm != null)
+                logMsg(System.nanoTime() - start, 0, cacm.toString().length(), "CacheAffinityChangeMessage marshal", cacm);
         }
         finally {
             IgniteUtils.restoreOldIgniteName(oldNodeName, nodeName);
@@ -79,7 +97,16 @@ public abstract class AbstractNodeNameAwareMarshaller extends AbstractMarshaller
         String oldNodeName = IgniteUtils.setCurrentIgniteName(nodeName);
 
         try {
-            return unmarshal0(arr, clsLdr);
+            long start = System.nanoTime();
+
+            T res = unmarshal0(arr, clsLdr);
+
+            CacheAffinityChangeMessage cacm = cacheAffinityChangeMessage(res);
+
+            if (cacm != null)
+                logMsg(System.nanoTime() - start, arr.length, cacm.toString().length(), "CacheAffinityChangeMessage unmarshal", cacm);
+
+            return res;
         }
         finally {
             IgniteUtils.restoreOldIgniteName(oldNodeName, nodeName);
@@ -91,11 +118,36 @@ public abstract class AbstractNodeNameAwareMarshaller extends AbstractMarshaller
         String oldNodeName = IgniteUtils.setCurrentIgniteName(nodeName);
 
         try {
-            return unmarshal0(in, clsLdr);
+            long start = System.nanoTime();
+
+            T res = unmarshal0(in, clsLdr);
+
+            CacheAffinityChangeMessage cacm = cacheAffinityChangeMessage(res);
+
+            if (cacm != null)
+                logMsg(System.nanoTime() - start, 0, cacm.toString().length(), "CacheAffinityChangeMessage unmarshal", cacm);
+
+            return res;
         }
         finally {
             IgniteUtils.restoreOldIgniteName(oldNodeName, nodeName);
         }
+    }
+
+    /** */
+    private CacheAffinityChangeMessage cacheAffinityChangeMessage(Object msg) {
+        CacheAffinityChangeMessage cacm = msg instanceof CacheAffinityChangeMessage
+            ? (CacheAffinityChangeMessage)msg
+            : (msg instanceof CustomMessageWrapper && ((CustomMessageWrapper)msg).delegate() instanceof CacheAffinityChangeMessage ? (CacheAffinityChangeMessage)((CustomMessageWrapper)msg).delegate() : null);
+
+        return cacm;
+    }
+
+    /** */
+    private void logMsg(long startTime, int bytesSize, int stringSize, String logStr, Object object) {
+        String s = logStr + " time=" + startTime + ", bytes size=" + bytesSize + ", string size=" + stringSize + ", object=" + object.toString();
+
+        System.out.println(s);
     }
 
     /**
