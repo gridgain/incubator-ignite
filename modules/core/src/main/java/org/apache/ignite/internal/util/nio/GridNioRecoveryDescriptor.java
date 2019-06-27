@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.util.nio;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
@@ -44,7 +44,7 @@ public class GridNioRecoveryDescriptor {
     private long acked;
 
     /** Unacknowledged messages. */
-    private final ArrayDeque<SessionWriteRequest> msgReqs;
+    private final Deque<SessionWriteRequest> msgReqs;
 
     /** Number of messages to resend. */
     private int resendCnt;
@@ -107,7 +107,7 @@ public class GridNioRecoveryDescriptor {
         assert !node.isLocal() : node;
         assert queueLimit > 0;
 
-        msgReqs = new ArrayDeque<>(queueLimit);
+        msgReqs = new ConcurrentLinkedDeque<>();
 
         this.pairedConnections = pairedConnections;
         this.queueLimit = queueLimit;
