@@ -591,6 +591,8 @@ public class GridNioServer<T> {
         int msgCnt = sys ? ses.offerSystemFuture(req) : ses.offerFuture(req);
 
         if (ses.closed()) {
+            log.warning("Session is closed. msgCnt=" + msgCnt);
+
             if (ses.removeFuture(req)) {
                 IOException err = new IOException("Failed to send message (connection was closed): " + ses);
 
@@ -599,6 +601,8 @@ public class GridNioServer<T> {
                 if (!(req instanceof GridNioFuture))
                     throw new IgniteCheckedException(err);
             }
+            else
+                log.warning("Failed to remove a future from a closed session.");
         }
         else if (!ses.procWrite.get() && ses.procWrite.compareAndSet(false, true)) {
             AbstractNioClientWorker worker = (AbstractNioClientWorker)ses.worker();
@@ -2162,6 +2166,18 @@ public class GridNioServer<T> {
                                 processSelectedKeys(selector.selectedKeys());
                             else
                                 processSelectedKeysOptimized(selectedKeys.flip());
+                        }
+                        else {
+                            for (GridSelectorNioSessionImpl ses : sessions) {
+                                int queueSize = ses.writeQueueSize();
+                                int interestOps = ses.key().interestOps();
+                                if (queueSize > 20 && changeReqs.isEmpty() &&
+                                    (interestOps & SelectionKey.OP_WRITE) == 0) {
+                                    log.error("Selector key is not interested in writing " +
+                                        "though the outbound queue is not empty. queueSize=" + queueSize +
+                                        "; procWrite=" + ses.procWrite + "; interestOps=" + interestOps);
+                                }
+                            }
                         }
 
                         // select() call above doesn't throw on interruption; checking it here to propagate timely.

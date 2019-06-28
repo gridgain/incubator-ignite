@@ -229,8 +229,7 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
         synchronized (this) {
             assert this.worker == moveFrom;
 
-            if (log.isDebugEnabled())
-                log.debug("Started moving [ses=" + this + ", from=" + moveFrom + ']');
+            log.info("Started moving [ses=" + this + ", from=" + moveFrom + ']');
 
             List<GridNioServer.SessionChangeRequest> sesReqs = moveFrom.clearSessionRequests(this);
 
@@ -252,8 +251,7 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
         synchronized (this) {
             assert worker == null;
 
-            if (log.isDebugEnabled())
-                log.debug("Finishing moving [ses=" + this + ", to=" + moveTo + ']');
+            log.info("Finishing moving [ses=" + this + ", to=" + moveTo + ']');
 
             worker = moveTo;
 
