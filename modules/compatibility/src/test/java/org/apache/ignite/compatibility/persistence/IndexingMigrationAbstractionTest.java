@@ -24,9 +24,7 @@ import org.apache.ignite.compatibility.testframework.junits.Dependency;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.internal.processors.cache.GridCacheAbstractFullApiSelfTest;
 import org.apache.ignite.lang.IgniteInClosure;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.jetbrains.annotations.NotNull;
 
 public class IndexingMigrationAbstractionTest extends IgnitePersistenceCompatibilityAbstractTest {

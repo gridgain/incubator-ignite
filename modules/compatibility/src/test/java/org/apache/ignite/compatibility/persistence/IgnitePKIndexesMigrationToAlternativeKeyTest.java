@@ -88,7 +88,7 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
 
             initializeTable(igniteEx, newTblName);
 
-            //checkUsingIndexes(igniteEx, newTblName);
+            checkUsingIndexes(igniteEx, newTblName);
 
             igniteEx.cluster().active(false);
         }
