@@ -324,7 +324,9 @@ public class H2TableDescriptor {
             keyCols = new ArrayList<>(type.fields().size() + 1);
 
             // Check if key is simple type.
-            if(QueryUtils.isSqlType(type.keyClass())) {
+            if(QueryUtils.isSqlType(type.keyClass()))
+                keyCols.add(keyCol);
+/*            if (QueryUtils.isSqlType(type.keyClass())) {
                 int altKeyColId = tbl.rowDescriptor().getAlternativeColumnId(QueryUtils.KEY_COL);
 
                 //Remap simple key to alternative column.
@@ -335,7 +337,7 @@ public class H2TableDescriptor {
                 idxKeyCol.sortType = keyCol.sortType;
 
                 keyCols.add(idxKeyCol);
-            }
+            }*/
             else {
                 for (String propName : type.fields().keySet()) {
                     GridQueryProperty prop = type.property(propName);
@@ -398,8 +400,8 @@ public class H2TableDescriptor {
         IndexColumn keyCol = tbl.indexColumn(QueryUtils.KEY_COL, SortOrder.ASCENDING);
         IndexColumn affCol = tbl.getAffinityKeyColumn();
 
-        if (affCol != null && H2Utils.equals(keyCol, affCol))
-            affCol = null;
+        /*if (affCol != null && H2Utils.equals(keyCol, affCol))
+            affCol = null;*/
 
         List<IndexColumn> cols = new ArrayList<>(idxDesc.fields().size() + 2);
 

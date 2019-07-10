@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.query.h2.H2TableDescriptor;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.junit.Test;
 
@@ -87,7 +88,7 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
 
             initializeTable(igniteEx, newTblName);
 
-            checkUsingIndexes(igniteEx, newTblName);
+            //checkUsingIndexes(igniteEx, newTblName);
 
             igniteEx.cluster().active(false);
         }
@@ -96,14 +97,9 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
         }
     }
 
-    /**
-     *
-     */
+    /** */
     private static class PostStartupClosure implements IgniteInClosure<Ignite> {
-
-        /**
-         *
-         */
+        /** */
         boolean createTable;
 
         /**
@@ -124,6 +120,8 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
 
             assertDontUsingPkIndex(igniteEx, TABLE_NAME);
 
+            checkUsingIndexes(igniteEx, TABLE_NAME);
+
             ignite.cluster().active(false);
         }
     }
@@ -138,8 +136,9 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
 
         executeSql(igniteEx, "CREATE INDEX ON " + tblName + "(city, id)");
 
-        for (int i = 0; i < 1000; i++)
-            executeSql(igniteEx, "INSERT INTO " + tblName + " (id, name, age, company, city) VALUES(0,'name"+ i + "',2,'company', 'city"+ i + "')", i);
+        for (int i = 0; i < 100; i++)
+            executeSql(igniteEx, "INSERT INTO " + tblName + " (id, name, age, company, city) VALUES (0,'name" + i +
+                "', 2, 'company', 'city"+ i + "')", i);
     }
 
     /**
@@ -161,12 +160,13 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
      * @param tblName name of table which should be checked to using PK indexes.
      */
     private static void checkUsingIndexes(IgniteEx ignite, String tblName) {
-
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 100; i++) {
             String s = "SELECT name FROM " + tblName + " WHERE city="+ i + " AND id=0 AND name='name"+ i + "'";
+
+            System.out.println("run: " + s);
+
             System.out.println(executeSql(ignite, s));
         }
-
     }
 
     /**
@@ -197,7 +197,7 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
 
         System.out.println(explainPlan);
 
-        assertFalse(explainPlan, explainPlan.contains("\"_key_PK\""));
+        assertFalse(explainPlan, explainPlan.contains(H2TableDescriptor.PK_IDX_NAME));
 
         assertTrue(explainPlan, explainPlan.contains("_SCAN_"));
     }

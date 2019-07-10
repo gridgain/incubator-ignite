@@ -63,17 +63,17 @@ public class IndexingMigrationAbstractionTest extends IgnitePersistenceCompatibi
     }
 
     /** */
-    protected class ConfigurationClosure implements IgniteInClosure<IgniteConfiguration> {
+    public static class ConfigurationClosure implements IgniteInClosure<IgniteConfiguration> {
         /** {@inheritDoc} */
         @Override public void apply(IgniteConfiguration cfg) {
-            cfg.setLocalHost("127.0.0.1");
+/*            cfg.setLocalHost("127.0.0.1");
 
             TcpDiscoverySpi disco = new TcpDiscoverySpi();
             disco.setIpFinder(GridCacheAbstractFullApiSelfTest.LOCAL_IP_FINDER);
 
             cfg.setDiscoverySpi(disco);
 
-            cfg.setPeerClassLoadingEnabled(false);
+            cfg.setPeerClassLoadingEnabled(false);*/
 
             DataStorageConfiguration memCfg = new DataStorageConfiguration()
                 .setDefaultDataRegionConfiguration(

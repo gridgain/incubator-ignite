@@ -629,6 +629,70 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
         }
     }
 
+    /**
+     * @param igniteEx Ignite instance.
+     * @param tblName Table name.
+     */
+    private static void initializeTable(IgniteEx igniteEx, String tblName) {
+/*        executeSql(igniteEx, "CREATE TABLE " + tblName + " (id int, name varchar, age int, company varchar, city varchar, " +
+            "primary key (id, name, city)) WITH \"affinity_key=name\"");*/
+
+        executeSql(igniteEx, "CREATE TABLE " + tblName + " (id int, name varchar, age int, company varchar, city varchar, " +
+            "CONSTRAINT PK_PERSON primary key (name)) ");
+
+        executeSql(igniteEx, "CREATE INDEX \"idx6\" ON " + tblName + " (city, id)");
+
+        for (int i = 0; i < 100; i++)
+            executeSql(igniteEx, "INSERT INTO " + tblName + " (id, name, age, company, city) VALUES (" + i + ",'name" +
+                i + "', 2, 'company', 'city"+ i + "')", i);
+    }
+
+    /**
+     * Run SQL statement on specified node.
+     *
+     * @param node node to execute query.
+     * @param stmt Statement to run.
+     * @param args arguments of statements
+     * @return Run result.
+     */
+    private static List<List<?>> executeSql(IgniteEx node, String stmt, Object... args) {
+        return node.context().query().querySqlFields(new SqlFieldsQuery(stmt).setArgs(args), true).getAll();
+    }
+
+    /**
+     * Check using PK indexes for few cases.
+     *
+     * @param ignite Ignite instance.
+     * @param tblName name of table which should be checked to using PK indexes.
+     */
+    private static void checkUsingIndexes(IgniteEx ignite, String tblName) {
+        for (int i = 0; i < 100; i++) {
+            String s = "SELECT name FROM " + tblName + " WHERE city="+ i + " AND id=0 AND name='name"+ i + "'";
+
+            System.out.println("run: " + s);
+
+            System.out.println(executeSql(ignite, s));
+        }
+    }
+
+    /** */
+    @Test
+    public void test000() throws Exception {
+        isPersistenceEnabled = true;
+
+        inlineSize = 10;
+
+        IgniteEx g0 = startGrid(1);
+
+        g0.cluster().active(true);
+
+        initializeTable(g0, "my");
+
+        checkUsingIndexes(g0, "my");
+
+        g0.cluster().active(false);
+    }
+
     /** */
     private void checkSelectLongRange(IgniteCache<Key, Val> cache) {
         final long RANGE_START = 70;

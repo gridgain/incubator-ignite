@@ -83,6 +83,8 @@ public class IgniteCompatibilityNodeRunner extends IgniteNodeRunner {
 
             IgniteConfiguration cfg = CompatibilityTestsFacade.getConfiguration();
 
+            //System.err.println("!!!: " + args[0]);
+
             IgniteInClosure<IgniteConfiguration> cfgClo = readClosureFromFileAndDelete(args[0]);
 
             cfgClo.apply(cfg);
