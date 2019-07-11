@@ -34,6 +34,9 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
     /** */
     private static String TABLE_NAME = "TEST_IDX_TABLE";
 
+    /** */
+    private static String COMP_SUFFIX = "_compPK";
+
     /**
      * Tests opportunity to read data from previous Ignite DB version.
      *
@@ -128,21 +131,36 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
 
     /**
      * @param igniteEx Ignite instance.
-     * @param tblName Table name.
+     * @param tblName  Table name.
      */
     private static void initializeTable(IgniteEx igniteEx, String tblName) {
+        initializeTable(igniteEx, tblName, true);
+
+        initializeTable(igniteEx, tblName, false);
+    }
+
+    /**
+     * @param igniteEx Ignite instance.
+     * @param tblName Table name.
+     * @param compPK Compound PK.
+     */
+    private static void initializeTable(IgniteEx igniteEx, String tblName, boolean compPK) {
         int ITEMS = 500;
 
+        tblName += compPK ? COMP_SUFFIX : "";
+
+        String pk = compPK ? "(id, name, city)" : "(name)";
+
         executeSql(igniteEx, "CREATE TABLE IF NOT EXISTS " + tblName + " (id int, name varchar, age int, company " +
-            "varchar, city varchar, primary key (id, name, city)) WITH \"affinity_key=name\"");
+            "varchar, city varchar, primary key " + pk + ") WITH \"affinity_key=name\"");
 
         executeSql(igniteEx, "CREATE INDEX IF NOT EXISTS \"my_idx_" + tblName + "\" ON " + tblName + "(city, id)");
 
         List<List<?>> res = executeSql(igniteEx, "select max(id) from " + tblName);
 
-        Object result = res.get(0).get(0);
+        Object data = res.get(0).get(0);
 
-        int mltpl = result == null ? 0 : 1;
+        int mltpl = data == null ? 0 : 1;
 
         for (int i = ITEMS * mltpl; i < ITEMS * (mltpl + 1); i++)
             executeSql(igniteEx, "INSERT INTO " + tblName + " (id, name, age, company, city) VALUES (" + i + ",'name" +
@@ -151,9 +169,9 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
         if (mltpl != 0) {
             res = executeSql(igniteEx, "select max(id) from " + tblName);
 
-            result = res.get(0).get(0);
+            data = res.get(0).get(0);
 
-            assertTrue(result != null && (int)result > ITEMS);
+            assertTrue(data != null && (int)data > ITEMS);
         }
     }
 
@@ -176,13 +194,28 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
      * @param tblName name of table which should be checked to using PK indexes.
      */
     private static void checkUsingIndexes(IgniteEx ignite, String tblName) {
+        checkUsingIndexes(ignite, tblName, true);
+
+        checkUsingIndexes(ignite, tblName, false);
+    }
+
+    /**
+     * Check using PK indexes for few cases.
+     *
+     * @param ignite Ignite instance.
+     * @param tblName name of table which should be checked to using PK indexes.
+     * @param compPK Compound PK.
+     */
+    private static void checkUsingIndexes(IgniteEx ignite, String tblName, boolean compPK) {
+        tblName += compPK ? COMP_SUFFIX : "";
+
         List<List<?>> res = executeSql(ignite, "select max(id) from " + tblName);
 
-        Object result = res.get(0).get(0);
+        Object data = res.get(0).get(0);
 
-        assertTrue("No data found!", result != null);
+        assertTrue("No data found!", data != null);
 
-        for (int i = 0; i < (int)result; i++) {
+        for (int i = 0; i < (int)data; i++) {
             String s = "explain SELECT name FROM " + tblName + " WHERE city='" + i + "' AND id=0 AND name='name" + i + "'";
 
             List<List<?>> results = executeSql(ignite, s);
