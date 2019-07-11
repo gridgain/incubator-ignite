@@ -324,7 +324,7 @@ public class H2TableDescriptor {
             keyCols = new ArrayList<>(type.fields().size() + 1);
 
             // Check if key is simple type.
-            if(QueryUtils.isSqlType(type.keyClass())) {
+            if (QueryUtils.isSqlType(type.keyClass())) {
                 int altKeyColId = tbl.rowDescriptor().getAlternativeColumnId(QueryUtils.KEY_COL);
 
                 //Remap simple key to alternative column.

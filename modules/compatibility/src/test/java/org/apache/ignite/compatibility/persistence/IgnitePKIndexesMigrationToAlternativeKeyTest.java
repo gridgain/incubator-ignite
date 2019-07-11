@@ -78,7 +78,7 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
 
             IgniteEx igniteEx = startGrid(0);
 
-            new PostStartupClosure(false).apply(igniteEx);
+            new PostStartupClosure(true).apply(igniteEx);
 
             igniteEx.cluster().active(true);
 
@@ -131,14 +131,30 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
      * @param tblName Table name.
      */
     private static void initializeTable(IgniteEx igniteEx, String tblName) {
-        executeSql(igniteEx, "CREATE TABLE " + tblName + " (id int, name varchar, age int, company varchar, city varchar, " +
-            "primary key (id, name, city)) WITH \"affinity_key=name\"");
+        int ITEMS = 500;
 
-        executeSql(igniteEx, "CREATE INDEX ON " + tblName + "(city, id)");
+        executeSql(igniteEx, "CREATE TABLE IF NOT EXISTS " + tblName + " (id int, name varchar, age int, company " +
+            "varchar, city varchar, primary key (id, name, city)) WITH \"affinity_key=name\"");
 
-        for (int i = 0; i < 100; i++)
-            executeSql(igniteEx, "INSERT INTO " + tblName + " (id, name, age, company, city) VALUES (0,'name" + i +
-                "', 2, 'company', 'city"+ i + "')", i);
+        executeSql(igniteEx, "CREATE INDEX IF NOT EXISTS \"my_idx_" + tblName + "\" ON " + tblName + "(city, id)");
+
+        List<List<?>> res = executeSql(igniteEx, "select max(id) from " + tblName);
+
+        Object result = res.get(0).get(0);
+
+        int mltpl = result == null ? 0 : 1;
+
+        for (int i = ITEMS * mltpl; i < ITEMS * (mltpl + 1); i++)
+            executeSql(igniteEx, "INSERT INTO " + tblName + " (id, name, age, company, city) VALUES (" + i + ",'name" +
+                i + "', 2, 'company', 'city" + i + "')");
+
+        if (mltpl != 0) {
+            res = executeSql(igniteEx, "select max(id) from " + tblName);
+
+            result = res.get(0).get(0);
+
+            assertTrue(result != null && (int)result > ITEMS);
+        }
     }
 
     /**
@@ -160,26 +176,21 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
      * @param tblName name of table which should be checked to using PK indexes.
      */
     private static void checkUsingIndexes(IgniteEx ignite, String tblName) {
-        for (int i = 0; i < 100; i++) {
-            String s = "SELECT name FROM " + tblName + " WHERE city="+ i + " AND id=0 AND name='name"+ i + "'";
+        List<List<?>> res = executeSql(ignite, "select max(id) from " + tblName);
 
-            System.out.println("run: " + s);
+        Object result = res.get(0).get(0);
 
-            System.out.println(executeSql(ignite, s));
+        assertTrue("No data found!", result != null);
+
+        for (int i = 0; i < (int)result; i++) {
+            String s = "explain SELECT name FROM " + tblName + " WHERE city='" + i + "' AND id=0 AND name='name" + i + "'";
+
+            List<List<?>> results = executeSql(ignite, s);
+
+            String explainPlan = (String)results.get(0).get(0);
+
+            System.err.println("explain: " + explainPlan);
         }
-    }
-
-    /**
-     * Check that explain plan result shown using PK index and don't use scan.
-     *
-     * @param results Result list of explain of query.
-     */
-    private static void assertUsingPkIndex(List<List<?>> results) {
-        String explainPlan = (String)results.get(0).get(0);
-
-        assertTrue(explainPlan.contains("\"_key_PK"));
-
-        assertFalse(explainPlan.contains("_SCAN_"));
     }
 
     /**
@@ -194,8 +205,6 @@ public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrat
         assertEquals(2, results.size());
 
         String explainPlan = (String)results.get(0).get(0);
-
-        System.out.println(explainPlan);
 
         assertFalse(explainPlan, explainPlan.contains(H2TableDescriptor.PK_IDX_NAME));
 
