@@ -32,10 +32,10 @@ import org.junit.Test;
  */
 public class IgnitePKIndexesMigrationToAlternativeKeyTest extends IndexingMigrationAbstractionTest {
     /** */
-    private static String TABLE_NAME = "TEST_IDX_TABLE";
+    private static final String TABLE_NAME = "TEST_IDX_TABLE";
 
     /** */
-    private static String COMP_SUFFIX = "_compPK";
+    private static final String COMP_SUFFIX = "_compPK";
 
     /**
      * Tests opportunity to read data from previous Ignite DB version.
