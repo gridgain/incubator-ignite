@@ -84,7 +84,7 @@ public class H2TreeInlineObjectDetector implements BPlusTree.TreeRowClosure<Sear
                 return true;
             }
             else {
-                assert type == Value.UNKNOWN;
+                assert type == Value.UNKNOWN : type;
 
                 return false;
             }
