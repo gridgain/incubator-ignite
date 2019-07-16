@@ -22,6 +22,7 @@ import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.h2.result.SearchRow;
 import org.h2.value.Value;
 import org.h2.value.ValueNull;
@@ -84,7 +85,7 @@ public class H2TreeInlineObjectDetector implements BPlusTree.TreeRowClosure<Sear
                 return true;
             }
             else {
-                assert type == Value.UNKNOWN : type;
+                assert type == Value.UNKNOWN : "type: " + type + " page: " + U.toHexString(pageAddr, 4096);
 
                 return false;
             }
