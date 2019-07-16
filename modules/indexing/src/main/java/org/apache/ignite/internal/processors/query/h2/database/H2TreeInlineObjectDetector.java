@@ -85,7 +85,7 @@ public class H2TreeInlineObjectDetector implements BPlusTree.TreeRowClosure<Sear
                 return true;
             }
             else {
-                assert type == Value.UNKNOWN : "type: " + type + " page: " + U.toHexString(pageAddr, 4096);
+                assert type == Value.UNKNOWN : "type: " + type + " page: " + U.toHexString(pageAddr, tree.pageSize());
 
                 return false;
             }

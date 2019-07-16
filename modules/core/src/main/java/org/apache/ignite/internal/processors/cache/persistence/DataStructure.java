@@ -384,7 +384,7 @@ public abstract class DataStructure {
     /**
      * @return Page size.
      */
-    protected final int pageSize() {
+    public final int pageSize() {
         return pageMem.pageSize();
     }
 
