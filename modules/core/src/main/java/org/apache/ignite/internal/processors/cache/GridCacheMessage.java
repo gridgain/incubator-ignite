@@ -64,6 +64,9 @@ public abstract class GridCacheMessage implements Message {
     /** ID of this message. */
     private long msgId = NULL_MSG_ID;
 
+    /** Request id. Added for benchmarking*/
+    private long reqId = 42;
+
     /** */
     @GridToStringInclude
     private GridDeploymentInfoBean depInfo;
