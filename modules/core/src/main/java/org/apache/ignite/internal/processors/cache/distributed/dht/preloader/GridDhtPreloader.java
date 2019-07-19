@@ -38,9 +38,10 @@ import org.apache.ignite.internal.processors.cache.GridCacheEntryInfo;
 import org.apache.ignite.internal.processors.cache.GridCachePreloaderAdapter;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtFuture;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicAbstractUpdateRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
+import org.apache.ignite.internal.processors.cache.persistence.tree.AllocationContext;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.util.lang.GridTuple3;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.events.EventType.EVT_CACHE_REBALANCE_PART_DATA_LOST;
@@ -63,6 +65,8 @@ import static org.apache.ignite.internal.processors.cache.distributed.dht.topolo
  * DHT cache preloader.
  */
 public class GridDhtPreloader extends GridCachePreloaderAdapter {
+    ThreadLocal<AllocationContext> actx = ThreadLocal.withInitial(() -> new AllocationContext(ctx.kernalContext().config().getDataStorageConfiguration().getPageSize()));
+
     /** Default preload resend timeout. */
     public static final long DFLT_PRELOAD_RESEND_TIMEOUT = 1500;
 
@@ -366,6 +370,8 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
             return;
 
         try {
+            ((IgniteThread)Thread.currentThread()).allocator(actx.get());
+
             demandLock.readLock().lock();
 
             try {
@@ -379,6 +385,8 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
             }
         }
         finally {
+            ((IgniteThread)Thread.currentThread()).allocator(null);
+
             leaveBusy();
         }
     }
