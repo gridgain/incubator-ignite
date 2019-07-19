@@ -54,7 +54,7 @@ public class GridH2ValueCacheObject extends Value {
         if (obj instanceof BinaryObjectImpl) {
             IgniteThread igniteThread = IgniteThread.current();
 
-            if (igniteThread == null || !igniteThread.allocator().tmpContext) {
+            if (igniteThread == null || igniteThread.allocator() == null || !igniteThread.allocator().tmpContext) {
                 ((BinaryObjectImpl)obj).detachAllowed(true);
                 obj = ((BinaryObjectImpl)obj).detach();
             }
