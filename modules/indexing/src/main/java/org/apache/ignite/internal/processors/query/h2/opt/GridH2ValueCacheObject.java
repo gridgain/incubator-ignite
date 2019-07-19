@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectValueContext;
+import org.apache.ignite.thread.IgniteThread;
 import org.h2.message.DbException;
 import org.h2.util.JdbcUtils;
 import org.h2.util.Utils;
@@ -51,8 +52,12 @@ public class GridH2ValueCacheObject extends Value {
         assert obj != null;
 
         if (obj instanceof BinaryObjectImpl) {
-            ((BinaryObjectImpl)obj).detachAllowed(true);
-            obj = ((BinaryObjectImpl)obj).detach();
+            IgniteThread igniteThread = IgniteThread.current();
+
+            if (igniteThread == null || !igniteThread.allocator().tmpContext) {
+                ((BinaryObjectImpl)obj).detachAllowed(true);
+                obj = ((BinaryObjectImpl)obj).detach();
+            }
         }
 
         this.obj = obj;
