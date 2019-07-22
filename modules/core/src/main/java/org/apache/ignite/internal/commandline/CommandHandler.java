@@ -301,7 +301,24 @@ public class CommandHandler {
                     e = cause;
                 else {
                     if (cause == null) {
-                        logger.severe("TestOUT: null cause, original " + e + ", msg: " + e.getMessage());
+                        int i = 0;
+
+                        Throwable cause0 = e;
+
+                        while (cause0 != null && i < 10) {
+                            logger.severe("TestOUT: null cause " + cause0 + ", msg " + cause0.getMessage());
+
+                            Throwable[] suppressed = cause0.getSuppressed();
+
+                            if (suppressed != null) {
+                                for (Throwable th : suppressed)
+                                    logger.severe("TestOUT: suppressed " + th + ", msg " + th.getMessage());
+                            }
+
+                            cause0 = cause0.getCause();
+
+                            i++;
+                        }
                     }
                     else {
                         int i = 0;
