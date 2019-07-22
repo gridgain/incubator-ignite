@@ -116,13 +116,13 @@ public class GridChangeGlobalStateMessageResponse extends GridCacheMessage {
         }
 
         switch (writer.state()) {
-            case 3:
+            case 4:
                 if (!writer.writeByteArray("errBytes", errBytes))
                     return false;
 
                 writer.incrementState();
 
-            case 4:
+            case 5:
                 if (!writer.writeUuid("requestId", requestId))
                     return false;
 
@@ -144,7 +144,7 @@ public class GridChangeGlobalStateMessageResponse extends GridCacheMessage {
             return false;
 
         switch (reader.state()) {
-            case 3:
+            case 4:
                 errBytes = reader.readByteArray("errBytes");
 
                 if (!reader.isLastRead())
@@ -152,7 +152,7 @@ public class GridChangeGlobalStateMessageResponse extends GridCacheMessage {
 
                 reader.incrementState();
 
-            case 4:
+            case 5:
                 requestId = reader.readUuid("requestId");
 
                 if (!reader.isLastRead())
@@ -172,7 +172,7 @@ public class GridChangeGlobalStateMessageResponse extends GridCacheMessage {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 5;
+        return 6;
     }
 
     /** {@inheritDoc} */

@@ -89,7 +89,7 @@ public class GridDhtPartitionsSingleRequest extends GridDhtPartitionsAbstractMes
         }
 
         switch (writer.state()) {
-            case 6:
+            case 7:
                 if (!writer.writeMessage("restoreExchId", restoreExchId))
                     return false;
 
@@ -111,7 +111,7 @@ public class GridDhtPartitionsSingleRequest extends GridDhtPartitionsAbstractMes
             return false;
 
         switch (reader.state()) {
-            case 6:
+            case 7:
                 restoreExchId = reader.readMessage("restoreExchId");
 
                 if (!reader.isLastRead())
@@ -131,7 +131,7 @@ public class GridDhtPartitionsSingleRequest extends GridDhtPartitionsAbstractMes
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 7;
+        return 8;
     }
 
     /** {@inheritDoc} */

@@ -665,7 +665,7 @@ public abstract class GridCacheMessage implements Message {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 3;
+        return 4;
     }
 
     /** {@inheritDoc} */
@@ -694,6 +694,12 @@ public abstract class GridCacheMessage implements Message {
 
             case 2:
                 if (!writer.writeLong("msgId", msgId))
+                    return false;
+
+                writer.incrementState();
+
+            case 3:
+                if (!writer.writeLong("reqId", reqId))
                     return false;
 
                 writer.incrementState();
@@ -729,6 +735,14 @@ public abstract class GridCacheMessage implements Message {
 
             case 2:
                 msgId = reader.readLong("msgId");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 3:
+                reqId = reader.readLong("reqId");
 
                 if (!reader.isLastRead())
                     return false;

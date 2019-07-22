@@ -38,19 +38,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLockRequest;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.GridCodegenConverter;
 import org.apache.ignite.internal.GridDirectCollection;
 import org.apache.ignite.internal.GridDirectMap;
 import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.IgniteCodeGeneratingFail;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteUuid;
@@ -174,7 +168,7 @@ public class MessageCodeGenerator {
 
         MessageCodeGenerator gen = new MessageCodeGenerator(srcDir);
 
-//        gen.generateAll(true);
+        gen.generateAll(true);
 
 //        gen.generateAndWrite(GridCacheMessage.class);
 
@@ -184,12 +178,12 @@ public class MessageCodeGenerator {
 //        gen.generateAndWrite(GridDistributedLockRequest.class);
 //        gen.generateAndWrite(GridDistributedLockResponse.class);
 //        gen.generateAndWrite(GridNearLockResponse.class);
-        gen.generateAndWrite(GridNearLockRequest.class);
-        gen.generateAndWrite(GridDhtLockRequest.class);
-        gen.generateAndWrite(GridNearSingleGetRequest.class);
-        gen.generateAndWrite(GridNearGetRequest.class);
-        gen.generateAndWrite(GridDhtTxPrepareRequest.class);
-        gen.generateAndWrite(GridNearTxPrepareRequest.class);
+//        gen.generateAndWrite(GridNearLockRequest.class);
+//        gen.generateAndWrite(GridDhtLockRequest.class);
+//        gen.generateAndWrite(GridNearSingleGetRequest.class);
+//        gen.generateAndWrite(GridNearGetRequest.class);
+//        gen.generateAndWrite(GridDhtTxPrepareRequest.class);
+//        gen.generateAndWrite(GridNearTxPrepareRequest.class);
 //        gen.generateAndWrite(GridDhtLockResponse.class);
 //
 //        gen.generateAndWrite(GridDistributedTxPrepareRequest.class);
