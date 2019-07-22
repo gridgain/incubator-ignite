@@ -299,6 +299,31 @@ public class CommandHandler {
 
                 if (cause != null && cause.getMessage() != null && cause.getMessage().contains("SSL"))
                     e = cause;
+                else {
+                    if (cause == null) {
+                        logger.severe("TestOUT: null cause, original " + e + ", msg: " + e.getMessage());
+                    }
+                    else {
+                        int i = 0;
+
+                        Throwable cause0 = cause;
+
+                        while (cause0 != null && i < 10) {
+                            logger.severe("TestOUT: not expected cause " + cause0 + ", msg " + cause0.getMessage());
+
+                            Throwable[] suppressed = cause0.getSuppressed();
+
+                            if (suppressed != null) {
+                                for (Throwable th : suppressed)
+                                    logger.severe("TestOUT: suppressed " + th + ", msg " + th.getMessage());
+                            }
+
+                            cause0 = cause0.getCause();
+
+                            i++;
+                        }
+                    }
+                }
 
                 logger.severe("Connection to cluster failed. " + CommandLogger.errorMessage(e));
                 logger.info("Command [" + commandName + "] finished with code: " + EXIT_CODE_CONNECTION_FAILED);
