@@ -1436,6 +1436,9 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
                 SchemaIndexCacheFilter filter = new TableCacheFilter(cctx, op0.tableName());
 
+                if (cctx.group().metrics0() != null)
+                    cctx.group().metrics0().setIndexBuildCountPartitionsLeft(cctx.topology().localPartitions().size());
+
                 SchemaIndexCacheVisitor visitor = new SchemaIndexCacheVisitorImpl(cctx, filter, cancelTok, op0.parallel());
 
                 idx.dynamicIndexCreate(op0.schemaName(), op0.tableName(), idxDesc, op0.ifNotExists(), visitor);
