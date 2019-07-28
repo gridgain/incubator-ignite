@@ -1612,7 +1612,12 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             }
                         }
                         else if (state == MOVING) {
-                            rebalancePartition(p, partsToReload.contains(p), exchFut);
+                            GridDhtLocalPartition locPart = locParts.get(p);
+
+                            // Force clearing of local MOVING partition.
+                            boolean forceClear = locPart != null && locPart.state() == MOVING;
+
+                            rebalancePartition(p, partsToReload.contains(p) || forceClear, exchFut);
 
                             changed = true;
                         }

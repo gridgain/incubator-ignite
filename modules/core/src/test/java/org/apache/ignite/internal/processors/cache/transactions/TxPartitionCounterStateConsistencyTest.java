@@ -387,6 +387,67 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         assertPartitionsSame(idleVerify(crd, DEFAULT_CACHE_NAME));
     }
 
+    /**
+     * Tests reproduces the problem: if node re-joins having MOVING partitions, they must be cleared to avoid desync.
+     *
+     * @throws Exception
+     */
+    public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeRestartDuringRebalance() throws Exception {
+        backups = 2;
+
+        Ignite crd = startGridsMultiThreaded(SERVER_NODES);
+
+        int[] primaryParts = crd.affinity(DEFAULT_CACHE_NAME).primaryPartitions(crd.cluster().localNode());
+
+        IgniteCache<Object, Object> cache = crd.cache(DEFAULT_CACHE_NAME);
+
+        List<Integer> keys = partitionKeys(cache, primaryParts[0], 2, 0);
+
+        cache.put(keys.get(0), 0);
+        cache.put(keys.get(1), 0);
+
+        forceCheckpoint();
+
+        Ignite backup = backupNode(keys.get(0), DEFAULT_CACHE_NAME);
+
+        final String backupName = backup.name();
+
+        stopGrid(false, backupName);
+
+        cache.remove(keys.get(1));
+
+        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(crd);
+
+        // Prevent rebalance completion.
+        spi.blockMessages((node, msg) -> {
+            String name = (String)node.attributes().get(ATTR_IGNITE_INSTANCE_NAME);
+
+            if (name.equals(backupName) && msg instanceof GridDhtPartitionSupplyMessage) {
+                GridDhtPartitionSupplyMessage msg0 = (GridDhtPartitionSupplyMessage)msg;
+
+                Map<Integer, CacheEntryInfoCollection> infos = U.field(msg0, "infos");
+
+                return infos.keySet().contains(primaryParts[0]);
+            }
+
+            return false;
+        });
+
+        backup = startGrid(backupName);
+
+        spi.waitForBlocked();
+
+        stopGrid(true, backupName); // Stop node in the middle of rebalance.
+
+        spi.stopBlock();
+
+        backup = startGrid(backupName);
+
+        awaitPartitionMapExchange();
+
+        assertPartitionsSame(idleVerify(crd, DEFAULT_CACHE_NAME));
+    }
+
     /** */
     public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_SameAffinityPME() throws Exception {
         backups = 2;
