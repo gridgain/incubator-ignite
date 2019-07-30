@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
+import static org.apache.ignite.IgniteSystemProperties.getBoolean;
+
 /**
  * Index statistics holder to gather statistics related to concrete index.
  */
@@ -42,6 +44,9 @@ public class IoStatisticsHolderIndex implements IoStatisticsHolder {
 
     /** */
     public static final String PHYSICAL_READS_INNER = "PHYSICAL_READS_INNER";
+
+    /** Disable stat. */
+    private final boolean disableStat = getBoolean(DISABLE_IO_STATISTICS_KEY, true);
 
     /** */
     private LongAdder logicalReadLeafCtr = new LongAdder();
@@ -74,6 +79,9 @@ public class IoStatisticsHolderIndex implements IoStatisticsHolder {
 
     /** {@inheritDoc} */
     @Override public void trackLogicalRead(long pageAddr) {
+        if(disableStat)
+            return;
+
         IndexPageType idxPageType = PageIO.deriveIndexPageType(pageAddr);
 
         switch (idxPageType) {
@@ -96,6 +104,9 @@ public class IoStatisticsHolderIndex implements IoStatisticsHolder {
 
     /** {@inheritDoc} */
     @Override public void trackPhysicalAndLogicalRead(long pageAddr) {
+        if(disableStat)
+            return;
+
         IndexPageType idxPageType = PageIO.deriveIndexPageType(pageAddr);
 
         switch (idxPageType) {

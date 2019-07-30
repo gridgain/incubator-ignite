@@ -24,6 +24,8 @@ import java.util.Map;
  * Holder of IO statistics.
  */
 public interface IoStatisticsHolder {
+    /** Disable io statistics key. */
+    public String DISABLE_IO_STATISTICS_KEY = "DISABLE_IO_STATISTICS";
 
     /**
      * Track logical read of given page.
