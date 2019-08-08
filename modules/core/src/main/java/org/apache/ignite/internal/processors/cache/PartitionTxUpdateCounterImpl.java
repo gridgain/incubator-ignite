@@ -28,13 +28,10 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.pagemem.wal.record.RollbackRecord;
-import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.datastreamer.DataStreamerImpl;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.X;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -85,30 +82,6 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
      * @deprecated TODO FIXME https://issues.apache.org/jira/browse/IGNITE-11794
      */
     @Deprecated private long initCntr;
-
-    private final CacheGroupContext grp;
-    private final int partId;
-    private final IgniteLogger log;
-
-    private Exception lastOp;
-    private Object lastOpCtx;
-
-    public PartitionTxUpdateCounterImpl() {
-        grp = null;
-        partId = -1;
-        log = null;
-    }
-
-    /**
-     * @param grp Group.
-     * @param partId Partition id.
-     */
-    public PartitionTxUpdateCounterImpl(CacheGroupContext grp, int partId) {
-        this.grp = grp;
-        this.partId = partId;
-
-        log = grp.cacheObjectContext().kernalContext().log(PartitionTxUpdateCounterImpl.class);
-    }
 
     /** {@inheritDoc} */
     @Override public void init(long initUpdCntr, @Nullable byte[] cntrUpdData) {
@@ -167,9 +140,6 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
             throw new IgniteCheckedException("Failed to update the counter [newVal=" + val + ", curState=" + this + ']');
 
         cntr.set(val);
-
-        lastOp = new Exception();
-        lastOpCtx = val;
 
         /** If some holes are present at this point, thar means some update were missed on recovery and will be restored
          * during rebalance. All gaps are safe to "forget".
@@ -241,12 +211,8 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
             Item peek = peek();
 
-            if (peek == null || peek.start != next) {
-                lastOp = new Exception();
-                lastOpCtx = get();
-
+            if (peek == null || peek.start != next)
                 return true;
-            }
 
             Item item = poll();
 
@@ -321,14 +287,7 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
         long reserved = reserveCntr.getAndAdd(delta);
 
-        if (reserved < cntr) {
-            log.info("DBG: before assert grpId=" + grp.groupId() + ", partId=" + partId + ", lastOpCtx=" + lastOpCtx + ", lastOp=" + (lastOp == null ? "NA" : X.getFullStackTrace(lastOp)));
-
-            //grp.cacheObjectContext().kernalContext().failure().
-            assert false : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved;
-        }
-
-        // assert reserved >= cntr : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved;
+        assert reserved >= cntr : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved;
 
         return reserved;
     }
