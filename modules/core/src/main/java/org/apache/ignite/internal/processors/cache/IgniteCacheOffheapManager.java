@@ -452,6 +452,8 @@ public interface IgniteCacheOffheapManager {
          */
         public boolean updateCounter(long start, long delta);
 
+        public boolean updateCounterDbg(long start, long delta, int dbg);
+
         /**
          * @return Next update counter.
          */

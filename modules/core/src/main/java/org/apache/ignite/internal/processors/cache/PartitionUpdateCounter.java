@@ -31,6 +31,18 @@ import org.jetbrains.annotations.Nullable;
  * </ol>
  */
 public interface PartitionUpdateCounter extends Iterable<long[]> {
+    enum DebugCntr {
+        NEIGHBOR,
+        LOCAL_COMMIT,
+        LOCAL_ROLLBACK,
+        REMOTE_START_RACE_1,
+        REMOTE_START_RACE_2,
+        REMOTE_FINISH_REQ_ROLLBACK,
+        REMOTE_FINISH_REQ_COMMIT,
+        REMOTE_COMMIT,
+        REMOTE_ROLLBACK,
+    }
+
     /**
      * Restores update counter state.
      *
@@ -92,6 +104,8 @@ public interface PartitionUpdateCounter extends Iterable<long[]> {
      * @return {@code True} if update was actually applied.
      */
     public boolean update(long start, long delta);
+
+    public boolean update(long start, long delta, int dbg);
 
     /**
      * Reset counter internal state to zero.

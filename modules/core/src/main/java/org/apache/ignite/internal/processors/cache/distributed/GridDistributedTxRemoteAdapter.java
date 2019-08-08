@@ -51,6 +51,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheReturnCompletableWra
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.GridCacheUpdateTxResult;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheEntry;
@@ -796,7 +797,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
 
                             // Apply update counters.
                             if (txCntrs != null)
-                                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCntrs.updateCounters());
+                                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCntrs.updateCounters(), false, false, PartitionUpdateCounter.DebugCntr.REMOTE_COMMIT.ordinal());
                             else if (!near()){
                                 for (IgniteTxEntry entry : writeMap.values()) {
                                     GridCacheContext ctx0 = cctx.cacheContext(entry.cacheId());
@@ -805,7 +806,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
 
                                     GridDhtLocalPartition locPart = top.localPartition(entry.cached().partition());
 
-                                    locPart.updateCounter(entry.updateCounter() - 1, 1);
+                                    locPart.updateCounterDbg(entry.updateCounter() - 1, 1, PartitionUpdateCounter.DebugCntr.REMOTE_COMMIT.ordinal());
                                 }
                             }
 
@@ -958,7 +959,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                 TxCounters counters = txCounters(false);
 
                 if (counters != null)
-                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(counters.updateCounters(), true, false);
+                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(counters.updateCounters(), true, false, PartitionUpdateCounter.DebugCntr.REMOTE_ROLLBACK.ordinal());
 
                 state(ROLLED_BACK);
             }

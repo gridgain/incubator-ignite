@@ -80,6 +80,10 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
         }
     }
 
+    @Override public boolean update(long start, long delta, int dbg) {
+        return update(start, delta);
+    }
+
     /** {@inheritDoc} */
     @Override public synchronized void updateInitial(long start, long delta) {
         update(start + delta);

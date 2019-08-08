@@ -28,6 +28,7 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.pagemem.wal.record.RollbackRecord;
 import org.apache.ignite.internal.processors.datastreamer.DataStreamerImpl;
 import org.apache.ignite.internal.util.GridLongList;
@@ -77,11 +78,26 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
     /** */
     private boolean first = true;
 
+    int grpId;
+    int partId;
+
+    private IgniteLogger log;
+
     /**
      * Initial counter points to last sequential update after WAL recovery.
      * @deprecated TODO FIXME https://issues.apache.org/jira/browse/IGNITE-11794
      */
     @Deprecated private long initCntr;
+
+    private int dbg;
+
+    public PartitionTxUpdateCounterImpl(int grpId, int partId) {
+        this.grpId = grpId;
+        this.partId = partId;
+    }
+
+    public PartitionTxUpdateCounterImpl() {
+    }
 
     /** {@inheritDoc} */
     @Override public void init(long initUpdCntr, @Nullable byte[] cntrUpdData) {
@@ -126,8 +142,8 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
         // Always set reserved counter equal to max known counter.
         long max = Math.max(val, cur);
 
-        if (reserveCntr.get() < max)
-            reserveCntr.set(max);
+        //if (reserveCntr.get() < max)
+            reserveCntr.set(val);
 
         // Outdated counter (txs are possible before current topology future is finished if primary is not changed).
         if (val < cur)
@@ -224,6 +240,12 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
         }
     }
 
+    @Override public boolean update(long start, long delta, int dbg) {
+        this.dbg = dbg;
+
+        return update(start, delta);
+    }
+
     /** {@inheritDoc} */
     @Override public void updateInitial(long start, long delta) {
         update(start, delta);
@@ -287,7 +309,7 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
         long reserved = reserveCntr.getAndAdd(delta);
 
-        assert reserved >= cntr : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved;
+        assert reserved >= cntr : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved + ", grpId=" + grpId + ", partId=" + partId + ", dbg=" + DebugCntr.values()[dbg];
 
         return reserved;
     }

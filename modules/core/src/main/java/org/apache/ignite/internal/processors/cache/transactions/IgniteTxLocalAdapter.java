@@ -38,6 +38,7 @@ import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.InvalidEnvironmentException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
+import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
@@ -905,7 +906,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 }
 
                 if (txCounters != null) {
-                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters());
+                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), false, false, PartitionUpdateCounter.DebugCntr.LOCAL_COMMIT.ordinal());
 
                     for (IgniteTxEntry entry : commitEntries) {
                         if (entry.cqNotifyClosure() != null)
@@ -1084,7 +1085,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
             TxCounters txCounters = txCounters(false);
 
             if (txCounters != null)
-                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), true, true);
+                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), true, true, PartitionUpdateCounter.DebugCntr.LOCAL_ROLLBACK.ordinal());
 
             cctx.tm().rollbackTx(this, clearThreadMap, skipCompletedVersions());
 

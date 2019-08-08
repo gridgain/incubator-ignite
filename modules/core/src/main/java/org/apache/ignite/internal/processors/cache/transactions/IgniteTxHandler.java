@@ -41,6 +41,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheReturnCompletableWrapper;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryFuture;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryRequest;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryResponse;
@@ -1340,7 +1341,7 @@ public class IgniteTxHandler {
             finish(nodeId, dhtTx, req);
         else {
             try {
-                applyPartitionsUpdatesCounters(req.updateCounters(), !req.commit(), false);
+                applyPartitionsUpdatesCounters(req.updateCounters(), !req.commit(), false, req.commit() ? PartitionUpdateCounter.DebugCntr.REMOTE_FINISH_REQ_COMMIT.ordinal() : PartitionUpdateCounter.DebugCntr.REMOTE_FINISH_REQ_ROLLBACK.ordinal());
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
@@ -1687,7 +1688,7 @@ public class IgniteTxHandler {
                     if (log.isDebugEnabled())
                         log.debug("Attempt to start a completed transaction (will ignore): " + tx);
 
-                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false);
+                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false, PartitionUpdateCounter.DebugCntr.REMOTE_START_RACE_1.ordinal());
 
                     return null;
                 }
@@ -1699,7 +1700,7 @@ public class IgniteTxHandler {
 
                     ctx.tm().uncommitTx(tx);
 
-                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false);
+                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false, PartitionUpdateCounter.DebugCntr.REMOTE_START_RACE_2.ordinal());
 
                     return null;
                 }
@@ -2040,7 +2041,7 @@ public class IgniteTxHandler {
      */
     private void processPartitionCountersRequest(UUID nodeId, PartitionCountersNeighborcastRequest req) {
         try {
-            applyPartitionsUpdatesCounters(req.updateCounters(), true, false);
+            applyPartitionsUpdatesCounters(req.updateCounters(), true, false, PartitionUpdateCounter.DebugCntr.NEIGHBOR.ordinal());
         }
         catch (IgniteCheckedException e) {
             throw new IgniteException(e);
@@ -2076,14 +2077,6 @@ public class IgniteTxHandler {
     }
 
     /**
-     * @param counters Counters.
-     */
-    public void applyPartitionsUpdatesCounters(Iterable<PartitionUpdateCountersMessage> counters)
-        throws IgniteCheckedException {
-        applyPartitionsUpdatesCounters(counters, false, false);
-    }
-
-    /**
      * Applies partition counter updates for transactions.
      *
      * @param counters Counter values to be updated.
@@ -2091,7 +2084,8 @@ public class IgniteTxHandler {
      */
     public void applyPartitionsUpdatesCounters(Iterable<PartitionUpdateCountersMessage> counters,
         boolean rollback,
-        boolean rollbackOnPrimary) throws IgniteCheckedException {
+        boolean rollbackOnPrimary,
+        int dbg) throws IgniteCheckedException {
         if (counters == null)
             return;
 
@@ -2116,7 +2110,7 @@ public class IgniteTxHandler {
                                 long start = counter.initialCounter(i);
                                 long delta = counter.updatesCount(i);
 
-                                boolean updated = part.updateCounter(start, delta);
+                                boolean updated = part.updateCounterDbg(start, delta, dbg);
 
                                 // Need to log rolled back range for logical recovery.
                                 if (updated && rollback) {
