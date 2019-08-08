@@ -41,6 +41,7 @@ public class PartitionTxUpdateCounterDebugWrapper extends PartitionTxUpdateCount
      * @param partId Part id.
      */
     public PartitionTxUpdateCounterDebugWrapper(CacheGroupContext grp, int partId) {
+        super(grp, partId);
         this.log = grp.shared().logger(getClass());
         this.partId = partId;
         this.grp = grp;

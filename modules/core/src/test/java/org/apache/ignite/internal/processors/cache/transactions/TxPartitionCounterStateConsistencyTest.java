@@ -32,6 +32,8 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.ignite.Ignite;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
@@ -247,6 +250,85 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         doRandomUpdates(r, prim, primaryKeys, cache, stop).get();
         fut.get();
+
+        assertPartitionsSame(idleVerify(prim, DEFAULT_CACHE_NAME));
+    }
+
+    /**
+     * Test primary-backup partitions consistency while restarting random backup nodes under load.
+     */
+    public void testPartitionConsistencyWithBackupsRestart2() throws Exception {
+        backups = 2;
+
+        final int srvNodes = SERVER_NODES + 1; // Add one non-owner node to test to increase entropy.
+
+        Ignite prim = startGrids(srvNodes);
+
+        prim.cluster().active(true);
+
+        IgniteCache<Object, Object> cache = prim.cache(DEFAULT_CACHE_NAME);
+
+        long stop = U.currentTimeMillis() + 3 * 60_000;
+
+        long seed = System.nanoTime();
+
+        log.info("Seed: " + seed);
+
+        Random r = new Random(seed);
+
+        assertTrue(prim == grid(0));
+
+        Ignite client = startGrid("client");
+
+        IgniteInternalFuture<?> fut = multithreadedAsync(() -> {
+            doSleep(2_000);
+
+            while (U.currentTimeMillis() < stop) {
+                Ignite restartNode = grid(SERVER_NODES);
+
+                assertTrue(!restartNode.configuration().isClientMode());
+
+                String name = restartNode.name();
+
+                stopGrid(true, name);
+
+                try {
+                    doSleep(5_000);
+
+                    startGrid(name);
+
+                    try {
+                        awaitPartitionMapExchange();
+                    }
+                    catch (Throwable e) {
+                        // No-op.
+                    }
+                }
+                catch (Exception e) {
+                    fail(X.getFullStackTrace(e));
+                }
+            }
+        }, 1, "node-restarter");
+
+        IgniteInternalFuture<?> fut2 = multithreadedAsync(new Runnable() {
+            @Override public void run() {
+                while (U.currentTimeMillis() < stop) {
+                    Ignite client = null;
+                    try {
+                        client = startGrid("client2");
+                    }
+                    catch (Exception e) {
+                        fail(X.getFullStackTrace(e));
+                    }
+
+                    client.close();
+                }
+            }
+        }, 1, "client-start-stop");
+
+        doRandomUpdates(r, client, null, cache, stop).get();
+        fut.get();
+        fut2.get();
 
         assertPartitionsSame(idleVerify(prim, DEFAULT_CACHE_NAME));
     }
@@ -688,10 +770,16 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         assertPartitionsSame(idleVerify(crd, DEFAULT_CACHE_NAME));
 
+        try (Transaction tx = client.transactions().txStart()) {
+            cache.put(key0, key0 + 1); // clientFirst=false in lockAll.
+
+            tx.commit();
+        }
+
         // Expect correct reservation counters.
-        PartitionUpdateCounter cntr = counter(key, grid(0).name());
-        assertNotNull(cntr);
-        assertEquals(cntr.toString(), 2, cntr.reserved());
+//        PartitionUpdateCounter cntr = counter(key, grid(1).name());
+//        assertNotNull(cntr);
+//        assertEquals(cntr.toString(), 2, cntr.reserved());
     }
 
     /**
@@ -893,35 +981,46 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         LongAdder puts = new LongAdder();
         LongAdder removes = new LongAdder();
 
+        if (primaryKeys == null)
+            primaryKeys = IntStream.range(0, 1024).boxed().collect(Collectors.toList());
+
+        final List<Integer> finalPrimaryKeys = primaryKeys;
+
         final int max = 100;
 
         return multithreadedAsync(() -> {
             while (U.currentTimeMillis() < stop) {
-                int rangeStart = r.nextInt(primaryKeys.size() - max);
+                int rangeStart = r.nextInt(finalPrimaryKeys.size() - max);
                 int range = 5 + r.nextInt(max - 5);
 
-                List<Integer> keys = primaryKeys.subList(rangeStart, rangeStart + range);
+                List<Integer> keys = finalPrimaryKeys.subList(rangeStart, rangeStart + range);
 
                 try (Transaction tx = near.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0)) {
-                    List<Integer> insertedKeys = new ArrayList<>();
+                    //List<Integer> insertedKeys = new ArrayList<>();
 
+                    LinkedHashMap<Integer, Integer> collect = new LinkedHashMap<Integer, Integer>();
                     for (Integer key : keys) {
-                        cache.put(key, key);
-                        insertedKeys.add(key);
-
-                        puts.increment();
-
-                        boolean rmv = r.nextFloat() < 0.4;
-                        if (rmv) {
-                            key = insertedKeys.get(r.nextInt(insertedKeys.size()));
-
-                            cache.remove(key);
-
-                            insertedKeys.remove(key);
-
-                            removes.increment();
-                        }
+                        collect.put(key, key);
                     }
+
+                    cache.putAll(collect);
+
+                    //for (Integer key : keys) {
+                      //  insertedKeys.add(key);
+
+                        puts.add(collect.size());
+
+//                        boolean rmv = r.nextFloat() < 0.1;
+//                        if (rmv) {
+//                            key = insertedKeys.get(r.nextInt(insertedKeys.size()));
+//
+//                            cache.remove(key);
+//
+//                            insertedKeys.remove(key);
+//
+//                            removes.increment();
+//                        }
+                    //}
 
                     tx.commit();
                 }
