@@ -91,9 +91,10 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
     private int dbg;
 
-    public PartitionTxUpdateCounterImpl(int grpId, int partId) {
+    public PartitionTxUpdateCounterImpl(int grpId, int partId, IgniteLogger log) {
         this.grpId = grpId;
         this.partId = partId;
+        this.log = log;
     }
 
     public PartitionTxUpdateCounterImpl() {
@@ -102,6 +103,8 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
     /** {@inheritDoc} */
     @Override public void init(long initUpdCntr, @Nullable byte[] cntrUpdData) {
         cntr.set(initUpdCntr);
+
+        dbg = PartitionUpdateCounter.DebugCntr.INIT.ordinal();
 
         reserveCntr.set(initCntr = initUpdCntr);
 
@@ -129,6 +132,8 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
     @Override public long next() {
         long next = cntr.incrementAndGet();
 
+        dbg = DebugCntr.NEXT.ordinal();
+
         reserveCntr.set(next);
 
         return next;
@@ -142,8 +147,8 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
         // Always set reserved counter equal to max known counter.
         long max = Math.max(val, cur);
 
-        //if (reserveCntr.get() < max)
-            reserveCntr.set(val);
+        if (reserveCntr.get() < max)
+            reserveCntr.set(max);
 
         // Outdated counter (txs are possible before current topology future is finished if primary is not changed).
         if (val < cur)
@@ -157,6 +162,11 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
         cntr.set(val);
 
+        long reserved = reserveCntr.get();
+        assert reserved >= val : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved + ", grpId=" + grpId + ", partId=" + partId + ", dbg=" + DebugCntr.VALUES[dbg];
+
+        dbg = DebugCntr.PME.ordinal();
+
         /** If some holes are present at this point, thar means some update were missed on recovery and will be restored
          * during rebalance. All gaps are safe to "forget".
          * Should only do it for first PME (later missed updates on node left are reset in {@link #finalizeUpdateCounters}. */
@@ -169,7 +179,7 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean update(long start, long delta) {
+    @Override public synchronized boolean update(long start, long delta, int dbg) {
         long cur = cntr.get(), next;
 
         if (cur > start)
@@ -227,8 +237,14 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
             Item peek = peek();
 
-            if (peek == null || peek.start != next)
+            if (peek == null || peek.start != next) {
+                this.dbg = dbg;
+
+                if (reserveCntr.get() < next && (dbg == DebugCntr.LOCAL_COMMIT.ordinal() || dbg == DebugCntr.LOCAL_ROLLBACK.ordinal()))
+                    log.error("DBG: illegal counter grpId=" + grpId + ", partId=" + partId + ", cntr=" + this.toString(), new Exception());
+
                 return true;
+            }
 
             Item item = poll();
 
@@ -240,15 +256,9 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
         }
     }
 
-    @Override public boolean update(long start, long delta, int dbg) {
-        this.dbg = dbg;
-
-        return update(start, delta);
-    }
-
     /** {@inheritDoc} */
     @Override public void updateInitial(long start, long delta) {
-        update(start, delta);
+        update(start, delta, PartitionUpdateCounter.DebugCntr.RECOVERY.ordinal());
 
         initCntr = get();
 
@@ -295,6 +305,8 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
             // Close pending ranges.
             cntr.set(item.start + item.delta);
 
+            this.dbg = PartitionUpdateCounter.DebugCntr.FINALIZE.ordinal();
+
             item = poll();
         }
 
@@ -309,14 +321,18 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
         long reserved = reserveCntr.getAndAdd(delta);
 
-        assert reserved >= cntr : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved + ", grpId=" + grpId + ", partId=" + partId + ", dbg=" + DebugCntr.values()[dbg];
+        assert reserved >= cntr : "LWM after HWM: lwm=" + cntr + ", hwm=" + reserved + ", grpId=" + grpId + ", partId=" + partId + ", dbg=" + DebugCntr.VALUES[dbg];
 
         return reserved;
     }
 
     /** {@inheritDoc} */
     @Override public long next(long delta) {
-        return cntr.getAndAdd(delta);
+        long tmp = cntr.getAndAdd(delta);
+
+        dbg = PartitionUpdateCounter.DebugCntr.NEXTDELTA.ordinal();
+
+        return tmp;
     }
 
     /** {@inheritDoc} */
@@ -390,6 +406,8 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
     /** {@inheritDoc} */
     @Override public synchronized void reset() {
         cntr.set(0);
+
+        dbg = PartitionUpdateCounter.DebugCntr.RESET.ordinal();
 
         reserveCntr.set(0);
 

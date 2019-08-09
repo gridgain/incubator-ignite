@@ -450,7 +450,7 @@ public interface IgniteCacheOffheapManager {
          * @param start Start.
          * @param delta Delta.
          */
-        public boolean updateCounter(long start, long delta);
+        //public boolean updateCounter(long start, long delta);
 
         public boolean updateCounterDbg(long start, long delta, int dbg);
 

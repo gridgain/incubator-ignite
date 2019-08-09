@@ -1093,9 +1093,9 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
      * @param start Start position
      * @param delta Delta.
      */
-    public boolean updateCounter(long start, long delta) {
-        return store.updateCounter(start, delta);
-    }
+//    public boolean updateCounter(long start, long delta) {
+//        return store.updateCounter(start, delta);
+//    }
 
     public boolean updateCounterDbg(long start, long delta, int dbg) {
         return store.updateCounterDbg(start, delta, dbg);

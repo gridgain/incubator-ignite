@@ -41,6 +41,15 @@ public interface PartitionUpdateCounter extends Iterable<long[]> {
         REMOTE_FINISH_REQ_COMMIT,
         REMOTE_COMMIT,
         REMOTE_ROLLBACK,
+        PME,
+        NEXT,
+        RESET,
+        NEXTDELTA,
+        INIT,
+        RECOVERY,
+        FINALIZE;
+
+        public static DebugCntr[] VALUES = values();
     }
 
     /**
@@ -103,7 +112,7 @@ public interface PartitionUpdateCounter extends Iterable<long[]> {
      * @param delta Delta.
      * @return {@code True} if update was actually applied.
      */
-    public boolean update(long start, long delta);
+    //public boolean update(long start, long delta);
 
     public boolean update(long start, long delta, int dbg);
 

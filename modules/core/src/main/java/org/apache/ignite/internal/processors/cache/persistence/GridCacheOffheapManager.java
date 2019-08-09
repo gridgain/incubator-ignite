@@ -2134,16 +2134,16 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
         }
 
         /** {@inheritDoc} */
-        @Override public boolean updateCounter(long start, long delta) {
-            try {
-                CacheDataStore delegate0 = init0(false);
-
-                return delegate0 != null && delegate0.updateCounter(start, delta);
-            }
-            catch (IgniteCheckedException e) {
-                throw new IgniteException(e);
-            }
-        }
+//        @Override public boolean updateCounter(long start, long delta) {
+//            try {
+//                CacheDataStore delegate0 = init0(false);
+//
+//                return delegate0 != null && delegate0.updateCounter(start, delta);
+//            }
+//            catch (IgniteCheckedException e) {
+//                throw new IgniteException(e);
+//            }
+//        }
 
         @Override public boolean updateCounterDbg(long start, long delta, int dbg) {
             try {

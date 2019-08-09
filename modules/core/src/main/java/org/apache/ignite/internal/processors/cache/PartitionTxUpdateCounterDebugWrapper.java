@@ -41,8 +41,8 @@ public class PartitionTxUpdateCounterDebugWrapper extends PartitionTxUpdateCount
      * @param partId Part id.
      */
     public PartitionTxUpdateCounterDebugWrapper(CacheGroupContext grp, int partId) {
-        super(grp.groupId(), partId);
-        this.log = grp.shared().logger(getClass());
+        super(grp.groupId(), partId, grp.shared().logger(PartitionTxUpdateCounterImpl.class));
+        this.log = grp.shared().logger(PartitionTxUpdateCounterDebugWrapper.class);
         this.partId = partId;
         this.grp = grp;
     }
@@ -184,20 +184,43 @@ public class PartitionTxUpdateCounterDebugWrapper extends PartitionTxUpdateCount
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public synchronized boolean update(long start, long delta) {
+//    /** {@inheritDoc} */
+//    @Override public synchronized boolean update(long start, long delta) {
+//        SB sb = new SB();
+//
+//        sb.a("[op=update" +
+//            ", grpId=" + grp.groupId() +
+//            ", partId=" + partId +
+//            ", delta=(" + start + "," + delta + ")" +
+//            ", before=" + toString());
+//
+//        boolean updated = false;
+//
+//        try {
+//            updated = super.update(start, delta);
+//        }
+//        finally {
+//            log.debug(sb.a(", after=" + toString() +
+//                ']').toString());
+//        }
+//
+//        return updated;
+//    }
+
+    @Override public boolean update(long start, long delta, int dbg) {
         SB sb = new SB();
 
         sb.a("[op=update" +
             ", grpId=" + grp.groupId() +
             ", partId=" + partId +
+            ", dbg=" + dbg +
             ", delta=(" + start + "," + delta + ")" +
             ", before=" + toString());
 
         boolean updated = false;
 
         try {
-            updated = super.update(start, delta);
+            updated = super.update(start, delta, dbg);
         }
         finally {
             log.debug(sb.a(", after=" + toString() +
@@ -205,9 +228,5 @@ public class PartitionTxUpdateCounterDebugWrapper extends PartitionTxUpdateCount
         }
 
         return updated;
-    }
-
-    @Override public boolean update(long start, long delta, int dbg) {
-        return update(start, delta);
     }
 }

@@ -106,7 +106,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
             PartitionUpdateCounter pc0 = new PartitionTxUpdateCounterImpl();
 
             for (int[] pair : tmp)
-                pc0.update(pair[0], pair[1]);
+                pc0.update(pair[0], pair[1], 0);
 
             if (pc == null)
                 pc = pc0;
@@ -127,14 +127,14 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
     public void testStaleUpdate() {
         PartitionUpdateCounter pc = new PartitionTxUpdateCounterImpl();
 
-        assertTrue(pc.update(0, 1));
-        assertFalse(pc.update(0, 1));
+        assertTrue(pc.update(0, 1, 0));
+        assertFalse(pc.update(0, 1, 0));
 
-        assertTrue(pc.update(2, 1));
-        assertFalse(pc.update(2, 1));
+        assertTrue(pc.update(2, 1, 0));
+        assertFalse(pc.update(2, 1, 0));
 
-        assertTrue(pc.update(1, 1));
-        assertFalse(pc.update(1, 1));
+        assertTrue(pc.update(1, 1, 0));
+        assertFalse(pc.update(1, 1, 0));
     }
 
     /**
@@ -166,7 +166,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
                     if (reserved == null)
                         continue;
 
-                    pc.update(reserved[0], reserved[1]);
+                    pc.update(reserved[0], reserved[1], 0);
                 }
             }
         }, Runtime.getRuntime().availableProcessors() * 2, "updater-thread");
@@ -196,11 +196,11 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
         int i;
         for (i = 1; i <= PartitionTxUpdateCounterImpl.MAX_MISSED_UPDATES; i++)
-            pc.update(i * 3, i * 3 + 1);
+            pc.update(i * 3, i * 3 + 1, 0);
 
         i++;
         try {
-            pc.update(i * 3, i * 3 + 1);
+            pc.update(i * 3, i * 3 + 1, 0);
 
             fail();
         }
@@ -215,13 +215,13 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
     public void testFoldIntermediateUpdates() {
         PartitionUpdateCounter pc = new PartitionTxUpdateCounterImpl();
 
-        pc.update(0, 59);
+        pc.update(0, 59, 0);
 
-        pc.update(60, 5);
+        pc.update(60, 5, 0);
 
-        pc.update(67, 3);
+        pc.update(67, 3, 0);
 
-        pc.update(65, 2);
+        pc.update(65, 2, 0);
 
         Iterator<long[]> it = pc.iterator();
 
@@ -229,7 +229,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
         assertFalse(it.hasNext());
 
-        pc.update(59, 1);
+        pc.update(59, 1, 0);
 
         assertTrue(pc.sequential());
     }
@@ -240,11 +240,11 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
     public void testOutOfOrderUpdatesIterator() {
         PartitionUpdateCounter pc = new PartitionTxUpdateCounterImpl();
 
-        pc.update(67, 3);
+        pc.update(67, 3, 0);
 
-        pc.update(1, 58);
+        pc.update(1, 58, 0);
 
-        pc.update(60, 5);
+        pc.update(60, 5, 0);
 
         Iterator<long[]> iter = pc.iterator();
 
@@ -272,13 +272,13 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
     public void testOverlap() {
         PartitionUpdateCounter pc = new PartitionTxUpdateCounterImpl();
 
-        assertTrue(pc.update(13, 3));
+        assertTrue(pc.update(13, 3, 0));
 
-        assertTrue(pc.update(6, 7));
+        assertTrue(pc.update(6, 7, 0));
 
-        assertFalse(pc.update(13, 3));
+        assertFalse(pc.update(13, 3, 0));
 
-        assertFalse(pc.update(6, 7));
+        assertFalse(pc.update(6, 7, 0));
 
         Iterator<long[]> iter = pc.iterator();
         assertTrue(iter.hasNext());

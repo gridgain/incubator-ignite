@@ -1180,7 +1180,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 pCntr = new PartitionAtomicUpdateCounterImpl();
             else {
                 pCntr = ctx.logger(PartitionTxUpdateCounterDebugWrapper.class).isDebugEnabled() ?
-                    new PartitionTxUpdateCounterDebugWrapper(grp, partId) : new PartitionTxUpdateCounterImpl(grp.groupId(), partId);
+                    new PartitionTxUpdateCounterDebugWrapper(grp, partId) : new PartitionTxUpdateCounterImpl(grp.groupId(), partId, ctx.logger(PartitionTxUpdateCounterImpl.class));
             }
         }
 
@@ -1323,10 +1323,10 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             }
         }
 
-        /** {@inheritDoc} */
-        @Override public boolean updateCounter(long start, long delta) {
-            return pCntr.update(start, delta);
-        }
+//        /** {@inheritDoc} */
+//        @Override public boolean updateCounter(long start, long delta) {
+//            return pCntr.update(start, delta);
+//        }
 
         @Override public boolean updateCounterDbg(long start, long delta, int dbg) {
             return pCntr.update(start, delta, dbg);

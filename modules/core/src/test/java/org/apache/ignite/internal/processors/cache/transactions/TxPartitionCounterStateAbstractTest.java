@@ -99,7 +99,7 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
     protected int backups;
 
     /** */
-    public static final int TEST_TIMEOUT = 30_000;
+    public static final int TEST_TIMEOUT = 30_000 * 10;
 
     /** */
     private AtomicReference<Throwable> testFailed = new AtomicReference<>();
@@ -116,6 +116,9 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
+
+        cfg.setFailureDetectionTimeout(1000000000L);
+        cfg.setClientFailureDetectionTimeout(1000000000L);
 
         cfg.setConsistentId("node" + igniteInstanceName);
         cfg.setFailureHandler(new StopNodeFailureHandler());

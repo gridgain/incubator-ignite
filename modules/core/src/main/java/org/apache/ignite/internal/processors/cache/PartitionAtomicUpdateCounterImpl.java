@@ -68,7 +68,7 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
     }
 
     /** {@inheritDoc} */
-    @Override public boolean update(long start, long delta) {
+    private boolean update(long start, long delta) {
         long cur, val = start + delta;
 
         while(true) {
