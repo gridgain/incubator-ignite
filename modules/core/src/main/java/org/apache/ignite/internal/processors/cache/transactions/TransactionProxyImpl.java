@@ -28,6 +28,7 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
+import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.util.future.IgniteFinishedFutureImpl;
 import org.apache.ignite.internal.util.future.IgniteFutureImpl;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
@@ -302,6 +303,19 @@ public class TransactionProxyImpl<K, V> implements TransactionProxy, Externaliza
                 commitFut.get();
         }
         catch (IgniteCheckedException e) {
+            if (e instanceof IgniteTxRollbackCheckedException && e.getMessage().contains("Topology is not valid")) {
+                // Dump topology.
+                StringBuilder b = new StringBuilder();
+                b.append("DBG: bad topology tx=" + tx);
+
+                for (IgniteTxKey key : tx.txState().writeSet()) {
+                    b.append("key=" + key.toString() + ", primNode=" + cctx.affinity().affinity(key.cacheId()).cachedAffinity(tx.topologyVersionSnapshot()).assignment().get(key.key().partition()));
+                    b.append("\n");
+                }
+
+                tx.log().error("DBG: bad topology " + b.toString());
+            }
+
             throw U.convertException(e);
         }
         finally {

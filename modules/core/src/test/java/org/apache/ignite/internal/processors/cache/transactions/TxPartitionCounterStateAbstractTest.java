@@ -165,7 +165,7 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
-        //cleanPersistenceDir();
+        cleanPersistenceDir();
     }
 
     /** {@inheritDoc} */
@@ -174,7 +174,7 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
 
         stopAllGrids();
 
-        //cleanPersistenceDir();
+        cleanPersistenceDir();
     }
 
     /**

@@ -58,6 +58,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
@@ -74,6 +75,8 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionRollbackException;
 
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IGNITE_INSTANCE_NAME;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.MOVING;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.OWNING;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
@@ -147,6 +150,54 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
             checkWAL((IgniteEx)ignite, new LinkedList<>(ops), 6);
         }
+    }
+
+    public void testRollback() throws Exception {
+        backups = 2;
+
+        Ignite prim = startGrids(SERVER_NODES);
+
+        prim.cluster().active(true);
+
+        Ignite client = startGrid("client");
+
+        doTestRollback(grid(0), 0);
+//        doTestRollback(grid(1), 0);
+//        doTestRollback(grid(2), 0);
+//        doTestRollback(client, 0);
+    }
+
+    private void doTestRollback(Ignite node, int idx) throws Exception {
+        int k0 = primaryKeys(grid(0).cache(DEFAULT_CACHE_NAME), 1).get(0);
+        int k1 = primaryKeys(grid(1).cache(DEFAULT_CACHE_NAME), 1).get(0);
+        Integer k2 = primaryKeys(grid(2).cache(DEFAULT_CACHE_NAME), 1).get(0);
+
+        assertTrue(k0 != k1 && k1 != k2);
+
+        grid(idx).cachex(DEFAULT_CACHE_NAME).context().group().topology().localPartition(k0).setState(MOVING);
+
+        IgniteCache<Object, Object> cache = node.cache(DEFAULT_CACHE_NAME);
+
+        try(Transaction tx = node.transactions().txStart()) {
+            LinkedHashMap map = new LinkedHashMap();
+            map.put(k0, k0);
+            map.put(k1, k1);
+            map.put(k2, k2);
+
+            cache.putAll(map);
+
+            tx.commit();
+
+            fail();
+        }
+        catch (TransactionRollbackException e) {
+            // Expected.
+        }
+        catch (Exception e) {
+            fail(X.getFullStackTrace(e));
+        }
+
+        grid(idx).cachex(DEFAULT_CACHE_NAME).context().group().topology().localPartition(k0).setState(OWNING);
     }
 
     /**
