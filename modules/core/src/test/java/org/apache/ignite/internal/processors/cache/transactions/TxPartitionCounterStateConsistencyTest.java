@@ -32,12 +32,15 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.cluster.ClusterTopologyException;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
@@ -59,8 +62,11 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLock
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.tcp.BlockTcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
@@ -694,6 +700,113 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         assertEquals(cntr.toString(), 2, cntr.reserved());
     }
 
+    public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeLeft_LateAffinitySwitch() throws Exception {
+        backups = 2;
+
+        Ignite crd = startGrid(0);
+        startGrid(1);
+        startGrid(2);
+
+        crd.cluster().active(true);
+
+        Ignite client = startGrid("client");
+
+        IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
+
+        if (cache.size() == 0) {
+            try (IgniteDataStreamer<Object, Object> streamer = crd.dataStreamer(DEFAULT_CACHE_NAME)) {
+                // Put one key per partition.
+                for (int k = 0; k < PARTS_CNT * 1000; k++)
+                    streamer.addData(k, 0);
+            }
+        }
+
+        Random r = new Random();
+
+        final int max = 1000;
+        final int maxBatch = 10;
+
+        List<Integer> primaryKeys = partitionKeys(crd.cache(DEFAULT_CACHE_NAME), r.nextInt(PARTS_CNT), max, 0);
+
+        AtomicBoolean stop = new AtomicBoolean();
+
+        IgniteInternalFuture<?> fut = multithreadedAsync(() -> {
+            while (!stop.get()) {
+                int rangeStart = r.nextInt(primaryKeys.size() - maxBatch);
+                int range = 1 + r.nextInt(maxBatch - 1);
+
+                List<Integer> keys = primaryKeys.subList(rangeStart, rangeStart + range);
+
+                List<Ignite> grids = G.allGrids();
+
+                Ignite node = grids.get(r.nextInt(grids.size()));
+
+                try (Transaction tx = node.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0)) {
+                    Map<Integer, Integer> map = new LinkedHashMap<>();
+
+                    for (Integer key : keys)
+                        cache.put(key, key);
+
+                    cache.putAll(map);
+
+                    for (Integer key : map.keySet()) {
+                        boolean rmv = r.nextFloat() < 0.1;
+
+                        if (rmv)
+                            cache.remove(key);
+                    }
+
+                    tx.commit();
+                }
+                catch (Exception e) {
+                    // No-op.
+                }
+            }
+
+        }, Runtime.getRuntime().availableProcessors() * 2, "tx-update-thread");
+
+//        IgniteInternalFuture<?> fut2 = multithreadedAsync(new Runnable() {
+//            @Override public void run() {
+//                while(!stop.get()) {
+//                    try {
+//                        Ignite client2 = startGrid("client2");
+//
+//                        client2.close();
+//                    }
+//                    catch (Exception e) {
+//                        fail(X.getFullStackTrace(e));
+//                    }
+//                }
+//            }
+//        }, 1, "client-restart");
+
+        int restartIdx = r.nextInt(3);
+        int stopIdx = r.nextInt(3);
+
+        while(stopIdx == restartIdx)
+            stopIdx = r.nextInt(3);
+
+        stopGrid(restartIdx);
+
+        doSleep(5_000);
+
+        startGrid(restartIdx);
+
+        stopGrid(stopIdx); // Will cancel and restart rebalance for grid(restartIdx)
+
+        stop.set(true);
+
+        fut.get();
+        //fut2.get();
+
+        awaitPartitionMapExchange();
+
+        for (Ignite ignite : G.allGrids()) {
+            for (int k = 0; k < PARTS_CNT; k++)
+                ignite.cache(DEFAULT_CACHE_NAME).put(k, k);
+        }
+    }
+
     /**
      * Tests tx load concurrently with PME for switching late affinity.
      * <p>
@@ -781,7 +894,11 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         sync.await();
 
         TestRecordingCommunicationSpi clientSpi = TestRecordingCommunicationSpi.spi(client);
-        clientSpi.blockMessages((node, msg) -> msg instanceof GridNearLockRequest);
+        clientSpi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message message) {
+                return message instanceof GridNearLockRequest && node.order() != 1;
+            }
+        });
 
         IgniteInternalFuture txFut = GridTestUtils.runAsync(new Runnable() {
             @Override public void run() {

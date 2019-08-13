@@ -117,9 +117,12 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
+        cfg.setFailureDetectionTimeout(100000000L);
+        cfg.setClientFailureDetectionTimeout(100000000L);
+
         cfg.setConsistentId("node" + igniteInstanceName);
         cfg.setFailureHandler(new StopNodeFailureHandler());
-        cfg.setRebalanceThreadPoolSize(4); // Necessary to reproduce some issues.
+        //cfg.setRebalanceThreadPoolSize(1); // Necessary to reproduce some issues.
 
         ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(IP_FINDER);
 
@@ -162,7 +165,7 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
-        cleanPersistenceDir();
+        //cleanPersistenceDir();
     }
 
     /** {@inheritDoc} */
@@ -171,7 +174,7 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
 
         stopAllGrids();
 
-        cleanPersistenceDir();
+        //cleanPersistenceDir();
     }
 
     /**
