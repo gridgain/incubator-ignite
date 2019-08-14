@@ -181,6 +181,19 @@ public class TestRecordingCommunicationSpi extends TcpCommunicationSpi {
     }
 
     /**
+     * @return List of blocked messages.
+     */
+    public List<T2<ClusterNode, GridIoMessage>> blockedMessages() {
+        List<T2<ClusterNode, GridIoMessage>> ret;
+
+        synchronized (this) {
+            ret = new ArrayList<>(blockedMsgs);
+        }
+
+        return ret;
+    }
+
+    /**
      * @param cls Message class.
      * @param nodeName Node name.
      * @throws InterruptedException If interrupted.

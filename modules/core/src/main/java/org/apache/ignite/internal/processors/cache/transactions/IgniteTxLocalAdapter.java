@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.io.Externalizable;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +41,7 @@ import org.apache.ignite.internal.InvalidEnvironmentException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
@@ -159,6 +162,10 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
     /** */
     protected CacheWriteSynchronizationMode syncMode;
+
+    public GridCacheVersion mappedVer;
+    public Date prepareTs;
+    public GridNearTxPrepareRequest req;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -499,7 +506,10 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                             part.primary(top.readyTopologyVersion());
 
                         if (!valid) {
-                            throw new AssertionError("Invalid primary mapping [tx=" + CU.txString(this) +
+                            throw new AssertionError("Invalid primary mapping [tx=" + this +
+                                ", mappedVer=" + mappedVer +
+                                ", prepareTs=" + (prepareTs == null ? "NA" : new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(prepareTs)) +
+                                ", req=" + req +
                                 ", readyTopVer=" + top.readyTopologyVersion() +
                                 ", lostParts=" + top.lostPartitions() +
                                 ", part=" + (part == null ? "NULL" : part.toString()) + ']');

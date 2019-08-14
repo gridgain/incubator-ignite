@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
@@ -523,6 +524,10 @@ public class IgniteTxHandler {
         }
 
         if (tx != null) {
+            tx.mappedVer = mappedVer;
+            tx.prepareTs = new Date();
+            tx.req = req;
+
             req.txState(tx.txState());
 
             if (req.explicitLock())

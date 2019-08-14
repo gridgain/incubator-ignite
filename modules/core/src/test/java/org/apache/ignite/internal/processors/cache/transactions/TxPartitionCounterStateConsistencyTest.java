@@ -32,9 +32,11 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
@@ -46,12 +48,14 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
+import org.apache.ignite.internal.managers.communication.GridIoMessage;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
 import org.apache.ignite.internal.pagemem.wal.record.DataRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheAffinityChangeMessage;
 import org.apache.ignite.internal.processors.cache.CacheEntryInfoCollection;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
@@ -60,6 +64,8 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Gri
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
@@ -67,6 +73,7 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.tcp.BlockTcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
@@ -856,6 +863,163 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             for (int k = 0; k < PARTS_CNT; k++)
                 ignite.cache(DEFAULT_CACHE_NAME).put(k, k);
         }
+    }
+
+    public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeLeft_LateAffinitySwitch2() throws Exception {
+        backups = 2;
+
+        Ignite crd = startGrid(0);
+        IgniteEx g1 = startGrid(1);
+
+        crd.cluster().active(true);
+
+        Ignite client = startGrid("client");
+
+        // Same name pattern as in test configuration.
+        String consistentId = "node" + getTestIgniteInstanceName(2);
+
+        List<Integer> crdKeys = primaryKeys(crd.cache(DEFAULT_CACHE_NAME), 10);
+        List<Integer> movingFromCrd = movingKeysAfterJoin(crd, DEFAULT_CACHE_NAME, 10, null, consistentId);
+
+        crdKeys.removeAll(movingFromCrd);
+
+        IgniteEx g2 = startGrid(2);
+        resetBaselineTopology();
+        awaitPartitionMapExchange();
+
+        stopGrid(2);
+
+        // Preload data to trigger rebalance.
+        IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
+
+        try (IgniteDataStreamer<Object, Object> streamer = crd.dataStreamer(DEFAULT_CACHE_NAME)) {
+            // Put one key per partition.
+            for (int k = 0; k < PARTS_CNT; k++)
+                streamer.addData(k, 0);
+        }
+
+        TestRecordingCommunicationSpi crdSpi = TestRecordingCommunicationSpi.spi(crd);
+
+        crdSpi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message msg) {
+                return msg instanceof GridDhtPartitionSupplyMessage;
+            }
+        });
+
+        TestRecordingCommunicationSpi g1Spi = TestRecordingCommunicationSpi.spi(g1);
+        g1Spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message msg) {
+                return msg instanceof GridDhtPartitionSupplyMessage;
+            }
+        });
+
+        startGrid(2);
+
+        crdSpi.waitForBlocked();
+        g1Spi.waitForBlocked();
+
+        final AffinityTopologyVersion g1LeftTopVer = new AffinityTopologyVersion(7, 0);
+
+        g1.close();
+        crdSpi.stopBlock(true, new IgnitePredicate<T2<ClusterNode, GridIoMessage>>() {
+            @Override public boolean apply(T2<ClusterNode, GridIoMessage> objects) {
+                GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)objects.get2().message();
+
+                if (msg.topologyVersion().equals(g1LeftTopVer))
+                    return false;
+
+                return true;
+            }
+        }, false, true);
+
+        GridTestUtils.waitForCondition(new GridAbsPredicate() {
+            @Override public boolean apply() {
+                for (T2<ClusterNode, GridIoMessage> objects : crdSpi.blockedMessages()) {
+                    GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)objects.get2().message();
+
+                    if (msg.topologyVersion().equals(g1LeftTopVer))
+                        return true;
+                }
+
+                return false;
+            }
+        }, 5_000);
+
+        Ignite client2 = startGrid("client2");
+        client2.close();
+
+        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message msg) {
+                if (msg instanceof GridNearTxPrepareRequest) {
+                    GridNearTxPrepareRequest r = (GridNearTxPrepareRequest)msg;
+
+                    return r.writes().stream().anyMatch(new Predicate<IgniteTxEntry>() {
+                        @Override public boolean test(IgniteTxEntry entry) {
+                            return entry.key().partition() == movingFromCrd.get(1);
+                        }
+                    });
+                }
+
+                return false;
+            }
+        });
+
+        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
+            @Override public void run() {
+                try(Transaction tx = client.transactions().txStart()) {
+                    LinkedHashMap m = new LinkedHashMap();
+
+                    m.put(movingFromCrd.get(0), 0);
+                    m.put(crdKeys.get(0), 0);
+                    m.put(movingFromCrd.get(1), 0);
+
+                    client.cache(DEFAULT_CACHE_NAME).putAll(m);
+
+//                    try {
+//                        startGrid("client2");
+//                    }
+//                    catch (Exception e) {
+//                        fail();
+//                    }
+//
+//                    crdSpi.stopBlock();
+//
+//                    try {
+//                        awaitPartitionMapExchange();
+//                    }
+//                    catch (Exception e) {
+//                        fail(X.getFullStackTrace(e));
+//                    }
+
+                    tx.commit();
+                }
+            }
+        }, 1, "tx");
+
+        IgniteInternalFuture<?> fut2 = multithreadedAsync(new Runnable() {
+            @Override public void run() {
+                try {
+                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
+                    spi.waitForBlocked();
+
+                    startGrid("client2");
+
+                    crdSpi.stopBlock();
+
+                    awaitPartitionMapExchange();
+
+                    System.out.println();
+                }
+                catch (Exception e) {
+                    fail();
+                }
+
+                System.out.println();
+            }
+        }, 1, "zzz");
+
+        txFut.get();
+        fut2.get();
     }
 
     /**
