@@ -459,11 +459,16 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             compatibilityMode = false;
 
         if (state.transition()) {
+            log.info("[!] Transition. [state=" + state + "]");
+
             if (isApplicable(msg, state)) {
                 GridChangeGlobalStateFuture fut = changeStateFuture(msg);
 
-                if (fut != null)
+                if (fut != null) {
+                    log.info("[!] State change is already in process. [fut=" + fut + "]");
+
                     fut.onDone(concurrentStateChangeError(msg.activate()));
+                }
             }
             else {
                 final GridChangeGlobalStateFuture stateFut = changeStateFuture(msg);
@@ -602,6 +607,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
     @Nullable private GridChangeGlobalStateFuture changeStateFuture(UUID initiatorNode, UUID reqId) {
         assert initiatorNode != null;
         assert reqId != null;
+
+        log.info("[!] Requesting state change future. [reqId=" + reqId + ", initiatorNode=" + initiatorNode + "]");
 
         if (initiatorNode.equals(ctx.localNodeId())) {
             GridChangeGlobalStateFuture fut = stateChangeFut.get();
@@ -842,6 +849,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             return fut;
         }
 
+        log.info("[!] Processing change global state request. [activate=" + activate + "]");
+
         if (cacheProc.transactions().tx() != null || sharedCtx.lockedTopologyVersion(null) != null) {
             return new GridFinishedFuture<>(new IgniteCheckedException("Failed to " + prettyStr(activate) +
                 " cluster (must invoke the method outside of an active transaction)."));
@@ -863,6 +872,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             if (stateChangeFut.compareAndSet(null, fut)) {
                 startedFut = fut;
 
+                log.info("[!] Already started future found, reusing it. [startedFut=" + startedFut + "]");
+
                 break;
             }
             else
@@ -870,6 +881,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
         }
 
         if (startedFut == null) {
+            log.info("[!] Registered new state change future. [fut=" + fut + "]");
+
             if (fut.activate != activate) {
                 return new GridFinishedFuture<>(new IgniteCheckedException("Failed to " + prettyStr(activate) +
                     ", because another state change operation is currently in progress: " + prettyStr(fut.activate)));
@@ -1233,6 +1246,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
         assert reqId != null;
         assert initNodeId != null;
 
+        log.info("[!] Finish global state change on exchange finish.");
+
         GridChangeGlobalStateMessageResponse res = new GridChangeGlobalStateMessageResponse(reqId, ex);
 
         try {
@@ -1273,15 +1288,24 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
 
         final GridChangeGlobalStateFuture fut = stateChangeFut.get();
 
+        log.info("[!] Processing activation response. [stateChangeFut=" + fut + "]");
+
         if (fut != null && requestId.equals(fut.requestId)) {
-            if (fut.initFut.isDone())
+            if (fut.initFut.isDone()) {
+                log.info("[!] Init future is done. [fut=" + fut + "]");
+
                 fut.onResponse(nodeId, msg);
+            }
             else {
+                log.info("[!] Init future is not done. [fut=" + fut + "]");
+
                 fut.initFut.listen(new CI1<IgniteInternalFuture<?>>() {
                     @Override public void apply(IgniteInternalFuture<?> f) {
                         // initFut is completed from discovery thread, process response from other thread.
                         ctx.getSystemExecutorService().execute(new Runnable() {
                             @Override public void run() {
+                                log.info("[!] Init future is done. [fut=" + fut + "]");
+
                                 fut.onResponse(nodeId, msg);
                             }
                         });
@@ -1289,6 +1313,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
                 });
             }
         }
+        else
+            log.info("[!] Received activation response with unexpected requestId. [msg=" + msg + "]");
     }
 
     /** */
@@ -1461,11 +1487,16 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
 
         /** {@inheritDoc} */
         @Override public boolean onDone(@Nullable Void res, @Nullable Throwable err) {
+            log.info("[!] Completing state change future. [fut=" + this + "]");
             if (super.onDone(res, err)) {
-                stateChangeFut.compareAndSet(this, null);
+                boolean cas = stateChangeFut.compareAndSet(this, null);
+
+                log.info("[!] Future completed successfully. [cas=" + cas + "]");
 
                 return true;
             }
+
+            log.info("[!] Future is not completed.");
 
             return false;
         }

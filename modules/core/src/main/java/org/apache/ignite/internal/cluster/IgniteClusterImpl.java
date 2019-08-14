@@ -312,9 +312,20 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         guard();
 
         try {
-            ctx.state().changeGlobalState(active, baselineNodes(), false).get();
+            IgniteInternalFuture<?> fut = ctx.state().changeGlobalState(active, baselineNodes(), false);
+
+            if (ctx != null)
+                ctx.log("[!] Waiting on the activation future: " + fut);
+
+            fut.get();
+
+            if (ctx != null)
+                ctx.log("[!] Activation future completed: " + fut);
         }
         catch (IgniteCheckedException e) {
+            if (ctx != null)
+                ctx.log("[!] Activation future failed.");
+
             throw U.convertException(e);
         }
         finally {
