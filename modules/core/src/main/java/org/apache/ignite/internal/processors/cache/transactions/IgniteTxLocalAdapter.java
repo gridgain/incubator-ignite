@@ -453,10 +453,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
      * Calculates partition update counters for current transaction. Each partition will be supplied with
      * pair (init, delta) values, where init - initial update counter, and delta - updates count made
      * by current transaction for a given partition.
-     *
-     * @return {@code} True if topology is valid for mapped transaction.
      */
-    public boolean calculatePartitionUpdateCounters() {
+    public void calculatePartitionUpdateCounters() {
         TxCounters counters = txCounters(false);
 
         if (counters != null && F.isEmpty(counters.updateCounters())) {
@@ -494,24 +492,18 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
                         GridDhtLocalPartition part = top.localPartition(p);
 
-                        // Verify the primary tx mapping.
+                        // Verify primary tx mapping.
                         // LOST state is possible if tx is started over LOST partition.
-                        boolean mappedToPrimary = part != null &&
+                        boolean valid = part != null &&
                             (part.state() == OWNING || part.state() == LOST) &&
-                            part.primary(topologyVersionSnapshot());
+                            part.primary(top.readyTopologyVersion());
 
-                        if (!mappedToPrimary) {
-                            log.error("DBG: wrong mapping: " + (part == null ?
-                                "map=" + top.partitionMap(false) + ", lost=" + top.lostPartitions() :
-                                "part=" + part.toString() + ", mappedTopVer=" + topologyVersionSnapshot()));
-
-                            return false;
+                        if (!valid) {
+                            throw new AssertionError("Invalid primary mapping [tx=" + CU.txString(this) +
+                                ", readyTopVer=" + top.readyTopologyVersion() +
+                                ", lostParts=" + top.lostPartitions() +
+                                ", part=" + (part == null ? "NULL" : part.toString()) + ']');
                         }
-
-//                        assert mappedToPrimary :
-//                            part == null ?
-//                                "map=" + top.partitionMap(false) + ", lost=" + top.lostPartitions() :
-//                                "part=" + part.toString();
 
                         msg.add(p, part.getAndIncrementUpdateCounter(cntr), cntr);
                     }
@@ -523,8 +515,6 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
             counters.updateCounters(cntrMsgs);
         }
-
-        return true;
     }
 
     /**

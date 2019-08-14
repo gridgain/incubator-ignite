@@ -695,12 +695,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
             }
 
             if (forceKeysFut == null || (forceKeysFut.isDone() && forceKeysFut.error() == null))
-                try {
-                    prepare0();
-                }
-                catch (IgniteTxRollbackCheckedException e) {
-                    onError(e);
-                }
+                prepare0();
             else {
                 forceKeysFut.listen(new CI1<IgniteInternalFuture<?>>() {
                     @Override public void apply(IgniteInternalFuture<?> f) {
@@ -1224,7 +1219,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
     /**
      *
      */
-    private void prepare0() throws IgniteTxRollbackCheckedException {
+    private void prepare0() {
         boolean error = false;
 
         try {
@@ -1295,10 +1290,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                 return;
 
             if (last) {
-                error = !tx.calculatePartitionUpdateCounters();
-
-                if (error)
-                    throw new IgniteTxRollbackCheckedException("Topology is not valid");
+                tx.calculatePartitionUpdateCounters();
 
                 sendPrepareRequests();
             }
