@@ -948,32 +948,36 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         Ignite client2 = startGrid("client2");
         client2.close();
 
-        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-            @Override public boolean apply(ClusterNode node, Message msg) {
-                if (msg instanceof GridNearTxPrepareRequest) {
-                    GridNearTxPrepareRequest r = (GridNearTxPrepareRequest)msg;
-
-                    return r.writes().stream().anyMatch(new Predicate<IgniteTxEntry>() {
-                        @Override public boolean test(IgniteTxEntry entry) {
-                            return entry.key().partition() == movingFromCrd.get(1);
-                        }
-                    });
-                }
-
-                return false;
-            }
-        });
+//        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+//            @Override public boolean apply(ClusterNode node, Message msg) {
+//                if (msg instanceof GridNearTxPrepareRequest) {
+//                    GridNearTxPrepareRequest r = (GridNearTxPrepareRequest)msg;
+//
+//                    return r.writes().stream().anyMatch(new Predicate<IgniteTxEntry>() {
+//                        @Override public boolean test(IgniteTxEntry entry) {
+//                            return entry.key().partition() == movingFromCrd.get(1);
+//                        }
+//                    });
+//                }
+//
+//                return false;
+//            }
+//        });
 
         IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
             @Override public void run() {
                 try(Transaction tx = client.transactions().txStart()) {
-                    LinkedHashMap m = new LinkedHashMap();
+                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
 
-                    m.put(movingFromCrd.get(0), 0);
-                    m.put(crdKeys.get(0), 0);
-                    m.put(movingFromCrd.get(1), 0);
+                    crdSpi.stopBlock();
 
-                    client.cache(DEFAULT_CACHE_NAME).putAll(m);
+                    doSleep(1000);
+
+                    client.cache(DEFAULT_CACHE_NAME).put(movingFromCrd.get(0), 0);
+
+                    doSleep(100000);
+
+                    //client.cache(DEFAULT_CACHE_NAME).putAll(m);
 
 //                    try {
 //                        startGrid("client2");
@@ -996,30 +1000,30 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             }
         }, 1, "tx");
 
-        IgniteInternalFuture<?> fut2 = multithreadedAsync(new Runnable() {
-            @Override public void run() {
-                try {
-                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
-                    spi.waitForBlocked();
-
-                    startGrid("client2");
-
-                    crdSpi.stopBlock();
-
-                    awaitPartitionMapExchange();
-
-                    System.out.println();
-                }
-                catch (Exception e) {
-                    fail();
-                }
-
-                System.out.println();
-            }
-        }, 1, "zzz");
+//        IgniteInternalFuture<?> fut2 = multithreadedAsync(new Runnable() {
+//            @Override public void run() {
+//                try {
+//                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
+//                    spi.waitForBlocked();
+//
+//                    startGrid("client2");
+//
+//                    crdSpi.stopBlock();
+//
+//                    awaitPartitionMapExchange();
+//
+//                    System.out.println();
+//                }
+//                catch (Exception e) {
+//                    fail();
+//                }
+//
+//                System.out.println();
+//            }
+//        }, 1, "zzz");
 
         txFut.get();
-        fut2.get();
+        //fut2.get();
     }
 
     /**

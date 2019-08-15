@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
@@ -88,6 +89,9 @@ public class GridNearLockRequest extends GridDistributedLockRequest {
 
     /** Transaction label. */
     private String txLbl;
+
+    @GridDirectTransient
+    public transient String log;
 
     /**
      * Empty constructor required for {@link Externalizable}.

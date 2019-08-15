@@ -167,6 +167,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
     public Date prepareTs;
     public GridNearTxPrepareRequest req;
 
+    public String dbglog;
+
     /**
      * Empty constructor required for {@link Externalizable}.
      */
@@ -512,6 +514,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                 ", req=" + req +
                                 ", readyTopVer=" + top.readyTopologyVersion() +
                                 ", lostParts=" + top.lostPartitions() +
+                                ", log=" + dbglog +
                                 ", part=" + (part == null ? "NULL" : part.toString()) + ']');
                         }
 

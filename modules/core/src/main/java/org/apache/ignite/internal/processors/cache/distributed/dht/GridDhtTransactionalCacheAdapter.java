@@ -1083,6 +1083,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             req.taskNameHash(),
                             req.txLabel());
 
+                        tx.dbglog = req.log;
+
                         if (req.syncCommit())
                             tx.syncMode(FULL_SYNC);
 
