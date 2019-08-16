@@ -869,6 +869,8 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
     }
 
     public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeLeft_LateAffinitySwitch2() throws Exception {
+        System.out.println(new SimpleDateFormat("dd.MM.yyyy HH:mm:ss.SSS").format(new Date(1565880746017L)));
+
         backups = 2;
 
         IgniteEx crd = startGrid(0);
@@ -970,27 +972,20 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         stopGrid("client2");
 
-        TestRecordingCommunicationSpi.spi(client).stopBlock();
-
         crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
         crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
 
         crdSpi.stopBlock();
 
-//        IgniteInternalFuture<?> wait = multithreadedAsync(new Runnable() {
-//            @Override public void run() {
-//                try {
-//                    crd.context().cache().context().exchange().l1.await();
-//                }
-//                catch (InterruptedException e) {
-//                    fail();
-//                }
-//            }
-//        }, 1, "wait");
+        crd.context().cache().context().exchange().l1.await();
+
+        TestRecordingCommunicationSpi.spi(client).stopBlock();
+
+        doSleep(5_000);
+
+        crd.context().cache().context().exchange().l2.countDown();
 
         txFut.get();
-        //wait.get();
-        //fut2.get();
     }
 
     /**
