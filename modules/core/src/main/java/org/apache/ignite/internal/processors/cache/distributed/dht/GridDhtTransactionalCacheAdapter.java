@@ -1099,7 +1099,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         tx.lastFinishVerMerge = f0.context().mergeExchanges();
 
                         GridDhtPartitionsExchangeFuture f1 = ctx.shared().exchange().lastTopologyFuture();
-                        tx.lastInitFut = f1.topologyVersion();
+                        tx.lastInitFut = f1.initialVersion();
                         tx.lastInitFutMerge = f1.context().mergeExchanges();
 
                         if (req.syncCommit())
