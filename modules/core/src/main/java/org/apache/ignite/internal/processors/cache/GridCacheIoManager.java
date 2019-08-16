@@ -232,7 +232,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                 if (locAffVer.compareTo(lastAffChangedVer) < 0) {
                     IgniteLogger log = cacheMsg.messageLogger(cctx);
 
-                    if (msg instanceof GridNearLockRequest) {
+                    if (log.isDebugEnabled()) {
                         StringBuilder msg0 = new StringBuilder("Received message has higher affinity topology version [");
 
                         appendMessageInfo(cacheMsg, nodeId, msg0);
@@ -242,11 +242,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                             append(", lastAffChangedVer=").append(lastAffChangedVer).
                             append(']');
 
-                        //log.debug(msg0.toString());
-
-                        GridNearLockRequest r = (GridNearLockRequest)msg;
-
-                        r.log = msg0.toString();
+                        log.debug(msg0.toString());
                     }
 
                     fut = cctx.exchange().affinityReadyFuture(lastAffChangedVer);
@@ -300,21 +296,6 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                 });
 
                 return;
-            }
-
-            if (msg instanceof GridNearLockRequest) {
-                GridNearLockRequest r = (GridNearLockRequest)msg;
-
-                StringBuilder msg0 = new StringBuilder("Process message [");
-
-                appendMessageInfo(cacheMsg, nodeId, msg0);
-
-                msg0.append(", locTopVer=").append(cctx.exchange().readyAffinityVersion()).
-                    append(", rmtTopVer=").append(rmtAffVer).
-                    append(", lastAffChangedVer=").append(lastAffChangedVer).
-                    append(']');
-
-                r.log = msg0.toString();
             }
 
             handleMessage(nodeId, cacheMsg, plc);

@@ -61,6 +61,7 @@ import org.apache.ignite.internal.processors.cache.CacheEntryInfoCollection;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
@@ -868,7 +869,7 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
     public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeLeft_LateAffinitySwitch2() throws Exception {
         backups = 2;
 
-        Ignite crd = startGrid(0);
+        IgniteEx crd = startGrid(0);
         IgniteEx g1 = startGrid(1);
 
         crd.cluster().active(true);
@@ -946,7 +947,7 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         }, 5_000);
 
         Ignite client2 = startGrid("client2");
-        client2.close();
+
 
 //        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
 //            @Override public boolean apply(ClusterNode node, Message msg) {
@@ -964,65 +965,48 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 //            }
 //        });
 
+        //CountDownLatch l = new CountDownLatch(1);
+
+        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message message) {
+                return message instanceof GridNearLockRequest;
+            }
+        });
+
         IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
             @Override public void run() {
                 try(Transaction tx = client.transactions().txStart()) {
                     client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
-
-                    crdSpi.stopBlock();
-
-                    doSleep(1000);
-
-                    client.cache(DEFAULT_CACHE_NAME).put(movingFromCrd.get(0), 0);
-
-                    doSleep(100000);
-
-                    //client.cache(DEFAULT_CACHE_NAME).putAll(m);
-
-//                    try {
-//                        startGrid("client2");
-//                    }
-//                    catch (Exception e) {
-//                        fail();
-//                    }
-//
-//                    crdSpi.stopBlock();
-//
-//                    try {
-//                        awaitPartitionMapExchange();
-//                    }
-//                    catch (Exception e) {
-//                        fail(X.getFullStackTrace(e));
-//                    }
 
                     tx.commit();
                 }
             }
         }, 1, "tx");
 
-//        IgniteInternalFuture<?> fut2 = multithreadedAsync(new Runnable() {
+        TestRecordingCommunicationSpi.spi(client).waitForBlocked();
+
+        stopGrid("client2");
+
+        TestRecordingCommunicationSpi.spi(client).stopBlock();
+
+//        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
+//        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
+
+        crdSpi.stopBlock();
+
+//        IgniteInternalFuture<?> wait = multithreadedAsync(new Runnable() {
 //            @Override public void run() {
 //                try {
-//                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
-//                    spi.waitForBlocked();
-//
-//                    startGrid("client2");
-//
-//                    crdSpi.stopBlock();
-//
-//                    awaitPartitionMapExchange();
-//
-//                    System.out.println();
+//                    crd.context().cache().context().exchange().l1.await();
 //                }
-//                catch (Exception e) {
+//                catch (InterruptedException e) {
 //                    fail();
 //                }
-//
-//                System.out.println();
 //            }
-//        }, 1, "zzz");
+//        }, 1, "wait");
 
         txFut.get();
+//        wait.get();
         //fut2.get();
     }
 

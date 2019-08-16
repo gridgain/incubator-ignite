@@ -90,9 +90,6 @@ public class GridNearLockRequest extends GridDistributedLockRequest {
     /** Transaction label. */
     private String txLbl;
 
-    @GridDirectTransient
-    public transient String log;
-
     /**
      * Empty constructor required for {@link Externalizable}.
      */

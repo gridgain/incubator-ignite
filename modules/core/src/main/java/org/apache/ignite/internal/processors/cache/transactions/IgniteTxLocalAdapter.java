@@ -167,7 +167,17 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
     public Date prepareTs;
     public GridNearTxPrepareRequest req;
 
-    public String dbglog;
+    public AffinityTopologyVersion checkVer;
+    public AffinityTopologyVersion remapExpVer;
+    public AffinityTopologyVersion remapCurVer;
+
+    public AffinityTopologyVersion lastFinishVer;
+    public boolean lastFinishVerMerge;
+
+    public AffinityTopologyVersion lastInitFut;
+    public boolean lastInitFutMerge;
+
+    public boolean merge;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -514,7 +524,13 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                 ", req=" + req +
                                 ", readyTopVer=" + top.readyTopologyVersion() +
                                 ", lostParts=" + top.lostPartitions() +
-                                ", log=" + dbglog +
+                                ", checkVer=" + checkVer +
+                                ", remapExpVer=" + remapExpVer +
+                                ", remapCurVer=" + remapCurVer +
+                                ", remapExpVer=" + lastFinishVer +
+                                ", remapCurVer=" + lastFinishVerMerge +
+                                ", remapExpVer=" + lastInitFut +
+                                ", remapCurVer=" + lastInitFutMerge +
                                 ", part=" + (part == null ? "NULL" : part.toString()) + ']');
                         }
 

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLo
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedUnlockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtInvalidPartitionException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
@@ -923,8 +924,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             if (!req.inTx()) {
                 GridDhtPartitionTopology top = null;
 
-            if (req.firstClientRequest()) {
-                assert nearNode.isClient();
+                if (req.firstClientRequest()) {
+                    assert nearNode.isClient();
 
                     top = topology();
 
@@ -937,14 +938,14 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     }
                 }
 
-            try {
-                if (top != null && needRemap(req.topologyVersion(), top.readyTopologyVersion())) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Client topology version mismatch, need remap lock request [" +
-                            "reqTopVer=" + req.topologyVersion() +
-                            ", locTopVer=" + top.readyTopologyVersion() +
-                            ", req=" + req + ']');
-                    }
+                try {
+                    if (top != null && needRemap(req.topologyVersion(), top.readyTopologyVersion())) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("Client topology version mismatch, need remap lock request [" +
+                                "reqTopVer=" + req.topologyVersion() +
+                                ", locTopVer=" + top.readyTopologyVersion() +
+                                ", req=" + req + ']');
+                        }
 
                         GridNearLockResponse res = sendClientLockRemapResponse(nearNode,
                             req,
@@ -1028,6 +1029,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 if (tx == null) {
                     GridDhtPartitionTopology top = null;
 
+                    AffinityTopologyVersion ver0 = null;
+
                     if (req.firstClientRequest()) {
                         assert nearNode.isClient();
 
@@ -1035,7 +1038,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
                         top.readLock();
 
-                        if (!top.topologyVersionFuture().isDone()) {
+                        GridDhtTopologyFuture future = top.topologyVersionFuture();
+
+                        ver0 = future.initialVersion();
+
+                        if (!future.isDone()) {
                             top.readUnlock();
 
                             return null;
@@ -1043,7 +1050,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     }
 
                     try {
-                        if (top != null && needRemap(req.topologyVersion(), top.readyTopologyVersion())) {
+                        AffinityTopologyVersion ver = top != null ? top.readyTopologyVersion() : null;
+                        if (top != null && needRemap(req.topologyVersion(), ver)) {
                             if (log.isDebugEnabled()) {
                                 log.debug("Client topology version mismatch, need remap lock request [" +
                                     "reqTopVer=" + req.topologyVersion() +
@@ -1083,7 +1091,16 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             req.taskNameHash(),
                             req.txLabel());
 
-                        tx.dbglog = req.log;
+                        tx.checkVer = ver0;
+                        tx.remapExpVer = req.topologyVersion();
+                        tx.remapCurVer = ver;
+                        GridDhtPartitionsExchangeFuture f0 = (GridDhtPartitionsExchangeFuture)ctx.shared().exchange().lastFinishedFuture();
+                        tx.lastFinishVer = f0.topologyVersion();
+                        tx.lastFinishVerMerge = f0.context().mergeExchanges();
+
+                        GridDhtPartitionsExchangeFuture f1 = ctx.shared().exchange().lastTopologyFuture();
+                        tx.lastInitFut = f1.topologyVersion();
+                        tx.lastInitFutMerge = f1.context().mergeExchanges();
 
                         if (req.syncCommit())
                             tx.syncMode(FULL_SYNC);
