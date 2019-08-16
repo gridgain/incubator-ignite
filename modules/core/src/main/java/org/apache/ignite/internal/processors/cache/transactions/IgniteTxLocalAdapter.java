@@ -522,15 +522,16 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                 ", mappedVer=" + mappedVer +
                                 ", prepareTs=" + (prepareTs == null ? "NA" : new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(prepareTs)) +
                                 ", req=" + req +
+                                ", firstReq=" + req.firstClientRequest() +
                                 ", readyTopVer=" + top.readyTopologyVersion() +
                                 ", lostParts=" + top.lostPartitions() +
                                 ", checkVer=" + checkVer +
                                 ", remapExpVer=" + remapExpVer +
                                 ", remapCurVer=" + remapCurVer +
-                                ", remapExpVer=" + lastFinishVer +
-                                ", remapCurVer=" + lastFinishVerMerge +
-                                ", remapExpVer=" + lastInitFut +
-                                ", remapCurVer=" + lastInitFutMerge +
+                                ", lastFinishVer=" + lastFinishVer +
+                                ", lastFinishVerMerge=" + lastFinishVerMerge +
+                                ", lastInitFut=" + lastInitFut +
+                                ", lastInitFutMerge=" + lastInitFutMerge +
                                 ", part=" + (part == null ? "NULL" : part.toString()) + ']');
                         }
 
