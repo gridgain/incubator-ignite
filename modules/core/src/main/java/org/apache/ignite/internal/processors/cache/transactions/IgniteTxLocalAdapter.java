@@ -172,12 +172,10 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
     public AffinityTopologyVersion remapCurVer;
 
     public AffinityTopologyVersion lastFinishVer;
-    public boolean lastFinishVerMerge;
+    public Boolean lastFinishVerMerge;
 
     public AffinityTopologyVersion lastInitFut;
-    public boolean lastInitFutMerge;
-
-    public boolean merge;
+    public Boolean lastInitFutMerge;
 
     /**
      * Empty constructor required for {@link Externalizable}.

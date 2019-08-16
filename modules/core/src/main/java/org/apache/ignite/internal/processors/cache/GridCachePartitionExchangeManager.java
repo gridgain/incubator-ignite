@@ -260,8 +260,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     /** Distributed latch manager. */
     private ExchangeLatchManager latchMgr;
 
-//    public volatile CountDownLatch l1;
-//    public volatile CountDownLatch l2;
+    public volatile CountDownLatch l1;
+    public volatile CountDownLatch l2;
 
     /** List of exchange aware components. */
     private final List<PartitionsExchangeAware> exchangeAwareComps = new ArrayList<>();

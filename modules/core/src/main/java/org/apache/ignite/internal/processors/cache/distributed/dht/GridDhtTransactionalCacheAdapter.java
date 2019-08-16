@@ -1095,12 +1095,12 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         tx.remapExpVer = req.topologyVersion();
                         tx.remapCurVer = ver;
                         GridDhtPartitionsExchangeFuture f0 = (GridDhtPartitionsExchangeFuture)ctx.shared().exchange().lastFinishedFuture();
-                        tx.lastFinishVer = f0.topologyVersion();
-                        tx.lastFinishVerMerge = f0.context().mergeExchanges();
+                        tx.lastFinishVer = f0 != null ? f0.topologyVersion() : null;
+                        tx.lastFinishVerMerge = f0 != null && f0.context() != null ? f0.context().mergeExchanges() : null;
 
                         GridDhtPartitionsExchangeFuture f1 = ctx.shared().exchange().lastTopologyFuture();
-                        tx.lastInitFut = f1.initialVersion();
-                        tx.lastInitFutMerge = f1.context().mergeExchanges();
+                        tx.lastInitFut = f1 != null ? f1.initialVersion() : null;
+                        tx.lastInitFutMerge = f1 != null && f1.context() != null ? f1.context().mergeExchanges() : null;
 
                         if (req.syncCommit())
                             tx.syncMode(FULL_SYNC);

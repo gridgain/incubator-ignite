@@ -420,7 +420,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      * @return Exchange context.
      */
     public ExchangeContext context() {
-        assert exchCtx != null : this;
+        //assert exchCtx != null : this;
 
         return exchCtx;
     }

@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -948,25 +950,6 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         Ignite client2 = startGrid("client2");
 
-
-//        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-//            @Override public boolean apply(ClusterNode node, Message msg) {
-//                if (msg instanceof GridNearTxPrepareRequest) {
-//                    GridNearTxPrepareRequest r = (GridNearTxPrepareRequest)msg;
-//
-//                    return r.writes().stream().anyMatch(new Predicate<IgniteTxEntry>() {
-//                        @Override public boolean test(IgniteTxEntry entry) {
-//                            return entry.key().partition() == movingFromCrd.get(1);
-//                        }
-//                    });
-//                }
-//
-//                return false;
-//            }
-//        });
-
-        //CountDownLatch l = new CountDownLatch(1);
-
         TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
             @Override public boolean apply(ClusterNode node, Message message) {
                 return message instanceof GridNearLockRequest;
@@ -989,8 +972,8 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         TestRecordingCommunicationSpi.spi(client).stopBlock();
 
-//        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
-//        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
+        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
+        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
 
         crdSpi.stopBlock();
 
@@ -1006,7 +989,7 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 //        }, 1, "wait");
 
         txFut.get();
-//        wait.get();
+        //wait.get();
         //fut2.get();
     }
 
