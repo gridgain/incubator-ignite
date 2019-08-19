@@ -972,18 +972,18 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         stopGrid("client2");
 
-        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
-        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
-
-        crdSpi.stopBlock();
-
-        crd.context().cache().context().exchange().l1.await();
-
-        TestRecordingCommunicationSpi.spi(client).stopBlock();
-
-        doSleep(5_000);
-
-        crd.context().cache().context().exchange().l2.countDown();
+//        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
+//        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
+//
+//        crdSpi.stopBlock();
+//
+//        crd.context().cache().context().exchange().l1.await();
+//
+//        TestRecordingCommunicationSpi.spi(client).stopBlock();
+//
+//        doSleep(5_000);
+//
+//        crd.context().cache().context().exchange().l2.countDown();
 
         txFut.get();
     }
