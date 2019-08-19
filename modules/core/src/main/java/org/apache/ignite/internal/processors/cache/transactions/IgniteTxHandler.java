@@ -524,10 +524,6 @@ public class IgniteTxHandler {
         }
 
         if (tx != null) {
-            tx.mappedVer = mappedVer;
-            tx.prepareTs = new Date();
-            tx.req = req;
-
             req.txState(tx.txState());
 
             if (req.explicitLock())

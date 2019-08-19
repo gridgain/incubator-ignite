@@ -1591,8 +1591,8 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
             return true;
 
         try {
-            List<List<ClusterNode>> aff1 = ctx.affinity().assignments(expVer);
-            List<List<ClusterNode>> aff2 = ctx.affinity().assignments(curVer);
+            List<List<ClusterNode>> aff1 = ctx.affinity().assignment(expVer).assignment();
+            List<List<ClusterNode>> aff2 = ctx.affinity().assignment(curVer).assignment();
 
             return !aff1.equals(aff2);
         }

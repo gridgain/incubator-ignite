@@ -41,6 +41,7 @@ import org.apache.ignite.internal.InvalidEnvironmentException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
@@ -163,9 +164,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
     /** */
     protected CacheWriteSynchronizationMode syncMode;
 
-    public GridCacheVersion mappedVer;
-    public Date prepareTs;
-    public GridNearTxPrepareRequest req;
+    public GridNearLockRequest firstReq;
 
     public AffinityTopologyVersion checkVer;
     public AffinityTopologyVersion remapExpVer;
@@ -517,10 +516,10 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
                         if (!valid) {
                             throw new AssertionError("Invalid primary mapping [tx=" + this +
-                                ", mappedVer=" + mappedVer +
-                                ", prepareTs=" + (prepareTs == null ? "NA" : new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(prepareTs)) +
-                                ", req=" + req +
-                                ", firstReq=" + req.firstClientRequest() +
+                                ", lockReq=" + firstReq +
+                                ", firstLockReq=" + firstReq.firstClientRequest() +
+                                ", rmtVer=" + firstReq.topologyVersion() +
+                                ", lastAffChangedVer=" + firstReq.lastAffinityChangedTopologyVersion() +
                                 ", readyTopVer=" + top.readyTopologyVersion() +
                                 ", lostParts=" + top.lostPartitions() +
                                 ", checkVer=" + checkVer +

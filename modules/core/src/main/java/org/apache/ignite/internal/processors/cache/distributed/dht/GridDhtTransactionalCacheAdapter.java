@@ -1091,6 +1091,9 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             req.taskNameHash(),
                             req.txLabel());
 
+                        if (req.firstClientRequest())
+                            tx.firstReq = req;
+
                         tx.checkVer = ver0;
                         tx.remapExpVer = req.topologyVersion();
                         tx.remapCurVer = ver;
