@@ -16,6 +16,10 @@
 
 package org.apache.ignite.cache;
 
+import java.util.Collections;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -28,21 +32,10 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
-import java.util.Collections;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  *
  */
-@RunWith(JUnit4.class)
 public class RebalanceAfterResettingLostPartitionTest extends GridCommonAbstractTest {
     /** Cache name. */
     private static final String CACHE_NAME = "cache" + UUID.randomUUID().toString();
@@ -50,17 +43,19 @@ public class RebalanceAfterResettingLostPartitionTest extends GridCommonAbstract
     /** Cache size */
     public static final int CACHE_SIZE = 10_000;
 
-    /** Stop all grids and cleanup persistence directory. */
-    @Before
-    public void before() throws Exception {
+    /** {@inheritDoc} */
+    @Override protected void beforeTest() throws Exception {
+        super.beforeTest();
+
         stopAllGrids();
 
         cleanPersistenceDir();
     }
 
-    /** Stop all grids and cleanup persistence directory. */
-    @After
-    public void after() throws Exception {
+    /** {@inheritDoc} */
+    @Override protected void afterTest() throws Exception {
+        super.afterTest();
+
         stopAllGrids();
 
         cleanPersistenceDir();
@@ -100,7 +95,6 @@ public class RebalanceAfterResettingLostPartitionTest extends GridCommonAbstract
      * @throws Exception if fail.
      */
     @SuppressWarnings("unchecked")
-    @Test
     public void testRebalanceAfterPartitionsWereLost() throws Exception {
         startGrids(2);
 
@@ -119,8 +113,8 @@ public class RebalanceAfterResettingLostPartitionTest extends GridCommonAbstract
 
         AtomicInteger msgCntr = new AtomicInteger();
 
-        TestRecordingCommunicationSpi.spi(ignite(0)).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-            @Override public boolean apply(ClusterNode clusterNode, Message msg) {
+        TestRecordingCommunicationSpi.spi(ignite(0)).blockMessages(
+            (IgniteBiPredicate<ClusterNode, Message>)(clusterNode, msg) -> {
                 if (msg instanceof GridDhtPartitionSupplyMessage &&
                     ((GridCacheGroupIdMessage)msg).groupId() == CU.cacheId(CACHE_NAME)) {
                     if (msgCntr.get() > 3)
@@ -130,8 +124,7 @@ public class RebalanceAfterResettingLostPartitionTest extends GridCommonAbstract
                 }
 
                 return false;
-            }
-        });
+            });
 
         // Starting second node again(with the same consistent id).
         startGrid(1);
