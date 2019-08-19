@@ -41,7 +41,9 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentV2;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheOperationContext;
 import org.apache.ignite.internal.processors.cache.EntryGetResult;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.CacheVersion
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetResponse;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
@@ -1575,14 +1578,21 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
      * @param curVer Current topology version.
      * @return {@code True} if cache affinity changed and operation should be remapped.
      */
-    protected final boolean needRemap(AffinityTopologyVersion expVer, AffinityTopologyVersion curVer) {
+    protected final boolean needRemap(AffinityTopologyVersion expVer, AffinityTopologyVersion curVer, GridNearLockRequest txReq) {
         if (curVer.equals(expVer))
             return false;
 
         AffinityTopologyVersion lastAffChangedTopVer = ctx.shared().exchange().lastAffinityChangedTopologyVersion(expVer);
 
-        if (curVer.compareTo(lastAffChangedTopVer) >= 0 && curVer.compareTo(expVer) <= 0)
+        if (txReq.firstClientRequest())
+            txReq.readLastAffChangedTopVer = lastAffChangedTopVer;
+
+        if (curVer.compareTo(lastAffChangedTopVer) >= 0 && curVer.compareTo(expVer) <= 0) {
+            if (txReq.firstClientRequest())
+                txReq.noNeedRemap1 = true;
+
             return false;
+        }
 
         Collection<ClusterNode> cacheNodes0 = ctx.discovery().cacheGroupAffinityNodes(ctx.groupId(), expVer);
         Collection<ClusterNode> cacheNodes1 = ctx.discovery().cacheGroupAffinityNodes(ctx.groupId(), curVer);
@@ -1591,10 +1601,18 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
             return true;
 
         try {
-            List<List<ClusterNode>> aff1 = ctx.affinity().assignment(expVer).assignment();
-            List<List<ClusterNode>> aff2 = ctx.affinity().assignment(curVer).assignment();
+            AffinityAssignment a0 = ctx.affinity().assignment(expVer, AffinityTopologyVersion.NONE);
+            AffinityAssignment a1 = ctx.affinity().assignment(curVer, AffinityTopologyVersion.NONE);
 
-            return !aff1.equals(aff2);
+            boolean eq = a0.assignment().equals(a1.assignment());
+
+            if (txReq.firstClientRequest()) {
+                txReq.a0 = new GridAffinityAssignmentV2(a0.topologyVersion(), a0.assignment(), a0.idealAssignment());
+                txReq.a1 = new GridAffinityAssignmentV2(a1.topologyVersion(), a1.assignment(), a1.idealAssignment());
+                txReq.mapsEqual = eq;
+            }
+
+            return !eq;
         }
         catch (IllegalStateException ignored) {
             return true;

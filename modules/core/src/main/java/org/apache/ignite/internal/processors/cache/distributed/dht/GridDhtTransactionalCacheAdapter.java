@@ -939,7 +939,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 }
 
                 try {
-                    if (top != null && needRemap(req.topologyVersion(), top.readyTopologyVersion())) {
+                    if (top != null && needRemap(req.topologyVersion(), top.readyTopologyVersion(), req)) {
                         if (log.isDebugEnabled()) {
                             log.debug("Client topology version mismatch, need remap lock request [" +
                                 "reqTopVer=" + req.topologyVersion() +
@@ -1051,7 +1051,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
                     try {
                         AffinityTopologyVersion ver = top != null ? top.readyTopologyVersion() : null;
-                        if (top != null && needRemap(req.topologyVersion(), ver)) {
+                        if (top != null && needRemap(req.topologyVersion(), ver, req)) {
                             if (log.isDebugEnabled()) {
                                 log.debug("Client topology version mismatch, need remap lock request [" +
                                     "reqTopVer=" + req.topologyVersion() +

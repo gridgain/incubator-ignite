@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -35,11 +36,16 @@ import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.failure.FailureContext;
 import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.InvalidEnvironmentException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
+import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
+import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
+import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentV2;
+import org.apache.ignite.internal.processors.affinity.HistoryAffinityAssignment;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
@@ -88,6 +94,7 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiClosure;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.thread.IgniteThread;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionDeadlockException;
@@ -510,17 +517,73 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
                         // Verify primary tx mapping.
                         // LOST state is possible if tx is started over LOST partition.
+                        AffinityTopologyVersion readyVer = top.readyTopologyVersion();
+
                         boolean valid = part != null &&
                             (part.state() == OWNING || part.state() == LOST) &&
-                            part.primary(top.readyTopologyVersion());
+                            part.primary(readyVer);
 
                         if (!valid) {
+                            if (part != null && part.state() == OWNING) {
+                                // Dumping assingment details.
+
+                                log.info("DBG: readLastAffChangedTopVer" + this.firstReq.readLastAffChangedTopVer);
+                                log.info("DBG: noNeedRemap1" + this.firstReq.noNeedRemap1);
+                                log.info("DBG: a0 topVer=" + this.firstReq.a0.topologyVersion());
+
+                                for (int i = 0; i < this.firstReq.a0.assignment().size(); i++) {
+                                    List<ClusterNode> nodes = this.firstReq.a0.assignment().get(i);
+
+                                    log.info("DBG: a0     p=" + i + ", nodes=" + F.transform(nodes, new IgniteClosure<ClusterNode, String>() {
+                                        @Override public String apply(ClusterNode node) {
+                                            return U.id8(node.id());
+                                        }
+                                    }));
+                                }
+
+                                log.info("DBG: a1 topVer=" + this.firstReq.a1.topologyVersion());
+                                for (int i = 0; i < this.firstReq.a1.assignment().size(); i++) {
+                                    List<ClusterNode> nodes = this.firstReq.a1.assignment().get(i);
+
+                                    log.info("DBG: a1     p=" + i + ", nodes=" + F.transform(nodes, new IgniteClosure<ClusterNode, String>() {
+                                        @Override public String apply(ClusterNode node) {
+                                            return U.id8(node.id());
+                                        }
+                                    }));
+                                }
+
+                                AffinityAssignment readyAss = part.group().affinity().cachedAffinity(readyVer);
+
+                                log.info("DBG: a2 topVer=" + readyAss.topologyVersion());
+                                for (int i = 0; i < readyAss.assignment().size(); i++) {
+                                    List<ClusterNode> nodes = readyAss.assignment().get(i);
+
+                                    log.info("DBG: a2     p=" + i + ", nodes=" + F.transform(nodes, new IgniteClosure<ClusterNode, String>() {
+                                        @Override public String apply(ClusterNode node) {
+                                            return U.id8(node.id());
+                                        }
+                                    }));
+                                }
+
+                                GridAffinityAssignmentCache cache = part.group().affinity();
+                                ConcurrentNavigableMap<AffinityTopologyVersion, HistoryAffinityAssignment> descMap = cache.affCache.descendingMap();
+                                GridAffinityAssignmentV2 v2 = cache.head.get();
+
+                                log.info("DBG: aff cache head=" + v2);
+
+                                for (Map.Entry<AffinityTopologyVersion, HistoryAffinityAssignment> entry : descMap.entrySet())
+                                    log.info("DBG: aff cache entry=" + entry.getValue());
+
+                                log.info("DBG: mapsEqual" + this.firstReq.mapsEqual);
+
+                            }
+
                             throw new AssertionError("Invalid primary mapping [tx=" + this +
                                 ", lockReq=" + firstReq +
                                 ", firstLockReq=" + firstReq.firstClientRequest() +
                                 ", rmtVer=" + firstReq.topologyVersion() +
                                 ", lastAffChangedVer=" + firstReq.lastAffinityChangedTopologyVersion() +
-                                ", readyTopVer=" + top.readyTopologyVersion() +
+                                ", readyTopVer=" + readyVer +
                                 ", lostParts=" + top.lostPartitions() +
                                 ", checkVer=" + checkVer +
                                 ", remapExpVer=" + remapExpVer +

@@ -86,7 +86,7 @@ public class GridAffinityAssignmentCache {
     private final int partsCnt;
 
     /** Affinity calculation results cache: topology version => partition => nodes. */
-    private final ConcurrentNavigableMap<AffinityTopologyVersion, HistoryAffinityAssignment> affCache;
+    public final ConcurrentNavigableMap<AffinityTopologyVersion, HistoryAffinityAssignment> affCache;
 
     /** */
     private List<List<ClusterNode>> idealAssignment;
@@ -98,7 +98,7 @@ public class GridAffinityAssignmentCache {
     private List<List<ClusterNode>> baselineAssignment;
 
     /** Cache item corresponding to the head topology version. */
-    private final AtomicReference<GridAffinityAssignmentV2> head;
+    public final AtomicReference<GridAffinityAssignmentV2> head;
 
     /** Ready futures. */
     private final ConcurrentMap<AffinityTopologyVersion, AffinityReadyFuture> readyFuts = new ConcurrentSkipListMap<>();

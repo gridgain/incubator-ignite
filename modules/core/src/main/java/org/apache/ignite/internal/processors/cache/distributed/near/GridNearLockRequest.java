@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentV2;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
@@ -89,6 +90,21 @@ public class GridNearLockRequest extends GridDistributedLockRequest {
 
     /** Transaction label. */
     private String txLbl;
+
+    @GridDirectTransient
+    public transient volatile AffinityTopologyVersion readLastAffChangedTopVer;
+
+    @GridDirectTransient
+    public transient volatile boolean noNeedRemap1;
+
+    @GridDirectTransient
+    public transient volatile GridAffinityAssignmentV2 a0;
+
+    @GridDirectTransient
+    public transient volatile GridAffinityAssignmentV2 a1;
+
+    @GridDirectTransient
+    public transient volatile boolean mapsEqual;
 
     /**
      * Empty constructor required for {@link Externalizable}.

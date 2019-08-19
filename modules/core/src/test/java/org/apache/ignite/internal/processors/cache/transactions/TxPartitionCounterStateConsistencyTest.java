@@ -57,9 +57,13 @@ import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
 import org.apache.ignite.internal.pagemem.wal.record.DataRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
+import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
+import org.apache.ignite.internal.processors.affinity.HistoryAffinityAssignment;
 import org.apache.ignite.internal.processors.cache.CacheAffinityChangeMessage;
 import org.apache.ignite.internal.processors.cache.CacheEntryInfoCollection;
+import org.apache.ignite.internal.processors.cache.GridCacheAffinityManager;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
@@ -869,8 +873,6 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
     }
 
     public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeLeft_LateAffinitySwitch2() throws Exception {
-        System.out.println(new SimpleDateFormat("dd.MM.yyyy HH:mm:ss.SSS").format(new Date(1565880746017L)));
-
         backups = 2;
 
         IgniteEx crd = startGrid(0);
@@ -952,30 +954,54 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         Ignite client2 = startGrid("client2");
 
-        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-            @Override public boolean apply(ClusterNode node, Message message) {
-                return message instanceof GridNearLockRequest;
-            }
-        });
+//        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+//            @Override public boolean apply(ClusterNode node, Message message) {
+//                return message instanceof GridNearLockRequest;
+//            }
+//        });
+//
+//        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
+//            @Override public void run() {
+//                try(Transaction tx = client.transactions().txStart()) {
+//                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
+//
+//                    tx.commit();
+//                }
+//            }
+//        }, 1, "tx");
 
-        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
-            @Override public void run() {
-                try(Transaction tx = client.transactions().txStart()) {
-                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
-
-                    tx.commit();
-                }
-            }
-        }, 1, "tx");
-
-        TestRecordingCommunicationSpi.spi(client).waitForBlocked();
+        //TestRecordingCommunicationSpi.spi(client).waitForBlocked();
 
         stopGrid("client2");
 
 //        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
 //        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
 //
-//        crdSpi.stopBlock();
+        crdSpi.stopBlock();
+
+        awaitPartitionMapExchange();
+
+        GridCacheAffinityManager affinity = crd.cachex(DEFAULT_CACHE_NAME).context().affinity();
+        GridAffinityAssignmentCache c0 = U.field(affinity, "aff");
+
+        log.info("DBG entry=" + c0.head.get());
+
+        for (Map.Entry<AffinityTopologyVersion, HistoryAffinityAssignment> entry : c0.affCache.descendingMap().entrySet())
+            log.info("DBG entry=" + entry);
+
+        List<List<ClusterNode>> a1 = affinity.assignments(new AffinityTopologyVersion(9, 0));
+        List<List<ClusterNode>> a2 = affinity.assignments(new AffinityTopologyVersion(9, 1));
+
+        boolean eq = a1.equals(a2);
+
+        AffinityAssignment assignment = c0.cachedAffinity(new AffinityTopologyVersion(9, 0));
+
+        try(Transaction tx = client.transactions().txStart()) {
+            client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
+
+            tx.commit();
+        }
+
 //
 //        crd.context().cache().context().exchange().l1.await();
 //
@@ -985,7 +1011,7 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 //
 //        crd.context().cache().context().exchange().l2.countDown();
 
-        txFut.get();
+        //txFut.get();
     }
 
     /**
