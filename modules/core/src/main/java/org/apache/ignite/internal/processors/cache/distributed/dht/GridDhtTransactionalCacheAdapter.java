@@ -703,18 +703,28 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     // so need to listen with timeout. This is not true for optimistic transactions.
                     topFut.listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
                         @Override public void apply(IgniteInternalFuture<AffinityTopologyVersion> fut) {
-                            ctx.kernalContext().closure().runLocalWithThreadPolicy(thread, new Runnable() {
-                                @Override public void run() {
-                                    try {
-                                        processNearLockRequest0(node, req);
-                                    }
-                                    finally {
-                                        ctx.io().onMessageProcessed(req);
-                                    }
-                                }
-                            });
+                            try {
+                                processNearLockRequest0(node, req);
+                            }
+                            finally {
+                                ctx.io().onMessageProcessed(req);
+                            }
+
+//                            ctx.kernalContext().closure().runLocalWithThreadPolicy(thread, new Runnable() {
+//                                @Override public void run() {
+//                                    try {
+//                                        processNearLockRequest0(node, req);
+//                                    }
+//                                    finally {
+//                                        ctx.io().onMessageProcessed(req);
+//                                    }
+//                                }
+//                            });
                         }
                     });
+
+                    if (topFut.topologyVersion().equals(new AffinityTopologyVersion(8, 1)) && ctx.localNode().order() == 1)
+                        ctx.kernalContext().cache().context().exchange().l2.countDown();
 
                     return true;
                 }

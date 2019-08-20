@@ -954,64 +954,34 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         Ignite client2 = startGrid("client2");
 
-//        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-//            @Override public boolean apply(ClusterNode node, Message message) {
-//                return message instanceof GridNearLockRequest;
-//            }
-//        });
-//
-//        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
-//            @Override public void run() {
-//                try(Transaction tx = client.transactions().txStart()) {
-//                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
-//
-//                    tx.commit();
-//                }
-//            }
-//        }, 1, "tx");
+        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message message) {
+                return message instanceof GridNearLockRequest;
+            }
+        });
 
-        //TestRecordingCommunicationSpi.spi(client).waitForBlocked();
+        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
+            @Override public void run() {
+                try(Transaction tx = client.transactions().txStart()) {
+                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
 
-        stopGrid("client2");
+                    tx.commit();
+                }
+            }
+        }, 1, "tx");
 
-//        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
-//        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
-//
+        TestRecordingCommunicationSpi.spi(client).waitForBlocked();
+
+        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
+        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
+
         crdSpi.stopBlock();
 
-        awaitPartitionMapExchange();
+        crd.context().cache().context().exchange().l1.await();
 
-        GridCacheAffinityManager affinity = crd.cachex(DEFAULT_CACHE_NAME).context().affinity();
-        GridAffinityAssignmentCache c0 = U.field(affinity, "aff");
+        TestRecordingCommunicationSpi.spi(client).stopBlock();
 
-        log.info("DBG entry=" + c0.head.get());
-
-        for (Map.Entry<AffinityTopologyVersion, HistoryAffinityAssignment> entry : c0.affCache.descendingMap().entrySet())
-            log.info("DBG entry=" + entry);
-
-        List<List<ClusterNode>> a1 = affinity.assignments(new AffinityTopologyVersion(9, 0));
-        List<List<ClusterNode>> a2 = affinity.assignments(new AffinityTopologyVersion(9, 1));
-
-        boolean eq = a1.equals(a2);
-
-        AffinityAssignment assignment = c0.cachedAffinity(new AffinityTopologyVersion(9, 0));
-
-        try(Transaction tx = client.transactions().txStart()) {
-            client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
-
-            tx.commit();
-        }
-
-//
-//        crd.context().cache().context().exchange().l1.await();
-//
-//        TestRecordingCommunicationSpi.spi(client).stopBlock();
-//
-//        doSleep(5_000);
-//
-//        crd.context().cache().context().exchange().l2.countDown();
-
-        //txFut.get();
+        txFut.get();
     }
 
     /**

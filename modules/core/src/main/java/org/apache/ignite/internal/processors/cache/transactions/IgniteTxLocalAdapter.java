@@ -527,8 +527,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                             if (part != null && part.state() == OWNING) {
                                 // Dumping assingment details.
 
-                                log.info("DBG: readLastAffChangedTopVer" + this.firstReq.readLastAffChangedTopVer);
-                                log.info("DBG: noNeedRemap1" + this.firstReq.noNeedRemap1);
+                                log.info("DBG: readLastAffChangedTopVer=" + this.firstReq.readLastAffChangedTopVer);
+                                log.info("DBG: noNeedRemap1=" + this.firstReq.noNeedRemap1);
                                 log.info("DBG: a0 topVer=" + this.firstReq.a0.topologyVersion());
 
                                 for (int i = 0; i < this.firstReq.a0.assignment().size(); i++) {
