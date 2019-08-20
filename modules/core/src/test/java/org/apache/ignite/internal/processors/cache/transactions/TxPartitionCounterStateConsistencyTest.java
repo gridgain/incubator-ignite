@@ -876,6 +876,8 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
     }
 
     public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeLeft_LateAffinitySwitch2() throws Exception {
+        // TODO setRebalanceThreadPoolSize(1) !!!!
+
         backups = 2;
 
         IgniteEx crd = startGrid(0);
@@ -910,9 +912,32 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         TestRecordingCommunicationSpi crdSpi = TestRecordingCommunicationSpi.spi(crd);
 
+        final AffinityTopologyVersion verrr = new AffinityTopologyVersion(6, 0);
+        final AffinityTopologyVersion g1LeftTopVer = new AffinityTopologyVersion(7, 0); // Affinity node left ver.
+
+        AtomicReference<Set<Integer>> full = new AtomicReference<>();
+
+        // Block supply message from crd except first.
         crdSpi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-            @Override public boolean apply(ClusterNode node, Message msg) {
-                return msg instanceof GridDhtPartitionSupplyMessage;
+            @Override public boolean apply(ClusterNode node, Message m) {
+                if (m instanceof GridDhtPartitionSupplyMessage) {
+                    GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)m;
+
+                    if (msg.topologyVersion().equals(verrr)) {
+                        if (full.get() == null) {
+                            full.set(msg.last().keySet());
+
+                            return false;
+                        }
+
+                        return true;
+                    }
+
+                    if (msg.topologyVersion().equals(g1LeftTopVer))
+                        return true;
+                }
+
+                return false;
             }
         });
 
@@ -928,29 +953,6 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         crdSpi.waitForBlocked();
         g1Spi.waitForBlocked();
 
-        final AffinityTopologyVersion g1LeftTopVer = new AffinityTopologyVersion(7, 0);
-
-        AtomicReference<Set<Integer>> full = new AtomicReference<>();
-
-        g1.close();
-        crdSpi.stopBlock(true, new IgnitePredicate<T2<ClusterNode, GridIoMessage>>() {
-            @Override public boolean apply(T2<ClusterNode, GridIoMessage> objects) {
-                GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)objects.get2().message();
-
-                if (msg.topologyVersion().equals(g1LeftTopVer)) {
-                    if (full.get() == null) {
-                        full.set(msg.last().keySet());
-
-                        return true;
-                    }
-
-                    return false;
-                }
-
-                return true;
-            }
-        }, false, true);
-
         // Wait partial owning.
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -965,6 +967,34 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             }
         }, 5_000);
 
+        g1.close();
+
+        // Release messages from prev version, they will be ignored.
+        crdSpi.stopBlock(true, new IgnitePredicate<T2<ClusterNode, GridIoMessage>>() {
+            @Override public boolean apply(T2<ClusterNode, GridIoMessage> objects) {
+                GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)objects.get2().message();
+
+                if (msg.topologyVersion().equals(g1LeftTopVer))
+                    return false;
+
+                return true;
+            }
+        }, false, true);
+
+        // Wait first message for new version.
+        GridTestUtils.waitForCondition(new GridAbsPredicate() {
+            @Override public boolean apply() {
+                for (T2<ClusterNode, GridIoMessage> objects : crdSpi.blockedMessages()) {
+                    GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)objects.get2().message();
+
+                    if (msg.topologyVersion().equals(g1LeftTopVer))
+                        return true;
+                }
+
+                return false;
+            }
+        }, 5_000);
+
         Ignite client2 = startGrid("client2");
         stopGrid("client2");
 
@@ -974,15 +1004,11 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 //            }
 //        });
 //
-//        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
-//            @Override public void run() {
-//                try(Transaction tx = client.transactions().txStart()) {
-//                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
-//
-//                    tx.commit();
-//                }
-//            }
-//        }, 1, "tx");
+        try(Transaction tx = client.transactions().txStart()) {
+            client.cache(DEFAULT_CACHE_NAME).put(6, 6);
+
+            tx.commit();
+        }
 //
 //        TestRecordingCommunicationSpi.spi(client).waitForBlocked();
 
