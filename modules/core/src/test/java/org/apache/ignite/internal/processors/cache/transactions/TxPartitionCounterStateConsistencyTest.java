@@ -76,6 +76,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.topology.Grid
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
@@ -83,6 +84,7 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.tcp.BlockTcpDiscoverySpi;
@@ -967,6 +969,17 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             }
         }, 5_000);
 
+//        for (int p = 0; p < PARTS_CNT; p++) {
+//            log.info("p=" +p + ", aff=" +
+//                F.transform(crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().head.get().get(p), new IgniteClosure<ClusterNode, String>() {
+//                    @Override public String apply(ClusterNode node) {
+//                        return grid(node).configuration().getIgniteInstanceName();
+//                    }
+//                }));
+//
+//
+//        }
+
         g1.close();
 
         // Release messages from prev version, they will be ignored.
@@ -1027,7 +1040,9 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             AffinityAssignment a2 = crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().cachedAffinity(new AffinityTopologyVersion(9, 0));
             AffinityAssignment a3 = crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().cachedAffinity(new AffinityTopologyVersion(9, 1));
 
-            if (a2.get(p).equals(a3.get(p)) && a2.get(p).get(0).order() != 1)
+            if (a2.get(p).equals(a3.get(p)) && a2.get(p).get(0).order() != 1 &&
+                crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().cachedAffinity(new AffinityTopologyVersion(6, 0)).get(p).get(0).order() == 1
+                )
                 System.out.println();
         }
 
