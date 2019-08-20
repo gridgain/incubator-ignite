@@ -2258,16 +2258,6 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 cctx.kernalContext().state().onStateChangeExchangeDone(exchActions.stateChangeRequest());
         });
 
-        if (cctx.exchange().l1 != null) {
-            cctx.exchange().l1.countDown();
-            try {
-                cctx.exchange().l2.await();
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
         if (super.onDone(res, err)) {
             afterLsnrCompleteFut.onDone();
 

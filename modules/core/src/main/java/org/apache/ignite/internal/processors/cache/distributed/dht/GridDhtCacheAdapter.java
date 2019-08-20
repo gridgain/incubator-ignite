@@ -1604,6 +1604,12 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
             AffinityAssignment a0 = ctx.affinity().assignment(expVer, AffinityTopologyVersion.NONE);
             AffinityAssignment a1 = ctx.affinity().assignment(curVer, AffinityTopologyVersion.NONE);
 
+            // Request is mapped on invalid primary, need remap.
+            for (KeyCacheObject object : txReq.keys()) {
+                if (!a1.assignment().get(object.partition()).get(0).isLocal())
+                    return true;
+            }
+
             boolean eq = a0.assignment().equals(a1.assignment());
 
             if (txReq.firstClientRequest()) {

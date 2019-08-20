@@ -28,10 +28,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Gri
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
@@ -901,8 +904,8 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         try (IgniteDataStreamer<Object, Object> streamer = crd.dataStreamer(DEFAULT_CACHE_NAME)) {
             // Put one key per partition.
-            for (int k = 0; k < PARTS_CNT; k++)
-                streamer.addData(k, 0);
+            for (int k = 0; k < PARTS_CNT * 500; k++)
+                streamer.addData(k, new byte[10]);
         }
 
         TestRecordingCommunicationSpi crdSpi = TestRecordingCommunicationSpi.spi(crd);
@@ -927,61 +930,87 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         final AffinityTopologyVersion g1LeftTopVer = new AffinityTopologyVersion(7, 0);
 
+        AtomicReference<Set<Integer>> full = new AtomicReference<>();
+
         g1.close();
         crdSpi.stopBlock(true, new IgnitePredicate<T2<ClusterNode, GridIoMessage>>() {
             @Override public boolean apply(T2<ClusterNode, GridIoMessage> objects) {
                 GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)objects.get2().message();
 
-                if (msg.topologyVersion().equals(g1LeftTopVer))
+                if (msg.topologyVersion().equals(g1LeftTopVer)) {
+                    if (full.get() == null) {
+                        full.set(msg.last().keySet());
+
+                        return true;
+                    }
+
                     return false;
+                }
 
                 return true;
             }
         }, false, true);
 
+        // Wait partial owning.
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
-                for (T2<ClusterNode, GridIoMessage> objects : crdSpi.blockedMessages()) {
-                    GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)objects.get2().message();
+                GridDhtPartitionTopology top = grid(2).cachex(DEFAULT_CACHE_NAME).context().topology();
 
-                    if (msg.topologyVersion().equals(g1LeftTopVer))
-                        return true;
+                for (Integer part : full.get()) {
+                    if (top.localPartition(part).state() != OWNING)
+                        return false;
                 }
 
-                return false;
+                return true;
             }
         }, 5_000);
 
         Ignite client2 = startGrid("client2");
+        stopGrid("client2");
 
-        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-            @Override public boolean apply(ClusterNode node, Message message) {
-                return message instanceof GridNearLockRequest;
-            }
-        });
+//        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+//            @Override public boolean apply(ClusterNode node, Message message) {
+//                return message instanceof GridNearLockRequest;
+//            }
+//        });
+//
+//        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
+//            @Override public void run() {
+//                try(Transaction tx = client.transactions().txStart()) {
+//                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
+//
+//                    tx.commit();
+//                }
+//            }
+//        }, 1, "tx");
+//
+//        TestRecordingCommunicationSpi.spi(client).waitForBlocked();
 
-        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
-            @Override public void run() {
-                try(Transaction tx = client.transactions().txStart()) {
-                    client.cache(DEFAULT_CACHE_NAME).put(crdKeys.get(0), 0);
-
-                    tx.commit();
-                }
-            }
-        }, 1, "tx");
-
-        TestRecordingCommunicationSpi.spi(client).waitForBlocked();
-
-        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
-        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
+//        crd.context().cache().context().exchange().l1 = new CountDownLatch(1);
+//        crd.context().cache().context().exchange().l2 = new CountDownLatch(1);
 
         crdSpi.stopBlock();
 
-        crd.context().cache().context().exchange().l1.await();
+        awaitPartitionMapExchange();
 
-        TestRecordingCommunicationSpi.spi(client).stopBlock();
+        // Find stable partition.
 
-        txFut.get();
+        for (int p = 0; p < PARTS_CNT; p++) {
+            AffinityAssignment a0 = crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().cachedAffinity(new AffinityTopologyVersion(7, 0));
+            AffinityAssignment a1 = crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().cachedAffinity(new AffinityTopologyVersion(8, 0));
+            AffinityAssignment a2 = crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().cachedAffinity(new AffinityTopologyVersion(9, 0));
+            AffinityAssignment a3 = crd.cachex(DEFAULT_CACHE_NAME).context().group().affinity().cachedAffinity(new AffinityTopologyVersion(9, 1));
+
+            if (a2.get(p).equals(a3.get(p)) && a2.get(p).get(0).order() != 1)
+                System.out.println();
+        }
+
+
+        //crd.context().cache().context().exchange().l1.await();
+
+        //TestRecordingCommunicationSpi.spi(client).stopBlock();
+
+        //txFut.get();
     }
 
     /**

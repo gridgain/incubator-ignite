@@ -132,7 +132,7 @@ public class GridDhtPartitionSupplyMessage extends GridCacheGroupIdMessage imple
     /**
      * @return Flag to indicate last message for partition.
      */
-    Map<Integer, Long> last() {
+    public Map<Integer, Long> last() {
         return last == null ? Collections.<Integer, Long>emptyMap() : last;
     }
 

@@ -565,6 +565,19 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                     }));
                                 }
 
+                                AffinityAssignment lastAff = part.group().affinity().cachedAffinity(this.firstReq.readLastAffChangedTopVer, AffinityTopologyVersion.NONE);
+
+                                log.info("DBG: a3 topVer=" + lastAff.topologyVersion());
+                                for (int i = 0; i < lastAff.assignment().size(); i++) {
+                                    List<ClusterNode> nodes = readyAss.assignment().get(i);
+
+                                    log.info("DBG: a3     p=" + i + ", nodes=" + F.transform(nodes, new IgniteClosure<ClusterNode, String>() {
+                                        @Override public String apply(ClusterNode node) {
+                                            return U.id8(node.id());
+                                        }
+                                    }));
+                                }
+
                                 GridAffinityAssignmentCache cache = part.group().affinity();
                                 ConcurrentNavigableMap<AffinityTopologyVersion, HistoryAffinityAssignment> descMap = cache.affCache.descendingMap();
                                 GridAffinityAssignmentV2 v2 = cache.head.get();
