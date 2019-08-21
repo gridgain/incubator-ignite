@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -171,7 +172,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
     /** */
     protected CacheWriteSynchronizationMode syncMode;
 
-    public GridNearLockRequest firstReq;
+    public List<GridNearLockRequest> reqs = new CopyOnWriteArrayList<>();
 
     public AffinityTopologyVersion checkVer;
     public AffinityTopologyVersion remapExpVer;
@@ -524,15 +525,17 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                             part.primary(readyVer);
 
                         if (!valid) {
+                            GridNearLockRequest firstReq = reqs.get(0);
+
                             if (part != null && part.state() == OWNING) {
                                 // Dumping assingment details.
 
-                                log.info("DBG: readLastAffChangedTopVer=" + this.firstReq.readLastAffChangedTopVer);
-                                log.info("DBG: noNeedRemap1=" + this.firstReq.noNeedRemap1);
-                                log.info("DBG: a0 topVer=" + this.firstReq.a0.topologyVersion());
+                                log.info("DBG: readLastAffChangedTopVer=" + firstReq.readLastAffChangedTopVer);
+                                log.info("DBG: noNeedRemap1=" + firstReq.noNeedRemap1);
+                                log.info("DBG: a0 topVer=" + firstReq.a0.topologyVersion());
 
-                                for (int i = 0; i < this.firstReq.a0.assignment().size(); i++) {
-                                    List<ClusterNode> nodes = this.firstReq.a0.assignment().get(i);
+                                for (int i = 0; i < firstReq.a0.assignment().size(); i++) {
+                                    List<ClusterNode> nodes = firstReq.a0.assignment().get(i);
 
                                     log.info("DBG: a0     p=" + i + ", nodes=" + F.transform(nodes, new IgniteClosure<ClusterNode, String>() {
                                         @Override public String apply(ClusterNode node) {
@@ -541,9 +544,9 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                     }));
                                 }
 
-                                log.info("DBG: a1 topVer=" + this.firstReq.a1.topologyVersion());
-                                for (int i = 0; i < this.firstReq.a1.assignment().size(); i++) {
-                                    List<ClusterNode> nodes = this.firstReq.a1.assignment().get(i);
+                                log.info("DBG: a1 topVer=" + firstReq.a1.topologyVersion());
+                                for (int i = 0; i < firstReq.a1.assignment().size(); i++) {
+                                    List<ClusterNode> nodes = firstReq.a1.assignment().get(i);
 
                                     log.info("DBG: a1     p=" + i + ", nodes=" + F.transform(nodes, new IgniteClosure<ClusterNode, String>() {
                                         @Override public String apply(ClusterNode node) {
@@ -565,7 +568,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                     }));
                                 }
 
-                                AffinityAssignment lastAff = part.group().affinity().cachedAffinity(this.firstReq.readLastAffChangedTopVer, AffinityTopologyVersion.NONE);
+                                AffinityAssignment lastAff = part.group().affinity().cachedAffinity(firstReq.readLastAffChangedTopVer, AffinityTopologyVersion.NONE);
 
                                 log.info("DBG: a3 topVer=" + lastAff.topologyVersion());
                                 for (int i = 0; i < lastAff.assignment().size(); i++) {
@@ -587,8 +590,10 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                 for (Map.Entry<AffinityTopologyVersion, HistoryAffinityAssignment> entry : descMap.entrySet())
                                     log.info("DBG: aff cache entry=" + entry.getValue());
 
-                                log.info("DBG: mapsEqual" + this.firstReq.mapsEqual);
+                                log.info("DBG: mapsEqual" + firstReq.mapsEqual);
 
+                                for (GridNearLockRequest req : reqs)
+                                    log.info("DBG: first=" + req.firstClientRequest() + ", req=" + req + ", keys=" + req.keys());
                             }
 
                             throw new AssertionError("Invalid primary mapping [tx=" + this +

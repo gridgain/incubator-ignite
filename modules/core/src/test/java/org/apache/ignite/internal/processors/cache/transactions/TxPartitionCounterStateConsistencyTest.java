@@ -880,6 +880,8 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
     public void testPartitionConsistencyDuringRebalanceAndConcurrentUpdates_NodeLeft_LateAffinitySwitch2() throws Exception {
         // TODO setRebalanceThreadPoolSize(1) !!!!
 
+        System.out.println(CU.cacheId("cache_group_79"));
+
         backups = 2;
 
         IgniteEx crd = startGrid(0);
@@ -980,6 +982,25 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 //
 //        }
 
+
+//        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+//            @Override public boolean apply(ClusterNode node, Message message) {
+//                return message instanceof GridNearLockRequest;
+//            }
+//        });
+//
+//        IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
+//            @Override public void run() {
+//                try(Transaction tx = client.transactions().txStart()) {
+//                    client.cache(DEFAULT_CACHE_NAME).put(20, 0);
+//
+//                    tx.commit();
+//                }
+//            }
+//        }, 1, "tx");
+//
+//        TestRecordingCommunicationSpi.spi(client).waitForBlocked(); // Lock on the fly.
+
         g1.close();
 
         // Release messages from prev version, they will be ignored.
@@ -1009,19 +1030,9 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         }, 5_000);
 
         Ignite client2 = startGrid("client2");
+
         stopGrid("client2");
 
-//        TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-//            @Override public boolean apply(ClusterNode node, Message message) {
-//                return message instanceof GridNearLockRequest;
-//            }
-//        });
-//
-        try(Transaction tx = client.transactions().txStart()) {
-            client.cache(DEFAULT_CACHE_NAME).put(6, 6);
-
-            tx.commit();
-        }
 //
 //        TestRecordingCommunicationSpi.spi(client).waitForBlocked();
 
@@ -1050,8 +1061,6 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         //crd.context().cache().context().exchange().l1.await();
 
         //TestRecordingCommunicationSpi.spi(client).stopBlock();
-
-        //txFut.get();
     }
 
     /**
