@@ -1045,8 +1045,8 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
         IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
             @Override public void run() {
                 try(Transaction tx = client.transactions().txStart()) {
-                    client.cache(DEFAULT_CACHE_NAME).put(0, 0);
-                    client.cache(DEFAULT_CACHE_NAME_2).put(finalMovingPart, 0);
+                    client.cache(DEFAULT_CACHE_NAME).put(0, 0); // Will successfully lock topology.
+                    client.cache(DEFAULT_CACHE_NAME_2).put(finalMovingPart, 0); // Should remap but will go through.
 
                     tx.commit();
                 }
