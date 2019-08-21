@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.cache;
 
+import javax.management.MBeanServer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -2862,13 +2863,19 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         // Reserve at least 2 threads for system operations.
         int parallelismLvl = U.availableThreadCount(ctx, GridIoPolicy.SYSTEM_POOL, 2);
 
-        List<IgniteBiTuple<CacheGroupContext, Boolean>> grpToStop = exchActions.cacheGroupsToStop().stream()
-            .filter(a -> cacheGrps.containsKey(a.descriptor().groupId()))
-            .map(a -> F.t(cacheGrps.get(a.descriptor().groupId()), a.destroy()))
-            .collect(Collectors.toList());
+        if (!exchActions.cacheStopRequests().isEmpty()) {
+            try {
+                sharedCtx.database().waitForCheckpoint("caches stop");
+            }
+            catch (IgniteCheckedException e) {
+                U.error(log, "Failed to wait for checkpoint finish during cache stop.", e);
+            }
+        }
 
-        if (!exchActions.cacheStopRequests().isEmpty())
-            removeOffheapListenerAfterCheckpoint(grpToStop);
+        List<IgniteBiTuple<CacheGroupContext, Boolean>> grpToStop = exchActions.cacheGroupsToStop().stream()
+                .filter(a -> cacheGrps.containsKey(a.descriptor().groupId()))
+                .map(a -> F.t(cacheGrps.get(a.descriptor().groupId()), a.destroy()))
+                .collect(Collectors.toList());
 
         Map<Integer, List<ExchangeActions.CacheActionData>> cachesToStop = exchActions.cacheStopRequests().stream()
                 .collect(Collectors.groupingBy(action -> action.descriptor().groupId()));
@@ -2925,51 +2932,8 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             throw new IgniteException(msg, e);
         }
 
-        for (IgniteBiTuple<CacheGroupContext, Boolean> grp : grpToStop)
-            stopCacheGroup(grp.get1().groupId());
-
-        if (!sharedCtx.kernalContext().clientNode())
-            sharedCtx.database().onCacheGroupsStopped(grpToStop);
-
-        if (exchActions.deactivate())
-            sharedCtx.deactivate();
-    }
-
-    /**
-     * Force checkpoint and remove offheap checkpoint listener after it was finished.
-     *
-     * @param grpToStop Cache group to stop.
-     */
-    private void removeOffheapListenerAfterCheckpoint(List<IgniteBiTuple<CacheGroupContext, Boolean>> grpToStop) {
-        CheckpointFuture checkpointFut;
-        do {
-            do {
-                checkpointFut = sharedCtx.database().forceCheckpoint("caches stop");
-            }
-            while (checkpointFut != null && checkpointFut.started());
-
-            if (checkpointFut != null)
-                checkpointFut.finishFuture().listen((fut) -> removeOffheapCheckpointListener(grpToStop));
-        }
-        while (checkpointFut != null && checkpointFut.finishFuture().isDone());
-
-        if (checkpointFut != null) {
-            try {
-                checkpointFut.finishFuture().get();
-            }
-            catch (IgniteCheckedException e) {
-                U.error(log, "Failed to wait for checkpoint finish during cache stop.", e);
-            }
-        }
-        else
-            removeOffheapCheckpointListener(grpToStop);
-    }
-
-    /**
-     * @param grpToStop Group for which listener shuold be removed.
-     */
-    private void removeOffheapCheckpointListener(List<IgniteBiTuple<CacheGroupContext, Boolean>> grpToStop) {
         sharedCtx.database().checkpointReadLock();
+
         try {
             // Do not invoke checkpoint listeners for groups are going to be destroyed to prevent metadata corruption.
             grpToStop.forEach(grp -> {
@@ -2984,6 +2948,15 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         finally {
             sharedCtx.database().checkpointReadUnlock();
         }
+
+        for (IgniteBiTuple<CacheGroupContext, Boolean> grp : grpToStop)
+            stopCacheGroup(grp.get1().groupId());
+
+        if (!sharedCtx.kernalContext().clientNode())
+            sharedCtx.database().onCacheGroupsStopped(grpToStop);
+
+        if (exchActions.deactivate())
+            sharedCtx.deactivate();
     }
 
     /**

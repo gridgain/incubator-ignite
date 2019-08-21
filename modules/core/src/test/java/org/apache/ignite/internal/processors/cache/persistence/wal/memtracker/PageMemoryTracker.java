@@ -255,10 +255,6 @@ public class PageMemoryTracker implements IgnitePlugin {
                         throw new IgniteCheckedException("Page memory is inconsistent after applying WAL delta records.");
                 }
 
-                @Override public void beforeCheckpointBegin(Context ctx) throws IgniteCheckedException {
-                    /* No-op. */
-                }
-
                 @Override public void onCheckpointBegin(Context ctx) throws IgniteCheckedException {
                     /* No-op. */
                 }

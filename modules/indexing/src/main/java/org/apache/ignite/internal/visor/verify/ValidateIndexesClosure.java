@@ -325,10 +325,6 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
                         if (ctx.hasUserPages())
                             cpFlag.set(true);
                     }
-
-                    @Override public void beforeCheckpointBegin(Context ctx) throws IgniteCheckedException {
-                        /* No-op. */
-                    }
                 };
 
                 ((GridCacheDatabaseSharedManager)db).addCheckpointListener(lsnr);
