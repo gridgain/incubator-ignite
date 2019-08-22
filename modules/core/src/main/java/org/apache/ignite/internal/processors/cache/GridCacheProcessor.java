@@ -2941,28 +2941,14 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @param grpToStop Cache group to stop.
      */
     private void removeOffheapListenerAfterCheckpoint(List<IgniteBiTuple<CacheGroupContext, Boolean>> grpToStop) {
-        CheckpointFuture checkpointFut;
-        do {
-            do {
-                checkpointFut = sharedCtx.database().forceCheckpoint("caches stop");
-            }
-            while (checkpointFut != null && checkpointFut.started());
-
-            if (checkpointFut != null)
-                checkpointFut.finishFuture().listen((fut) -> removeOffheapCheckpointListener(grpToStop));
+        try {
+            sharedCtx.database().waitForCheckpoint(
+                "caches stop", (fut) -> removeOffheapCheckpointListener(grpToStop)
+            );
         }
-        while (checkpointFut != null && checkpointFut.finishFuture().isDone());
-
-        if (checkpointFut != null) {
-            try {
-                checkpointFut.finishFuture().get();
-            }
-            catch (IgniteCheckedException e) {
-                U.error(log, "Failed to wait for checkpoint finish during cache stop.", e);
-            }
+        catch (IgniteCheckedException e) {
+            U.error(log, "Failed to wait for checkpoint finish during cache stop.", e);
         }
-        else
-            removeOffheapCheckpointListener(grpToStop);
     }
 
     /**
