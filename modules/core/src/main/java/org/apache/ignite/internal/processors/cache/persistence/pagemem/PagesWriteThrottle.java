@@ -17,6 +17,7 @@
 package org.apache.ignite.internal.processors.cache.persistence.pagemem;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
@@ -142,10 +143,8 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
         else {
             int oldCntr = cntr.getAndSet(0);
 
-            if (isPageInCheckpoint && oldCntr != 0) {
-                parkThrds.forEach(LockSupport::unpark);
-                parkThrds.clear();
-            }
+            if (isPageInCheckpoint && oldCntr != 0)
+                unparkAll();
         }
     }
 
@@ -154,8 +153,7 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
         if (!shouldThrottle()) {
             inCheckpointBackoffCntr.set(0);
 
-            parkThrds.forEach(LockSupport::unpark);
-            parkThrds.clear();
+            unparkAll();
         }
     }
 
@@ -177,5 +175,17 @@ public class PagesWriteThrottle implements PagesWriteThrottlePolicy {
         int checkpointBufLimit = (int)(pageMemory.checkpointBufferPagesSize() * CP_BUF_FILL_THRESHOLD);
 
         return pageMemory.checkpointBufferPagesCount() > checkpointBufLimit;
+    }
+
+    /**
+     * Thread safely unparks and removes all elements from {@link #parkThrds}.
+     */
+    private void unparkAll() {
+        Iterator<Thread> iter = parkThrds.iterator();
+
+        while (iter.hasNext()) {
+            LockSupport.unpark(iter.next());
+            iter.remove();
+        }
     }
 }
