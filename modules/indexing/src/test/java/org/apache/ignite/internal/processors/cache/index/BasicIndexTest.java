@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
+import org.apache.ignite.internal.processors.query.GridQueryProcessor;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -44,6 +45,7 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Test;
 
 /**
  * A set of basic tests for caches with indexes.
@@ -677,6 +679,107 @@ public class BasicIndexTest extends GridCommonAbstractTest {
                 return cacheWorkDir.toPath().resolve("index.bin");
             })
             .collect(Collectors.toList());
+    }
+
+
+    /** */
+    private void populateTable(GridQueryProcessor qryProc, boolean drop, String tblName, int consPkFldsNum, String...
+        reqFlds) {
+        assert consPkFldsNum <= reqFlds.length;
+
+        String sql = "CREATE TABLE IF NOT EXISTS " + tblName + " (";
+
+        String sqlIns = "";
+
+        if (!drop) {
+            sqlIns = "INSERT INTO " + tblName + " (";
+
+            for (int i = 0; i < reqFlds.length; ++i) {
+                sql += reqFlds[i] + " VARCHAR, ";
+
+                sqlIns += reqFlds[i] + ((i < reqFlds.length - 1) ? ", " : ") values (");
+            }
+
+
+            if (consPkFldsNum > 0) {
+                sql += " CONSTRAINT PK_PERSON PRIMARY KEY (";
+
+                for (int i = 0; i < consPkFldsNum; ++i)
+                    sql += reqFlds[i] + ((i < consPkFldsNum - 1) ? ", " : "))");
+            } else
+                sql += ")";
+
+            qryProc.querySqlFields(new SqlFieldsQuery(sql), true);
+        }
+        else {
+            sqlIns = "DELETE FROM " + tblName + " WHERE FIRST_NAME = ";
+
+            for (int i = 0; i < 10; ++i) {
+                String s0 = sqlIns;
+
+                s0 += i;
+
+                qryProc.querySqlFields(new SqlFieldsQuery(s0), true).getAll();
+            }
+        }
+
+        if (!drop) {
+            for (int i = 0; i < 10; ++i) {
+                String s0 = sqlIns;
+
+                for (int f = 0; f < reqFlds.length; ++f)
+                    s0 += i + ((f < reqFlds.length - 1) ? ", " : ")");
+
+                qryProc.querySqlFields(new SqlFieldsQuery(s0), true).getAll();
+            }
+        }
+    }
+
+    /** */
+    private boolean checkIdxUsed(GridQueryProcessor qryProc, String idxName, String tblName, String... reqFlds) {
+        String sql = "explain select * from " + tblName + " where ";
+
+        for (int i = 0; i < reqFlds.length; ++i)
+            sql += reqFlds[i] + " > 0 " + ((i < reqFlds.length - 1) ? " and " : "");
+
+        String plan = qryProc.querySqlFields(new SqlFieldsQuery(sql), true)
+            .getAll().get(0).get(0).toString().toUpperCase();
+
+        return idxName != null ? (!plan.contains("_SCAN") && plan.contains(idxName.toUpperCase())) : !plan.contains
+            ("_SCAN");
+    }
+
+    private static final String TEST_TBL_NAME = "TEST_TBL_NAME";
+
+    public void testIndexWithDifferentFldsReqPartialFldsInIdx() throws Exception {
+        inlineSize = 10;
+
+        IgniteEx ig0 = startGrid(0);
+
+        GridQueryProcessor qryProc = ig0.context().query();
+
+        populateTable(qryProc, false, TEST_TBL_NAME, 2, "FIRST_NAME", "LAST_NAME",
+            "ADDRESS", "LANG", "GENDER");
+
+        String sqlIdx1 = String.format("create index \"idx1\" on %s(LANG, LAST_NAME, ADDRESS, FIRST_NAME)", TEST_TBL_NAME);
+
+        qryProc.querySqlFields(new SqlFieldsQuery(sqlIdx1), true).getAll();
+
+        assertTrue(checkIdxUsed(qryProc, "idx1", TEST_TBL_NAME, "FIRST_NAME", "LAST_NAME", "LANG"));
+
+        qryProc.querySqlFields(new SqlFieldsQuery("drop index \"idx1\""), true).getAll();
+
+        assertFalse(checkIdxUsed(qryProc, "idx1", TEST_TBL_NAME, "FIRST_NAME", "LAST_NAME", "LANG"));
+
+        populateTable(qryProc, true, TEST_TBL_NAME, 2, "FIRST_NAME", "LAST_NAME",
+            "ADDRESS", "LANG", "GENDER");
+
+        populateTable(qryProc, false, TEST_TBL_NAME, 2, "FIRST_NAME", "LAST_NAME",
+            "ADDRESS", "LANG", "GENDER");
+
+        qryProc.querySqlFields(new SqlFieldsQuery(sqlIdx1), true).getAll();
+
+        assertTrue(checkIdxUsed(qryProc, "idx1", TEST_TBL_NAME, "FIRST_NAME", "LAST_NAME", "LANG"));
     }
 
     /** */
