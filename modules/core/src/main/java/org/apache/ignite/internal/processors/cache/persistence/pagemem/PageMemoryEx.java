@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.persistence.pagemem;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -116,8 +117,10 @@ public interface PageMemoryEx extends PageMemory {
      * @return Couple of collection of dirty page IDs and flag. The flag is {@code true}, if since last checkpoint at
      * least one page with user data (not relates with system cache) became a dirty, and {@code false} otherwise.
      * @throws IgniteException If checkpoint has been already started and was not finished.
+     * @param allowToEvict
      */
-    public IgniteBiTuple<GridMultiCollectionWrapper<FullPageId>, Boolean> beginCheckpointEx() throws IgniteException;
+    public IgniteBiTuple<GridMultiCollectionWrapper<FullPageId>, Boolean> beginCheckpointEx(
+        AtomicBoolean allowToEvict) throws IgniteException;
 
     /**
      * Finishes checkpoint operation.

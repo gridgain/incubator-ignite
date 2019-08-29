@@ -34,6 +34,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockSta
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointWriteProgressSupplier;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.PageStoreWriter;
-import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.partstate.GroupPartitionId;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
@@ -1015,12 +1015,13 @@ public class PageMemoryImpl implements PageMemoryEx {
 
     /** {@inheritDoc} */
     @Override public GridMultiCollectionWrapper<FullPageId> beginCheckpoint() throws IgniteException {
-        return beginCheckpointEx().get1();
+        return beginCheckpointEx(new AtomicBoolean(true)).get1();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}
+     * @param allowToEvict*/
     @Override public IgniteBiTuple<GridMultiCollectionWrapper<FullPageId>, Boolean> beginCheckpointEx(
-    ) throws IgniteException {
+        AtomicBoolean allowToEvict) throws IgniteException {
         if (segments == null)
             return new IgniteBiTuple<>(new GridMultiCollectionWrapper<>(Collections.emptyList()), false);
 
@@ -1033,6 +1034,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                 throw new IgniteException("Failed to begin checkpoint (it is already in progress).");
 
             collections[i] = seg.segCheckpointPages = seg.dirtyPages;
+
+            seg.allowToEvict = allowToEvict;
 
             seg.dirtyPages = new GridConcurrentHashSet<>();
         }
@@ -1976,6 +1979,8 @@ public class PageMemoryImpl implements PageMemoryEx {
         /** Pages marked as dirty since the last checkpoint. */
         private volatile Collection<FullPageId> dirtyPages = new GridConcurrentHashSet<>();
 
+        AtomicBoolean allowToEvict;
+
         /** */
         private volatile Collection<FullPageId> segCheckpointPages;
 
@@ -2135,6 +2140,9 @@ public class PageMemoryImpl implements PageMemoryEx {
                 // These pages does not have tmp buffer.
                 if (cpPages != null && cpPages.contains(fullPageId)) {
                     assert storeMgr != null;
+
+                    while(allowToEvict != null && !allowToEvict.get())
+                        LockSupport.parkNanos(100);
 
                     memMetrics.updatePageReplaceRate(U.currentTimeMillis() - PageHeader.readTimestamp(absPtr));
 
