@@ -569,6 +569,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             // Here we can get data from metastorage
             readMetastore();
         }
+
+        log.warning("IOFactory : " + ioFactory + " : skipSync=" + skipSync);
     }
 
     /**
@@ -3628,6 +3630,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
                 try {
                     if (chp.hasDelta()) {
+                        log.warning("Checkpoint has delta");
                         // Identity stores set.
                         ConcurrentLinkedHashMap<PageStore, LongAdder> updStores = new ConcurrentLinkedHashMap<>();
 
@@ -4061,6 +4064,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     // No page updates for this checkpoint are allowed from now on.
                     cpPtr = cctx.wal().log(cpRec);
 
+                    log.warning("Added checkpoint record : hasPages=" + hasPages + " : hasPartitionsToDestroy="+hasPartitionsToDestroy + " : nxtSnapshot="+curr.nextSnapshot + " cpPtr="+cpPtr);
+
                     if (cpPtr == null)
                         cpPtr = CheckpointStatus.NULL_PTR;
                 }
@@ -4073,6 +4078,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                         cpPtr,
                         cpRec,
                         CheckpointEntryType.START);
+
+                    log.warning("Added checkpoint entry : hasPages=" + hasPages + " : hasPartitionsToDestroy=" + hasPartitionsToDestroy + " : nxtSnapshot=" + curr.nextSnapshot + " : cpMark=" + cp.checkpointMark());
 
                     cpHistory.addCheckpoint(cp);
                 }
@@ -4145,8 +4152,10 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                 if (printCheckpointStats) {
                     if (log.isInfoEnabled())
                         LT.info(log, String.format("Skipping checkpoint (no pages were modified) [" +
+                            "[checkpointId=%s, "+
                                 "checkpointBeforeLockTime=%dms, checkpointLockWait=%dms, " +
                                 "checkpointListenersExecuteTime=%dms, checkpointLockHoldTime=%dms, reason='%s']",
+                            cpRec.checkpointId(),
                             tracker.beforeLockDuration(),
                             tracker.lockWaitDuration(),
                             tracker.listenersExecuteDuration(),

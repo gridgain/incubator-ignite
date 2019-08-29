@@ -114,9 +114,13 @@ public class PageHistoryDiagnoster {
         @NotNull PageHistoryDiagnoster.DiagnosticPageBuilder builder
     ) throws IgniteCheckedException {
         if (walFolders == null) {
-            log.info("Skipping dump page history due to WAL not configured");
+            onStart();
 
-            return;
+            if (walFolders == null) {
+                log.info("Skipping dump page history due to WAL not configured");
+
+                return;
+            }
         }
 
         ScannerHandler action = null;
