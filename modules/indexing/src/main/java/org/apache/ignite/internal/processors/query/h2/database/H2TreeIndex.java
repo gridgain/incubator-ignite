@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -100,6 +101,7 @@ public class H2TreeIndex extends GridH2IndexBase {
         GridH2Table tbl,
         String name,
         boolean pk,
+        boolean affinityKey,
         List<IndexColumn> colsList,
         int inlineSize,
         int segmentsCnt,
@@ -129,6 +131,8 @@ public class H2TreeIndex extends GridH2IndexBase {
 
             IgniteCacheDatabaseSharedManager db = cctx.shared().database();
 
+            AtomicInteger maxCalculatedInlineSize = new AtomicInteger();
+
             for (int i = 0; i < segments.length; i++) {
                 db.checkpointReadLock();
 
@@ -137,6 +141,7 @@ public class H2TreeIndex extends GridH2IndexBase {
 
                     segments[i] = new H2Tree(
                         name,
+                        tbl.cacheName(),
                         tbl.getName(),
                         name,
                         cctx.offheap().reuseListForIndex(name),
@@ -150,6 +155,9 @@ public class H2TreeIndex extends GridH2IndexBase {
                         cols,
                         inlineIdxs,
                         computeInlineSize(inlineIdxs, inlineSize),
+                        maxCalculatedInlineSize,
+                        pk,
+                        affinityKey,
                         rowCache,
                         cctx.kernalContext().failure(),
                         log) {

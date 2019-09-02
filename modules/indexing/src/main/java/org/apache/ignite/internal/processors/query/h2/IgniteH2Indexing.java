@@ -706,7 +706,12 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @param inlineSize Index inline size.
      * @return Index.
      */
-    GridH2IndexBase createSortedIndex(String name, GridH2Table tbl, boolean pk, List<IndexColumn> cols,
+    GridH2IndexBase createSortedIndex(
+        String name,
+        GridH2Table tbl,
+        boolean pk,
+        boolean affinityKey,
+        List<IndexColumn> cols,
         int inlineSize) {
         try {
             GridCacheContext cctx = tbl.cache();
@@ -718,7 +723,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             H2RowCache cache = rowCache.forGroup(cctx.groupId());
 
-            return new H2TreeIndex(cctx, cache, tbl, name, pk, cols, inlineSize, segments, log);
+            return new H2TreeIndex(cctx, cache, tbl, name, pk, affinityKey, cols, inlineSize, segments, log);
         }
         catch (IgniteCheckedException e) {
             throw new IgniteException(e);
