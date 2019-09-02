@@ -100,6 +100,8 @@ public class RandomAccessFileIO extends AbstractFileIO {
 
     /** {@inheritDoc} */
     @Override public void close() throws IOException {
+        System.out.println(Thread.currentThread().getName() + " close file");
+
         ch.close();
     }
 

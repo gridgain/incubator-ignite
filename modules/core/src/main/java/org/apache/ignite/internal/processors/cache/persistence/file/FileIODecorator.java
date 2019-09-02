@@ -28,6 +28,8 @@ public class FileIODecorator extends AbstractFileIO {
     /** File I/O delegate */
     private final FileIO delegate;
 
+    private volatile Exception closeStackTrace;
+
     /**
      *
      * @param delegate File I/O delegate
@@ -103,6 +105,12 @@ public class FileIODecorator extends AbstractFileIO {
 
     /** {@inheritDoc} */
     @Override public void close() throws IOException {
+        closeStackTrace = new Exception();
+
         delegate.close();
+    }
+
+    public Exception getCloseStackTrace(){
+        return closeStackTrace;
     }
 }

@@ -3210,16 +3210,27 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                             pos = val;
                     }
 
+                    if (log.isInfoEnabled())
+                        log.info("pos=" + pos + ", waiters=" + waiters.size());
+
                     if (pos == null)
                         continue;
                     else if (pos < UNCONDITIONAL_FLUSH) {
                         try {
                             assert pos == FILE_CLOSE || pos == FILE_FORCE : pos;
 
-                            if (pos == FILE_CLOSE)
+                            if (pos == FILE_CLOSE){
                                 currHnd.fileIO.close();
-                            else if (pos == FILE_FORCE)
+
+                                if (log.isInfoEnabled())
+                                    log.info("Close file segmentIdx=" + currHnd.fileIO.getSegmentId() + " written=" + currHnd.written);
+                            }
+                            else if (pos == FILE_FORCE){
                                 currHnd.fileIO.force();
+
+                                if (log.isInfoEnabled())
+                                    log.info("Flush file segmentIdx=" + currHnd.fileIO.getSegmentId() + " written=" + currHnd.written);
+                            }
                         }
                         catch (IOException e) {
                             log.error("Exception in WAL writer thread: ", e);
@@ -3238,6 +3249,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
                     if (segs == null) {
                         unparkWaiters(pos);
+
+                        if (log.isInfoEnabled())
+                            log.info("Unpark pos=" + pos);
 
                         continue;
                     }
@@ -3259,6 +3273,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                             long p = pos <= UNCONDITIONAL_FLUSH || err != null ? Long.MAX_VALUE : currentHandle().written;
 
                             unparkWaiters(p);
+
+                            if (log.isInfoEnabled())
+                                log.info("Unpark p=" + p + " pos=" + pos + " err=" + err + " written=" + currentHandle().written);
                         }
                     }
                 }
@@ -3285,6 +3302,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
         public void restart() {
             assert runner() == null : "WALWriter is still running";
 
+            if (log.isInfoEnabled())
+                log.info(" Restart WAL writer");
+
             isCancelled = false;
 
             new IgniteThread(walWriter).start();
@@ -3294,6 +3314,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
          * Shutdowns thread.
          */
         public void shutdown() throws IgniteInterruptedCheckedException {
+            if (log.isInfoEnabled())
+                log.info(" Shutdown WAL writer");
+
             U.cancel(this);
 
             Thread runner = runner();
@@ -3323,6 +3346,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                         waiters.put(e.getKey(), Long.MIN_VALUE);
 
                     LockSupport.unpark(e.getKey());
+
+                    if (log.isInfoEnabled())
+                        log.info("Unpark  thread=" + e.getKey() + " pos=" + pos + " val=" + val);
                 }
             }
         }
@@ -3361,10 +3387,18 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             if (err != null)
                 cctx.kernalContext().failure().process(new FailureContext(CRITICAL_ERROR, err));
 
-            if (expPos == UNCONDITIONAL_FLUSH)
+            Thread t = Thread.currentThread();
+
+            if (expPos == UNCONDITIONAL_FLUSH) {
                 expPos = (currentHandle().buf.tail());
 
-            Thread t = Thread.currentThread();
+                if (log.isInfoEnabled())
+                    log.info("Unconditional flush thread=" + t.getName() + " tail=" + expPos);
+            }
+            else {
+                if (log.isInfoEnabled())
+                    log.info("Conditional flush thread=" + t.getName() + " tail=" + expPos);
+            }
 
             waiters.put(t, expPos);
 
@@ -3441,6 +3475,11 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 assert hdl.written == hdl.fileIO.position();
             }
             catch (IOException e) {
+                Exception close = hdl.fileIO.getCloseStackTrace();
+
+                if (close != null)
+                    e.addSuppressed(close);
+
                 StorageException se = new StorageException("Failed to write buffer.", e);
 
                 cctx.kernalContext().failure().process(new FailureContext(CRITICAL_ERROR, se));
