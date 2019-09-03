@@ -3465,6 +3465,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             assert size > 0 : size;
 
+            SegmentIO io = hdl.fileIO;
+
             try {
                 assert hdl.written == hdl.fileIO.position();
 
@@ -3475,12 +3477,12 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 assert hdl.written == hdl.fileIO.position();
             }
             catch (IOException e) {
-                Exception close = hdl.fileIO.getCloseStackTrace();
+                Exception close = io.getCloseStackTrace();
 
                 if (close != null)
                     e.addSuppressed(close);
 
-                StorageException se = new StorageException("Failed to write buffer.", e);
+                StorageException se = new StorageException("Failed to write buffer. segmentIdx=" + io.getSegmentId(), e);
 
                 cctx.kernalContext().failure().process(new FailureContext(CRITICAL_ERROR, se));
 
