@@ -3270,7 +3270,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                         finally {
                             seg.release();
 
-                            long p = pos <= UNCONDITIONAL_FLUSH || err != null ? Long.MAX_VALUE : currentHandle().written;
+                            long p = pos <= UNCONDITIONAL_FLUSH || err != null ?
+                                (pos == FILE_FORCE ? currentHandle().written : Long.MAX_VALUE) :
+                                currentHandle().written;
 
                             unparkWaiters(p);
 
