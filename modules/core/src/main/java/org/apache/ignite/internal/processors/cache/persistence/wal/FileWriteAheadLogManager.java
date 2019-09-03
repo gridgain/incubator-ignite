@@ -2582,7 +2582,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             assert ptr.index() == getSegmentId();
 
-            walWriter.flushBuffer(ptr.fileOffset());
+            walWriter.flushBuffer(ptr.fileOffset() + ptr.length());
         }
 
         /**
@@ -3391,9 +3391,6 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             FileWriteHandle hdl = currentHandle();
 
-            if (expPos == UNCONDITIONAL_FLUSH)
-                expPos = hdl.buf.tail();
-
             if (log.isInfoEnabled())
                 log.info(((expPos == UNCONDITIONAL_FLUSH) ? "Unconditional" : "Conditional") +
                     " flush thread=" + t.getName() +
@@ -3401,6 +3398,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                     " expPos=" + expPos +
                     " tail=" + hdl.buf.tail() +
                     " cap=" + hdl.buf.capacity());
+
+            if (expPos == UNCONDITIONAL_FLUSH)
+                expPos = hdl.buf.tail();
 
             waiters.put(t, expPos);
 
