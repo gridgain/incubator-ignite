@@ -169,6 +169,15 @@ public class SegmentedRingByteBuffer {
     }
 
     /**
+     * Returns buffer capacity.
+     *
+     * @return Buffer capacity.
+     */
+    public int capacity(){
+        return cap;
+    }
+
+    /**
      * Reserves {@code size} bytes in {@code SegmentedRingByteBuffer} and returns instance of {@link WriteSegment}
      * class that points to wrapped {@link ByteBuffer} instance with corresponding capacity. This {@link ByteBuffer}
      * instance should be used only for data writing to {@link SegmentedRingByteBuffer}.

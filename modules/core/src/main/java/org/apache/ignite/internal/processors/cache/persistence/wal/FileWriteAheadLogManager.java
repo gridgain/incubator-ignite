@@ -3389,16 +3389,18 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             Thread t = Thread.currentThread();
 
-            if (expPos == UNCONDITIONAL_FLUSH) {
-                expPos = (currentHandle().buf.tail());
+            FileWriteHandle hdl = currentHandle();
 
-                if (log.isInfoEnabled())
-                    log.info("Unconditional flush thread=" + t.getName() + " tail=" + expPos);
-            }
-            else {
-                if (log.isInfoEnabled())
-                    log.info("Conditional flush thread=" + t.getName() + " tail=" + expPos);
-            }
+            if (expPos == UNCONDITIONAL_FLUSH)
+                expPos = hdl.buf.tail();
+
+            if (log.isInfoEnabled())
+                log.info(((expPos == UNCONDITIONAL_FLUSH) ? "Unconditional" : "Conditional") +
+                    " flush thread=" + t.getName() +
+                    " segmentIdx=" + hdl.segmentIdx +
+                    " expPos=" + expPos +
+                    " tail=" + hdl.buf.tail() +
+                    " cap=" + hdl.buf.capacity());
 
             waiters.put(t, expPos);
 
