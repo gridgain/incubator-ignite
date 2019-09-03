@@ -3484,7 +3484,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 if (close != null)
                     e.addSuppressed(close);
 
-                StorageException se = new StorageException("Failed to write buffer. segmentIdx=" + io.getSegmentId(), e);
+                StorageException se = new StorageException("Failed to write buffer. " +
+                    "segmentIdx=" + io.getSegmentId() + " written=" + hdl.written, e);
 
                 cctx.kernalContext().failure().process(new FailureContext(CRITICAL_ERROR, se));
 
