@@ -17,6 +17,7 @@
 
 package org.apache.ignite.ssl;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -26,6 +27,7 @@ import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Objects;
 import javax.cache.configuration.Factory;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -38,8 +40,11 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.util.typedef.internal.A;
 
 /**
- * This SSL context factory that provides ssl context configuration with specified key
- * and trust stores.
+ * SSL context factory that provides SSL context configuration with specified key and trust stores.
+ *
+ * The factory caches instances of {@link KeyStore} between invocations of the {@link SslContextFactory#create()}
+ * method. The cached instances are invalidated when {@link SslContextFactory#keyStoreFilePath}
+ * or {@link SslContextFactory#trustStoreFilePath} are changed, or corresponding files are modified on the file system.
  * <p>
  * In some cases it is useful to disable certificate validation of client side (e.g. when connecting
  * to a server with self-signed certificate). This can be achieved by setting a disabled trust manager
@@ -95,6 +100,12 @@ public class SslContextFactory implements Factory<SSLContext> {
 
     /** Enabled protocols. */
     private String[] protocols;
+
+    /** Caching key store provider. */
+    private KeyStoreProvider keyStoreProvider;
+
+    /** Caching trust store provider. */
+    private KeyStoreProvider trustStoreProvider;
 
     /**
      * Gets key store type used for context creation.
@@ -335,7 +346,10 @@ public class SslContextFactory implements Factory<SSLContext> {
         try {
             KeyManagerFactory keyMgrFactory = KeyManagerFactory.getInstance(keyAlgorithm);
 
-            KeyStore keyStore = loadKeyStore(keyStoreType, keyStoreFilePath, keyStorePwd);
+            if (keyStoreProvider == null || !Objects.equals(keyStoreFilePath, keyStoreProvider.storeFile.getPath()))
+                keyStoreProvider = new KeyStoreProvider(keyStoreFilePath, keyStoreType, keyStorePwd);
+
+            KeyStore keyStore = keyStoreProvider.getKeyStore();
 
             keyMgrFactory.init(keyStore, keyStorePwd);
 
@@ -344,7 +358,11 @@ public class SslContextFactory implements Factory<SSLContext> {
             if (mgrs == null) {
                 TrustManagerFactory trustMgrFactory = TrustManagerFactory.getInstance(keyAlgorithm);
 
-                KeyStore trustStore = loadKeyStore(trustStoreType, trustStoreFilePath, trustStorePwd);
+                if (trustStoreProvider == null ||
+                    !Objects.equals(trustStoreFilePath, trustStoreProvider.storeFile.getPath()))
+                    trustStoreProvider = new KeyStoreProvider(trustStoreFilePath, trustStoreType, trustStorePwd);
+
+                KeyStore trustStore = trustStoreProvider.getKeyStore();
 
                 trustMgrFactory.init(trustStore);
 
@@ -437,49 +455,6 @@ public class SslContextFactory implements Factory<SSLContext> {
         return new FileInputStream(filePath);
     }
 
-    /**
-     * Loads key store with configured parameters.
-     *
-     * @param keyStoreType Type of key store.
-     * @param storeFilePath Path to key store file.
-     * @param keyStorePwd Store password.
-     * @return Initialized key store.
-     * @throws SSLException If key store could not be initialized.
-     */
-    private KeyStore loadKeyStore(String keyStoreType, String storeFilePath, char[] keyStorePwd) throws SSLException {
-        InputStream input = null;
-
-        try {
-            KeyStore keyStore = KeyStore.getInstance(keyStoreType);
-
-            input = openFileInputStream(storeFilePath);
-
-            keyStore.load(input, keyStorePwd);
-
-            return keyStore;
-        }
-        catch (GeneralSecurityException e) {
-            throw new SSLException("Failed to initialize key store (security exception occurred) [type=" +
-                keyStoreType + ", keyStorePath=" + storeFilePath + ']', e);
-        }
-        catch (FileNotFoundException e) {
-            throw new SSLException("Failed to initialize key store (key store file was not found): [path=" +
-                storeFilePath + ", msg=" + e.getMessage() + ']');
-        }
-        catch (IOException e) {
-            throw new SSLException("Failed to initialize key store (I/O error occurred): " + storeFilePath, e);
-        }
-        finally {
-            if (input != null) {
-                try {
-                    input.close();
-                }
-                catch (IOException ignored) {
-                }
-            }
-        }
-    }
-
     /** {@inheritDoc} */
     public String toString() {
         return getClass().getSimpleName() + parameters();
@@ -517,6 +492,95 @@ public class SslContextFactory implements Factory<SSLContext> {
         }
         catch (SSLException e) {
             throw new IgniteException(e);
+        }
+    }
+
+    /**
+     * A caching key store provider, that returns the same instance of a {@link KeyStore}
+     * as long as the key store's file modification time is not changed.
+     */
+    private class KeyStoreProvider {
+        /** Key store file last modified timestamp. */
+        private long lastModified;
+
+        /** Key store file. */
+        private File storeFile;
+
+        /** Key store type. */
+        private String storeType;
+
+        /** Key store password. */
+        private char[] storePwd;
+
+        /** Cached instance of a {@link KeyStore}. */
+        private KeyStore keyStore;
+
+        /**
+         * @param path Key store file path.
+         * @param storeType Key store type.
+         * @param storePwd Key store password.
+         */
+        KeyStoreProvider(String path, String storeType, char[] storePwd) {
+            this.storeFile = new File(path);
+            this.storeType = storeType;
+            this.storePwd = storePwd;
+        }
+
+        /**
+         * @return Key store instance.
+         * @throws SSLException In case of failure of a {@link KeyStore} creation.
+         */
+        KeyStore getKeyStore() throws SSLException {
+            if (keyStore == null || storeFile.lastModified() > lastModified) {
+                keyStore = loadKeyStore(storeType, storeFile, storePwd);
+
+                lastModified = storeFile.lastModified();
+            }
+
+            return keyStore;
+        }
+
+        /**
+         * Loads key store with configured parameters.
+         *
+         * @param keyStoreType Type of a key store.
+         * @param storeFile Key store file.
+         * @param storePwd Key store password.
+         * @return Initialized key store.
+         * @throws SSLException If key store could not be initialized.
+         */
+        private KeyStore loadKeyStore(String keyStoreType, File storeFile, char[] storePwd) throws SSLException {
+            InputStream input = null;
+
+            try {
+                KeyStore keyStore = KeyStore.getInstance(keyStoreType);
+
+                input = openFileInputStream(storeFile.getPath());
+
+                keyStore.load(input, storePwd);
+
+                return keyStore;
+            }
+            catch (GeneralSecurityException e) {
+                throw new SSLException("Failed to initialize key store (security exception occurred) [type=" +
+                    keyStoreType + ", storePath=" + storeFile + ']', e);
+            }
+            catch (FileNotFoundException e) {
+                throw new SSLException("Failed to initialize key store (key store file was not found): [path=" +
+                    storeFile + ", msg=" + e.getMessage() + ']');
+            }
+            catch (IOException e) {
+                throw new SSLException("Failed to initialize key store (I/O error occurred): " + storeFile, e);
+            }
+            finally {
+                if (input != null) {
+                    try {
+                        input.close();
+                    }
+                    catch (IOException ignored) {
+                    }
+                }
+            }
         }
     }
 }
