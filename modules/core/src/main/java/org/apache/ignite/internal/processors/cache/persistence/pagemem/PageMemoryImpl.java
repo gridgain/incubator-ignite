@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -118,6 +119,31 @@ import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased", "FieldAccessedSynchronizedAndUnsynchronized"})
 public class PageMemoryImpl implements PageMemoryEx {
+    public static volatile boolean useLatch = false;
+    public static final CountDownLatch[] latches = new CountDownLatch[10];
+
+    static {
+        for (int i = 0; i < latches.length; i++)
+            latches[i] = new CountDownLatch(1);
+    }
+
+    public static void latchAwait(int idx) {
+        if (useLatch) {
+            try {
+                System.out.println(Thread.currentThread().getName() + ": waiting for latch " + idx);
+                //latches[idx].await();
+                System.out.println(Thread.currentThread().getName() + ": continue from latch " + idx);
+            }
+            catch (Exception e) { }
+        }
+    }
+
+    public static void latchCountdown(int idx) {
+        if (useLatch)
+            System.out.println(Thread.currentThread().getName() + ": releasing latch " + idx);
+            latches[idx].countDown();
+    }
+
     /** */
     public static final long PAGE_MARKER = 0x0000000000000001L;
 
@@ -730,7 +756,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                 }
             }
             else if (relPtr == OUTDATED_REL_PTR) {
-                assert PageIdUtils.pageIndex(pageId) == 0 : fullId;
+                if (!useLatch)
+                    assert PageIdUtils.pageIndex(pageId) == 0 : fullId;
 
                 relPtr = refreshOutdatedPage(seg, grpId, pageId, false);
 
@@ -827,7 +854,11 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         long tmpBufPtr = PageHeader.tempBufferPointer(absPtr);
 
+        if (useLatch)
+            tmpBufPtr = 1099511627777L;
+
         if (tmpBufPtr != INVALID_REL_PTR) {
+            //latchCountdown(0);
             GridUnsafe.setMemory(checkpointPool.absolute(tmpBufPtr) + PAGE_OVERHEAD, pageSize(), (byte)0);
 
             PageHeader.tempBufferPointer(absPtr, INVALID_REL_PTR);
@@ -1172,6 +1203,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             assert success : "Page was pin when we resolve abs pointer, it can not be evicted";
 
             if (tmpRelPtr != INVALID_REL_PTR) {
+                //latchCountdown(1);
+                latchAwait(0);
                 PageHeader.tempBufferPointer(absPtr, INVALID_REL_PTR);
 
                 long tmpAbsPtr = checkpointPool.absolute(tmpRelPtr);
@@ -1460,6 +1493,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             PageHeader.dirty(absPtr, false);
             PageHeader.tempBufferPointer(absPtr, tmpRelPtr);
+            System.out.println("set tempBufferPointer at " + absPtr + " to " + tmpRelPtr);
 
             assert GridUnsafe.getInt(absPtr + PAGE_OVERHEAD + 4) == 0; //TODO GG-11480
             assert GridUnsafe.getInt(tmpAbsPtr + PAGE_OVERHEAD + 4) == 0; //TODO GG-11480
@@ -1733,12 +1767,17 @@ public class PageMemoryImpl implements PageMemoryEx {
          * @return Relative pointer to a free page that was borrowed from the allocated pool.
          */
         private long borrowFreePage() {
+            latchAwait(2);
             while (true) {
                 long freePageRelPtrMasked = GridUnsafe.getLong(freePageListPtr);
+
+                latchAwait(3);
+                latchCountdown(4);
 
                 long freePageRelPtr = freePageRelPtrMasked & ADDRESS_MASK;
 
                 if (freePageRelPtr != INVALID_REL_PTR) {
+                    latchAwait(5);
                     long freePageAbsPtr = absolute(freePageRelPtr);
 
                     long nextFreePageRelPtr = GridUnsafe.getLong(freePageAbsPtr) & ADDRESS_MASK;
@@ -1803,12 +1842,24 @@ public class PageMemoryImpl implements PageMemoryEx {
             while (true) {
                 long freePageRelPtrMasked = GridUnsafe.getLong(freePageListPtr);
 
+                if (Thread.currentThread().getName().endsWith("2"))
+                    latchCountdown(2);
+
                 long freePageRelPtr = freePageRelPtrMasked & RELATIVE_PTR_MASK;
 
                 GridUnsafe.putLong(absPtr, freePageRelPtr);
 
-                if (GridUnsafe.compareAndSwapLong(null, freePageListPtr, freePageRelPtrMasked, relPtr))
+                if (Thread.currentThread().getName().endsWith("2")) {
+                    latchCountdown(3);
+                    latchAwait(4);
+                }
+
+                if (GridUnsafe.compareAndSwapLong(null, freePageListPtr, freePageRelPtrMasked, relPtr)) {
+                    if (Thread.currentThread().getName().endsWith("2"))
+                        latchCountdown(5);
+
                     return;
+                }
             }
         }
 

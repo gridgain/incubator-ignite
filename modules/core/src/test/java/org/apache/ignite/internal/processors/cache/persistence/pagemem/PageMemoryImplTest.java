@@ -53,6 +53,9 @@ import org.apache.ignite.testframework.junits.logger.GridTestLog4jLogger;
 import org.mockito.Mockito;
 
 import static org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl.CHECKPOINT_POOL_OVERFLOW_ERROR_MSG;
+import static org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl.latchAwait;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.VER_OFF;
 
 /**
  *
@@ -247,7 +250,7 @@ public class PageMemoryImplTest extends GridCommonAbstractTest {
 
         PageIO.setType(address, PageIO.T_BPLUS_META);
 
-        PageUtils.putShort(address, PageIO.VER_OFF, (short)1);
+        PageUtils.putShort(address, VER_OFF, (short)1);
 
         memory.writeUnlock(1, fullPageId.pageId(), page, Boolean.FALSE, true);
 
@@ -320,10 +323,10 @@ public class PageMemoryImplTest extends GridCommonAbstractTest {
                 @Override public void applyx(Long page, FullPageId fullId, PageMemoryEx pageMem) {
                 }
             }, new CheckpointLockStateChecker() {
-                @Override public boolean checkpointLockIsHeldByThread() {
-                    return true;
-                }
-            },
+            @Override public boolean checkpointLockIsHeldByThread() {
+                return true;
+            }
+        },
             new DataRegionMetricsImpl(igniteCfg.getDataStorageConfiguration().getDefaultDataRegionConfiguration()),
             throttlingPlc,
             noThrottle
@@ -332,5 +335,132 @@ public class PageMemoryImplTest extends GridCommonAbstractTest {
         mem.start();
 
         return mem;
+    }
+
+    private PageMemoryImpl createPageMemory1(PageMemoryImpl.ThrottlingPolicy throttlingPlc) throws Exception {
+        long[] sizes = new long[2];
+
+        for (int i = 0; i < sizes.length; i++)
+            sizes[i] = MAX_SIZE * MB / 4;
+
+        sizes[1] = 5 * MB;
+
+        DirectMemoryProvider provider = new UnsafeMemoryProvider(log);
+
+        IgniteConfiguration igniteCfg = new IgniteConfiguration();
+        igniteCfg.setDataStorageConfiguration(new DataStorageConfiguration());
+        igniteCfg.setFailureHandler(new NoOpFailureHandler());
+
+        GridTestKernalContext kernalCtx = new GridTestKernalContext(new GridTestLog4jLogger(), igniteCfg);
+        kernalCtx.add(new IgnitePluginProcessor(kernalCtx, igniteCfg, Collections.<PluginProvider>emptyList()));
+
+        FailureProcessor failureProc = new FailureProcessor(kernalCtx);
+
+        failureProc.start();
+
+        kernalCtx.add(failureProc);
+
+        GridCacheSharedContext<Object, Object> sharedCtx = new GridCacheSharedContext<>(
+            kernalCtx,
+            null,
+            null,
+            null,
+            new NoOpPageStoreManager(),
+            new NoOpWALManager(),
+            null,
+            new IgniteCacheDatabaseSharedManager(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        CheckpointWriteProgressSupplier noThrottle = Mockito.mock(CheckpointWriteProgressSupplier.class);
+
+        Mockito.when(noThrottle.currentCheckpointPagesCount()).thenReturn(1_000_000);
+        Mockito.when(noThrottle.evictedPagesCntr()).thenReturn(new AtomicInteger(0));
+        Mockito.when(noThrottle.syncedPagesCounter()).thenReturn(new AtomicInteger(1_000_000));
+        Mockito.when(noThrottle.writtenPagesCounter()).thenReturn(new AtomicInteger(1_000_000));
+
+        PageMemoryImpl mem = new PageMemoryImpl(
+            provider,
+            sizes,
+            sharedCtx,
+            PAGE_SIZE,
+            (fullPageId, byteBuf, tag) -> {
+                assert false : "No page replacement (rotation with disk) should happen during the test";
+            },
+            new GridInClosure3X<Long, FullPageId, PageMemoryEx>() {
+                @Override public void applyx(Long page, FullPageId fullId, PageMemoryEx pageMem) {
+                }
+            },
+            () -> true,
+            new DataRegionMetricsImpl(igniteCfg.getDataStorageConfiguration().getDefaultDataRegionConfiguration()),
+            throttlingPlc,
+            noThrottle
+        );
+
+        mem.start();
+
+        return mem;
+    }
+
+    public void testAssertError() throws Exception {
+        PageMemoryImpl mem = createPageMemory1(PageMemoryImpl.ThrottlingPolicy.DISABLED);
+
+        int cnt = 1000000;
+
+        int grpId = 1;
+
+        long pageIdA = mem.allocatePage(grpId, 0, (byte)1);
+        long pageIdB = mem.allocatePage(grpId, 0, (byte)1);
+
+        long pagePtr = mem.acquirePage(grpId, pageIdA);
+
+        FullPageId fullPageId = new FullPageId(pageIdA, grpId);
+
+        PageIO.setPageId(pagePtr + PAGE_OVERHEAD, pageIdA);
+        PageIO.setType(pagePtr + PAGE_OVERHEAD, 30001);
+        PageUtils.putShort(pagePtr + PAGE_OVERHEAD, VER_OFF, (short)1); //set version
+
+        //mem.clearAsync((a, b) -> true, false).get();
+
+        mem.beginCheckpoint();
+
+        mem.writeLock(grpId, pageIdA, pagePtr);
+        mem.writeUnlock(grpId, pageIdA, pagePtr, false, true);
+
+        mem.getForCheckpoint(fullPageId, ByteBuffer.allocateDirect(PAGE_SIZE), null);
+
+        mem.finishCheckpoint();
+        mem.beginCheckpoint();
+
+        PageMemoryImpl.useLatch = true;
+
+        Thread t1 = new Thread(() -> {
+            mem.writeLock(grpId, pageIdA, pagePtr);
+        });
+
+        Thread t2 = new Thread(() -> {
+            latchAwait(1);
+            mem.invalidate(grpId, 0);
+            try {
+                mem.acquirePage(grpId, pageIdB);
+            }
+            catch (IgniteCheckedException e) {
+                e.printStackTrace();
+            }
+        });
+
+        t1.start();
+        t2.start();
+
+        t1.join();
+        t2.join();
     }
 }

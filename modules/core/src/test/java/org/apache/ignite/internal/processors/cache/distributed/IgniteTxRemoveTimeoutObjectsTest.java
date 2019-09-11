@@ -22,6 +22,10 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
@@ -35,6 +39,8 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionTimeoutException;
 
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
@@ -43,7 +49,7 @@ import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
  */
 public class IgniteTxRemoveTimeoutObjectsTest extends GridCacheAbstractSelfTest {
     /** */
-    private static final int PUT_CNT = 1000;
+    private static final int PUT_CNT = 5;
 
     /** {@inheritDoc} */
     @Override protected int gridCount() {
