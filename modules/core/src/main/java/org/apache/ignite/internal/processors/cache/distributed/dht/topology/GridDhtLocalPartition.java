@@ -1670,9 +1670,4 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
             }
         }
     }
-
-    public boolean f1;
-    public boolean f2;
-    public boolean f3;
-    public boolean f4;
 }
