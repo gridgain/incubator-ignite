@@ -158,7 +158,7 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         List<Integer> primaryKeys = primaryKeys(prim.cache(DEFAULT_CACHE_NAME), 10_000);
 
-        long stop = U.currentTimeMillis() + 60_000;
+        long stop = U.currentTimeMillis() + 2 * 60_000;
 
         Random r = new Random();
 
@@ -209,7 +209,70 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
 
         assertFalse(backups.contains(prim));
 
-        long stop = U.currentTimeMillis() + 3 * 60_000;
+        long stop = U.currentTimeMillis() + 2 * 60_000;
+
+        long seed = System.nanoTime();
+
+        log.info("Seed: " + seed);
+
+        Random r = new Random(seed);
+
+        assertTrue(prim == grid(0));
+
+        IgniteInternalFuture<?> fut = multithreadedAsync(() -> {
+            while (U.currentTimeMillis() < stop) {
+                doSleep(5_000);
+
+                Ignite restartNode = grid(SERVER_NODES + 1);
+
+                assertFalse(prim == restartNode);
+
+                String name = restartNode.name();
+
+                stopGrid(true, name);
+
+                try {
+                    waitForTopology(SERVER_NODES);
+
+                    doSleep(15_000);
+
+                    startGrid(name);
+
+                    awaitPartitionMapExchange();
+                }
+                catch (Exception e) {
+                    fail(X.getFullStackTrace(e));
+                }
+            }
+        }, 1, "node-restarter");
+
+        doRandomUpdates(r, prim, primaryKeys, cache, stop).get();
+        fut.get();
+
+        assertPartitionsSame(idleVerify(prim, DEFAULT_CACHE_NAME));
+    }
+
+    /**
+     * Test primary-backup partitions consistency while restarting random backup nodes under load.
+     */
+    public void testPartitionConsistencyWithBackupsRestart_BLT() throws Exception {
+        backups = 2;
+
+        final int srvNodes = SERVER_NODES + 1; // Add one non-owner node to test to increase entropy.
+
+        Ignite prim = startGrids(srvNodes);
+
+        prim.cluster().active(true);
+
+        IgniteCache<Object, Object> cache = prim.cache(DEFAULT_CACHE_NAME);
+
+        List<Integer> primaryKeys = primaryKeys(cache, 10_000);
+
+        List<Ignite> backups = backupNodes(primaryKeys.get(0), DEFAULT_CACHE_NAME);
+
+        assertFalse(backups.contains(prim));
+
+        long stop = U.currentTimeMillis() + 2 * 60_000;
 
         long seed = System.nanoTime();
 
@@ -234,9 +297,15 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
                 try {
                     waitForTopology(SERVER_NODES);
 
+                    resetBaselineTopology();
+
+                    awaitPartitionMapExchange();
+
                     doSleep(15_000);
 
                     startGrid(name);
+
+                    resetBaselineTopology();
 
                     awaitPartitionMapExchange();
                 }
