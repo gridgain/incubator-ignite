@@ -1,0 +1,77 @@
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <import resource="../ignite-base-config.xml"/>
+
+    <bean id="grid.cfg" class="org.apache.ignite.configuration.IgniteConfiguration" parent="base-ignite.cfg">
+        <property name="discoverySpi">
+            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
+                <property name="ipFinder">
+                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
+                        <property name="addresses">
+                            <list>
+                                <value>127.0.0.1:47500</value>
+                                <value>127.0.0.1:47501</value>
+                                <value>127.0.0.1:47502</value>
+                                <value>127.0.0.1:47503</value>
+                                <value>127.0.0.1:47504</value>
+                                <value>127.0.0.1:47505</value>
+                                <value>127.0.0.1:47506</value>
+                                <value>127.0.0.1:47507</value>
+                                <value>127.0.0.1:47508</value>
+                                <value>127.0.0.1:47509</value>
+                            </list>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+
+        <property name="communicationSpi">
+            <bean class="org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi">
+                <property name="sharedMemoryPort" value="-1"/>
+            </bean>
+        </property>
+        <property name="peerClassLoadingEnabled" value="false"/>
+
+        <property name="failureDetectionTimeout" value="30000" />
+        <property name="userAttributes">
+            <map>
+                <entry key="nodeType" value="server"/>
+            </map>
+        </property>
+        <property name="igniteInstanceName" value="Grid" />
+        <property name="atomicConfiguration">
+            <bean class="org.apache.ignite.configuration.AtomicConfiguration">
+                <property name="cacheMode" value="PARTITIONED" />
+            </bean>
+        </property>
+        <property name="cacheConfiguration">
+            <list>
+                <ref bean="positionCache"/>
+                <ref bean="tradeCache"/>
+            </list>
+
+        </property>
+    </bean>
+
+    <bean id="tradeCache" class="org.apache.ignite.configuration.CacheConfiguration">
+        <property name="name" value="TradeCache"/>
+        <property name="cacheMode" value="PARTITIONED"/>
+        <property name="atomicityMode" value="TRANSACTIONAL"/>
+        <property name="backups" value="1"/>
+        <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+    </bean>
+
+    <bean id="positionCache" class="org.apache.ignite.configuration.CacheConfiguration">
+
+        <property name="name" value="PositionCache"/>
+        <property name="cacheMode" value="PARTITIONED"/>
+        <property name="atomicityMode" value="TRANSACTIONAL"/>
+        <property name="backups" value="1"/>
+        <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+    </bean>
+
+</beans>
