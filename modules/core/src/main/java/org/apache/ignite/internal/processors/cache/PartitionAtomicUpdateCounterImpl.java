@@ -115,7 +115,7 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
         initCntr = get();
 
         if (log != null)
-            log.info("CNTR: initial futVer=" + grp.topology().topologyVersionFuture().initialVersion() +
+            log.info("CNTR: initial readyVer=" + grp.topology().topologyVersionFuture().initialVersion() +
                 ", grpId=" + grp.groupId() +
                 ", grpName=" + grp.name() +
                 ", partId=" + partId +
