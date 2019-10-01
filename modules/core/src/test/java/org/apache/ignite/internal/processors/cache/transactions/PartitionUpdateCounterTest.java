@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
@@ -38,12 +39,14 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
+import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.cache.PartitionAtomicUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionTxUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
 /**
  * Basic partition counter tests.
@@ -59,7 +62,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
         DataStorageConfiguration memCfg = new DataStorageConfiguration()
             .setDefaultDataRegionConfiguration(
                 new DataRegionConfiguration()
-                    .setPersistenceEnabled(true)
+                    .setPersistenceEnabled(false)
                     .setMaxSize(DataStorageConfiguration.DFLT_DATA_REGION_INITIAL_SIZE)
             )
             .setWalMode(WALMode.LOG_ONLY)
@@ -69,8 +72,8 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
         cfg.setCacheConfiguration(new CacheConfiguration(DEFAULT_CACHE_NAME).
             setAffinity(new RendezvousAffinityFunction(false, 1)).
-            setBackups(1).
-            setCacheMode(CacheMode.REPLICATED).
+            setBackups(2).
+            setCacheMode(CacheMode.PARTITIONED).
             setAtomicityMode(mode));
 
         return cfg;
@@ -293,7 +296,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
     /** */
     public void testAtomicUpdateCounterMultithreaded() throws Exception {
-        PartitionUpdateCounter cntr = new PartitionAtomicUpdateCounterImpl(null, 0);
+        PartitionUpdateCounter cntr = new PartitionAtomicUpdateCounterImpl();
 
         AtomicInteger id = new AtomicInteger();
 
@@ -331,6 +334,26 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
      */
     public void testWithPersistentNodeAtomic() throws Exception {
         testWithPersistentNode(CacheAtomicityMode.ATOMIC);
+    }
+
+    public void testCommit() throws Exception {
+        mode = CacheAtomicityMode.TRANSACTIONAL;
+
+        try {
+            IgniteEx crd = startGrids(3);
+
+            Ignite client = startGrid("client");
+            IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
+
+            try(Transaction tx = client.transactions().txStart()) {
+                cache.put(0, 0);
+
+                tx.commit();
+            }
+        }
+        finally {
+            stopAllGrids();
+        }
     }
 
     /**

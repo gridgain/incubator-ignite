@@ -38,24 +38,6 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
      */
     private long initCntr;
 
-    /** */
-    private final CacheGroupContext grp;
-
-    /** */
-    private final int partId;
-
-    /** */
-    private final IgniteLogger log;
-
-    public PartitionAtomicUpdateCounterImpl(CacheGroupContext grp, int partId) {
-        this.grp = grp;
-        this.partId = partId;
-        if (grp != null)
-            this.log = grp.shared().logger(getClass());
-        else
-            this.log = null;
-    }
-
     /** {@inheritDoc} */
     @Override public void init(long initUpdCntr, @Nullable byte[] cntrUpdData) {
         cntr.set(initUpdCntr);
@@ -84,15 +66,6 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
         long cur;
 
         while(val > (cur = cntr.get()) && !cntr.compareAndSet(cur, val));
-
-        if (log != null)
-            log.info("CNTR: set readyVer=" + grp.topology().topologyVersionFuture().initialVersion() +
-                ", grpId=" + grp.groupId() +
-                ", grpName=" + grp.name() +
-                ", partId=" + partId +
-                ", old=" + cur +
-                ", new=" + val +
-                ", updated=" + (val > cur));
     }
 
     /** {@inheritDoc} */
@@ -113,24 +86,10 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
         update(start + delta);
 
         initCntr = get();
-
-        if (log != null)
-            log.info("CNTR: initial readyVer=" + grp.topology().topologyVersionFuture().initialVersion() +
-                ", grpId=" + grp.groupId() +
-                ", grpName=" + grp.name() +
-                ", partId=" + partId +
-                ", initCntr=" + initCntr);
     }
 
     /** {@inheritDoc} */
     @Override public GridLongList finalizeUpdateCounters() {
-        if (log != null)
-            log.info("CNTR: finalize readyVer=" + grp.topology().topologyVersionFuture().initialVersion() +
-                ", grpId=" + grp.groupId() +
-                ", grpName=" + grp.name() +
-                ", partId=" + partId +
-                ", cntr=" + get());
-
         return new GridLongList();
     }
 

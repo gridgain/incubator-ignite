@@ -104,6 +104,10 @@
     <category name="org.apache.ignite.internal.processors.cache.PartitionTxUpdateCounterDebugWrapper">
         <level value="DEBUG"/>
     </category>
+
+    <category name="org.apache.ignite.internal.processors.cache.PartitionAtomicDebugUpdateCounterImpl">
+        <level value="DEBUG"/>
+    </category>
     -->
 
     <!-- Disable all open source debugging. -->
