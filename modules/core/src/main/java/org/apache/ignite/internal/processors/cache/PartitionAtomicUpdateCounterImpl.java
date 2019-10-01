@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache;
 
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.util.GridEmptyIterator;
 import org.apache.ignite.internal.util.GridLongList;
 import org.jetbrains.annotations.Nullable;
@@ -36,6 +37,24 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
      * Initial counter is set to update with max sequence number after WAL recovery.
      */
     private long initCntr;
+
+    /** */
+    private final CacheGroupContext grp;
+
+    /** */
+    private final int partId;
+
+    /** */
+    private final IgniteLogger log;
+
+    public PartitionAtomicUpdateCounterImpl(CacheGroupContext grp, int partId) {
+        this.grp = grp;
+        this.partId = partId;
+        if (grp != null)
+            this.log = grp.shared().logger(getClass());
+        else
+            this.log = null;
+    }
 
     /** {@inheritDoc} */
     @Override public void init(long initUpdCntr, @Nullable byte[] cntrUpdData) {
@@ -65,6 +84,15 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
         long cur;
 
         while(val > (cur = cntr.get()) && !cntr.compareAndSet(cur, val));
+
+        if (log != null)
+            log.info("CNTR: set readyVer=" + grp.topology().topologyVersionFuture().initialVersion() +
+                ", grpId=" + grp.groupId() +
+                ", grpName=" + grp.name() +
+                ", partId=" + partId +
+                ", old=" + cur +
+                ", new=" + val +
+                ", updated=" + (val > cur));
     }
 
     /** {@inheritDoc} */
@@ -85,10 +113,24 @@ public class PartitionAtomicUpdateCounterImpl implements PartitionUpdateCounter 
         update(start + delta);
 
         initCntr = get();
+
+        if (log != null)
+            log.info("CNTR: initial futVer=" + grp.topology().topologyVersionFuture().initialVersion() +
+                ", grpId=" + grp.groupId() +
+                ", grpName=" + grp.name() +
+                ", partId=" + partId +
+                ", initCntr=" + initCntr);
     }
 
     /** {@inheritDoc} */
     @Override public GridLongList finalizeUpdateCounters() {
+        if (log != null)
+            log.info("CNTR: finalize readyVer=" + grp.topology().topologyVersionFuture().initialVersion() +
+                ", grpId=" + grp.groupId() +
+                ", grpName=" + grp.name() +
+                ", partId=" + partId +
+                ", cntr=" + get());
+
         return new GridLongList();
     }
 

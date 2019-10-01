@@ -111,11 +111,13 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
     protected static final String CLIENT_GRID_NAME = "client";
 
     /** */
-    protected static final int PARTS_CNT = 32;
+    protected static final int PARTS_CNT = 1024;
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
+
+        cfg.setActiveOnStart(false);
 
         cfg.setConsistentId("node" + igniteInstanceName);
         cfg.setFailureHandler(new StopNodeFailureHandler());
@@ -134,13 +136,20 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
             setWalHistorySize(1000).
             setWalSegmentSize(8 * MB).setWalMode(LOG_ONLY).setPageSize(1024).
             setCheckpointFrequency(MILLISECONDS.convert(365, DAYS)).
-            setDefaultDataRegionConfiguration(new DataRegionConfiguration().setPersistenceEnabled(true).
+            setDefaultDataRegionConfiguration(new DataRegionConfiguration().setPersistenceEnabled(persistenceEnabled()).
                 setInitialSize(100 * MB).setMaxSize(100 * MB)));
 
         if (!client)
             cfg.setCacheConfiguration(cacheConfiguration(DEFAULT_CACHE_NAME));
 
         return cfg;
+    }
+
+    /**
+     * @return {@code True} if persistence should be enabled for test class.
+     */
+    protected boolean persistenceEnabled() {
+        return true;
     }
 
     /**
@@ -690,7 +699,7 @@ public abstract class TxPartitionCounterStateAbstractTest extends GridCommonAbst
     protected void stopGrid(boolean skipCheckpointOnStop, String name) {
         IgniteEx grid = grid(name);
 
-        if (skipCheckpointOnStop) {
+        if (skipCheckpointOnStop && persistenceEnabled()) {
             GridCacheDatabaseSharedManager db =
                 (GridCacheDatabaseSharedManager)grid.context().cache().context().database();
 

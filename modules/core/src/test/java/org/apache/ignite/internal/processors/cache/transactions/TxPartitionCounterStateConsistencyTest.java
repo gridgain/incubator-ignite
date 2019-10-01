@@ -31,7 +31,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.ignite.Ignite;
@@ -183,7 +185,7 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             }
         }, 1, "node-restarter");
 
-        doRandomUpdates(r, client, primaryKeys, cache, stop).get();
+        doRandomUpdates(r, client, primaryKeys, cache, null).get();
         fut.get();
 
         assertPartitionsSame(idleVerify(client, DEFAULT_CACHE_NAME));
@@ -246,10 +248,102 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             }
         }, 1, "node-restarter");
 
-        doRandomUpdates(r, prim, primaryKeys, cache, stop).get();
+        doRandomUpdates(r, prim, primaryKeys, cache, null).get();
         fut.get();
 
         assertPartitionsSame(idleVerify(prim, DEFAULT_CACHE_NAME));
+    }
+
+    /**
+     * Test primary-backup partitions consistency while restarting random nodes under load.
+     */
+    public void testPartitionConsistencyWithAllRestart() throws Exception {
+        backups = 1;
+
+        final int srvNodes = SERVER_NODES; // Add one non-owner node to test to increase entropy.
+
+        Ignite prim = startGrids(srvNodes);
+
+        prim.cluster().active(true);
+
+        Ignite client = startGrid("client");
+
+        IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
+
+        List<Integer> primaryKeys = //
+             //IntStream.range(0, 10_000).boxed().collect(Collectors.toList());
+            primaryKeys(prim.cache(DEFAULT_CACHE_NAME), 10_000);
+
+//        List<Ignite> backups = backupNodes(primaryKeys.get(0), DEFAULT_CACHE_NAME);
+//
+//        assertFalse(backups.contains(prim));
+
+        long stopTs = U.currentTimeMillis() + 2 * 60_000;
+
+        long seed = System.nanoTime();
+
+        log.info("Seed: " + seed);
+
+        Random r = new Random(seed);
+
+        assertTrue(prim == grid(0));
+
+        AtomicBoolean stopPub = new AtomicBoolean();
+
+        BooleanSupplier stopPred = new BooleanSupplier() {
+            @Override public boolean getAsBoolean() {
+                return stopPub.get();
+            }
+        };
+
+        IgniteInternalFuture<?> fut = multithreadedAsync(() -> {
+            //while (!stopPred.getAsBoolean()) {
+            doSleep(5_000);
+
+            Ignite restartNode = prim;
+
+            //assertFalse(prim == restartNode);
+
+            String name = restartNode.name();
+
+            stopGrid(name, true);
+
+            try {
+                //doSleep(1000);
+
+                //startGrid(name);
+
+
+            }
+            catch (Exception e) {
+                fail(X.getFullStackTrace(e));
+            }
+            finally {
+                stopPub.set(true);
+            }
+//            }
+        }, 1, "node-restarter");
+
+        IgniteInternalFuture clFut = GridTestUtils.runAsync(new Runnable() {
+            @Override public void run() {
+                while(!stopPred.getAsBoolean()) {
+                    try {
+                        Ignite c2 = startGrid("client2");
+                        c2.close();
+                    } catch (Exception e) {
+                        fail(X.getFullStackTrace(e));
+                    }
+                }
+            }
+        });
+
+        doRandomUpdates(r, client, primaryKeys, cache, stopPred).get();
+        fut.get();
+        clFut.get();
+
+        awaitPartitionMapExchange();
+
+        assertPartitionsSame(idleVerify(client, DEFAULT_CACHE_NAME));
     }
 
     /**
@@ -887,18 +981,18 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
      * @param near Near node.
      * @param primaryKeys Primary keys.
      * @param cache Cache.
-     * @param stop Time to stop.
+     * @param stopPred Stop predicate.
      * @return Finish future.
      */
     private IgniteInternalFuture<?> doRandomUpdates(Random r, Ignite near, List<Integer> primaryKeys,
-        IgniteCache<Object, Object> cache, long stop) throws Exception {
+        IgniteCache<Object, Object> cache, BooleanSupplier stopPred) throws Exception {
         LongAdder puts = new LongAdder();
         LongAdder removes = new LongAdder();
 
         final int max = 100;
 
         return multithreadedAsync(() -> {
-            while (U.currentTimeMillis() < stop) {
+            while (!stopPred.getAsBoolean()) {
                 int rangeStart = r.nextInt(primaryKeys.size() - max);
                 int range = 5 + r.nextInt(max - 5);
 

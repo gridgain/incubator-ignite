@@ -293,7 +293,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
     /** */
     public void testAtomicUpdateCounterMultithreaded() throws Exception {
-        PartitionUpdateCounter cntr = new PartitionAtomicUpdateCounterImpl();
+        PartitionUpdateCounter cntr = new PartitionAtomicUpdateCounterImpl(null, 0);
 
         AtomicInteger id = new AtomicInteger();
 
