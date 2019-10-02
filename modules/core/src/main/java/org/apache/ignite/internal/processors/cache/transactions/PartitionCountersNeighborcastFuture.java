@@ -38,6 +38,7 @@ import org.apache.ignite.internal.util.typedef.C1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,6 +112,23 @@ public class PartitionCountersNeighborcastFuture extends GridCacheCompoundIdenti
             try {
                 // we must add mini future before sending a message, otherwise mini future must miss completion
                 add(miniFut);
+
+                if (log.isInfoEnabled()) {
+                    SB b = new SB();
+                    for (PartitionUpdateCountersMessage cntr : cntrs) {
+                        b.a("cacheId=" + cntr.cacheId());
+                        b.a("\n");
+                        for (int i = 0; i < cntr.size(); i++) {
+                            int part = cntr.partition(i);
+                            long start = cntr.initialCounter(i);
+                            long range = cntr.updatesCount(i);
+                            b.a("   partId=" + part + ", start=" + start + ", range=" + range);
+                            b.a("\n");
+                        }
+                    }
+
+                    log.info("Send close counters message: nodeId=" + n.id() + ", counters=" + b.toString());
+                }
 
                 cctx.io().send(n, new PartitionCountersNeighborcastRequest(cntrs, futId, tx.topologyVersion()), SYSTEM_POOL);
             }

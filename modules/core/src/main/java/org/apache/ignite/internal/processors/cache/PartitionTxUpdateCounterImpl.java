@@ -476,7 +476,7 @@ public class PartitionTxUpdateCounterImpl implements PartitionUpdateCounter {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return "Counter [lwm=" + get() + ", holes=" + queue +
+        return "Counter [lwm=" + get() + ", oooQueue=" + queue +
             ", maxApplied=" + highestAppliedCounter() + ", hwm=" + reserveCntr.get() + ']';
     }
 }

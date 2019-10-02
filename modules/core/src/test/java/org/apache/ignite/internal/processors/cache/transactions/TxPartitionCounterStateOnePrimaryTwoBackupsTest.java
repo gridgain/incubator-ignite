@@ -645,17 +645,17 @@ public class TxPartitionCounterStateOnePrimaryTwoBackupsTest extends TxPartition
     }
 
     /**
-     * Test scenario:
+     * Test scenario for finalizeUpdateCounter:
      * <p>
      * 1. Start 2 transactions.
      * <p>
      * 2. Assign counters in given order.
      * <p>
-     * 4. Prepare first tx on backups. Prevent preparing on primary and near node triggering rollback by tx recovery.
+     * 4. Prepare first tx on backups. Do not prepare second tx so backups will have missed updates.
      * <p>
      * 5. Fail primary for triggering recovery.
      * <p>
-     * 6. Validate partitions integrity after node left.
+     * 6. Validate partitions integrity after node left. Expect no committed transaction and counter advance.
      *
      * @param skipCheckpointOnNodeStop Skip checkpoint on node stop.
      * @param sizes Sizes.
@@ -690,11 +690,7 @@ public class TxPartitionCounterStateOnePrimaryTwoBackupsTest extends TxPartition
                         if (cntr.getAndIncrement() == 1) { // Both backups are prepared.
                             log.info("Stopping primary [name=" + primary.name() + ']');
 
-                            runAsync(() -> {
-                                stopGrid(skipCheckpointOnNodeStop, primary.name());
-
-                                TestRecordingCommunicationSpi.stopBlockAll();
-                            });
+                            runAsync(() -> stopGrid(skipCheckpointOnNodeStop, primary.name()));
                         }
 
                         return true;
@@ -878,5 +874,9 @@ public class TxPartitionCounterStateOnePrimaryTwoBackupsTest extends TxPartition
         assertCountersSame(PARTITION_ID, true);
 
         assertPartitionsSame(idleVerify(client, DEFAULT_CACHE_NAME));
+    }
+
+    @Override protected long getPartitionMapExchangeTimeout() {
+        return super.getPartitionMapExchangeTimeout() * 10;
     }
 }
