@@ -57,8 +57,20 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
             ']');
     }
 
-    @Override public void update(long val) {
-        super.update(val);
+    @Override public synchronized void update(long val) {
+        long cur = get();
+
+        try {
+            super.update(val);
+        }
+        finally {
+            log.debug("[op=set" +
+                ", grpId=" + grp.groupId() +
+                ", partId=" + partId +
+                ", val=" + val +
+                ", cur=" + cur +
+                ", new=" + get() + ']');
+        }
     }
 
     @Override public synchronized boolean update(long start, long delta) {
@@ -69,6 +81,8 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
         }
         finally {
             log.debug("[op=update" +
+                ", grpId=" + grp.groupId() +
+                ", partId=" + partId +
                 ", range=(" + start + "," + delta + ")" +
                 ", cur=" + cur +
                 ", new=" + get() + ']');
@@ -83,6 +97,8 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
         }
         finally {
             log.debug("[op=updateInitial" +
+                ", grpId=" + grp.groupId() +
+                ", partId=" + partId +
                 ", range=(" + start + "," + delta + ")" +
                 ", cur=" + cur +
                 ", new=" + get() + ']');
@@ -97,6 +113,8 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
         }
         finally {
             log.debug("[op=reserve" +
+                ", grpId=" + grp.groupId() +
+                ", partId=" + partId +
                 ", delta=" + delta +
                 ", cur=" + cur +
                 ", new=" + get() + ']');
@@ -111,6 +129,8 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
         }
         finally {
             log.debug("[op=next" +
+                ", grpId=" + grp.groupId() +
+                ", partId=" + partId +
                 ", delta=" + delta +
                 ", cur=" + cur +
                 ", new=" + get() + ']');
