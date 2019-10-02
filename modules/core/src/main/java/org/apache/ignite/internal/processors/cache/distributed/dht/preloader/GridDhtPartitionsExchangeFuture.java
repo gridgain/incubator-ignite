@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -94,6 +95,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.topology.Grid
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionsStateValidator;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.SnapshotDiscoveryMessage;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
@@ -104,6 +106,7 @@ import org.apache.ignite.internal.processors.cluster.DiscoveryDataClusterState;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TimeBag;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.CI1;
@@ -1476,6 +1479,32 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 }
                 finally {
                     cctx.exchange().exchangerBlockingSectionEnd();
+                }
+            }
+        }
+
+        // Dump hashes on ideal switch.
+        if (exchangeId().discoveryEvent().type() == DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT) {
+            for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
+                if (grp.isLocal() || cacheGroupStopping(grp.groupId()) || grp.persistenceEnabled() || grp.systemCache())
+                    continue;
+
+                List<GridDhtLocalPartition> parts = grp.topology().localPartitions();
+
+                for (GridDhtLocalPartition part : parts) {
+                    long partHash = 0;
+
+                    GridIterator<CacheDataRow> it = grp.offheap().partitionIterator(part.id());
+
+                    while (it.hasNextX()) {
+                        CacheDataRow row = it.nextX();
+
+                        partHash += row.key().hashCode();
+
+                        partHash += Arrays.hashCode(row.value().valueBytes(grp.cacheObjectContext()));
+                    }
+
+                    log.info("DBG: grpName=" + grp.name() + ", grpId=" + grp.groupId() + ", partId=" + part.id() + ", hash=" + partHash);
                 }
             }
         }

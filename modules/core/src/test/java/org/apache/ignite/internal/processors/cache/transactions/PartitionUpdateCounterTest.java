@@ -18,21 +18,27 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -44,7 +50,11 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.cache.PartitionAtomicUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionTxUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 
@@ -58,6 +68,8 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
+
+        cfg.setConsistentId(igniteInstanceName);
 
         cfg.setClientMode("client".equals(igniteInstanceName));
 
@@ -73,7 +85,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
         cfg.setDataStorageConfiguration(memCfg);
 
         cfg.setCacheConfiguration(new CacheConfiguration(DEFAULT_CACHE_NAME).
-            setAffinity(new RendezvousAffinityFunction(false, 1)).
+            setAffinity(new RendezvousAffinityFunction(false, 32)).
             setBackups(2).
             setCacheMode(CacheMode.PARTITIONED).
             setAtomicityMode(mode));
@@ -308,7 +320,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
             @Override public void run() {
                 int val;
 
-                while((val = id.incrementAndGet()) <= max) {
+                while ((val = id.incrementAndGet()) <= max) {
                     try {
                         cntr.update(val);
                     }
@@ -343,18 +355,87 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
         try {
             IgniteEx crd = startGrids(3);
+            awaitPartitionMapExchange();
 
             Ignite client = startGrid("client");
             IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
             try(Transaction tx = client.transactions().txStart()) {
-                cache.put(0, 0);
+                for (int i = 0; i < 32; i++)
+                    cache.put(i, i);
 
                 tx.commit();
             }
+
+//            printDifference(client, 0, DEFAULT_CACHE_NAME);
+//            System.out.println();
+
+            startGrid(3);
+
+            awaitPartitionMapExchange();
+
+            System.out.println();
         }
         finally {
             stopAllGrids();
+        }
+    }
+
+    /**
+     * @param locNode Local node.
+     * @param partId Partition id.
+     * @param cacheName Cache name.
+     */
+    private void printDifference(Ignite locNode, int partId, String cacheName) {
+        IgniteClosure<T2<String, Integer>, T2<String, Map<Object, Object>>> clo = new GetLocalPartitionKeys();
+
+        List<T2<String /** Consistent id. */, Map<Object, Object> /** Entries. */>> res =
+            new ArrayList<>(locNode.compute(locNode.cluster().forServers()).broadcast(clo, new T2<>(cacheName, partId)));
+
+        // Remove same keys.
+        Map<Object, Object> tmp = null;
+
+        for (int i = 0; i < res.size(); i++) {
+            T2<String, Map<Object, Object>> cur = res.get(i);
+
+            if (tmp == null)
+                tmp = new HashMap<>(cur.get2());
+            else
+                tmp.entrySet().retainAll(cur.get2().entrySet());
+        }
+
+        for (Map.Entry<Object, Object> entry : tmp.entrySet()) {
+            for (T2<String, Map<Object, Object>> e : res)
+                e.get2().remove(entry.getKey(), entry.getValue());
+        }
+
+        for (T2<String, Map<Object, Object>> e : res)
+            log.info("ConsistentId=" + e.get1() + ", entries=" + e.get2());
+    }
+
+    /** */
+    public static final class GetLocalPartitionKeys implements IgniteClosure<T2<String, Integer>, T2<String, Map<Object, Object>>> {
+        /** */
+        @IgniteInstanceResource
+        private Ignite ignite;
+
+        /** {@inheritDoc} */
+        @Override public T2<String, Map<Object, Object>> apply(T2<String, Integer> arg) {
+            T2<String, Map<Object, Object>> res = new T2<>((String) ignite.configuration().getConsistentId(), new HashMap<>());
+
+            IgniteCache<Object, Object> cache = ignite.cache(arg.get1());
+
+            if (cache == null)
+                return res;
+
+            Iterable<Cache.Entry<Object, Object>> entries = cache.localEntries();
+
+            for (Cache.Entry<Object, Object> entry : entries) {
+                if (ignite.affinity(cache.getName()).partition(entry.getKey()) == arg.get2().intValue())
+                    res.get2().put(entry.getKey(), entry.getValue());
+            }
+
+            return res;
         }
     }
 
