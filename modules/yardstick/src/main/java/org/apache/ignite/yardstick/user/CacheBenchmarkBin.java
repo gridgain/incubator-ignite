@@ -24,7 +24,7 @@ public class CacheBenchmarkBin extends IgniteAbstractBenchmark {
         Double quantity = r.nextDouble();
         Double price = r.nextDouble();
         Integer tid = r.nextInt(MAX_TIDS);
-        IgniteAtomicLong atomicLong = i.atomicLong("tradeId", new AtomicConfiguration().setBackups(1), 0,true);
+        IgniteAtomicLong atomicLong = i.atomicLong("tradeId", new AtomicConfiguration().setBackups(0), 0,true);
         Long tradeId = atomicLong.incrementAndGet();
         compute.affinityCall("TradeCache",tradeId, new ActionCallable(tradeId,tid,quantity,price));
         return true;
