@@ -1486,7 +1486,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         // Dump hashes on ideal switch.
         if (exchangeId().discoveryEvent().type() == DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT) {
             for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
-                if (grp.isLocal() || cacheGroupStopping(grp.groupId()) || grp.persistenceEnabled() || grp.systemCache())
+                if (grp.isLocal() || cacheGroupStopping(grp.groupId()) || grp.systemCache())
                     continue;
 
                 List<GridDhtLocalPartition> parts = grp.topology().localPartitions();

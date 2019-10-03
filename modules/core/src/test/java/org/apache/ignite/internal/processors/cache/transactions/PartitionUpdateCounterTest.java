@@ -51,6 +51,7 @@ import org.apache.ignite.internal.processors.cache.PartitionAtomicUpdateCounterI
 import org.apache.ignite.internal.processors.cache.PartitionTxUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.lang.IgniteClosure;
@@ -362,13 +363,13 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
             try(Transaction tx = client.transactions().txStart()) {
                 for (int i = 0; i < 32; i++)
-                    cache.put(i, i);
+                    cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
 
                 tx.commit();
             }
 
-//            printDifference(client, 0, DEFAULT_CACHE_NAME);
-//            System.out.println();
+            printDifference(client, 0, DEFAULT_CACHE_NAME, true);
+            printDifference(client, 0, DEFAULT_CACHE_NAME, false);
 
             startGrid(3);
 
@@ -381,16 +382,76 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
         }
     }
 
+    public static class SampleObject {
+        private int id;
+        private String name;
+        private long salary;
+
+        public SampleObject(int id, String name, long salary) {
+            this.id = id;
+            this.name = name;
+            this.salary = salary;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public long getSalary() {
+            return salary;
+        }
+
+        public void setSalary(long salary) {
+            this.salary = salary;
+        }
+
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            SampleObject object = (SampleObject)o;
+
+            if (id != object.id)
+                return false;
+            if (salary != object.salary)
+                return false;
+            return name.equals(object.name);
+
+        }
+
+        @Override public int hashCode() {
+            int result = id;
+            result = 31 * result + name.hashCode();
+            result = 31 * result + (int)(salary ^ (salary >>> 32));
+            return result;
+        }
+    }
+
     /**
      * @param locNode Local node.
      * @param partId Partition id.
      * @param cacheName Cache name.
+     * @param keepBinary Keep binary.
      */
-    private void printDifference(Ignite locNode, int partId, String cacheName) {
-        IgniteClosure<T2<String, Integer>, T2<String, Map<Object, Object>>> clo = new GetLocalPartitionKeys();
+    private void printDifference(Ignite locNode, int partId, String cacheName, boolean keepBinary) {
+        IgniteClosure<T3<String, Integer, Boolean>, T2<String, Map<Object, Object>>> clo = new GetLocalPartitionKeys();
 
         List<T2<String /** Consistent id. */, Map<Object, Object> /** Entries. */>> res =
-            new ArrayList<>(locNode.compute(locNode.cluster().forServers()).broadcast(clo, new T2<>(cacheName, partId)));
+            new ArrayList<>(locNode.compute(locNode.cluster().forServers()).broadcast(clo, new T3<>(cacheName, partId, keepBinary)));
 
         // Remove same keys.
         Map<Object, Object> tmp = null;
@@ -414,16 +475,16 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
     }
 
     /** */
-    public static final class GetLocalPartitionKeys implements IgniteClosure<T2<String, Integer>, T2<String, Map<Object, Object>>> {
+    public static final class GetLocalPartitionKeys implements IgniteClosure<T3<String, Integer, Boolean>, T2<String, Map<Object, Object>>> {
         /** */
         @IgniteInstanceResource
         private Ignite ignite;
 
         /** {@inheritDoc} */
-        @Override public T2<String, Map<Object, Object>> apply(T2<String, Integer> arg) {
+        @Override public T2<String, Map<Object, Object>> apply(T3<String, Integer, Boolean> arg) {
             T2<String, Map<Object, Object>> res = new T2<>((String) ignite.configuration().getConsistentId(), new HashMap<>());
 
-            IgniteCache<Object, Object> cache = ignite.cache(arg.get1());
+            IgniteCache<Object, Object> cache = arg.get3() ? ignite.cache(arg.get1()).withKeepBinary() : ignite.cache(arg.get1());
 
             if (cache == null)
                 return res;
