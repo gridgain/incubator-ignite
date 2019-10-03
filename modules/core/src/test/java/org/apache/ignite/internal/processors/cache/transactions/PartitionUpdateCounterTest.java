@@ -36,6 +36,7 @@ import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CachePeekMode;
@@ -80,6 +81,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
                     .setPersistenceEnabled(false)
                     .setMaxSize(DataStorageConfiguration.DFLT_DATA_REGION_INITIAL_SIZE)
             )
+            .setWalHistorySize(1000)
             .setWalMode(WALMode.LOG_ONLY)
             .setWalSegmentSize(8 * 1024 * 1024);
 
@@ -105,7 +107,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
     @Override protected void afterTest() throws Exception {
         super.afterTest();
 
-        cleanPersistenceDir();
+        //cleanPersistenceDir();
     }
 
     /**
@@ -356,26 +358,35 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
         try {
             IgniteEx crd = startGrids(3);
+            crd.cluster().active(true);
             awaitPartitionMapExchange();
 
             Ignite client = startGrid("client");
             IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
 
+//            try(IgniteDataStreamer<Object, Object> streamer = crd.dataStreamer(DEFAULT_CACHE_NAME)) {
+//                for (int i = 0; i < 32 * 1_000; i++)
+//                    streamer.addData(i, new SampleObject(i, "test" + i, i * 1000l));
+//            }
             try(Transaction tx = client.transactions().txStart()) {
-                for (int i = 0; i < 32; i++)
-                    cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
+                //for (int i = 0; i < 32 * 10_000; i++)
+                    //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
+
+                int i = 1;
+
+                cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
 
                 tx.commit();
             }
 
-            printDifference(client, 0, DEFAULT_CACHE_NAME, true);
-            printDifference(client, 0, DEFAULT_CACHE_NAME, false);
+//            printDifference(client, 0, DEFAULT_CACHE_NAME, true);
+//            printDifference(client, 0, DEFAULT_CACHE_NAME, false);
 
-            startGrid(3);
-
-            awaitPartitionMapExchange();
-
-            System.out.println();
+//            startGrid(3);
+//
+//            awaitPartitionMapExchange();
+//
+//            System.out.println();
         }
         finally {
             stopAllGrids();
@@ -386,11 +397,13 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
         private int id;
         private String name;
         private long salary;
+        private byte[] data;
 
         public SampleObject(int id, String name, long salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+            this.data = new byte[128];
         }
 
         public int getId() {

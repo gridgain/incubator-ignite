@@ -18,9 +18,12 @@
 package org.apache.ignite.development.utils;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
+import org.apache.ignite.internal.pagemem.wal.record.DataRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileWriteAheadLogManager;
@@ -51,61 +54,50 @@ public class IgniteWalConverter {
         H2ExtrasInnerIO.register();
         H2ExtrasLeafIO.register();
 
-        boolean printRecords = IgniteSystemProperties.getBoolean("PRINT_RECORDS", false); //TODO read them from argumetns
-        boolean printStat = IgniteSystemProperties.getBoolean("PRINT_STAT", true); //TODO read them from argumetns
-
         final IgniteWalIteratorFactory factory = new IgniteWalIteratorFactory(new NullLogger());
 
-        final File walWorkDirWithConsistentId = new File(args[1]);
-
-        final File[] workFiles = walWorkDirWithConsistentId.listFiles(FileWriteAheadLogManager.WAL_SEGMENT_FILE_FILTER);
-
-        if (workFiles == null)
-            throw new IllegalArgumentException("No .wal files in dir: " + args[1]);
-
-        @Nullable final WalStat stat = printStat ? new WalStat() : null;
+        //System.setOut(new PrintStream(new FileOutputStream(new File(args[1])), false));
 
         IgniteWalIteratorFactory.IteratorParametersBuilder iteratorParametersBuilder =
-                new IgniteWalIteratorFactory.IteratorParametersBuilder().filesOrDirs(workFiles)
+                new IgniteWalIteratorFactory.IteratorParametersBuilder().filesOrDirs(args[2], args[3])
+                    .keepBinary(true)
+                    .binaryMetadataFileStoreDir(new File("C:\\work\\apache-ignite\\work\\binary_meta\\transactions_PartitionUpdateCounterTest0"))
                     .pageSize(Integer.parseInt(args[0]));
 
         try (WALIterator stIt = factory.iterator(iteratorParametersBuilder)) {
             while (stIt.hasNextX()) {
                 IgniteBiTuple<WALPointer, WALRecord> next = stIt.nextX();
 
-                final WALPointer pointer = next.get1();
+                // final WALPointer pointer = next.get1();
                 final WALRecord record = next.get2();
 
-                if (stat != null)
-                    stat.registerRecord(record, pointer, true);
-
-                if (printRecords)
-                    System.out.println("[W] " + record);
+                if (record instanceof DataRecord)
+                    System.out.println(record);
             }
         }
 
-        if (args.length >= 3) {
-            final File walArchiveDirWithConsistentId = new File(args[2]);
-
-            try (WALIterator stIt = factory.iterator(walArchiveDirWithConsistentId)) {
-                while (stIt.hasNextX()) {
-                    IgniteBiTuple<WALPointer, WALRecord> next = stIt.nextX();
-
-                    final WALPointer pointer = next.get1();
-                    final WALRecord record = next.get2();
-
-                    if (stat != null)
-                        stat.registerRecord(record, pointer, false);
-
-                    if (printRecords)
-                        System.out.println("[A] " + record);
-                }
-            }
-        }
-
-        System.err.flush();
-
-        if (stat != null)
-            System.out.println("Statistic collected:\n" + stat.toString());
+//        if (args.length >= 3) {
+//            final File walArchiveDirWithConsistentId = new File(args[2]);
+//
+//            try (WALIterator stIt = factory.iterator(walArchiveDirWithConsistentId)) {
+//                while (stIt.hasNextX()) {
+//                    IgniteBiTuple<WALPointer, WALRecord> next = stIt.nextX();
+//
+//                    final WALPointer pointer = next.get1();
+//                    final WALRecord record = next.get2();
+//
+//                    if (stat != null)
+//                        stat.registerRecord(record, pointer, false);
+//
+//                    if (printRecords)
+//                        System.out.println("[A] " + record);
+//                }
+//            }
+//        }
+//
+//        System.err.flush();
+//
+//        if (stat != null)
+//            System.out.println("Statistic collected:\n" + stat.toString());
     }
 }
