@@ -38,6 +38,8 @@ import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.InvalidEnvironmentException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxRemoteAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxRemote;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
@@ -925,7 +927,10 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 }
 
                 if (txCounters != null) {
-                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), false, false, null);
+                    GridDhtTxRemote fake = new GridDhtTxRemote();
+                    fake.commitMode = GridDistributedTxRemoteAdapter.CommitMode.LOCAL_COMMIT;
+
+                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), false, false, fake);
 
                     for (IgniteTxEntry entry : commitEntries) {
                         if (entry.cqNotifyClosure() != null)
@@ -1103,8 +1108,12 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
         if (DONE_FLAG_UPD.compareAndSet(this, 0, 1)) {
             TxCounters txCounters = txCounters(false);
 
-            if (txCounters != null)
-                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), true, true, null);
+            if (txCounters != null) {
+                GridDhtTxRemote fake = new GridDhtTxRemote();
+                fake.commitMode = GridDistributedTxRemoteAdapter.CommitMode.LOCAL_ROLLBACK;
+
+                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), true, true, fake);
+            }
 
             cctx.tm().rollbackTx(this, clearThreadMap, skipCompletedVersions());
 

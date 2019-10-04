@@ -1059,6 +1059,8 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
         SALVAGE_COMMIT,
         ONE_PHASE,
         FINISH_COMMIT,
-        FINISH_ROLLBACK
+        FINISH_ROLLBACK,
+        LOCAL_COMMIT,
+        LOCAL_ROLLBACK
     }
 }

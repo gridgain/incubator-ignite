@@ -376,7 +376,13 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
                 cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
 
-                tx.commit();
+                TransactionProxyImpl p = (TransactionProxyImpl)tx;
+
+                p.tx().prepare(true);
+
+                tx.rollback();
+
+                //tx.commit();
             }
 
 //            printDifference(client, 0, DEFAULT_CACHE_NAME, true);
