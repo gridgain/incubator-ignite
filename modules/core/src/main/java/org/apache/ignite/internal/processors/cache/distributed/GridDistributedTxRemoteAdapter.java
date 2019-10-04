@@ -798,6 +798,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
 
                                     GridDhtLocalPartition locPart = top.localPartition(entry.cached().partition());
 
+                                    commitMode = CommitMode.COMPAT;
                                     locPart.updateCounter(entry.updateCounter() - 1, 1);
                                 }
                             }
@@ -1061,6 +1062,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
         FINISH_COMMIT,
         FINISH_ROLLBACK,
         LOCAL_COMMIT,
-        LOCAL_ROLLBACK
+        LOCAL_ROLLBACK,
+        COMPAT
     }
 }
