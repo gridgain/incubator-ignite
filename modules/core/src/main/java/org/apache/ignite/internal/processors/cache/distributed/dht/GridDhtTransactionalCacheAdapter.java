@@ -46,6 +46,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheReturn;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedCacheEntry;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxRemoteAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedUnlockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysResponse;
@@ -319,12 +320,18 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             if (tx != null) {
                                 tx.clearEntry(txKey);
 
+
+
                                 // If there is a concurrent salvage, there could be a case when tx is moved to
                                 // COMMITTING state, but this lock is never acquired.
-                                if (tx.state() == COMMITTING)
+                                if (tx.state() == COMMITTING) {
+                                    tx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.FORCE_COMMIT_TRUE;
                                     tx.forceCommit();
-                                else
+                                }
+                                else {
+                                    tx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.FORCE_COMMIT_FALSE;
                                     tx.rollbackRemoteTx();
+                                }
                             }
 
                             return null;
@@ -379,6 +386,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             if (log.isDebugEnabled())
                 log.debug("Rolling back remote DHT transaction because it is empty [req=" + req + ", res=" + res + ']');
 
+            tx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.ROLLBACK_EMPTY;
             tx.rollbackRemoteTx();
 
             tx = null;

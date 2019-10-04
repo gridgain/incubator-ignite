@@ -41,6 +41,9 @@ import org.apache.ignite.internal.processors.cache.GridCacheMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheReturnCompletableWrapper;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.PartitionAtomicDebugUpdateCounterImpl;
+import org.apache.ignite.internal.processors.cache.PartitionAtomicUpdateCounterImpl;
+import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryFuture;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryRequest;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryResponse;
@@ -1195,6 +1198,7 @@ public class IgniteTxHandler {
                     dhtTx.onePhaseCommit(true);
                     dhtTx.needReturnValue(req.needReturnValue());
 
+                    dhtTx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.ONE_PHASE;
                     finish(dhtTx, req);
                 }
 
@@ -1336,11 +1340,15 @@ public class IgniteTxHandler {
         if (anyTx == null && req.commit())
             ctx.tm().addCommittedTx(null, req.version(), null);
 
-        if (dhtTx != null)
+        if (dhtTx != null) {
             finish(nodeId, dhtTx, req);
+        }
         else {
             try {
-                applyPartitionsUpdatesCounters(req.updateCounters(), !req.commit(), false);
+                GridDhtTxRemote fake = new GridDhtTxRemote();
+                fake.commitMode = GridDistributedTxRemoteAdapter.CommitMode.FINISH_REQ_NO_RMT_TX;
+
+                applyPartitionsUpdatesCounters(req.updateCounters(), !req.commit(), false, fake);
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
@@ -1416,6 +1424,8 @@ public class IgniteTxHandler {
                 tx.setPartitionUpdateCounters(
                     req.partUpdateCounters() != null ? req.partUpdateCounters().array() : null);
 
+                ((GridDistributedTxRemoteAdapter)tx).commitMode = GridDistributedTxRemoteAdapter.CommitMode.FINISH_COMMIT;
+
                 tx.commitRemoteTx();
             }
             else {
@@ -1423,6 +1433,8 @@ public class IgniteTxHandler {
                     tx.txCounters(true).updateCounters(req.updateCounters());
 
                 tx.doneRemote(req.baseVersion(), null, null, null);
+
+                ((GridDistributedTxRemoteAdapter)tx).commitMode = GridDistributedTxRemoteAdapter.CommitMode.FINISH_ROLLBACK;
                 tx.rollbackRemoteTx();
             }
         }
@@ -1478,6 +1490,7 @@ public class IgniteTxHandler {
                 tx.systemInvalidate(true);
 
                 try {
+                    tx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.ONE_PHASE_ERR;
                     tx.rollbackRemoteTx();
                 }
                 catch (Throwable e1) {
@@ -1543,6 +1556,7 @@ public class IgniteTxHandler {
 
             if (dhtTx != null)
                 try {
+                    dhtTx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.ROLLBACK_ON_SEND;
                     dhtTx.rollbackRemoteTx();
                 }
                 catch (Throwable e1) {
@@ -1687,7 +1701,10 @@ public class IgniteTxHandler {
                     if (log.isDebugEnabled())
                         log.debug("Attempt to start a completed transaction (will ignore): " + tx);
 
-                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false);
+                    GridDhtTxRemote fake = new GridDhtTxRemote();
+                    fake.commitMode = GridDistributedTxRemoteAdapter.CommitMode.START_COMPLETED;
+
+                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false, fake);
 
                     return null;
                 }
@@ -1699,7 +1716,9 @@ public class IgniteTxHandler {
 
                     ctx.tm().uncommitTx(tx);
 
-                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false);
+                    tx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.PARENT_DEAD;
+
+                    applyPartitionsUpdatesCounters(req.updateCounters(), true, false, tx);
 
                     return null;
                 }
@@ -1831,6 +1850,7 @@ public class IgniteTxHandler {
             if (tx.empty() && req.last()) {
                 tx.skipCompletedVersions(req.skipCompletedVersion());
 
+                tx.commitMode = GridDistributedTxRemoteAdapter.CommitMode.INVALID_PART;
                 tx.rollbackRemoteTx();
 
                 return null;
@@ -2040,7 +2060,10 @@ public class IgniteTxHandler {
      */
     private void processPartitionCountersRequest(UUID nodeId, PartitionCountersNeighborcastRequest req) {
         try {
-            applyPartitionsUpdatesCounters(req.updateCounters(), true, false);
+            GridDhtTxRemote fake = new GridDhtTxRemote();
+            fake.commitMode = GridDistributedTxRemoteAdapter.CommitMode.NEIGH;
+
+            applyPartitionsUpdatesCounters(req.updateCounters(), true, false, fake);
         }
         catch (IgniteCheckedException e) {
             throw new IgniteException(e);
@@ -2078,10 +2101,10 @@ public class IgniteTxHandler {
     /**
      * @param counters Counters.
      */
-    public void applyPartitionsUpdatesCounters(Iterable<PartitionUpdateCountersMessage> counters)
-        throws IgniteCheckedException {
-        applyPartitionsUpdatesCounters(counters, false, false);
-    }
+//    public void applyPartitionsUpdatesCounters(Iterable<PartitionUpdateCountersMessage> counters)
+//        throws IgniteCheckedException {
+//        applyPartitionsUpdatesCounters(counters, false, false);
+//    }
 
     /**
      * Applies partition counter updates for transactions.
@@ -2091,7 +2114,8 @@ public class IgniteTxHandler {
      */
     public void applyPartitionsUpdatesCounters(Iterable<PartitionUpdateCountersMessage> counters,
         boolean rollback,
-        boolean rollbackOnPrimary) throws IgniteCheckedException {
+        boolean rollbackOnPrimary,
+        GridDistributedTxRemoteAdapter tx) throws IgniteCheckedException {
         if (counters == null)
             return;
 
@@ -2115,6 +2139,12 @@ public class IgniteTxHandler {
                             if (part.state() != GridDhtPartitionState.RENTING) { // Check is actual only for backup node.
                                 long start = counter.initialCounter(i);
                                 long delta = counter.updatesCount(i);
+
+                                PartitionUpdateCounter c0 = part.dataStore().partUpdateCounter();
+                                if (c0 instanceof PartitionAtomicDebugUpdateCounterImpl) {
+                                    PartitionAtomicDebugUpdateCounterImpl c = (PartitionAtomicDebugUpdateCounterImpl)c0;
+                                    c.tx = tx;
+                                }
 
                                 boolean updated = part.updateCounter(start, delta);
 

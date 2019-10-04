@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache;
 
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxRemoteAdapter;
 import org.apache.ignite.internal.util.GridLongList;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,6 +33,8 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
 
     /** */
     private final IgniteLogger log;
+
+    public volatile GridDistributedTxRemoteAdapter tx;
 
     public PartitionAtomicDebugUpdateCounterImpl(CacheGroupContext grp, int partId) {
         this.grp = grp;
@@ -85,7 +88,9 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
                 ", partId=" + partId +
                 ", range=(" + start + "," + delta + ")" +
                 ", cur=" + cur +
-                ", new=" + get() + ']');
+                ", new=" + get() +
+                (tx == null ? "" : ", mode=" + tx.commitMode.toString()) +
+                ']');
         }
     }
 

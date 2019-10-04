@@ -59,6 +59,7 @@ import org.apache.ignite.internal.processors.cache.distributed.GridCacheMappedVe
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxFinishSync;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryFuture;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxRemoteAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxOnePhaseCommitAckRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxRemote;
@@ -85,6 +86,7 @@ import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteReducer;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.transactions.TransactionConcurrency;
@@ -2140,8 +2142,14 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                 Collections.<GridCacheVersion>emptyList());
         }
 
-        if (commit)
+        if (commit) {
+            if (!tx.local()) {
+                GridDistributedTxRemoteAdapter t = (GridDistributedTxRemoteAdapter)tx;
+                t.commitMode = GridDistributedTxRemoteAdapter.CommitMode.COMMIT_ON_RECOVERY;
+            }
+
             tx.commitAsync().listen(new CommitListener(tx));
+        }
         else if (!tx.local())
             // remote (backup) transaction sends partition counters to other backup transaction on recovery rollback
             // in order to keep counters consistent
@@ -2159,7 +2167,12 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
 
         PartitionCountersNeighborcastFuture fut = new PartitionCountersNeighborcastFuture(tx, cctx);
 
-        fut.listen(fut0 -> tx.rollbackAsync());
+        fut.listen(new IgniteInClosure<IgniteInternalFuture<Void>>() {
+            @Override public void apply(IgniteInternalFuture<Void> future) {
+                ((GridDistributedTxRemoteAdapter)tx).commitMode = GridDistributedTxRemoteAdapter.CommitMode.ROLLBACK_NEIGH;
+                tx.rollbackAsync();
+            }
+        });
 
         fut.init();
     }
@@ -2563,15 +2576,27 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                                         @Override public void apply(IgniteInternalFuture<?> fut) {
                                             if (tx.state() == PREPARED)
                                                 commitIfPrepared(tx, Collections.singleton(evtNodeId));
-                                            else if (tx.setRollbackOnly())
+                                            else if (tx.setRollbackOnly()) {
+                                                if (!tx.local()) {
+                                                    GridDistributedTxRemoteAdapter t = (GridDistributedTxRemoteAdapter)tx;
+                                                    t.commitMode = GridDistributedTxRemoteAdapter.CommitMode.NOT_PREPARED;
+                                                }
+
                                                 tx.rollbackAsync();
+                                            }
                                         }
                                     });
                                 }
                                 else {
                                     // If we could not mark tx as rollback, it means that transaction is being committed.
-                                    if (tx.setRollbackOnly())
+                                    if (tx.setRollbackOnly()) {
+                                        if (!tx.local()) {
+                                            GridDistributedTxRemoteAdapter t = (GridDistributedTxRemoteAdapter)tx;
+                                            t.commitMode = GridDistributedTxRemoteAdapter.CommitMode.NOT_PREPARED_2;
+                                        }
+
                                         tx.rollbackAsync();
+                                    }
                                 }
                             }
                         }
@@ -2694,6 +2719,11 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                         tx);
 
                 try {
+                    if (!tx.local()) {
+                        GridDistributedTxRemoteAdapter tt = (GridDistributedTxRemoteAdapter)tx;
+                        tt.commitMode = GridDistributedTxRemoteAdapter.CommitMode.COMMIT_ON_RECOVERY_ERROR;
+                    }
+
                     tx.rollbackAsync();
                 }
                 catch (Throwable e) {

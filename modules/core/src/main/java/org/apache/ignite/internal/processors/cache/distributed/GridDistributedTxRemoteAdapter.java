@@ -135,6 +135,8 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
     @GridToStringInclude
     @Nullable private String txLbl;
 
+    public CommitMode commitMode;
+
     /**
      * Empty constructor required for {@link Externalizable}.
      */
@@ -349,6 +351,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
             return false;
 
         try {
+            commitMode = CommitMode.OWNER_CHANGED;
             commitIfLocked();
 
             return true;
@@ -359,6 +362,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
             invalidate(true);
             systemInvalidate(true);
 
+            commitMode = CommitMode.OWNER_CHANGED_EXCEPTION;
             rollbackRemoteTx();
 
             return false;
@@ -785,7 +789,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
 
                             // Apply update counters.
                             if (txCntrs != null)
-                                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCntrs.updateCounters());
+                                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCntrs.updateCounters(), false, false, this);
                             else if (!near()){
                                 for (IgniteTxEntry entry : writeMap.values()) {
                                     GridCacheContext ctx0 = cctx.cacheContext(entry.cacheId());
@@ -870,6 +874,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
             if (!isSystemInvalidate())
                 throw new IgniteCheckedException("Invalid transaction state for commit [state=" + state + ", tx=" + this + ']');
 
+            commitMode = CommitMode.ROLLBACK_DURING_COMMIT;
             rollbackRemoteTx();
 
             return;
@@ -927,6 +932,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                 Collections.<GridCacheVersion>emptyList(),
                 Collections.<GridCacheVersion>emptyList());
 
+            commitMode = CommitMode.SALVAGE_COMMIT;
             commitRemoteTx();
         }
         catch (IgniteCheckedException e) {
@@ -947,7 +953,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                 TxCounters counters = txCounters(false);
 
                 if (counters != null)
-                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(counters.updateCounters(), true, false);
+                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(counters.updateCounters(), true, false, this);
 
                 state(ROLLED_BACK);
             }
@@ -1028,5 +1034,31 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
     /** {@inheritDoc} */
     @Override public String toString() {
         return GridToStringBuilder.toString(GridDistributedTxRemoteAdapter.class, this, "super", super.toString());
+    }
+
+    public enum CommitMode {
+        REMOTE_COMMIT,
+        FINISH_REQ_NO_RMT_TX,
+        NEIGH,
+        START_COMPLETED,
+        PARENT_DEAD,
+        FORCE_COMMIT_TRUE,
+        FORCE_COMMIT_FALSE,
+        OWNER_CHANGED,
+        ROLLBACK_DURING_COMMIT,
+        OWNER_CHANGED_EXCEPTION,
+        ROLLBACK_EMPTY,
+        ONE_PHASE_ERR,
+        ROLLBACK_ON_SEND,
+        INVALID_PART,
+        ROLLBACK_NEIGH,
+        NOT_PREPARED,
+        NOT_PREPARED_2,
+        COMMIT_ON_RECOVERY,
+        COMMIT_ON_RECOVERY_ERROR,
+        SALVAGE_COMMIT,
+        ONE_PHASE,
+        FINISH_COMMIT,
+        FINISH_ROLLBACK
     }
 }

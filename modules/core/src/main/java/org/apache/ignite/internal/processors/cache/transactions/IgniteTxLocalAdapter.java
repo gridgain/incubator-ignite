@@ -925,7 +925,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 }
 
                 if (txCounters != null) {
-                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters());
+                    cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), false, false, null);
 
                     for (IgniteTxEntry entry : commitEntries) {
                         if (entry.cqNotifyClosure() != null)
@@ -1104,7 +1104,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
             TxCounters txCounters = txCounters(false);
 
             if (txCounters != null)
-                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), true, true);
+                cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), true, true, null);
 
             cctx.tm().rollbackTx(this, clearThreadMap, skipCompletedVersions());
 
