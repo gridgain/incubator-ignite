@@ -79,6 +79,7 @@ import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T3;
+import org.apache.ignite.internal.util.typedef.T4;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -3711,11 +3712,19 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         GridCacheVersion ver,
         @Nullable IgnitePredicate<CacheDataRow> predicate) throws IgniteCheckedException {
         assert lock.isHeldByCurrentThread();
-        assert localPartition() == null || localPartition().state() != RENTING : localPartition();
+        GridDhtLocalPartition part = localPartition();
+
+        assert part == null || part.state() != RENTING : part;
 
         UpdateClosure closure = new UpdateClosure(this, val, ver, expireTime, predicate);
 
-        cctx.offheap().invoke(cctx, key, localPartition(), closure);
+        cctx.offheap().invoke(cctx, key, part, closure);
+
+        part.trace.add(new T4<>(
+            key,
+            val,
+            closure.oldRow == null ? null : closure.oldRow.value(),
+            closure.treeOp));
 
         return closure.treeOp != IgniteTree.OperationType.NOOP;
     }
@@ -3792,7 +3801,10 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
     protected void removeValue() throws IgniteCheckedException {
         assert lock.isHeldByCurrentThread();
 
-        cctx.offheap().remove(cctx, key, partition(), localPartition());
+        GridDhtLocalPartition part = localPartition();
+        part.trace.add(new T4<>(key, null, null, IgniteTree.OperationType.REMOVE));
+
+        cctx.offheap().remove(cctx, key, partition(), part);
     }
 
     /** {@inheritDoc} */

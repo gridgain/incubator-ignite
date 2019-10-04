@@ -48,17 +48,24 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.PartitionAtomicUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionTxUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
+import org.apache.ignite.internal.util.IgniteTree;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.T3;
+import org.apache.ignite.internal.util.typedef.T4;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Basic partition counter tests.
@@ -362,31 +369,55 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
             awaitPartitionMapExchange();
 
             Ignite client = startGrid("client");
-            IgniteCache<Object, Object> cache = client.cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Integer, SampleObject> cache = client.cache(DEFAULT_CACHE_NAME);
 
 //            try(IgniteDataStreamer<Object, Object> streamer = crd.dataStreamer(DEFAULT_CACHE_NAME)) {
 //                for (int i = 0; i < 32 * 1_000; i++)
 //                    streamer.addData(i, new SampleObject(i, "test" + i, i * 1000l));
 //            }
+
+
+            int i = 1;
+
             try(Transaction tx = client.transactions().txStart()) {
                 //for (int i = 0; i < 32 * 10_000; i++)
                     //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
 
-                int i = 1;
-
                 cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
 
-                TransactionProxyImpl p = (TransactionProxyImpl)tx;
-
-                p.tx().prepare(true);
-
-                tx.rollback();
-
-                //tx.commit();
+                tx.commit();
             }
 
+            try(Transaction tx = client.transactions().txStart()) {
+                //for (int i = 0; i < 32 * 10_000; i++)
+                //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
+
+                SampleObject so = cache.get(i);
+                so.setSalary(so.getSalary() + 200);
+
+                cache.put(i, so);
+
+                tx.commit();
+            }
+
+            try(Transaction tx = client.transactions().txStart()) {
+                //for (int i = 0; i < 32 * 10_000; i++)
+                //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
+
+                cache.remove(i);
+
+                tx.commit();
+            }
+
+
 //            printDifference(client, 0, DEFAULT_CACHE_NAME, true);
-//            printDifference(client, 0, DEFAULT_CACHE_NAME, false);
+            //printHistory(client, 0, DEFAULT_CACHE_NAME, false);
+
+            Collection<T2<String, String>> hists =
+                client.compute(client.cluster().forServers()).broadcast(new GetHistory(), new T2<>(DEFAULT_CACHE_NAME, i));
+
+            for (T2<String, String> hist : hists)
+                log.info("ConsistentId=" + hist.get1() + ", hist=" + hist.get2());
 
 //            startGrid(3);
 //
@@ -516,6 +547,34 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
             }
 
             return res;
+        }
+    }
+
+    /** */
+    public static final class GetHistory implements IgniteClosure<T2<String, Integer>, T2<String, String>> {
+        /** */
+        @IgniteInstanceResource
+        private IgniteEx ignite;
+
+        /** {@inheritDoc} */
+        @Override public T2<String, String> apply(T2<String, Integer> arg) {
+            IgniteInternalCache<Object, Object> cachex = ignite.cachex(arg.get1());
+
+            @Nullable GridDhtLocalPartition partition = cachex.context().topology().localPartition(arg.get2());
+
+            if (partition == null)
+                return new T2<>((String) ignite.configuration().getConsistentId(), "");
+
+            SB b = new SB();
+
+            for (T4<KeyCacheObject, CacheObject, CacheObject, IgniteTree.OperationType> objects : partition.trace) {
+                b.a("\nkey=" + objects.get1() +
+                    ", new=" + objects.get2() +
+                    ", old=" + objects.get3() +
+                    ", op=" + objects.get4());
+            }
+
+            return new T2<>((String) ignite.configuration().getConsistentId(), b.toString());
         }
     }
 
