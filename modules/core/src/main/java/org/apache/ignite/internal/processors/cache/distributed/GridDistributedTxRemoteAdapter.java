@@ -137,6 +137,9 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
 
     public CommitMode commitMode;
 
+    public boolean checker;
+    public int innerSetCallsCnt;
+
     /**
      * Empty constructor required for {@link Externalizable}.
      */
@@ -516,6 +519,8 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                         batchStoreCommit(writeMap().values());
 
                         try {
+                            int innerSetCallsCnt = 0;
+
                             // Node that for near transactions we grab all entries.
                             for (IgniteTxEntry txEntry : entries) {
                                 GridCacheContext cacheCtx = txEntry.context();
@@ -677,6 +682,8 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                                                     dhtVer,
                                                     txEntry.updateCounter());
 
+                                                innerSetCallsCnt++;
+
                                                 assert txEntry.updateCounter() == updRes.updatePartitionCounter() : txEntry + " " + updRes;
 
                                                 if (updRes.loggedPointer() != null)
@@ -788,8 +795,12 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                             TxCounters txCntrs = txCounters(false);
 
                             // Apply update counters.
-                            if (txCntrs != null)
+                            if (txCntrs != null) {
+                                this.checker = true;
+                                this.innerSetCallsCnt = innerSetCallsCnt;
+
                                 cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCntrs.updateCounters(), false, false, this);
+                            }
                             else if (!near()) {
                                 for (IgniteTxEntry entry : writeMap.values()) {
                                     GridCacheContext ctx0 = cctx.cacheContext(entry.cacheId());

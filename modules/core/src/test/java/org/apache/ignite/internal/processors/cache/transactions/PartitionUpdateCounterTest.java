@@ -383,7 +383,8 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
                 //for (int i = 0; i < 32 * 10_000; i++)
                     //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
 
-                cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
+                cache.put(i++, new SampleObject(i, "test" + i, i * 1000l));
+                cache.put(++i, new SampleObject(i, "test" + i, i * 1000l));
 
                 tx.commit();
             }

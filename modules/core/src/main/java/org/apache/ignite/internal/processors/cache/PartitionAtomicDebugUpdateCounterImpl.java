@@ -93,9 +93,9 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
                 Map<IgniteTxKey, IgniteTxEntry> map = tx.writeMap();
 
                 for (Map.Entry<IgniteTxKey, IgniteTxEntry> entry : map.entrySet())
-                    sb.a("key=" + entry.getKey().key() +
+                    sb.a("[key=" + entry.getKey().key() +
                         ", val=" + entry.getValue().value() +
-                        ", op=" + entry.getValue().op());
+                        ", op=" + entry.getValue().op() + ", ");
             }
 
             log.debug("[op=update" +
@@ -105,7 +105,9 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
                 ", cur=" + cur +
                 ", new=" + get() +
                 ", mode=" + tx.commitMode.toString() +
-                ", entries=" + sb.toString() +
+                ", checker=" + tx.checker +
+                ", isc=" + tx.innerSetCallsCnt +
+                ", entries=" + "[" + sb.toString() + "]" +
                 ']');
         }
     }
