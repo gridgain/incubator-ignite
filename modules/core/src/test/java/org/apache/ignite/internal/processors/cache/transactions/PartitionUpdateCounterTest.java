@@ -567,11 +567,13 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
 
             SB b = new SB();
 
-            for (T4<KeyCacheObject, CacheObject, CacheObject, IgniteTree.OperationType> objects : partition.trace) {
-                b.a("\nkey=" + objects.get1() +
-                    ", new=" + objects.get2() +
-                    ", old=" + objects.get3() +
-                    ", op=" + objects.get4());
+            for (GridDhtLocalPartition.Trace objects : partition.trace) {
+                b.a("\nkey=" + objects.key +
+                    ", new=" + objects.prev +
+                    ", old=" + objects.next +
+                    ", op=" + objects.treeOp +
+                    ", cntr=" + objects.updateCntr
+                );
             }
 
             return new T2<>((String) ignite.configuration().getConsistentId(), b.toString());

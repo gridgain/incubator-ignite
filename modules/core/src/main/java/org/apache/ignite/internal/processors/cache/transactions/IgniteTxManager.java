@@ -1538,8 +1538,10 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
     void uncommitTx(IgniteInternalTx tx) {
         assert tx != null;
 
-        if (log.isDebugEnabled())
-            log.debug("Uncommiting from TM: " + tx);
+//        if (log.isDebugEnabled())
+//            log.debug("Uncommiting from TM: " + tx);
+
+        log.info("Uncommiting from TM: " + tx);
 
         ConcurrentMap<GridCacheVersion, IgniteInternalTx> txIdMap = transactionMap(tx);
 

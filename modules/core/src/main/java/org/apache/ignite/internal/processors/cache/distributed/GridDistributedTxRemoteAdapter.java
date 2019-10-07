@@ -520,26 +520,26 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                             for (IgniteTxEntry txEntry : entries) {
                                 GridCacheContext cacheCtx = txEntry.context();
 
-                            // Prevent stale updates.
-                            GridDhtLocalPartition locPart =
+                                // Prevent stale updates.
+                                GridDhtLocalPartition locPart =
                                     cacheCtx.group().topology().localPartition(txEntry.cached().partition());
 
-                            if (!near() && locPart != null ) {
-                                if (!reservedParts.contains(locPart) && locPart.reserve()) {
-                                    assert locPart.state() != EVICTED && locPart.reservations() > 0 : locPart;
+                                if (!near() && locPart != null) {
+                                    if (!reservedParts.contains(locPart) && locPart.reserve()) {
+                                        assert locPart.state() != EVICTED && locPart.reservations() > 0 : locPart;
 
-                                    reservedParts.add(locPart);
+                                        reservedParts.add(locPart);
+                                    }
+
+                                    if (locPart.state() == RENTING || locPart.state() == EVICTED) {
+                                        LT.warn(log(), "Skipping update to partition that is concurrently evicting " +
+                                            "[grp=" + cacheCtx.group().cacheOrGroupName() + ", part=" + locPart + "]");
+
+                                        continue;
+                                    }
                                 }
 
-                                if (locPart.state() == RENTING || locPart.state() == EVICTED) {
-                                    LT.warn(log(), "Skipping update to partition that is concurrently evicting " +
-                                        "[grp=" + cacheCtx.group().cacheOrGroupName() + ", part=" + locPart + "]");
-
-                                    continue;
-                                }
-                            }
-
-                            boolean replicate = cacheCtx.isDrEnabled();
+                                boolean replicate = cacheCtx.isDrEnabled();
 
                                 while (true) {
                                     try {
@@ -677,7 +677,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                                                     dhtVer,
                                                     txEntry.updateCounter());
 
-                                                txEntry.updateCounter(updRes.updatePartitionCounter());
+                                                assert txEntry.updateCounter() == updRes.updatePartitionCounter() : txEntry + " " + updRes;
 
                                                 if (updRes.loggedPointer() != null)
                                                     ptr = updRes.loggedPointer();
@@ -790,7 +790,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                             // Apply update counters.
                             if (txCntrs != null)
                                 cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCntrs.updateCounters(), false, false, this);
-                            else if (!near()){
+                            else if (!near()) {
                                 for (IgniteTxEntry entry : writeMap.values()) {
                                     GridCacheContext ctx0 = cctx.cacheContext(entry.cacheId());
 

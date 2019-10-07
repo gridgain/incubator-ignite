@@ -171,7 +171,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
     /** Set if topology update sequence should be updated on partition destroy. */
     private boolean updateSeqOnDestroy;
 
-    public Queue<T4<KeyCacheObject, CacheObject, CacheObject, IgniteTree.OperationType>> trace = new ConcurrentLinkedQueue<>();
+    public Queue<Trace> trace = new ConcurrentLinkedQueue<>();
 
     /**
      * @param ctx Context.
@@ -1676,6 +1676,22 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
                 return done;
             }
+        }
+    }
+
+    /** */
+    public static class Trace {
+        public KeyCacheObject key;
+        public CacheObject prev;
+        public CacheObject next;
+        public IgniteTree.OperationType treeOp;
+        public long updateCntr;
+
+        public Trace(KeyCacheObject key, CacheObject prev, CacheObject next, IgniteTree.OperationType op) {
+            this.key = key;
+            this.prev = prev;
+            this.next = next;
+            treeOp = op;
         }
     }
 }

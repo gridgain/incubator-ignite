@@ -68,7 +68,6 @@ import org.apache.ignite.internal.processors.cache.version.GridCacheVersionConfl
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersionEx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersionedEntryEx;
 import org.apache.ignite.internal.processors.dr.GridDrType;
-import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheFilter;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitorClosure;
 import org.apache.ignite.internal.util.IgniteTree;
 import org.apache.ignite.internal.util.lang.GridClosureException;
@@ -998,6 +997,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         lockListenerReadLock();
         lockEntry();
 
+        UpdateClosure updateClosure;
+
         try {
             checkObsolete();
 
@@ -1075,12 +1076,14 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             assert val != null;
 
-            storeValue(val, expireTime, newVer);
+            updateClosure = storeValue(val, expireTime, newVer);
 
             if (cctx.deferredDelete() && deletedUnlocked() && !isInternal() && !detached())
                 deletedUnlocked(false);
 
             updateCntr0 = nextPartitionCounter(tx, updateCntr);
+
+            updateClosure.trace.updateCntr = updateCntr0;
 
             if (tx != null && cctx.group().persistenceEnabled() && cctx.group().walEnabled())
                 logPtr = logTxUpdate(tx, val, expireTime, updateCntr0);
@@ -1145,8 +1148,10 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         if (intercept)
             cctx.config().getInterceptor().onAfterPut(new CacheLazyEntry(cctx, key, key0, val, val0, keepBinary, updateCntr0));
 
-        return valid ? new GridCacheUpdateTxResult(true, retval ? old : null, updateCntr0, logPtr) :
+        GridCacheUpdateTxResult res = valid ? new GridCacheUpdateTxResult(true, retval ? old : null, updateCntr0, logPtr) :
             new GridCacheUpdateTxResult(false, null, logPtr);
+
+        return res;
     }
 
     /**
@@ -2425,6 +2430,10 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         throws IgniteCheckedException {
         lockEntry();
 
+        GridDhtLocalPartition part = localPartition();
+        if (part != null)
+            log.info("DBG: invalidate grpId=" + part.group().cacheOrGroupName() + ", partId=" + part.id() + ", key=" + key() + ", value=" + val);
+
         try {
             assert newVer != null;
 
@@ -2867,8 +2876,11 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     storeValue(val, expTime, ver);
                 }
             }
-            else // Optimization to access storage only once.
-                update = storeValue(val, expTime, ver, p);
+            else {// Optimization to access storage only once.
+                UpdateClosure closure = storeValue(val, expTime, ver, p);
+
+                update = closure.treeOp != IgniteTree.OperationType.NOOP;
+            }
 
             if (update) {
                 update(val, expTime, ttl, ver, true);
@@ -3689,7 +3701,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
      * @param ver New entry version.
      * @throws IgniteCheckedException If update failed.
      */
-    protected boolean storeValue(@Nullable CacheObject val,
+    protected UpdateClosure storeValue(@Nullable CacheObject val,
         long expireTime,
         GridCacheVersion ver) throws IgniteCheckedException {
         return storeValue(val, expireTime, ver, null);
@@ -3706,7 +3718,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
      * @return {@code True} if storage was modified.
      * @throws IgniteCheckedException If update failed.
      */
-    protected boolean storeValue(
+    protected UpdateClosure storeValue(
         @Nullable CacheObject val,
         long expireTime,
         GridCacheVersion ver,
@@ -3720,13 +3732,18 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
         cctx.offheap().invoke(cctx, key, part, closure);
 
-        part.trace.add(new T4<>(
+        GridDhtLocalPartition.Trace e = new GridDhtLocalPartition.Trace(
             key,
             val,
             closure.oldRow == null ? null : closure.oldRow.value(),
-            closure.treeOp));
+            closure.treeOp);
 
-        return closure.treeOp != IgniteTree.OperationType.NOOP;
+        part.trace.add(e);
+
+        closure.trace = e;
+
+        //return closure.treeOp != IgniteTree.OperationType.NOOP;
+        return closure;
     }
 
     /**
@@ -3802,7 +3819,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         assert lock.isHeldByCurrentThread();
 
         GridDhtLocalPartition part = localPartition();
-        part.trace.add(new T4<>(key, null, null, IgniteTree.OperationType.REMOVE));
+        part.trace.add(new GridDhtLocalPartition.Trace(key, null, null, IgniteTree.OperationType.REMOVE));
 
         cctx.offheap().remove(cctx, key, partition(), part);
     }
@@ -4539,7 +4556,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
     /**
      *
      */
-    private static class UpdateClosure implements IgniteCacheOffheapManager.OffheapInvokeClosure {
+    public static class UpdateClosure implements IgniteCacheOffheapManager.OffheapInvokeClosure {
         /** */
         private final GridCacheMapEntry entry;
 
@@ -4563,6 +4580,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
         /** */
         private IgniteTree.OperationType treeOp = IgniteTree.OperationType.PUT;
+
+        public GridDhtLocalPartition.Trace trace;
 
         /**
          * @param entry Entry.

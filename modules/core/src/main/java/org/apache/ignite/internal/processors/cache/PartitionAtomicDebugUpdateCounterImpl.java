@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.processors.cache;
 
+import java.util.Map;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxRemoteAdapter;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.util.GridLongList;
+import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -83,13 +87,25 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
             return super.update(start, delta);
         }
         finally {
+            SB sb = new SB();
+
+            if (tx.txState() != null) {
+                Map<IgniteTxKey, IgniteTxEntry> map = tx.writeMap();
+
+                for (Map.Entry<IgniteTxKey, IgniteTxEntry> entry : map.entrySet())
+                    sb.a("key=" + entry.getKey().key() +
+                        ", val=" + entry.getValue().value() +
+                        ", op=" + entry.getValue().op());
+            }
+
             log.debug("[op=update" +
                 ", grpId=" + grp.groupId() +
                 ", partId=" + partId +
                 ", range=(" + start + "," + delta + ")" +
                 ", cur=" + cur +
                 ", new=" + get() +
-                (tx == null ? "" : ", mode=" + tx.commitMode.toString()) +
+                ", mode=" + tx.commitMode.toString() +
+                ", entries=" + sb.toString() +
                 ']');
         }
     }
