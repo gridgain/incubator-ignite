@@ -1064,6 +1064,10 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
         return (o instanceof Boolean) ? (Boolean)o : null;
     }
 
+    public ConcurrentLinkedHashMap<GridCacheVersion, Object> completedVers() {
+        return completedVersHashMap;
+    }
+
     /**
      * @return Collection of active transactions.
      */

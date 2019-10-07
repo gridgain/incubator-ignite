@@ -55,17 +55,20 @@ import org.apache.ignite.internal.processors.cache.PartitionAtomicUpdateCounterI
 import org.apache.ignite.internal.processors.cache.PartitionTxUpdateCounterImpl;
 import org.apache.ignite.internal.processors.cache.PartitionUpdateCounter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.IgniteTree;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.T4;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentLinkedHashMap;
 
 /**
  * Basic partition counter tests.
@@ -420,6 +423,12 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
             for (T2<String, String> hist : hists)
                 log.info("ConsistentId=" + hist.get1() + ", hist=" + hist.get2());
 
+            Collection<T2<String, String>> txHist =
+                client.compute(client.cluster().forServers()).broadcast(new GetFinishedTx());
+
+            for (T2<String, String> hist : txHist)
+                log.info("ConsistentId=" + hist.get1() + ", txHist=" + hist.get2());
+
 //            startGrid(3);
 //
 //            awaitPartitionMapExchange();
@@ -576,6 +585,25 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
                     ", cntr=" + objects.updateCntr
                 );
             }
+
+            return new T2<>((String) ignite.configuration().getConsistentId(), b.toString());
+        }
+    }
+
+    /** */
+    public static final class GetFinishedTx implements IgniteCallable<T2<String, String>> {
+        /** */
+        @IgniteInstanceResource
+        private IgniteEx ignite;
+
+        @Override public T2<String, String> call() throws Exception {
+            ConcurrentLinkedHashMap<GridCacheVersion, Object> map = ignite.context().cache().context().tm().completedVers();
+
+            SB b = new SB();
+
+            for (Map.Entry<GridCacheVersion, Object> entry : map.entrySet())
+                b.a(entry.getKey().toString()).a(',').a(entry.getValue()).a('\n');
+
 
             return new T2<>((String) ignite.configuration().getConsistentId(), b.toString());
         }
