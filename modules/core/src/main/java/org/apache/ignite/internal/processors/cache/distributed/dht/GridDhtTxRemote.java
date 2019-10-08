@@ -63,7 +63,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
     private IgniteUuid rmtFutId;
 
     /** Near transaction ID. */
-    private GridCacheVersion nearXidVer;
+    public GridCacheVersion nearXidVer;
 
     /** Store write through flag. */
     private boolean storeWriteThrough;

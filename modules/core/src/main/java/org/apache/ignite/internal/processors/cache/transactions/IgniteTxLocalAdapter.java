@@ -929,6 +929,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 if (txCounters != null) {
                     GridDhtTxRemote fake = new GridDhtTxRemote();
                     fake.enlist = writeMap().size();
+                    fake.topologyVersion(this.topologyVersionSnapshot());
+                    fake.nearXidVer = this.nearXidVersion();
                     fake.commitMode = GridDistributedTxRemoteAdapter.CommitMode.LOCAL_COMMIT;
 
                     cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCounters.updateCounters(), false, false, fake);

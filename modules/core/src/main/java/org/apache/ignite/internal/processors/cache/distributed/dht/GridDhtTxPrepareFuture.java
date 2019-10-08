@@ -1359,42 +1359,42 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
             List<PartitionUpdateCountersMessage> nodeCntrs = IgniteFeatures.nodeSupports(n, IgniteFeatures.TX_TRACKING_UPDATE_COUNTER) ?
                 cctx.tm().txHandler().filterUpdateCountersForBackupNode(tx, n) : null;
 
-            int missingPart = -1;
-            int cacheId = 0;
-
-            outer: for (PartitionUpdateCountersMessage message : nodeCntrs) {
-                cacheId = message.cacheId();
-
-                // Scan each enlisted write and check if partition is present.
-                for (IgniteTxEntry write : dhtWrites) {
-                    int part = write.key().partition();
-
-                    int cacheId0 = write.cacheId();
-
-                    if (cacheId0 != cacheId)
-                        continue;
-
-                    for (int c = 0; c < message.size(); c++) {
-                        int part0 = message.partition(c);
-
-                        if (part0 == part)
-                            continue outer;
-                    }
-
-                    missingPart = part;
-                }
-            }
-
-            CacheGroupContext grp = cctx.cache().cacheGroup(cacheId);
-
-            if (missingPart != -1 && grp.config().getBackups() >= 2) {
-                Set<IgniteTxKey> locWrites = tx.writeSet();
-
-                List<ClusterNode> nodes = grp.topology().nodes(missingPart, tx.topologyVersionSnapshot());
-
-                log.info("DBG: found missing partition: tx=" + CU.txString(tx) + ", grpId=" + grp.groupId() + ", missingPart=" + missingPart +
-                 ", mapNode=" + n + ", owners=" + nodes + ", nodeWrites=" + dhtWrites + ", locWrites=" + locWrites);
-            }
+//            int missingPart = -1;
+//            int cacheId = 0;
+//
+//            outer: for (PartitionUpdateCountersMessage message : nodeCntrs) {
+//                cacheId = message.cacheId();
+//
+//                // Scan each enlisted write and check if partition is present.
+//                for (IgniteTxEntry write : dhtWrites) {
+//                    int part = write.key().partition();
+//
+//                    int cacheId0 = write.cacheId();
+//
+//                    if (cacheId0 != cacheId)
+//                        continue;
+//
+//                    for (int c = 0; c < message.size(); c++) {
+//                        int part0 = message.partition(c);
+//
+//                        if (part0 == part)
+//                            continue outer;
+//                    }
+//
+//                    missingPart = part;
+//                }
+//            }
+//
+//            CacheGroupContext grp = cctx.cache().cacheGroup(cacheId);
+//
+//            if (missingPart != -1 && grp.config().getBackups() >= 2) {
+//                Set<IgniteTxKey> locWrites = tx.writeSet();
+//
+//                List<ClusterNode> nodes = grp.topology().nodes(missingPart, tx.topologyVersionSnapshot());
+//
+//                log.info("DBG: found missing partition: tx=" + CU.txString(tx) + ", grpId=" + grp.groupId() + ", missingPart=" + missingPart +
+//                 ", mapNode=" + n + ", owners=" + nodes + ", nodeWrites=" + dhtWrites + ", locWrites=" + locWrites);
+//            }
 
             // Check counters match.
             GridDhtTxPrepareRequest req = new GridDhtTxPrepareRequest(

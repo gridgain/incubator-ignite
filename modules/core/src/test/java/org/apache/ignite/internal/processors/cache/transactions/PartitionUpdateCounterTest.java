@@ -98,6 +98,7 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
         cfg.setDataStorageConfiguration(memCfg);
 
         cfg.setCacheConfiguration(new CacheConfiguration(DEFAULT_CACHE_NAME).
+            setGroupName("jopa").
             setAffinity(new RendezvousAffinityFunction(false, 32)).
             setBackups(2).
             setCacheMode(CacheMode.PARTITIONED).
@@ -387,31 +388,31 @@ public class PartitionUpdateCounterTest extends GridCommonAbstractTest {
                     //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
 
                 cache.put(i++, new SampleObject(i, "test" + i, i * 1000l));
-                cache.put(++i, new SampleObject(i, "test" + i, i * 1000l));
+                //cache.put(++i, new SampleObject(i, "test" + i, i * 1000l));
 
                 tx.commit();
             }
 
-            try(Transaction tx = client.transactions().txStart()) {
-                //for (int i = 0; i < 32 * 10_000; i++)
-                //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
-
-                SampleObject so = cache.get(i);
-                so.setSalary(so.getSalary() + 200);
-
-                cache.put(i, so);
-
-                tx.commit();
-            }
-
-            try(Transaction tx = client.transactions().txStart()) {
-                //for (int i = 0; i < 32 * 10_000; i++)
-                //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
-
-                cache.remove(i);
-
-                tx.commit();
-            }
+//            try(Transaction tx = client.transactions().txStart()) {
+//                //for (int i = 0; i < 32 * 10_000; i++)
+//                //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
+//
+//                SampleObject so = cache.get(i);
+//                so.setSalary(so.getSalary() + 200);
+//
+//                cache.put(i, so);
+//
+//                tx.commit();
+//            }
+//
+//            try(Transaction tx = client.transactions().txStart()) {
+//                //for (int i = 0; i < 32 * 10_000; i++)
+//                //cache.put(i, new SampleObject(i, "test" + i, i * 1000l));
+//
+//                cache.remove(i);
+//
+//                tx.commit();
+//            }
 
 
 //            printDifference(client, 0, DEFAULT_CACHE_NAME, true);
