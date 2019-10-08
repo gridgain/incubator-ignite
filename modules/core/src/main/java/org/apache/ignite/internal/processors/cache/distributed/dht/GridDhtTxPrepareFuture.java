@@ -1387,7 +1387,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
 
             CacheGroupContext grp = cctx.cache().cacheGroup(cacheId);
 
-            if (missingPart != -1 && grp.config().getBackups() == 2) {
+            if (missingPart != -1 && grp.config().getBackups() >= 2) {
                 Set<IgniteTxKey> locWrites = tx.writeSet();
 
                 List<ClusterNode> nodes = grp.topology().nodes(missingPart, tx.topologyVersionSnapshot());
