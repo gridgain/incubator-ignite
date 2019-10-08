@@ -22,6 +22,7 @@ import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFuture;
+import org.apache.ignite.internal.util.GridIntList;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,6 +41,11 @@ public abstract class IgniteTxRemoteStateAdapter implements IgniteTxRemoteState 
     @Nullable @Override public Integer firstCacheId() {
         assert false;
 
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public @Nullable GridIntList cacheIds() {
         return null;
     }
 

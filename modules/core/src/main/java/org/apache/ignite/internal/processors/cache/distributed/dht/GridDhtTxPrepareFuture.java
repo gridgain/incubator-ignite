@@ -30,6 +30,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
@@ -63,6 +66,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedCacheEntry;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxMapping;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareResponse;
@@ -75,6 +79,8 @@ import org.apache.ignite.internal.processors.dr.GridDrType;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
+import org.apache.ignite.internal.util.GridIntIterator;
+import org.apache.ignite.internal.util.GridIntList;
 import org.apache.ignite.internal.util.GridLeanSet;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -1332,6 +1338,56 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
         assert tx.transactionNodes() != null;
 
         final long timeout = timeoutObj != null ? timeoutObj.timeout : 0;
+
+        Map<UUID, GridDistributedTxMapping> map = tx.dhtMap();
+        long distinctCnt = map.values().stream().map(mapping -> mapping.writes().size()).distinct().count();
+
+        if (distinctCnt > 1) {
+            GridIntList cacheIds = tx.txState().cacheIds();
+
+            GridIntIterator it = cacheIds.iterator();
+
+            while (it.hasNext()) {
+                int cacheId = it.next();
+
+                @Nullable CacheGroupContext grp = cctx.cacheContext(cacheId).group();
+
+                // Find enlisted partitions.
+                for (Map.Entry<UUID, GridDistributedTxMapping> entry : map.entrySet()) {
+                    List<Integer> enlistedParts = entry.getValue().writes().stream().filter(new Predicate<IgniteTxEntry>() {
+                        @Override public boolean test(IgniteTxEntry entry) {
+                            return entry.cacheId() == cacheId;
+                        }
+                    }).map(new Function<IgniteTxEntry, Integer>() {
+                        @Override public Integer apply(IgniteTxEntry entry) {
+                            return entry.key().partition();
+                        }
+                    }).collect(Collectors.toList());
+
+                    for (Integer part : enlistedParts) {
+                        assert grp.topology().localPartition(part).state() == GridDhtPartitionState.OWNING : grp;
+
+                        List<ClusterNode> nodes = grp.topology().nodes(part, tx.topologyVersionSnapshot());
+
+                        log.info("DBG: partition: tx=" + CU.txString(tx) +
+                            ", grpId=" + grp.groupId() +
+                            ", part=" + part +
+                            ", mapNode=" + entry.getValue().primary() +
+                            ", owners=" + nodes +
+                            ", dhtWrites=" + entry.getValue().writes().stream().filter(new Predicate<IgniteTxEntry>() {
+                            @Override public boolean test(IgniteTxEntry entry) {
+                                return entry.key().partition() == part && entry.cacheId() == cacheId;
+                            }
+                        }).collect(Collectors.toList()) +
+                            ", locWrites=" + tx.writeEntries().stream().filter(new Predicate<IgniteTxEntry>() {
+                            @Override public boolean test(IgniteTxEntry entry) {
+                                return entry.key().partition() == part && entry.cacheId() == cacheId;
+                            }
+                        }).collect(Collectors.toList()));
+                    }
+                }
+            }
+        }
 
         // Create mini futures.
         for (GridDistributedTxMapping dhtMapping : tx.dhtMap().values()) {

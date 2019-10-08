@@ -87,6 +87,11 @@ public class IgniteTxStateImpl extends IgniteTxLocalStateAdapter {
     }
 
     /** {@inheritDoc} */
+    @Nullable @Override public GridIntList cacheIds() {
+        return activeCacheIds;
+    }
+
+    /** {@inheritDoc} */
     @Override public void unwindEvicts(GridCacheSharedContext cctx) {
         for (int i = 0; i < activeCacheIds.size(); i++) {
             int cacheId = activeCacheIds.get(i);

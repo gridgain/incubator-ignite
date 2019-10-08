@@ -258,7 +258,7 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
      * Test primary-backup partitions consistency while restarting random nodes under load.
      */
     public void testPartitionConsistencyWithAllRestart() throws Exception {
-        backups = 1;
+        backups = 2;
 
         final int srvNodes = SERVER_NODES; // Add one non-owner node to test to increase entropy.
 
@@ -309,11 +309,9 @@ public class TxPartitionCounterStateConsistencyTest extends TxPartitionCounterSt
             stopGrid(name, true);
 
             try {
-                //doSleep(1000);
+                doSleep(1000);
 
-                //startGrid(name);
-
-
+                startGrid(name);
             }
             catch (Exception e) {
                 fail(X.getFullStackTrace(e));
