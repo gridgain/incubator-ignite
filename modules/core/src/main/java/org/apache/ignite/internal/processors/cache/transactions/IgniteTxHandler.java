@@ -2198,6 +2198,7 @@ public class IgniteTxHandler {
         if (txCntrs == null || F.isEmpty(updCntrs = txCntrs.updateCounters()))
             return null;
 
+
         List<PartitionUpdateCountersMessage> res = new ArrayList<>(updCntrs.size());
 
         AffinityTopologyVersion top = tx.topologyVersionSnapshot();
@@ -2210,6 +2211,7 @@ public class IgniteTxHandler {
             for (int i = 0; i < partCntrs.size(); i++) {
                 int part = partCntrs.partition(i);
 
+                // TODO FIXME no need to recalc owners.
                 if (topology.nodes(part, top).indexOf(node) > 0)
                     resCntrs.add(part, partCntrs.initialCounter(i), partCntrs.updatesCount(i));
             }

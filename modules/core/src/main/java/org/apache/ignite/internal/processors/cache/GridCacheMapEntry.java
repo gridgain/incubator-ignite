@@ -1083,7 +1083,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             updateCntr0 = nextPartitionCounter(tx, updateCntr);
 
-            updateClosure.trace.updateCntr = updateCntr0;
+            //updateClosure.trace.updateCntr = updateCntr0;
 
             if (tx != null && cctx.group().persistenceEnabled() && cctx.group().walEnabled())
                 logPtr = logTxUpdate(tx, val, expireTime, updateCntr0);
@@ -3732,15 +3732,15 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
         cctx.offheap().invoke(cctx, key, part, closure);
 
-        GridDhtLocalPartition.Trace e = new GridDhtLocalPartition.Trace(
-            key,
-            val,
-            closure.oldRow == null ? null : closure.oldRow.value(),
-            closure.treeOp);
+//        GridDhtLocalPartition.Trace e = new GridDhtLocalPartition.Trace(
+//            key,
+//            val,
+//            closure.oldRow == null ? null : closure.oldRow.value(),
+//            closure.treeOp);
 
-        part.trace.add(e);
+//        part.trace.add(e);
 
-        closure.trace = e;
+        //closure.trace = e;
 
         //return closure.treeOp != IgniteTree.OperationType.NOOP;
         return closure;
@@ -3819,7 +3819,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         assert lock.isHeldByCurrentThread();
 
         GridDhtLocalPartition part = localPartition();
-        part.trace.add(new GridDhtLocalPartition.Trace(key, null, null, IgniteTree.OperationType.REMOVE));
+        //part.trace.add(new GridDhtLocalPartition.Trace(key, null, null, IgniteTree.OperationType.REMOVE));
 
         cctx.offheap().remove(cctx, key, partition(), part);
     }

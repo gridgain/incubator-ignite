@@ -137,8 +137,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
 
     public CommitMode commitMode;
 
-    public boolean checker;
-    public int innerSetCallsCnt;
+    public int enlist;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -796,8 +795,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
 
                             // Apply update counters.
                             if (txCntrs != null) {
-                                this.checker = true;
-                                this.innerSetCallsCnt = innerSetCallsCnt;
+                                this.enlist = txState.writeMap().size();
 
                                 cctx.tm().txHandler().applyPartitionsUpdatesCounters(txCntrs.updateCounters(), false, false, this);
                             }

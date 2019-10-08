@@ -105,11 +105,9 @@ public class PartitionAtomicDebugUpdateCounterImpl extends PartitionAtomicUpdate
                 ", cur=" + cur +
                 ", new=" + get() +
                 ", mode=" + tx.commitMode.toString() +
-                ", checker=" + tx.checker +
-                ", isc=" + tx.innerSetCallsCnt +
+                ", enlist=" + tx.enlist +
                 ", nearXid=" + tx.nearXidVersion() +
                 ", xid=" + tx.xidVersion() +
-                ", entries=" + "[" + sb.toString() + "]" +
                 ']');
         }
     }
