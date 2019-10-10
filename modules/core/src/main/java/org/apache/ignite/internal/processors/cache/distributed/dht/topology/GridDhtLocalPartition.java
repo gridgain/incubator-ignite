@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.distributed.dht.topology;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -1310,7 +1311,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return id;
+        return Objects.hash(grp.groupId(), id);
     }
 
     /** {@inheritDoc} */
@@ -1321,6 +1322,11 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
     /** {@inheritDoc} */
     @Override public int compareTo(@NotNull GridDhtLocalPartition part) {
+        int res = Integer.compare(grp.groupId(), part.group().groupId());
+
+        if (res != 0)
+            return res;
+
         return Integer.compare(id, part.id());
     }
 
