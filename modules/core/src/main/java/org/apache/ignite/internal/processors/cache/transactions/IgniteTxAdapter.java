@@ -679,8 +679,8 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
         parts.add(part);
 
-        if (log.isDebugEnabled())
-            log.debug("Added invalid partition for transaction [cache=" + cacheCtx.name() + ", part=" + part +
+        //if (log.isDebugEnabled())
+            log.info("DBG: Added invalid partition for transaction [cache=" + cacheCtx.name() + ", part=" + part +
                 ", tx=" + this + ']');
     }
 
