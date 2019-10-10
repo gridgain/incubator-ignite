@@ -1692,6 +1692,8 @@ public class IgniteTxHandler {
                     req.storeWriteThrough(),
                     req.txLabel());
 
+                tx.req = req;
+
                 tx.onePhaseCommit(req.onePhaseCommit());
                 tx.writeVersion(req.writeVersion());
 

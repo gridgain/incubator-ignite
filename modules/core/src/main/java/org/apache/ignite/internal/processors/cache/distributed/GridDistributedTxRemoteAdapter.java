@@ -51,6 +51,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheReturnCompletableWra
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.GridCacheUpdateTxResult;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheEntry;
@@ -138,6 +139,9 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
     public CommitMode commitMode;
 
     public int enlist;
+
+    public GridDhtTxPrepareRequest req;
+
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -471,6 +475,10 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                 }
             }
 
+
+            int c0 = writeMap().size();
+            int c1 = 0;
+
             // Only one thread gets to commit.
             if (COMMIT_ALLOWED_UPD.compareAndSet(this, 0, 1)) {
                 IgniteCheckedException err = null;
@@ -518,8 +526,6 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                         batchStoreCommit(writeMap().values());
 
                         try {
-                            int innerSetCallsCnt = 0;
-
                             // Node that for near transactions we grab all entries.
                             for (IgniteTxEntry txEntry : entries) {
                                 GridCacheContext cacheCtx = txEntry.context();
@@ -542,6 +548,8 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                                         continue;
                                     }
                                 }
+
+                                c1++;
 
                                 boolean replicate = cacheCtx.isDrEnabled();
 
@@ -680,8 +688,6 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                                                     resolveTaskName(),
                                                     dhtVer,
                                                     txEntry.updateCounter());
-
-                                                innerSetCallsCnt++;
 
                                                 assert txEntry.updateCounter() == updRes.updatePartitionCounter() : txEntry + " " + updRes;
 
@@ -856,6 +862,10 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                             wrapper.initialize(ret);
                     }
                 }
+
+                int reqC = req.writes().size();
+                if (reqC != c0 || reqC != c1 || reqC != enlist)
+                    log.info("DBG: mismatch: " + reqC + " " + c0 + " " + c1 + " " + enlist + " tx=" + this + " req=" + this.req);
 
                 cctx.tm().commitTx(this);
 
