@@ -60,7 +60,7 @@ public class TxCrossCachePartitionConsistencyTest extends GridCommonAbstractTest
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setClientMode("client".equals(igniteInstanceName));
-        cfg.setCacheConfiguration(cacheConfiguration(CACHE1, 1), cacheConfiguration(CACHE2, 2));
+        cfg.setCacheConfiguration(cacheConfiguration(CACHE1, 2), cacheConfiguration(CACHE2, 1));
 
         cfg.setDataStorageConfiguration(new DataStorageConfiguration().
             setDefaultDataRegionConfiguration(new DataRegionConfiguration().
@@ -87,6 +87,8 @@ public class TxCrossCachePartitionConsistencyTest extends GridCommonAbstractTest
     public void testCrossCacheTxFailover() throws Exception {
         try {
             IgniteEx crd = startGrids(3);
+
+            awaitPartitionMapExchange();
 
             Ignite client = startGrid("client");
 
@@ -135,7 +137,7 @@ public class TxCrossCachePartitionConsistencyTest extends GridCommonAbstractTest
 
             IgniteInternalFuture<?> txFut = doRandomUpdates(r, client, keys, stopPred);
 
-            doSleep(30_000);
+            doSleep(10_000);
 
             stop.set(true);
 
@@ -145,7 +147,19 @@ public class TxCrossCachePartitionConsistencyTest extends GridCommonAbstractTest
 
             awaitPartitionMapExchange();
 
-            assertPartitionsSame(idleVerify(client, DEFAULT_CACHE_NAME));
+            assertPartitionsSame(idleVerify(client, CACHE1, CACHE2));
+
+            long s = 0;
+
+            for (Integer key : keys) {
+                Deposit o = (Deposit)client.cache(CACHE1).get(key);
+                Deposit o2 = (Deposit)client.cache(CACHE2).get(key);
+
+                s += o.getBalance();
+                s += o2.getBalance();
+            }
+
+            assertEquals(keys.size() * 2L * 1_000_000_000, s);
         }
         finally {
             stopAllGrids();
@@ -180,55 +194,33 @@ public class TxCrossCachePartitionConsistencyTest extends GridCommonAbstractTest
 
         return multithreadedAsync(() -> {
             while (!stopPred.getAsBoolean()) {
-                int key1 = r.nextInt(keys.size());
-                int key2 = r.nextInt(keys.size());
-
-                while(key1 == key2)
-                    key2 = r.nextInt(keys.size());
-
-                if (key1 > key2) {
-                    int tmp = key2;
-                    key2 = key1;
-                    key1 = tmp;
-                }
-
-                assertTrue(key1 < key2);
+                int key = r.nextInt(keys.size());
 
                 try (Transaction tx = near.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0)) {
                     IgniteCache<Integer, Deposit> first = cache1;
                     IgniteCache<Integer, Deposit> second = cache2;
 
-                    Deposit d1 = first.get(key1);
-
-                    if (d1 == null)
-                        key1 = -key1;
-
-                    d1 = cache1.get(key1);
+                    Deposit d1 = first.get(key);
 
                     assertNotNull(d1);
 
-                    Deposit d2 = second.get(key2);
-
-                    if (d2 == null)
-                        key2 = -key2;
-
-                    d2 = cache2.get(key2);
+                    Deposit d2 = second.get(key);
 
                     d1.setBalance(d1.getBalance() + 20);
                     d2.setBalance(d2.getBalance() - 20);
 
-                    boolean rmv = r.nextFloat() < 0.4;
-                    if (rmv) {
-                        first.remove(key1);
-                        second.remove(key2);
-
-                        first.put(-key1, d1);
-                        second.put(-key2, d2);
-                    }
-                    else {
-                        first.put(key1, d1);
-                        second.put(key2, d2);
-                    }
+//                    boolean rmv = r.nextFloat() < 0.4;
+//                    if (rmv) {
+//                        first.remove(key);
+//                        second.remove(key2);
+//
+//                        first.put(-key, d1);
+//                        second.put(-key2, d2);
+//                    }
+//                    else {
+                        first.put(key, d1);
+                        second.put(key, d2);
+//                    }
 
                     tx.commit();
                 }

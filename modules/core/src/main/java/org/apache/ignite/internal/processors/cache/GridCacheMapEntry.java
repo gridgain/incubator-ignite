@@ -2430,10 +2430,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         throws IgniteCheckedException {
         lockEntry();
 
-        GridDhtLocalPartition part = localPartition();
-        if (part != null)
-            log.info("DBG: invalidate grpId=" + part.group().cacheOrGroupName() + ", partId=" + part.id() + ", key=" + key() + ", value=" + val);
-
         try {
             assert newVer != null;
 
