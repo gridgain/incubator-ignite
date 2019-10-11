@@ -18,29 +18,35 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Optional;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
-import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.collection.IntHashMap;
+import org.apache.ignite.internal.util.collection.IntMap;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Values which should be tracked during transaction execution and applied on commit.
  */
-public class TxCounters {
+public final class TxCounters {
     /** Per-partition update counter accumulator. */
-    private final Map<Integer, Map<Integer, AtomicLong>> updCntrsAcc = new HashMap<>();
+    private final IntMap<IntMap<MutableInt>> updCntrsAcc = new IntHashMap<>();
 
     /** Final update counters for cache partitions in the end of transaction */
-    private volatile Map<Integer, PartitionUpdateCountersMessage> updCntrs;
+    private IntMap<PartitionUpdateCountersMessage> updCntrs;
+
+    private static IntMap<MutableInt> newMap(int k) {
+        return new IntHashMap<>();
+    }
+
+    private static MutableInt newInt(int k) {
+        return new MutableInt();
+    }
 
     /**
      * @param updCntrs Final update counters.
      */
     public void updateCounters(Collection<PartitionUpdateCountersMessage> updCntrs) {
-        this.updCntrs = U.newHashMap(updCntrs.size());
+        this.updCntrs = new IntHashMap<>(updCntrs.size());
 
         for (PartitionUpdateCountersMessage cntr : updCntrs)
             this.updCntrs.put(cntr.cacheId(), cntr);
@@ -56,7 +62,7 @@ public class TxCounters {
     /**
      * @return Accumulated update counters.
      */
-    public Map<Integer, Map<Integer, AtomicLong>> accumulatedUpdateCounters() {
+    public IntMap<IntMap<MutableInt>> accumulatedUpdateCounters() {
         return updCntrsAcc;
     }
 
@@ -65,7 +71,7 @@ public class TxCounters {
      * @param part Partition number.
      */
     public void incrementUpdateCounter(int cacheId, int part) {
-        accumulator(updCntrsAcc, cacheId, part).incrementAndGet();
+        accumulator(updCntrsAcc, cacheId, part).increment();
     }
 
     /**
@@ -73,9 +79,11 @@ public class TxCounters {
      * @param part Partition number.
      */
     public void decrementUpdateCounter(int cacheId, int part) {
-        long acc = accumulator(updCntrsAcc, cacheId, part).decrementAndGet();
+        accumulator(updCntrsAcc, cacheId, part).decrement();
+    }
 
-        assert acc >= 0;
+    public Collection<PartitionUpdateCountersMessage> calculateCounters() {
+        return updCntrs == null ? null : updCntrs.values();
     }
 
     /**
@@ -84,27 +92,10 @@ public class TxCounters {
      * @param part Partition number.
      * @return Accumulator.
      */
-    private AtomicLong accumulator(Map<Integer, Map<Integer, AtomicLong>> accMap, int cacheId, int part) {
-        Map<Integer, AtomicLong> cacheAccs = accMap.get(cacheId);
+    private MutableInt accumulator(IntMap<IntMap<MutableInt>> accMap, int cacheId, int part) {
+        IntMap<MutableInt> cacheAccs = accMap.computeIfAbsent(cacheId, TxCounters::newMap);
 
-        if (cacheAccs == null) {
-            Map<Integer, AtomicLong> cacheAccs0 =
-                accMap.putIfAbsent(cacheId, cacheAccs = new ConcurrentHashMap<>());
-
-            if (cacheAccs0 != null)
-                cacheAccs = cacheAccs0;
-        }
-
-        AtomicLong acc = cacheAccs.get(part);
-
-        if (acc == null) {
-            AtomicLong accDelta0 = cacheAccs.putIfAbsent(part, acc = new AtomicLong());
-
-            if (accDelta0 != null)
-                acc = accDelta0;
-        }
-
-        return acc;
+        return cacheAccs.computeIfAbsent(part, TxCounters::newInt);
     }
 
     /**
@@ -114,11 +105,28 @@ public class TxCounters {
      * @return Counter or {@code null} if cache partition has not updates.
      */
     public Long generateNextCounter(int cacheId, int partId) {
-        PartitionUpdateCountersMessage msg = updCntrs.get(cacheId);
+        return Optional.ofNullable(updCntrs.get(cacheId))
+            .map(m -> m.nextCounter(partId))
+            .orElse(null);
+    }
 
-        if (msg == null)
-            return null;
+    public final static class MutableInt {
+        private int val;
 
-        return msg.nextCounter(partId);
+        int get() {
+            return val;
+        }
+
+        void increment() {
+            val++;
+        }
+
+        void decrement() {
+            val--;
+        }
+
+        void applyDelta(int delta) {
+            val+=delta;
+        }
     }
 }
