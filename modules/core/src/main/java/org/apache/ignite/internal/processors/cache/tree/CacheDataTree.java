@@ -154,10 +154,10 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
         return rowStore.dataRow(cacheId, hash, link, x);
     }
 
-    /** {@inheritDoc} */
-    @Override protected IoStatisticsHolder statisticsHolder() {
-        return grp.statisticsHolderIdx();
-    }
+//    /** {@inheritDoc} */
+//    @Override protected IoStatisticsHolder statisticsHolder() {
+//        return grp.statisticsHolderIdx();
+//    }
 
     /**
      * @param key Key.

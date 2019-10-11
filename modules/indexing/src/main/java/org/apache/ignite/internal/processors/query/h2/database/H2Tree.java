@@ -443,10 +443,10 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         return 0;
     }
 
-    /** {@inheritDoc} */
-    @Override protected IoStatisticsHolder statisticsHolder() {
-        return stats;
-    }
+//    /** {@inheritDoc} */
+//    @Override protected IoStatisticsHolder statisticsHolder() {
+//        return stats;
+//    }
 
     /**
      * @return Inline indexes for the segment.

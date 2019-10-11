@@ -668,7 +668,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 seg.acquirePage(absPtr);
 
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
+//                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
 
                 return absPtr;
             }
@@ -773,8 +773,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             seg.acquirePage(absPtr);
 
-            if(!readPageFromStore)
-                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
+//            if(!readPageFromStore)
+//                statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
 
             return absPtr;
         }
@@ -804,7 +804,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 try {
                     storeMgr.read(grpId, pageId, buf);
 
-                    statHolder.trackPhysicalAndLogicalRead(pageAddr);
+//                    statHolder.trackPhysicalAndLogicalRead(pageAddr);
 
                     actualPageId = PageIO.getPageId(buf);
 
@@ -818,7 +818,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                     tryToRestorePage(fullId, buf);
 
-                    statHolder.trackPhysicalAndLogicalRead(pageAddr);
+//                    statHolder.trackPhysicalAndLogicalRead(pageAddr);
 
                     memMetrics.onPageRead();
                 }
