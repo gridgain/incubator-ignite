@@ -34,13 +34,13 @@ import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 @IgniteCodeGeneratingFail
 public class PartitionUpdateCountersMessage implements Message {
     /** */
-    private static final int ITEM_SIZE = 4 /* partition */ + 8 /* initial counter */ + 8 /* updates count */;
+    private static final int ITEM_SIZE = 4 /* partition */ + 8 /* initial counter */ + 4 /* updates count */;
 
     /** */
     private static final long serialVersionUID = 193442457510062844L;
 
     /** */
-    private byte data[];
+    private byte[] data;
 
     /** */
     private int cacheId;
@@ -126,13 +126,13 @@ public class PartitionUpdateCountersMessage implements Message {
      * @param idx Item number.
      * @return Update counter delta.
      */
-    public long updatesCount(int idx){
+    public int updatesCount(int idx){
         if (idx >= size)
             throw new ArrayIndexOutOfBoundsException();
 
         long off = GridUnsafe.BYTE_ARR_OFF + idx * ITEM_SIZE + 12;
 
-        return GridUnsafe.getLong(data, off);
+        return GridUnsafe.getInt(data, off);
     }
 
     /**
@@ -140,14 +140,14 @@ public class PartitionUpdateCountersMessage implements Message {
      * @param init Init partition counter.
      * @param updatesCnt Update counter delta.
      */
-    public void add(int part, long init, long updatesCnt) {
+    public void add(int part, long init, int updatesCnt) {
         ensureSpace(size + 1);
 
         long off = GridUnsafe.BYTE_ARR_OFF + size++ * ITEM_SIZE;
 
         GridUnsafe.putInt(data, off, part); off += 4;
         GridUnsafe.putLong(data, off, init); off += 8;
-        GridUnsafe.putLong(data, off, updatesCnt);
+        GridUnsafe.putInt(data, off, updatesCnt);
     }
 
     /**

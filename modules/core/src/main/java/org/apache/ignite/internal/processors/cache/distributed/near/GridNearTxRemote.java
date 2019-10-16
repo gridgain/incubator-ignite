@@ -247,11 +247,6 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
         return nearXidVer;
     }
 
-    /** {@inheritDoc} */
-    @Override public void setPartitionUpdateCounters(long[] cntrs) {
-        // No-op.
-    }
-
     /**
      * Adds owned versions to map.
      *

@@ -45,9 +45,4 @@ public interface IgniteTxRemoteEx extends IgniteInternalTx {
         Collection<GridCacheVersion> committedVers,
         Collection<GridCacheVersion> rolledbackVers,
         Collection<GridCacheVersion> pendingVers);
-
-    /**
-     * @param cntrs Partition update indexes.
-     */
-    public void setPartitionUpdateCounters(long[] cntrs);
 }

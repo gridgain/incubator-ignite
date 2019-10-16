@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.io.Externalizable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -54,9 +52,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.GridCacheUpdateTxResult;
 import org.apache.ignite.internal.processors.cache.IgniteCacheExpiryPolicy;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
-import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.store.CacheStoreManager;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
@@ -65,7 +60,6 @@ import org.apache.ignite.internal.processors.dr.GridDrType;
 import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
-import org.apache.ignite.internal.util.collection.IntMap;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.lang.GridClosureException;
 import org.apache.ignite.internal.util.lang.GridTuple;
@@ -94,8 +88,6 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.REA
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.RELOAD;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.TRANSFORM;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPDATE;
-import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.LOST;
-import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.OWNING;
 import static org.apache.ignite.internal.processors.dr.GridDrType.DR_NONE;
 import static org.apache.ignite.internal.processors.dr.GridDrType.DR_PRIMARY;
 import static org.apache.ignite.transactions.TransactionState.COMMITTED;
@@ -453,8 +445,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
     public void calculatePartitionUpdateCounters() throws IgniteTxRollbackCheckedException {
         TxCounters counters = txCounters(false);
 
-        if (counters != null && F.isEmpty(counters.updateCounters()))
-            counters.updateCounters(new PartitionUpdateCountersMessagesCollector().collect(counters.accumulatedUpdateCounters()));
+        if (counters != null)
+            counters.applyUpdateCounters();
     }
 
     /**
@@ -1863,71 +1855,5 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
         public void apply(E entry) throws IgniteCheckedException, GridCacheEntryRemovedException;
     }
 
-    /** */
-    private final class PartitionUpdateCountersMessagesCollector {
-        private final List<PartitionUpdateCountersMessage> msgs = new ArrayList<>();
 
-        private PartitionUpdateCountersMessage msg;
-        private GridDhtPartitionTopology top;
-
-        public List<PartitionUpdateCountersMessage> collect(IntMap<IntMap<TxCounters.MutableInt>> counters) throws IgniteTxRollbackCheckedException {
-            counters.forEach(this::processCache);
-
-            return msgs;
-        }
-
-        /** */
-        private void processCache(int cacheId, IntMap<TxCounters.MutableInt> partToCntrs) throws IgniteTxRollbackCheckedException {
-            if (!partToCntrs.isEmpty()) {
-                msg = new PartitionUpdateCountersMessage(cacheId, partToCntrs.size());
-                top = cctx.cacheContext(cacheId).topology();
-
-                assert top != null;
-
-                partToCntrs.forEach(this::processPartition);
-
-                if (msg.size() > 0)
-                    msgs.add(msg);
-            }
-        }
-
-        /** */
-        private void processPartition(int p, TxCounters.MutableInt acc) throws IgniteTxRollbackCheckedException {
-            assert acc != null;
-
-            long cntr = acc.get();
-
-            if (cntr != 0) {
-                GridDhtLocalPartition part = top.localPartition(p);
-
-                // Verify primary tx mapping.
-                // LOST state is possible if tx is started over LOST partition.
-                boolean valid = part != null &&
-                    (part.state() == OWNING || part.state() == LOST) &&
-                    part.primary(top.readyTopologyVersion());
-
-                if (!valid) {
-                    // Local node is no longer primary for the partition, need to rollback a transaction.
-                    if (part != null && !part.primary(top.readyTopologyVersion())) {
-                        log.warning("Failed to prepare a transaction on outdated topology, rolling back " +
-                            "[tx=" + CU.txString(IgniteTxLocalAdapter.this) +
-                            ", readyTopVer=" + top.readyTopologyVersion() +
-                            ", lostParts=" + top.lostPartitions() +
-                            ", part=" + part.toString() + ']');
-
-                        throw new IgniteTxRollbackCheckedException("Failed to prepare a transaction on outdated " +
-                            "topology, please try again [timeout=" + IgniteTxLocalAdapter.this.timeout() + ", tx=" + CU.txString(IgniteTxLocalAdapter.this) + ']');
-                    }
-
-                    // Trigger error.
-                    throw new AssertionError("Invalid primary mapping [tx=" + CU.txString(IgniteTxLocalAdapter.this) +
-                        ", readyTopVer=" + top.readyTopologyVersion() +
-                        ", lostParts=" + top.lostPartitions() +
-                        ", part=" + (part == null ? "NULL" : part.toString()) + ']');
-                }
-
-                msg.add(p, part.getAndIncrementUpdateCounter(cntr), cntr);
-            }
-        }
-    }
 }

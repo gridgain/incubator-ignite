@@ -20,26 +20,47 @@ package org.apache.ignite.internal.processors.cache.transactions;
 import java.util.Collection;
 import java.util.Optional;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
+import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.util.collection.IntHashMap;
 import org.apache.ignite.internal.util.collection.IntMap;
+import org.apache.ignite.internal.util.lang.GridClosureException;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.LOST;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.OWNING;
 
 /**
  * Values which should be tracked during transaction execution and applied on commit.
  */
 public final class TxCounters {
+    /** Initial capacity. */
+    private static final int INITIAL_CAPACITY = 8;
+
+    /** Maximum capacity. */
+    private static final int MAXIMUM_CAPACITY = 1 << 30;
+
+    /** Magic hash mixer. */
+    private static final int MAGIC_HASH_MIXER = 0x9E3779B9;
+
+    /** Array load percentage before resize. */
+    private static final float SCALE_LOAD_FACTOR = 0.7F;
+
+    private static final int ZERO_KEY = -1;
+
+    /** Parent tx. */
+    private final IgniteTxAdapter tx;
+
     /** Per-partition update counter accumulator. */
-    private final IntMap<IntMap<MutableInt>> updCntrsAcc = new IntHashMap<>();
+    private final CountersMap cntrsMap = new CountersMap();
 
     /** Final update counters for cache partitions in the end of transaction */
     private IntMap<PartitionUpdateCountersMessage> updCntrs;
 
-    private static IntMap<MutableInt> newMap(int k) {
-        return new IntHashMap<>();
-    }
-
-    private static MutableInt newInt(int k) {
-        return new MutableInt();
+    public TxCounters(IgniteTxAdapter tx) {
+        this.tx = tx;
     }
 
     /**
@@ -59,11 +80,46 @@ public final class TxCounters {
         return updCntrs == null ? null : updCntrs.values();
     }
 
-    /**
-     * @return Accumulated update counters.
-     */
-    public IntMap<IntMap<MutableInt>> accumulatedUpdateCounters() {
-        return updCntrsAcc;
+    public void applyUpdateCounters() throws IgniteTxRollbackCheckedException {
+        if (updCntrs == null) {
+            updCntrs = new IntHashMap<>(cntrsMap.size);
+
+            try {
+                if (cntrsMap.size > 0) {
+                    for (Entry entry : cntrsMap.entries) {
+                        if (entry == null || entry.size == 0)
+                            continue;
+
+                        PartitionUpdateCountersMessage msg = new PartitionUpdateCountersMessage(entry.cacheId, entry.size);
+
+                        updCntrs.put(msg.cacheId(), msg);
+
+                        GridDhtPartitionTopology top = tx.cctx.cacheContext(entry.cacheId).topology();
+
+                        for (long partEntry : entry.data) {
+                            if (partEntry == 0)
+                                continue;
+
+                            int p = fixPart(part(partEntry));
+
+                            GridDhtLocalPartition part = top.localPartition(p);
+
+                            checkPartition(top, part);
+
+                            int cntr = counter(partEntry);
+
+                            msg.add(p, part.getAndIncrementUpdateCounter(cntr), cntr);
+                        }
+                    }
+                }
+            }
+            catch (GridClosureException e) {
+                if (e.hasCause(IgniteTxRollbackCheckedException.class))
+                    throw e.getCause(IgniteTxRollbackCheckedException.class);
+
+                throw e;
+            }
+        }
     }
 
     /**
@@ -71,7 +127,7 @@ public final class TxCounters {
      * @param part Partition number.
      */
     public void incrementUpdateCounter(int cacheId, int part) {
-        accumulator(updCntrsAcc, cacheId, part).increment();
+        cntrsMap.increment(cacheId, fixPart(part));
     }
 
     /**
@@ -79,23 +135,7 @@ public final class TxCounters {
      * @param part Partition number.
      */
     public void decrementUpdateCounter(int cacheId, int part) {
-        accumulator(updCntrsAcc, cacheId, part).decrement();
-    }
-
-    public Collection<PartitionUpdateCountersMessage> calculateCounters() {
-        return updCntrs == null ? null : updCntrs.values();
-    }
-
-    /**
-     * @param accMap Map to obtain accumulator from.
-     * @param cacheId Cache id.
-     * @param part Partition number.
-     * @return Accumulator.
-     */
-    private MutableInt accumulator(IntMap<IntMap<MutableInt>> accMap, int cacheId, int part) {
-        IntMap<MutableInt> cacheAccs = accMap.computeIfAbsent(cacheId, TxCounters::newMap);
-
-        return cacheAccs.computeIfAbsent(part, TxCounters::newInt);
+        cntrsMap.decrement(cacheId, fixPart(part));
     }
 
     /**
@@ -110,23 +150,313 @@ public final class TxCounters {
             .orElse(null);
     }
 
-    public final static class MutableInt {
-        private int val;
+    private void checkPartition(GridDhtPartitionTopology top, GridDhtLocalPartition part) {
+        // Verify primary tx mapping.
+        // LOST state is possible if tx is started over LOST partition.
+        boolean valid = part != null &&
+            (part.state() == OWNING || part.state() == LOST) &&
+            part.primary(top.readyTopologyVersion());
 
-        int get() {
-            return val;
+        if (!valid) {
+            // Local node is no longer primary for the partition, need to rollback a transaction.
+            if (part != null && !part.primary(top.readyTopologyVersion())) {
+                IgniteTxAdapter.log.warning("Failed to prepare a transaction on outdated topology, rolling back " +
+                    "[tx=" + CU.txString(tx) +
+                    ", readyTopVer=" + top.readyTopologyVersion() +
+                    ", lostParts=" + top.lostPartitions() +
+                    ", part=" + part.toString() + ']');
+
+                throw new GridClosureException(new IgniteTxRollbackCheckedException("Failed to prepare a transaction on outdated " +
+                    "topology, please try again [timeout=" + tx.timeout() + ", tx=" + CU.txString(tx) + ']'));
+            }
+
+            // Trigger error.
+            throw new AssertionError("Invalid primary mapping [tx=" + CU.txString(tx) +
+                ", readyTopVer=" + top.readyTopologyVersion() +
+                ", lostParts=" + top.lostPartitions() +
+                ", part=" + (part == null ? "NULL" : part.toString()) + ']');
+        }
+    }
+
+    private static final class CountersMap {
+        /** Scale threshold. */
+        private int scaleThreshold;
+
+        /** Entries. */
+        private Entry[] entries;
+
+        /** Count of elements in Map. */
+        private int size;
+
+        /** */
+        private CountersMap() {
+            scaleThreshold = (int)(INITIAL_CAPACITY * SCALE_LOAD_FACTOR);
+
+            entries = new Entry[INITIAL_CAPACITY];
         }
 
-        void increment() {
-            val++;
+        void increment(int cacheId, int partId) {
+            entry(cacheId).increment(partId);
         }
 
-        void decrement() {
-            val--;
+        void decrement(int cacheId, int partId) {
+            entry(cacheId).decrement(partId);
         }
 
-        void applyDelta(int delta) {
-            val+=delta;
+        void applyDelta(int cacheId, int partId, int delta) {
+            entry(cacheId).applyDelta(partId, delta);
         }
+
+        private void put0(Entry entry) {
+            if (size >= scaleThreshold)
+                resize();
+
+            int tabLen = entries.length;
+
+            Entry savedEntry = entry;
+
+            int startKey = savedEntry.cacheId;
+
+            for (int i = 0; i < tabLen; i++) {
+                int idx = (index(startKey, tabLen) + i) & (tabLen - 1);
+
+                Entry curEntry = entries[idx];
+
+                if (curEntry == null) {
+                    entries[idx] = savedEntry;
+
+                    size++;
+
+                    return;
+                }
+                else if (curEntry.cacheId == savedEntry.cacheId) {
+                    entries[idx] = savedEntry;
+
+                    return;
+                }
+
+                int curDist = distance(idx, curEntry.cacheId, tabLen);
+                int savedDist = distance(idx, savedEntry.cacheId, tabLen);
+
+                if (curDist < savedDist) {
+                    entries[idx] = savedEntry;
+
+                    savedEntry = curEntry;
+                }
+            }
+
+            throw new AssertionError("Unreachable state exception. Insertion position not found. " +
+                "Entry: " + entry + " map state: " + toString());
+        }
+
+        private int find(int cacheId) {
+            int tabLen = entries.length;
+
+            int idx = index(cacheId, tabLen);
+
+            for (int keyDist = 0; keyDist < tabLen; keyDist++) {
+                int curIdx = (idx + keyDist) & (tabLen - 1);
+
+                Entry entry = entries[curIdx];
+
+                if (entry == null)
+                    return -1;
+                else if (entry.cacheId == cacheId)
+                    return curIdx;
+
+                int entryDist = distance(curIdx, entry.cacheId, tabLen);
+
+                if (keyDist > entryDist)
+                    return -1;
+            }
+
+            return -1;
+        }
+
+        private void resize() {
+            int tabLen = entries.length;
+
+            if (MAXIMUM_CAPACITY == tabLen)
+                throw new IllegalStateException("Maximum capacity: " + MAXIMUM_CAPACITY + " is reached.");
+
+            Entry[] oldEntries = entries;
+
+            entries = new Entry[tabLen << 1];
+
+            scaleThreshold = (int)(tabLen * SCALE_LOAD_FACTOR);
+
+            size = 0;
+
+            for (Entry entry : oldEntries)
+                if (entry != null)
+                    put0(entry);
+        }
+
+        private Entry entry(int cacheId) {
+            Entry entry;
+
+            int idx = find(cacheId);
+
+            if (idx < 0)
+                put0(entry = new Entry(cacheId));
+            else
+                entry = entries[idx];
+
+            assert entry != null;
+            return entry;
+        }
+    }
+
+    private static final class Entry {
+        /** */
+        private final int cacheId;
+
+        /** Scale threshold. */
+        private int scaleThreshold;
+
+        /** Count of elements in Map. */
+        private int size;
+
+        /** data array. */
+        private long[] data;
+
+        /** Default constructor. */
+        private Entry(int cacheId) {
+            scaleThreshold = (int)(INITIAL_CAPACITY * SCALE_LOAD_FACTOR);
+
+            data = new long[INITIAL_CAPACITY];
+
+            this.cacheId = cacheId;
+        }
+
+        private void increment(int part) {
+            applyDelta(part, 1);
+        }
+
+        private void decrement(int part) {
+            applyDelta(part, -1);
+        }
+
+        private void applyDelta(int part, int delta) {
+            int idx = find(part);
+
+            if (idx < 0)
+                put0(entry(part, delta));
+            else
+                data[idx] = entry(part, counter(data[idx] + delta));
+        }
+
+        private void put0(long entry) {
+            if (size >= scaleThreshold)
+                resize();
+
+            int tabLen = data.length;
+
+            long savedEntry = entry;
+
+            int startKey = part(savedEntry);
+
+            for (int i = 0; i < tabLen; i++) {
+                int idx = (index(startKey, tabLen) + i) & (tabLen - 1);
+
+                long curEntry = data[idx];
+
+                if (curEntry == 0) {
+                    data[idx] = savedEntry;
+
+                    size++;
+
+                    return;
+                }
+                else if ((curEntry ^ savedEntry) >>> 32 == 0) {
+                    data[idx] = savedEntry;
+
+                    return;
+                }
+
+                int curDist = distance(idx, part(curEntry), tabLen);
+                int savedDist = distance(idx, part(savedEntry), tabLen);
+
+                if (curDist < savedDist) {
+                    data[idx] = savedEntry;
+
+                    savedEntry = curEntry;
+                }
+            }
+
+            throw new AssertionError("Unreachable state exception. Insertion position not found. " +
+                "Entry: " + entry + " map state: " + toString());
+        }
+
+        private int find(int part) {
+            int idx = index(part, data.length);
+
+            for (int dist = 0; dist < data.length; dist++) {
+                int curIdx = (idx + dist) & (data.length - 1);
+
+                long entry = data[curIdx];
+
+                if (entry == 0)
+                    return -1;
+                else if (part(entry) == part)
+                    return curIdx;
+
+                int entryDist = distance(curIdx, part(entry), data.length);
+
+                if (dist > entryDist)
+                    return -1;
+            }
+
+            return -1;
+        }
+
+        private void resize() {
+            int tabLen = data.length;
+
+            if (MAXIMUM_CAPACITY == tabLen)
+                throw new IllegalStateException("Maximum capacity: " + MAXIMUM_CAPACITY + " is reached.");
+
+            long[] oldEntries = data;
+
+            data = new long[tabLen << 1];
+
+            scaleThreshold = (int)(tabLen * SCALE_LOAD_FACTOR);
+
+            size = 0;
+
+            for (long entry : oldEntries)
+                if (entry != 0)
+                    put0(entry);
+        }
+    }
+
+    private static int distance(int curIdx, int key, int tabLen) {
+        int keyIdx = index(key, tabLen);
+
+        return curIdx >= keyIdx ? curIdx - keyIdx : tabLen - keyIdx + curIdx;
+    }
+
+    private static int index(int key, int tabLen) {
+        return (tabLen - 1) & ((key ^ (key >>> 16)) * MAGIC_HASH_MIXER);
+    }
+
+    private static int part(long entry) {
+        return (int) (entry >>> 32);
+    }
+
+    private static int counter(long entry) {
+        return (int) entry;
+    }
+
+    private static long entry(int part, int counter) {
+        return (long)part << 32 | counter;
+    }
+
+    private static int fixPart(int part) {
+        if (part == 0)
+            return ZERO_KEY;
+        if (part == ZERO_KEY)
+            return 0;
+        return part;
     }
 }
