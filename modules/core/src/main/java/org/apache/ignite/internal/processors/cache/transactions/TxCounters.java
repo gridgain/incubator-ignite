@@ -25,7 +25,6 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.topology.Grid
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.util.collection.IntHashMap;
 import org.apache.ignite.internal.util.collection.IntMap;
-import org.apache.ignite.internal.util.lang.GridClosureException;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.jetbrains.annotations.Nullable;
 
@@ -84,40 +83,32 @@ public final class TxCounters {
         if (updCntrs == null) {
             updCntrs = new IntHashMap<>(cntrsMap.size);
 
-            try {
-                if (cntrsMap.size > 0) {
-                    for (Entry entry : cntrsMap.entries) {
-                        if (entry == null || entry.size == 0)
+            if (cntrsMap.size > 0) {
+                for (Entry entry : cntrsMap.entries) {
+                    if (entry == null || entry.size == 0)
+                        continue;
+
+                    PartitionUpdateCountersMessage msg = new PartitionUpdateCountersMessage(entry.cacheId, entry.size);
+
+                    updCntrs.put(msg.cacheId(), msg);
+
+                    GridDhtPartitionTopology top = tx.cctx.cacheContext(entry.cacheId).topology();
+
+                    for (long partEntry : entry.data) {
+                        if (partEntry == 0)
                             continue;
 
-                        PartitionUpdateCountersMessage msg = new PartitionUpdateCountersMessage(entry.cacheId, entry.size);
+                        int p = fixPart(part(partEntry));
 
-                        updCntrs.put(msg.cacheId(), msg);
+                        GridDhtLocalPartition part = top.localPartition(p);
 
-                        GridDhtPartitionTopology top = tx.cctx.cacheContext(entry.cacheId).topology();
+                        checkPartition(top, part);
 
-                        for (long partEntry : entry.data) {
-                            if (partEntry == 0)
-                                continue;
+                        int cntr = counter(partEntry);
 
-                            int p = fixPart(part(partEntry));
-
-                            GridDhtLocalPartition part = top.localPartition(p);
-
-                            checkPartition(top, part);
-
-                            int cntr = counter(partEntry);
-
-                            msg.add(p, part.getAndIncrementUpdateCounter(cntr), cntr);
-                        }
+                        msg.add(p, part.getAndIncrementUpdateCounter(cntr), cntr);
                     }
                 }
-            }
-            catch (GridClosureException e) {
-                if (e.hasCause(IgniteTxRollbackCheckedException.class))
-                    throw e.getCause(IgniteTxRollbackCheckedException.class);
-
-                throw e;
             }
         }
     }
@@ -150,7 +141,7 @@ public final class TxCounters {
             .orElse(null);
     }
 
-    private void checkPartition(GridDhtPartitionTopology top, GridDhtLocalPartition part) {
+    private void checkPartition(GridDhtPartitionTopology top, GridDhtLocalPartition part) throws IgniteTxRollbackCheckedException {
         // Verify primary tx mapping.
         // LOST state is possible if tx is started over LOST partition.
         boolean valid = part != null &&
@@ -166,8 +157,8 @@ public final class TxCounters {
                     ", lostParts=" + top.lostPartitions() +
                     ", part=" + part.toString() + ']');
 
-                throw new GridClosureException(new IgniteTxRollbackCheckedException("Failed to prepare a transaction on outdated " +
-                    "topology, please try again [timeout=" + tx.timeout() + ", tx=" + CU.txString(tx) + ']'));
+                throw new IgniteTxRollbackCheckedException("Failed to prepare a transaction on outdated " +
+                    "topology, please try again [timeout=" + tx.timeout() + ", tx=" + CU.txString(tx) + ']');
             }
 
             // Trigger error.
