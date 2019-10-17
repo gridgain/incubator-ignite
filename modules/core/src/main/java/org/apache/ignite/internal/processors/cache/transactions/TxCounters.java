@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.Collection;
-import java.util.Optional;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
@@ -47,8 +46,6 @@ public final class TxCounters {
 
     /** Array load percentage before resize. */
     private static final float SCALE_LOAD_FACTOR = 0.7F;
-
-    private static final int ZERO_KEY = -1;
 
     /** Parent tx. */
     private final IgniteTxAdapter tx;
@@ -105,7 +102,7 @@ public final class TxCounters {
 
                         GridDhtLocalPartition part = top.localPartition(p);
 
-                        checkPartition(top, part);
+//                        checkPartition(top, part);
 
                         int cntr = counter(partEntry);
 
@@ -139,9 +136,12 @@ public final class TxCounters {
      * @return Counter or {@code null} if cache partition has not updates.
      */
     public Long generateNextCounter(int cacheId, int partId) {
-        return Optional.ofNullable(updCntrs.get(cacheId))
-            .map(m -> m.nextCounter(partId))
-            .orElse(null);
+        PartitionUpdateCountersMessage msg = updCntrs.get(cacheId);
+
+        if (msg != null)
+            return msg.nextCounter(partId);
+
+        return null;
     }
 
     private void checkPartition(GridDhtPartitionTopology top, GridDhtLocalPartition part) throws IgniteTxRollbackCheckedException {
@@ -174,31 +174,55 @@ public final class TxCounters {
 
     private static final class CountersMap {
         /** Scale threshold. */
-        private int scaleThreshold;
+        private int scaleThreshold = (int)(INITIAL_CAPACITY * SCALE_LOAD_FACTOR);
 
         /** Entries. */
-        private Entry[] entries;
+        private Entry[] entries = new Entry[INITIAL_CAPACITY];
 
         /** Count of elements in Map. */
         private int size;
 
-        /** */
-        private CountersMap() {
-            scaleThreshold = (int)(INITIAL_CAPACITY * SCALE_LOAD_FACTOR);
-
-            entries = new Entry[INITIAL_CAPACITY];
-        }
-
-        void increment(int cacheId, int partId) {
+        private void increment(int cacheId, int partId) {
             entry(cacheId).increment(partId);
         }
 
-        void decrement(int cacheId, int partId) {
+        private void decrement(int cacheId, int partId) {
             entry(cacheId).decrement(partId);
         }
 
-        void applyDelta(int cacheId, int partId, int delta) {
+        private void applyDelta(int cacheId, int partId, int delta) {
             entry(cacheId).applyDelta(partId, delta);
+        }
+
+        private Entry entry(int cacheId) {
+            int tabLen = entries.length;
+
+            int idx = index(cacheId, tabLen);
+
+            for (int keyDist = 0; keyDist < tabLen; keyDist++) {
+                int curIdx = (idx + keyDist) & (tabLen - 1);
+
+                Entry entry = entries[curIdx];
+
+                if (entry == null)
+                    return newEntry(cacheId);
+
+                if (entry.cacheId == cacheId)
+                    return entry;
+
+                if (keyDist > distance(curIdx, entry.cacheId, tabLen))
+                    return newEntry(cacheId);
+            }
+
+            return newEntry(cacheId);
+        }
+
+        private Entry newEntry(int cacheId) {
+            Entry entry = new Entry(cacheId);
+
+            put0(entry);
+
+            return entry;
         }
 
         private void put0(Entry entry) {
@@ -243,30 +267,6 @@ public final class TxCounters {
                 "Entry: " + entry + " map state: " + toString());
         }
 
-        private int find(int cacheId) {
-            int tabLen = entries.length;
-
-            int idx = index(cacheId, tabLen);
-
-            for (int keyDist = 0; keyDist < tabLen; keyDist++) {
-                int curIdx = (idx + keyDist) & (tabLen - 1);
-
-                Entry entry = entries[curIdx];
-
-                if (entry == null)
-                    return -1;
-                else if (entry.cacheId == cacheId)
-                    return curIdx;
-
-                int entryDist = distance(curIdx, entry.cacheId, tabLen);
-
-                if (keyDist > entryDist)
-                    return -1;
-            }
-
-            return -1;
-        }
-
         private void resize() {
             int tabLen = entries.length;
 
@@ -284,20 +284,6 @@ public final class TxCounters {
             for (Entry entry : oldEntries)
                 if (entry != null)
                     put0(entry);
-        }
-
-        private Entry entry(int cacheId) {
-            Entry entry;
-
-            int idx = find(cacheId);
-
-            if (idx < 0)
-                put0(entry = new Entry(cacheId));
-            else
-                entry = entries[idx];
-
-            assert entry != null;
-            return entry;
         }
     }
 
@@ -447,10 +433,6 @@ public final class TxCounters {
     }
 
     private static int fixPart(int part) {
-        if (part == 0)
-            return ZERO_KEY;
-        if (part == ZERO_KEY)
-            return 0;
-        return part;
+        return (-part) -1;
     }
 }
