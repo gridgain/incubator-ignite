@@ -76,6 +76,7 @@ import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
+import org.apache.ignite.internal.util.GridPartitionStateMap;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.typedef.C1;
@@ -2175,22 +2176,23 @@ public class IgniteTxHandler {
 
         List<PartitionUpdateCountersMessage> res = new ArrayList<>(updCntrs.size());
 
-        AffinityTopologyVersion top = tx.topologyVersionSnapshot();
-
         for (PartitionUpdateCountersMessage partCntrs : updCntrs) {
-            GridDhtPartitionTopology topology = ctx.cacheContext(partCntrs.cacheId()).topology();
+            GridPartitionStateMap stateMap = partCntrs.context().topology().partitions(node.id()).map();
 
-            PartitionUpdateCountersMessage resCntrs = new PartitionUpdateCountersMessage(partCntrs.cacheId(), partCntrs.size());
+            PartitionUpdateCountersMessage resCntrs = null;
 
             for (int i = 0; i < partCntrs.size(); i++) {
                 int part = partCntrs.partition(i);
 
-                if (topology.nodes(part, top).indexOf(node) > 0)
-                    resCntrs.add(part, partCntrs.initialCounter(i), partCntrs.updatesCount(i));
-            }
+                GridDhtPartitionState state = stateMap.get(part);
 
-            if (resCntrs.size() > 0)
-                res.add(resCntrs);
+                if (state == GridDhtPartitionState.OWNING || state == GridDhtPartitionState.MOVING) {
+                    if (resCntrs == null)
+                        res.add(resCntrs = new PartitionUpdateCountersMessage(partCntrs.cacheId(), partCntrs.size()));
+
+                    resCntrs.add(part, partCntrs.initialCounter(i), partCntrs.updatesCount(i));
+                }
+            }
         }
 
         return res;

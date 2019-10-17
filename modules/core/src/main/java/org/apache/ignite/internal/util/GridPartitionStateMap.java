@@ -153,6 +153,11 @@ public class GridPartitionStateMap extends AbstractMap<Integer, GridDhtPartition
         return state((Integer)key);
     }
 
+    /** A variant without boxing. */
+    public GridDhtPartitionState get(int key) {
+        return state(key);
+    }
+
     /** {@inheritDoc} */
     @Override public GridDhtPartitionState remove(Object key) {
         return setState((Integer)key, null);

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.Collection;
 import java.util.Optional;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionUpdateCountersMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
@@ -88,11 +89,13 @@ public final class TxCounters {
                     if (entry == null || entry.size == 0)
                         continue;
 
-                    PartitionUpdateCountersMessage msg = new PartitionUpdateCountersMessage(entry.cacheId, entry.size);
+                    GridCacheContext<?, ?> cctx = tx.cctx.cacheContext(entry.cacheId);
+
+                    PartitionUpdateCountersMessage msg = new PartitionUpdateCountersMessage(cctx, entry.size);
 
                     updCntrs.put(msg.cacheId(), msg);
 
-                    GridDhtPartitionTopology top = tx.cctx.cacheContext(entry.cacheId).topology();
+                    GridDhtPartitionTopology top = cctx.topology();
 
                     for (long partEntry : entry.data) {
                         if (partEntry == 0)
