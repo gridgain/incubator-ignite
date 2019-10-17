@@ -392,7 +392,7 @@ public class IntHashMap<V> implements IntMap<V> {
 
         /** */
         private void fixIndex() {
-            idx = (-idx) -1;
+            idx = ~idx;
         }
     }
 }

@@ -433,6 +433,6 @@ public final class TxCounters {
     }
 
     private static int fixPart(int part) {
-        return (-part) -1;
+        return ~part;
     }
 }
