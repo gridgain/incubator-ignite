@@ -323,7 +323,7 @@ public final class TxCounters {
             if (idx < 0)
                 put0(entry(part, delta));
             else
-                data[idx] = entry(part, counter(data[idx] + delta));
+                data[idx] = entry(part, counter(data[idx]) + delta);
         }
 
         private void put0(long entry) {
