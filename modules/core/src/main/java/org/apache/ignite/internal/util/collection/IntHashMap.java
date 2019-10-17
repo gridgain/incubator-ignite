@@ -15,12 +15,14 @@
  */
 package org.apache.ignite.internal.util.collection;
 
+import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * The simple map for primitive types base on Robin-hood hashing with backward shift.
@@ -172,10 +174,7 @@ public class IntHashMap<V> implements IntMap<V> {
     }
 
     @Override public Collection<V> values() {
-        return Stream.of(entries)
-            .filter(Objects::nonNull)
-            .map(e -> e.val)
-            .collect(Collectors.toList());
+        return new ValuesCollection();
     }
 
     @Override public V computeIfAbsent(int key, IntFunction<V> mappingFunction) {
@@ -335,5 +334,65 @@ public class IntHashMap<V> implements IntMap<V> {
         for (Entry<V> entry : oldEntries)
             if (entry != null)
                 put0(entry);
+    }
+
+    /** */
+    private final class ValuesCollection extends AbstractCollection<V> {
+        /** {@inheritDoc} */
+        @Override public Iterator<V> iterator() {
+           return new ValuesIterator();
+        }
+
+        /** {@inheritDoc} */
+        @Override public int size() {
+            return size;
+        }
+    }
+
+    /** */
+    private final class ValuesIterator implements Iterator<V> {
+        /** */
+        private int idx = -1;
+
+        /** {@inheritDoc} */
+        @Override public boolean hasNext() {
+            advance();
+
+            return idx >= 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override public V next() {
+            advance();
+
+            if (idx == Integer.MIN_VALUE)
+                throw new NoSuchElementException();
+
+            V val = entries[idx++].val;
+
+            fixIndex();
+
+            return val;
+        }
+
+        /** */
+        private void advance() {
+            if (idx >= 0 || idx == Integer.MIN_VALUE)
+                return;
+
+            fixIndex();
+
+            for (;idx < entries.length; idx++) {
+                if (entries[idx] != null)
+                    return;
+            }
+
+            idx = Integer.MIN_VALUE;
+        }
+
+        /** */
+        private void fixIndex() {
+            idx = (-idx) -1;
+        }
     }
 }
