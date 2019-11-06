@@ -2665,6 +2665,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                         writeComplete.await(100, TimeUnit.MILLISECONDS);
                     }
                     catch (InterruptedException ignore) {
+                        Thread.currentThread().interrupt();
                     }
                 }
             }
