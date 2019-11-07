@@ -367,10 +367,12 @@ public class RecordV1Serializer implements RecordSerializer {
     ) throws EOFException, IgniteCheckedException {
         long startPos = -1;
 
+        WALRecord res = null;
+
         try (SimpleFileInput.Crc32CheckingFileInput in = in0.startRead(skipCrc)) {
             startPos = in0.position();
 
-            WALRecord res = reader.readWithHeaders(in, expPtr);
+            res = reader.readWithHeaders(in, expPtr);
 
             assert res != null;
 
@@ -391,7 +393,28 @@ public class RecordV1Serializer implements RecordSerializer {
                 // No-op. It just for information. Fail calculate file size.
             }
 
-            throw new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
+            if (res != null) {
+                System.out.println("[E] Broken record:");
+
+                System.out.println(res.toString());
+
+                System.out.println("[E] End of broken record");
+            }
+
+            Exception ex = new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
+
+            System.out.println("[E] Exception while reading WAL:" + ex.getMessage());
+
+            ex.printStackTrace(System.out);
+
+            System.out.println("[E] End of exception");
+
+            if (res != null)
+                return res;
+            else
+                return null;
+
+            //throw new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
         }
     }
 

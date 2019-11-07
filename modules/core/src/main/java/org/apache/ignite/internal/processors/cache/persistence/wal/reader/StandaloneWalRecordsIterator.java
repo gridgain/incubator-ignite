@@ -311,8 +311,8 @@ class StandaloneWalRecordsIterator extends AbstractWalRecordsIterator {
         return super.postProcessRecord(rec);
     }
 
-    /** {@inheritDoc} */
-    @Override protected IgniteCheckedException handleRecordException(
+    /* {@inheritDoc} */
+/*    @Override protected IgniteCheckedException handleRecordException(
         @NotNull Exception e,
         @Nullable FileWALPointer ptr
     ) {
@@ -326,7 +326,7 @@ class StandaloneWalRecordsIterator extends AbstractWalRecordsIterator {
                         return null;
 
         return super.handleRecordException(e, ptr);
-    }
+    }*/
 
     /**
      * Performs post processing of lazy data record, converts it to unwrap record.

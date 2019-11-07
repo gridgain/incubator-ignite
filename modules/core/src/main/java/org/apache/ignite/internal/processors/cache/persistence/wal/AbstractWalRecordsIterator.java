@@ -257,8 +257,21 @@ public abstract class AbstractWalRecordsIterator
             if (!(e instanceof SegmentEofException) && !(e instanceof EOFException)) {
                 IgniteCheckedException e0 = handleRecordException(e, actualFilePtr);
 
-                if (e0 != null)
-                    throw e0;
+                if (e0 != null) {
+                    //throw e0;
+                    System.out.println("[E] Exception while reading WAL:" + e0.getMessage());
+
+                    e.printStackTrace(System.out);
+
+                    System.out.println("[E] End of exception");
+                }
+                else if (e != null) {
+                    System.out.println("[E] Exception while reading WAL:" + e.getMessage());
+
+                    e.printStackTrace(System.out);
+
+                    System.out.println("[E] End of exception");
+                }
             }
 
             return null;
