@@ -29,6 +29,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
+import org.apache.ignite.internal.pagemem.wal.record.BrokenRecord;
 import org.apache.ignite.internal.pagemem.wal.record.FilteredRecord;
 import org.apache.ignite.internal.pagemem.wal.record.MarshalledRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
@@ -415,7 +416,7 @@ public class RecordV1Serializer implements RecordSerializer {
             logErr("[ERROR][RecordV1Serializer] End of exception");
 
             if (res != null)
-                return res;
+                return new BrokenRecord(res, e);
             else
                 return null;
 
