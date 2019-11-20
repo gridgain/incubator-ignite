@@ -259,18 +259,18 @@ public abstract class AbstractWalRecordsIterator
 
                 if (e0 != null) {
                     //throw e0;
-                    System.out.println("[E] Exception while reading WAL:" + e0.getMessage());
+                    log.warning("[ERROR] Exception while reading WAL:", e0);
 
                     e.printStackTrace(System.out);
 
-                    System.out.println("[E] End of exception");
+                    log.warning("[ERROR] End of exception");
                 }
                 else if (e != null) {
-                    System.out.println("[E] Exception while reading WAL:" + e.getMessage());
+                    log.warning("[ERROR] Exception while reading WAL:", e);
 
                     e.printStackTrace(System.out);
 
-                    System.out.println("[E] End of exception");
+                    log.warning("[ERROR] End of exception");
                 }
             }
 

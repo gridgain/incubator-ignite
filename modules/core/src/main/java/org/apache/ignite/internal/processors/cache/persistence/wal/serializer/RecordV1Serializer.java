@@ -20,10 +20,13 @@ package org.apache.ignite.internal.processors.cache.persistence.wal.serializer;
 import java.io.DataInput;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.FilteredRecord;
@@ -33,14 +36,14 @@ import org.apache.ignite.internal.pagemem.wal.record.WALRecord.RecordType;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.CacheVersionIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.ByteBufferBackedDataInput;
 import org.apache.ignite.internal.processors.cache.persistence.wal.ByteBufferExpander;
+import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointer;
+import org.apache.ignite.internal.processors.cache.persistence.wal.SegmentEofException;
+import org.apache.ignite.internal.processors.cache.persistence.wal.WalSegmentTailReachedException;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.FastCrc;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.FileInput;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentFileInputFactory;
-import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointer;
-import org.apache.ignite.internal.processors.cache.persistence.wal.SegmentEofException;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.SimpleFileInput;
-import org.apache.ignite.internal.processors.cache.persistence.wal.WalSegmentTailReachedException;
 import org.apache.ignite.internal.processors.cache.persistence.wal.record.HeaderRecord;
 import org.apache.ignite.internal.processors.cache.persistence.wal.serializer.io.RecordIO;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
@@ -63,6 +66,8 @@ import static org.apache.ignite.internal.pagemem.wal.record.WALRecord.RecordType
  * </ul>
  */
 public class RecordV1Serializer implements RecordSerializer {
+    public static IgniteLogger logger;
+
     /** Length of Type */
     public static final int REC_TYPE_SIZE = 1;
 
@@ -394,20 +399,20 @@ public class RecordV1Serializer implements RecordSerializer {
             }
 
             if (res != null) {
-                System.out.println("[E] Broken record:");
+                logErr("[ERROR][RecordV1Serializer] Broken record:");
 
-                System.out.println(res.toString());
+                logErr(res.toString());
 
-                System.out.println("[E] End of broken record");
+                logErr("[ERROR][RecordV1Serializer] End of broken record");
             }
 
             Exception ex = new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
 
-            System.out.println("[E] Exception while reading WAL:" + ex.getMessage());
+            logErr("[ERROR][RecordV1Serializer] Exception while reading WAL:" + ex.getMessage());
 
-            ex.printStackTrace(System.out);
+            logException(ex);
 
-            System.out.println("[E] End of exception");
+            logErr("[ERROR][RecordV1Serializer] End of exception");
 
             if (res != null)
                 return res;
@@ -416,6 +421,29 @@ public class RecordV1Serializer implements RecordSerializer {
 
             //throw new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
         }
+    }
+
+    private static void logInfo(String s) {
+        if (logger != null)
+            logger.info(s);
+    }
+
+    private static void logErr(String s) {
+        if (logger != null)
+            logger.error(s);
+    }
+
+    private static void logErr(String s, Throwable e) {
+        if (logger != null) {
+            logger.error(s, e);
+        }
+    }
+
+    private static void logException(Throwable e) {
+        OutputStream outputStream = new StringOutputStream();
+        PrintStream writer = new PrintStream(outputStream);
+        e.printStackTrace(writer);
+        logErr(outputStream.toString());
     }
 
     /**
@@ -484,4 +512,50 @@ public class RecordV1Serializer implements RecordSerializer {
             throw new IOException(e);
         }
     }
+
+    public static class StringOutputStream extends OutputStream implements Serializable {
+        protected final StringBuilder sb;
+        protected final String encoding;
+
+        public StringOutputStream() {
+            this("UTF-8");
+        }
+
+        public StringOutputStream(String encoding) {
+            this.sb = new StringBuilder();
+            this.encoding = encoding;
+        }
+
+        public String toString() {
+            return this.sb.toString();
+        }
+
+        public void close() {
+            this.sb.setLength(0);
+        }
+
+        public void write(byte[] b) throws IOException {
+            this.sb.append(new String(b, this.encoding).toCharArray());
+        }
+
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (off >= 0 && len >= 0 && off + len <= b.length) {
+                byte[] bytes = new byte[len];
+
+                for(int i = 0; i < len; ++i) {
+                    bytes[i] = b[off];
+                    ++off;
+                }
+
+                this.sb.append(new String(bytes, this.encoding).toCharArray());
+            } else {
+                throw new IndexOutOfBoundsException();
+            }
+        }
+
+        public void write(int b) {
+            this.sb.append((char)b);
+        }
+    }
+
 }
