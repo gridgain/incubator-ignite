@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ *contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -39,7 +39,7 @@ import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 /**
  * Tests transform for extra traffic.
  */
-public class GridCacheReturnValueTransferSelfTest extends GridCommonAbstractTest {
+public class GridCacheReturnValueTransformSelfTest extends GridCommonAbstractTest {
     /** Distribution mode. */
     private boolean cache;
 
