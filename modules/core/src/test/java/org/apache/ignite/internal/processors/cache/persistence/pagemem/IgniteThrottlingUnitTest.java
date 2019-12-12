@@ -28,6 +28,7 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockStateChecker;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointWriteProgressSupplier;
 import org.apache.ignite.logger.NullLogger;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
 import static java.lang.Thread.State.TIMED_WAITING;
@@ -43,7 +44,7 @@ import static org.mockito.Mockito.when;
 /**
  *
  */
-public class IgniteThrottlingUnitTest {
+public class IgniteThrottlingUnitTest extends GridCommonAbstractTest {
     /** Logger. */
     private IgniteLogger log = new NullLogger();
 
@@ -60,8 +61,7 @@ public class IgniteThrottlingUnitTest {
     /**
      *
      */
-    @Test
-    public void breakInCaseTooFast() {
+    public void testBreakInCaseTooFast() {
         PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, log);
 
         long time = throttle.getParkTime(0.67,
@@ -77,8 +77,7 @@ public class IgniteThrottlingUnitTest {
     /**
      *
      */
-    @Test
-    public void noBreakIfNotFastWrite() {
+    public void testNoBreakIfNotFastWrite() {
         PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, log);
 
         long time = throttle.getParkTime(0.47,
@@ -94,8 +93,7 @@ public class IgniteThrottlingUnitTest {
     /**
      * @throws InterruptedException if interrupted.
      */
-    @Test
-    public void averageCalculation() throws InterruptedException {
+    public void testAverageCalculation() throws InterruptedException {
         IntervalBasedMeasurement measurement = new IntervalBasedMeasurement(100, 1);
 
         for (int i = 0; i < 1000; i++)
@@ -113,8 +111,7 @@ public class IgniteThrottlingUnitTest {
     /**
      * @throws InterruptedException if interrupted.
      */
-    @Test
-    public void speedCalculation() throws InterruptedException {
+    public void testSpeedCalculation() throws InterruptedException {
         IntervalBasedMeasurement measurement = new IntervalBasedMeasurement(100, 1);
 
         for (int i = 0; i < 1000; i++)
@@ -132,8 +129,7 @@ public class IgniteThrottlingUnitTest {
     /**
      * @throws InterruptedException if interrupted.
      */
-    @Test
-    public void speedWithDelayCalculation() throws InterruptedException {
+    public void testSpeedWithDelayCalculation() throws InterruptedException {
         IntervalBasedMeasurement measurement = new IntervalBasedMeasurement(100, 1);
 
         int runs = 10;
@@ -159,8 +155,7 @@ public class IgniteThrottlingUnitTest {
     /**
      *
      */
-    @Test
-    public void beginOfCp() {
+    public void testBeginOfCp() {
         PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, log);
 
         assertTrue(throttle.getParkTime(0.01, 100,400000,
@@ -186,8 +181,7 @@ public class IgniteThrottlingUnitTest {
     /**
      *
      */
-    @Test
-    public void enforceThrottleAtTheEndOfCp() {
+    public void testEnforceThrottleAtTheEndOfCp() {
         PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, log);
 
         long time1 = throttle.getParkTime(0.70, 300000, 400000,
@@ -209,8 +203,7 @@ public class IgniteThrottlingUnitTest {
     /**
      *
      */
-    @Test
-    public void tooMuchPagesMarkedDirty() {
+    public void testTooMuchPagesMarkedDirty() {
         PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, log);
 
        // 363308	350004	348976	10604
@@ -227,8 +220,7 @@ public class IgniteThrottlingUnitTest {
     }
 
     /** */
-    @Test
-    public void wakeupThrottledThread() throws IgniteInterruptedCheckedException, InterruptedException {
+    public void testWakeupThrottledThread() throws IgniteInterruptedCheckedException, InterruptedException {
         PagesWriteThrottlePolicy plc = new PagesWriteThrottle(pageMemory2g, null, stateChecker, true, log);
 
         AtomicBoolean stopLoad = new AtomicBoolean();
@@ -283,8 +275,7 @@ public class IgniteThrottlingUnitTest {
     /**
      *
      */
-    @Test
-    public void warningInCaseTooMuchThrottling() {
+    public void testWarningInCaseTooMuchThrottling() {
         AtomicInteger warnings = new AtomicInteger(0);
         IgniteLogger log = mock(IgniteLogger.class);
 

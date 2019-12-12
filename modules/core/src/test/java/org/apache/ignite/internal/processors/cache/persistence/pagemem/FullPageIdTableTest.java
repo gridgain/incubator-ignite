@@ -26,6 +26,7 @@ import org.apache.ignite.internal.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.java.JavaLogger;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -33,7 +34,7 @@ import static org.junit.Assert.assertEquals;
 /**
  *
  */
-public class FullPageIdTableTest  {
+public class FullPageIdTableTest extends GridCommonAbstractTest {
     /** */
     private static final int CACHE_ID_RANGE = 1;
 
@@ -52,8 +53,7 @@ public class FullPageIdTableTest  {
     /**
      * @throws Exception if failed.
      */
-    @Test
-    public void testRandomOperations() throws Exception {
+    public void testRandomOperations() {
         int cnt = CACHE_ID_RANGE * PAGE_ID_RANGE;
 
         long mem = FullPageIdTable.requiredMemory(cnt);
@@ -108,8 +108,7 @@ public class FullPageIdTableTest  {
     /**
      * @throws Exception if failed.
      */
-    @Test
-    public void putRemoveScenario() throws Exception {
+    public void testPutRemoveScenario() {
         long seed = U.currentTimeMillis();
 
         doPutRemoveTest(seed, false, 1_000_000);
@@ -118,8 +117,7 @@ public class FullPageIdTableTest  {
     /**
      * @throws Exception if failed.
      */
-    @Test
-    public void putRemoveScenarioNewMap() throws Exception {
+    public void testPutRemoveScenarioNewMap() {
         long seed = U.currentTimeMillis();
         doPutRemoveTest(seed, true, 30_000_000);
     }
