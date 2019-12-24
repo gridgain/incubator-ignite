@@ -48,8 +48,6 @@ public class VisorPartitionReconciliationCancelTask extends VisorOneNodeTask<Voi
 
     /**
      * Partition reconciliation job.
-     *
-     * @param <ResultT> Result type.
      */
     public class VisorPartitionReconciliationCancelJob extends VisorJob<Void, Void> {
         /**
