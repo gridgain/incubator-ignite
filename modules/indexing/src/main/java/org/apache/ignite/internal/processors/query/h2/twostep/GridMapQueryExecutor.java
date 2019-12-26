@@ -63,7 +63,6 @@ import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RetryException;
-import org.apache.ignite.internal.processors.query.h2.opt.GridH2StatementCleaner;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryCancelRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryFailResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageRequest;
@@ -554,9 +553,6 @@ public class GridMapQueryExecutor {
                         final PreparedStatement stmt = h2.preparedStatementWithParams(conn, qry.query(),
                             params0, true);
 
-                        GridH2StatementCleaner stmtCleaner = GridH2StatementCleaner.fromPrepared(stmt);
-                        qctx.addResource(stmtCleaner);
-
                         qryInfo = new MapH2QueryInfo(stmt, qry.query(), node, reqId, segmentId);
 
                         rs = h2.executeSqlQueryWithTimer(stmt, conn, qry.query(),
@@ -656,8 +652,6 @@ public class GridMapQueryExecutor {
         GridH2QueryContext qctx = GridH2QueryContext.get();
 
         if (qctx != null) { // No-op if already released.
-            qctx.closeResources();
-
             GridH2QueryContext.clearThreadLocal();
 
             if (qctx.distributedJoinMode() == OFF)

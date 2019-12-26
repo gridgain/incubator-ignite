@@ -290,10 +290,5 @@ public class H2PkHashIndex extends GridH2IndexBase {
         @Override public T get() throws IgniteCheckedException {
             return curr.get();
         }
-
-        @Override public void close() throws Exception {
-            if (curr != null)
-                curr.close();
-        }
     }
 }

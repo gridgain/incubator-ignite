@@ -304,9 +304,6 @@ public abstract class H2ResultSetIterator<T> extends GridIteratorAdapter<T> impl
 
     /** */
     public void onClose() throws IgniteCheckedException {
-        if (qctx != null)
-            qctx.closeResources();
-
         if (data == null)
             // Nothing to close.
             return;

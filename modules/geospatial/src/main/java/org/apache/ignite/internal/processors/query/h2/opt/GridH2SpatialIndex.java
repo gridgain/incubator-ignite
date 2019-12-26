@@ -54,7 +54,6 @@ import org.h2.value.Value;
 import org.h2.value.ValueGeometry;
 
 import static org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnheap.KEY_COL;
-import static org.apache.ignite.internal.util.lang.GridCursor.EMPTY_CURSOR;
 
 /**
  * Spatial index.
