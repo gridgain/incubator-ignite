@@ -103,7 +103,6 @@ import static org.apache.ignite.internal.processors.cache.GridCacheTtlManager.UN
 import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.MOVING;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.OWNING;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.RENTING;
-import static org.apache.ignite.internal.util.lang.GridCursor.EMPTY_CURSOR;
 
 /**
  * Used when persistence enabled.
@@ -2539,4 +2538,19 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
             return partStorage;
         }
     }
+
+    /**
+     *
+     */
+    private static final GridCursor<CacheDataRow> EMPTY_CURSOR = new GridCursor<CacheDataRow>() {
+        /** {@inheritDoc} */
+        @Override public boolean next() {
+            return false;
+        }
+
+        /** {@inheritDoc} */
+        @Override public CacheDataRow get() {
+            return null;
+        }
+    };
 }
