@@ -159,6 +159,14 @@ public class H2TreeIndex extends GridH2IndexBase {
                             return v1 == v2 ? 0 : table.compareTypeSafe(v1, v2);
                         }
                     };
+
+                    log.error("Cache name: " + cctx.name());
+
+
+                    log.error("Tree name: " + segments[i].getName());
+                    log.error("Tree toString: " + segments[i].toString());
+                    log.error("Tree size: " + segments[i].size());
+
                 }
                 finally {
                     db.checkpointReadUnlock();
