@@ -132,8 +132,8 @@ public class H2TreeIndex extends GridH2IndexBase {
             for (int i = 0; i < segments.length; i++) {
                 db.checkpointReadLock();
 
-            try {
-                RootPage page = getMetaPage(i);
+                try {
+                    RootPage page = getMetaPage(i);
 
                     segments[i] = new H2Tree(
                         name,
@@ -160,12 +160,15 @@ public class H2TreeIndex extends GridH2IndexBase {
                         }
                     };
 
-                    log.error("Cache name: " + cctx.name());
-
-
-                    log.error("Tree name: " + segments[i].getName());
-                    log.error("Tree toString: " + segments[i].toString());
-                    log.error("Tree size: " + segments[i].size());
+                    log.info("DBG: H2Tree [cacheName=" + cctx.name() +
+                            ", cacheId=" + cctx.cacheId() +
+                            ", grpName=" + cctx.group().name() +
+                            ", grpId=" + cctx.groupId() +
+                            ", segment=" + i +
+                            ", size=" + segments[i].size() +
+                            ", pageId=" + page.pageId().pageId() +
+                            ", allocated=" + page.isAllocated() +
+                            ", tree=" + segments[i] + ']');
 
                 }
                 finally {
@@ -754,4 +757,16 @@ public class H2TreeIndex extends GridH2IndexBase {
             return false;
         }
     };
+
+    public long size() throws IgniteCheckedException {
+        long ret = 0;
+
+        for (int i = 0; i < segmentsCount(); i++) {
+            final H2Tree tree = treeForRead(i);
+
+            ret += tree.size();
+        }
+
+        return ret;
+    }
 }

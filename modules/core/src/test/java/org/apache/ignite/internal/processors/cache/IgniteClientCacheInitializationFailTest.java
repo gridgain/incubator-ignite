@@ -394,5 +394,9 @@ public class IgniteClientCacheInitializationFailTest extends GridCommonAbstractT
         @Override public void registerMxBeans(IgniteMBeansManager mbMgr) {
             // No-op.
         }
+
+        @Override public long indexSize(String schemaName, String idxName) {
+            return 0;
+        }
     }
 }
