@@ -18,7 +18,9 @@ package org.apache.ignite.development.utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -84,15 +86,28 @@ public class IgniteIndexReader {
         Set<Long> treeMetaPageIds = new HashSet<>();
         Set<Long> bPlusMetaIds = new HashSet<>();
 
-        for (int i = 0; i < (fileSize - idxPageStore.headerSize()) / pageSize; i++) {
+        Map<Class<? extends PageIO>, Long> pageClasses = new HashMap<>();
+
+        long errorsNum = 0;
+
+        final long pagesNum = (fileSize - idxPageStore.headerSize()) / pageSize;
+
+        System.out.println("Going to check " + pagesNum + " pages.");
+
+        for (int i = 0; i < pagesNum; i++) {
             ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
 
             try {
                 long addr = GridUnsafe.bufferAddress(buf);
 
-                idxPageStore.readByOffset(i * pageSize + idxPageStore.headerSize(), buf, false);
+                //We got int overflow here on sber dataset.
+                final long off = (long)i * pageSize + idxPageStore.headerSize();
+
+                idxPageStore.readByOffset(off, buf, false);
 
                 PageIO io = PageIO.getPageIO(addr);
+
+                pageClasses.merge(io.getClass(), 1L, (oldVal, newVal) -> ++oldVal);
 
                 if (io instanceof PageMetaIO) {
                     PageMetaIO pageMetaIO = (PageMetaIO)io;
@@ -129,8 +144,15 @@ public class IgniteIndexReader {
 
                     bPlusMetaIds.add(pageId);
                 }
+            } catch (Throwable e) {
+                if (errorsNum < 1) {
+                    System.out.println("First error occured on iteration step " + i);
 
-                //System.out.println(io.getClass().getSimpleName());
+                    System.out.println("Exception occurred: " + e.toString());
+                    e.printStackTrace();
+                }
+
+                errorsNum++;
             }
             finally {
                 GridUnsafe.freeBuffer(buf);
@@ -154,6 +176,12 @@ public class IgniteIndexReader {
         }
 
         System.out.println("---");
+
+        System.out.println("---These pages types were encountered:");
+        pageClasses.forEach((key, val) -> System.out.println(key.getSimpleName() + ": " + val));
+
+        System.out.println("---");
+        System.out.println("Total errors number: " + errorsNum);
     }
 
     public static void main(String[] args) throws IgniteCheckedException, IOException {
