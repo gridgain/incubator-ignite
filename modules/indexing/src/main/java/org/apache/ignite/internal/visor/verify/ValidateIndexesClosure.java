@@ -313,10 +313,10 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         String errMsg = nonNull(err) ? "but was error=" + err : "";
 
         log.info("FilePageStore read stat: " + errMsg);
-        FilePageStore.readTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val.get2()));
+        FilePageStore.readTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val.size()));
 
         log.info("FilePageStore write stat: " + errMsg);
-        FilePageStore.writeTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val.get2()));
+        FilePageStore.writeTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val.size()));
     }
 
     /**

@@ -24,11 +24,9 @@ import java.nio.ByteOrder;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Files;
-import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
@@ -43,12 +41,11 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.crc.FastCrc;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
-import static java.util.Objects.nonNull;
+import static java.util.Collections.newSetFromMap;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_SKIP_CRC;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 
@@ -104,9 +101,9 @@ public class FilePageStore implements PageStore {
     /** */
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public static ConcurrentHashMap<Class<? extends PageIO>, IgniteBiTuple<Set<Long>, LongAdder>> readTypesCounter = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Class<? extends PageIO>, Set<Long>> readTypesCounter = new ConcurrentHashMap<>();
 
-    public static ConcurrentHashMap<Class<? extends PageIO>, IgniteBiTuple<Set<Long>, LongAdder>> writeTypesCounter = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Class<? extends PageIO>, Set<Long>> writeTypesCounter = new ConcurrentHashMap<>();
 
     /**
      * @param file File.
@@ -379,22 +376,12 @@ public class FilePageStore implements PageStore {
 
             int savedCrc32 = PageIO.getCrc(pageBuf);
 
-
-
             if (type == FLAG_IDX) {
                 long addr = GridUnsafe.bufferAddress(pageBuf);
 
                 PageIO pageIO = PageIO.getPageIO(addr);
 
-                readTypesCounter.compute(pageIO.getClass(), (cls, biTuple) -> {
-                    IgniteBiTuple<Set<Long>, LongAdder> curBiTuple = nonNull(biTuple) ? biTuple :
-                        new IgniteBiTuple<>(Collections.newSetFromMap(new ConcurrentHashMap<>()), new LongAdder());
-
-                    if (curBiTuple.get1().add(pageId))
-                        curBiTuple.get2().increment();
-
-                    return curBiTuple;
-                });
+                readTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(pageId);
             }
 
             PageIO.setCrc(pageBuf, 0);
@@ -653,15 +640,7 @@ public class FilePageStore implements PageStore {
 
                         PageIO pageIO = PageIO.getPageIO(addr);
 
-                        writeTypesCounter.compute(pageIO.getClass(), (cls, biTuple) -> {
-                            IgniteBiTuple<Set<Long>, LongAdder> curBiTuple = nonNull(biTuple) ? biTuple :
-                                new IgniteBiTuple<>(Collections.newSetFromMap(new ConcurrentHashMap<>()), new LongAdder());
-
-                            if (curBiTuple.get1().add(pageId))
-                                curBiTuple.get2().increment();
-
-                            return curBiTuple;
-                        });
+                        writeTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(pageId);
                     }
 
                     if (interrupted)
