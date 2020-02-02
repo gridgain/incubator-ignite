@@ -32,6 +32,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.store.PageStore;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
@@ -101,9 +102,11 @@ public class FilePageStore implements PageStore {
     /** */
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public static ConcurrentHashMap<Class<? extends PageIO>, Set<Long>> readTypesCounter = new ConcurrentHashMap<>();
+    //experimental fields
+    private final int grpId;
 
-    public static ConcurrentHashMap<Class<? extends PageIO>, Set<Long>> writeTypesCounter = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Class<? extends PageIO>, Set<FullPageId>> readTypesCounter = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Class<? extends PageIO>, Set<FullPageId>> writeTypesCounter = new ConcurrentHashMap<>();
 
     /**
      * @param file File.
@@ -113,7 +116,9 @@ public class FilePageStore implements PageStore {
         File file,
         FileIOFactory factory,
         DataStorageConfiguration cfg,
-        AllocatedPageTracker allocatedTracker) {
+        AllocatedPageTracker allocatedTracker,
+        int grpId
+    ) {
         this.type = type;
         this.cfgFile = file;
         this.dbCfg = cfg;
@@ -121,6 +126,7 @@ public class FilePageStore implements PageStore {
         this.allocated = new AtomicLong();
         this.pageSize = dbCfg.getPageSize();
         this.allocatedTracker = allocatedTracker;
+        this.grpId = grpId;
     }
 
     /** {@inheritDoc} */
@@ -381,7 +387,7 @@ public class FilePageStore implements PageStore {
 
                 PageIO pageIO = PageIO.getPageIO(addr);
 
-                readTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(pageId);
+                readTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(new FullPageId(pageId, grpId));
             }
 
             PageIO.setCrc(pageBuf, 0);
@@ -640,7 +646,7 @@ public class FilePageStore implements PageStore {
 
                         PageIO pageIO = PageIO.getPageIO(addr);
 
-                        writeTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(pageId);
+                        writeTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(new FullPageId(pageId, grpId));
                     }
 
                     if (interrupted)
@@ -808,4 +814,6 @@ public class FilePageStore implements PageStore {
             }
         }
     }
+
+
 }

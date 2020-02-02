@@ -612,7 +612,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                 grpsWithoutIdx.add(grpId);
 
             FilePageStoreFactory pageStoreFactory = new FileVersionCheckingFactory(
-                pageStoreFileIoFactory, pageStoreV1FileIoFactory, igniteCfg.getDataStorageConfiguration());
+                pageStoreFileIoFactory, pageStoreV1FileIoFactory, igniteCfg.getDataStorageConfiguration(), grpId);
 
             FilePageStore idxStore =
             pageStoreFactory.createPageStore(

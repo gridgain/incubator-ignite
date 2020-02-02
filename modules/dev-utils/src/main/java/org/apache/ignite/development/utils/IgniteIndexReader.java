@@ -39,6 +39,7 @@ import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO
 import org.apache.ignite.internal.processors.query.h2.database.io.H2InnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2LeafIO;
 import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
@@ -52,7 +53,7 @@ public class IgniteIndexReader {
         H2ExtrasInnerIO.register();
         H2ExtrasLeafIO.register();
     }
-    private void findLostRootPages(String cacheWorkDirPath, int partCnt, int pageSize, int filePageStoreVer) throws IgniteCheckedException {
+    private void findLostRootPages(String cacheWorkDirPath, int partCnt, int pageSize, int filePageStoreVer, int grpId) throws IgniteCheckedException {
         DataStorageConfiguration dsCfg = new DataStorageConfiguration()
             .setPageSize(pageSize);
 
@@ -73,14 +74,16 @@ public class IgniteIndexReader {
             idxFile,
             new AsyncFileIOFactory(),
             dsCfg,
-            AllocatedPageTracker.NO_OP
+            AllocatedPageTracker.NO_OP,
+            grpId
         )
             : new FilePageStoreV2(
             PageMemory.FLAG_IDX,
             idxFile,
             new AsyncFileIOFactory(),
             dsCfg,
-            AllocatedPageTracker.NO_OP
+            AllocatedPageTracker.NO_OP,
+            grpId
         );
 
         Set<Long> treeMetaPageIds = new HashSet<>();
@@ -202,7 +205,9 @@ public class IgniteIndexReader {
 
             int filePageStoreVer = args.length > 3 ? Integer.parseInt(args[3]) : 2;
 
-            new IgniteIndexReader().findLostRootPages(dir, partCnt, pageSize, filePageStoreVer);
+            int grpId = args.length > 4 ? CU.cacheId(args[4]) : Integer.MAX_VALUE;
+
+            new IgniteIndexReader().findLostRootPages(dir, partCnt, pageSize, filePageStoreVer, grpId);
         }
         catch (Exception e) {
             System.out.println("options: path [partCnt] [pageSize] [filePageStoreVersion]");

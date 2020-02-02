@@ -47,6 +47,9 @@ public class FileVersionCheckingFactory implements FilePageStoreFactory {
     /** Memory configuration. */
     private final DataStorageConfiguration memCfg;
 
+    //experimental fields
+    private final int grpId;
+
     /**
      * @param fileIOFactory File IO factory.
      * @param fileIOFactoryStoreV1 File IO factory for V1 page store and for version checking.
@@ -55,19 +58,21 @@ public class FileVersionCheckingFactory implements FilePageStoreFactory {
     public FileVersionCheckingFactory(
         FileIOFactory fileIOFactory,
         FileIOFactory fileIOFactoryStoreV1,
-        DataStorageConfiguration memCfg
+        DataStorageConfiguration memCfg,
+        int grpId
     ) {
         this.fileIOFactory = fileIOFactory;
         this.fileIOFactoryStoreV1 = fileIOFactoryStoreV1;
         this.memCfg = memCfg;
+        this.grpId = grpId;
     }
 
     /**
      * @param fileIOFactory File IO factory for V1 & V2 page store and for version checking.
      * @param memCfg Memory configuration.
      */
-    public FileVersionCheckingFactory(FileIOFactory fileIOFactory, DataStorageConfiguration memCfg) {
-        this(fileIOFactory, fileIOFactory, memCfg);
+    public FileVersionCheckingFactory(FileIOFactory fileIOFactory, DataStorageConfiguration memCfg, int grpId) {
+        this(fileIOFactory, fileIOFactory, memCfg, grpId);
     }
 
     /** {@inheritDoc} */
@@ -131,10 +136,10 @@ public class FileVersionCheckingFactory implements FilePageStoreFactory {
         AllocatedPageTracker allocatedTracker) {
         switch (ver) {
             case FilePageStore.VERSION:
-                return new FilePageStore(type, file, fileIOFactoryStoreV1, memCfg, allocatedTracker);
+                return new FilePageStore(type, file, fileIOFactoryStoreV1, memCfg, allocatedTracker, grpId);
 
             case FilePageStoreV2.VERSION:
-                return new FilePageStoreV2(type, file, fileIOFactory, memCfg, allocatedTracker);
+                return new FilePageStoreV2(type, file, fileIOFactory, memCfg, allocatedTracker, grpId);
 
             default:
                 throw new IllegalArgumentException("Unknown version of file page store: " + ver + " for file [" + file.getAbsolutePath() + "]");
