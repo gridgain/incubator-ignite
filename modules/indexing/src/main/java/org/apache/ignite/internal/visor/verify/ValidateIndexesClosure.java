@@ -81,6 +81,7 @@ import org.h2.index.Cursor;
 import org.h2.index.Index;
 import org.h2.message.DbException;
 
+import static java.util.Objects.nonNull;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
 
@@ -151,10 +152,19 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
     @Override public VisorValidateIndexesJobResult call() throws Exception {
         calcExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
+        Throwable err = null;
+
         try {
             return call0();
         }
+        catch (Throwable t) {
+            err = t;
+
+            throw t;
+        }
         finally {
+            printFilePageStoreStats(err);
+
             calcExecutor.shutdown();
         }
     }
@@ -163,8 +173,6 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
      *
      */
     private VisorValidateIndexesJobResult call0() {
-        printFilePageStoreStats();
-
         Set<Integer> grpIds = new HashSet<>();
 
         Set<String> missingCaches = new HashSet<>();
@@ -301,12 +309,14 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         return new VisorValidateIndexesJobResult(partResults, idxResults, integrityCheckResults.values());
     }
 
-    private void printFilePageStoreStats() {
-        log.info("FilePageStore read stat: ");
-        FilePageStore.readTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val));
+    private void printFilePageStoreStats(Throwable err) {
+        String errMsg = nonNull(err) ? "but was error=" + err : "";
 
-        log.info("FilePageStore write stat: ");
-        FilePageStore.writeTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val));
+        log.info("FilePageStore read stat: " + errMsg);
+        FilePageStore.readTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val.get2()));
+
+        log.info("FilePageStore write stat: " + errMsg);
+        FilePageStore.writeTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val.get2()));
     }
 
     /**
