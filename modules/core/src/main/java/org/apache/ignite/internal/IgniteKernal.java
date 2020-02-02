@@ -2034,7 +2034,9 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                     ">>> " + ver + NL +
                     ">>> " + COPYRIGHT + NL +
                     ">>> " + NL +
-                    ">>> Ignite documentation: " + "http://" + SITE + NL
+                    ">>> Ignite documentation: " + "http://" + SITE + NL + NL +
+                    ">>> This is a debug build that contains read and write pages stats in FilePageStore." + NL +
+                    ">>> This information can be found in ignite log if validate indexes command is launched." + NL
                 );
             }
 

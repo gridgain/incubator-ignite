@@ -24,6 +24,7 @@ import java.nio.ByteOrder;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Files;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -38,12 +39,14 @@ import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.FastCrc;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_SKIP_CRC;
+import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 
 /**
  * File page store.
@@ -96,6 +99,10 @@ public class FilePageStore implements PageStore {
 
     /** */
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+
+    public static ConcurrentHashMap<Class<? extends PageIO>, Long> readTypesCounter = new ConcurrentHashMap<>();
+
+    public static ConcurrentHashMap<Class<? extends PageIO>, Long> writeTypesCounter = new ConcurrentHashMap<>();
 
     /**
      * @param file File.
@@ -368,6 +375,16 @@ public class FilePageStore implements PageStore {
 
             int savedCrc32 = PageIO.getCrc(pageBuf);
 
+
+
+            if (type == FLAG_IDX) {
+                long addr = GridUnsafe.bufferAddress(pageBuf);
+
+                PageIO pageIO = PageIO.getPageIO(addr);
+
+                readTypesCounter.merge(pageIO.getClass(), 1L, (oldVal, newVal) -> ++oldVal);
+            }
+
             PageIO.setCrc(pageBuf, 0);
 
             pageBuf.position(0);
@@ -618,6 +635,14 @@ public class FilePageStore implements PageStore {
                     fileIO.writeFully(pageBuf, off);
 
                     PageIO.setCrc(pageBuf, 0);
+
+                    if (type == FLAG_IDX) {
+                        long addr = GridUnsafe.bufferAddress(pageBuf);
+
+                        PageIO pageIO = PageIO.getPageIO(addr);
+
+                        writeTypesCounter.merge(pageIO.getClass(), 1L, (oldVal, newVal) -> ++oldVal);
+                    }
 
                     if (interrupted)
                         Thread.currentThread().interrupt();

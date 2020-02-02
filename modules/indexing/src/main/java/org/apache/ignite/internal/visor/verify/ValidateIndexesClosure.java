@@ -54,6 +54,7 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.DbCheckpointListener;
 import org.apache.ignite.internal.processors.cache.persistence.GridCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
+import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStore;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
 import org.apache.ignite.internal.processors.cache.persistence.tree.CorruptedTreeException;
 import org.apache.ignite.internal.processors.cache.verify.GridNotIdleException;
@@ -162,6 +163,8 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
      *
      */
     private VisorValidateIndexesJobResult call0() {
+        printFilePageStoreStats();
+
         Set<Integer> grpIds = new HashSet<>();
 
         Set<String> missingCaches = new HashSet<>();
@@ -296,6 +299,14 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         }
 
         return new VisorValidateIndexesJobResult(partResults, idxResults, integrityCheckResults.values());
+    }
+
+    private void printFilePageStoreStats() {
+        log.info("FilePageStore read stat: ");
+        FilePageStore.readTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val));
+
+        log.info("FilePageStore write stat: ");
+        FilePageStore.writeTypesCounter.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val));
     }
 
     /**
