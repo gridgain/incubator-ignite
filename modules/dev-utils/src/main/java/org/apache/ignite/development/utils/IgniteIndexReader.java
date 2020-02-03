@@ -18,8 +18,11 @@ package org.apache.ignite.development.utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.IgniteCheckedException;
@@ -38,7 +41,9 @@ import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerI
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2InnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2LeafIO;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.util.lang.GridTreePrinter;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
@@ -116,6 +121,8 @@ public class IgniteIndexReader {
                     PageMetaIO pageMetaIO = (PageMetaIO)io;
 
                     treeMetaPageIds.add(pageMetaIO.getTreeRoot(addr));
+
+                    printMetaTree(idxPageStore, pageSize, pageMetaIO.getTreeRoot(addr));
                 }
                 else if (io instanceof IndexStorageImpl.MetaStoreLeafIO) {
                     IndexStorageImpl.MetaStoreLeafIO metaStoreLeafIO = (IndexStorageImpl.MetaStoreLeafIO)io;
@@ -187,8 +194,95 @@ public class IgniteIndexReader {
         System.out.println("Total errors number: " + errorsNum);
     }
 
+    /** */
+    private void printMetaTree(FilePageStore store, int pageSize, long pageId) throws IgniteCheckedException {
+        System.out.println("---Printing meta tree---");
+
+        TreeNode rootNode = getTreeNode(store, pageSize, pageId);
+
+        String s = new MetaTreePrinter().print(rootNode);
+
+        System.out.println(s);
+
+        System.out.println("------------------------");
+    }
+
+    private TreeNode getTreeNode(FilePageStore store, int pageSize, long pageId) throws IgniteCheckedException {
+        ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
+
+        try {
+            long addr = GridUnsafe.bufferAddress(buf);
+
+            store.read(pageId, buf, false);
+
+            PageIO io = PageIO.getPageIO(addr);
+
+            if (io instanceof BPlusMetaIO) {
+                BPlusMetaIO bPlusMetaIO = (BPlusMetaIO)io;
+
+                int rootLvl = bPlusMetaIO.getRootLevel(addr);
+                long rootId = bPlusMetaIO.getFirstPageId(addr, rootLvl);
+
+                return new TreeNode("BPlusMeta [id=" + pageId + "]", Collections.singletonList(getTreeNode(store, pageSize, rootId)));
+            }
+            else if (io instanceof IndexStorageImpl.MetaStoreInnerIO) {
+                IndexStorageImpl.MetaStoreInnerIO metaInnerIo = (IndexStorageImpl.MetaStoreInnerIO)io;
+
+                int cnt = metaInnerIo.getCount(addr);
+
+                List<Long> childrenIds;
+
+                if (cnt > 0) {
+                    childrenIds = new ArrayList<>(cnt + 1);
+
+                    for (int i = 0; i < cnt; i++)
+                        childrenIds.add(metaInnerIo.getLeft(addr, i));
+
+                    childrenIds.add(metaInnerIo.getRight(addr, cnt - 1));
+                }
+                else {
+                    long left = metaInnerIo.getLeft(addr, 0);
+
+                    childrenIds = left == 0 ? Collections.<Long>emptyList() : Collections.singletonList(left);
+                }
+
+                List<TreeNode> children = new ArrayList<>(childrenIds.size());
+
+                for (Long id : childrenIds)
+                    children.add(getTreeNode(store, pageSize, id));
+
+                return new TreeNode("Meta inner IO [id=" + pageId + "]", children);
+            }
+            else if (io instanceof IndexStorageImpl.MetaStoreLeafIO) {
+                IndexStorageImpl.MetaStoreLeafIO metaLeafIO = (IndexStorageImpl.MetaStoreLeafIO)io;
+
+                GridStringBuilder sb = new GridStringBuilder("Meta leaf [id=" + pageId + ", ");
+
+                for (int j = 0; j < (pageSize - ITEMS_OFF) / metaLeafIO.getItemSize(); j++) {
+                    //System.out.println("offset: " + String.valueOf(i * pageSize + idxPageStore.headerSize()));
+                    IndexStorageImpl.IndexItem indexItem = metaLeafIO.getLookupRow(null, addr, j);
+
+                    if (indexItem.pageId() != 0)
+                        sb.a(indexItem.toString());
+                }
+
+                sb.a("]");
+
+                return new TreeNode(sb.toString(), Collections.emptyList());
+            }
+            else
+                return new TreeNode("Unknown node [id=" + pageId + "]", Collections.emptyList());
+        }
+        catch (Exception e) {
+            return new TreeNode("Could not read this node! id=" + pageId + ", exception: " + e.getMessage(), Collections.emptyList());
+        }
+        finally {
+            GridUnsafe.freeBuffer(buf);
+        }
+    }
+
     public static void main(String[] args) throws IgniteCheckedException, IOException {
-        /*RandomAccessFile file = new RandomAccessFile("C:\\Projects\\ignite\\apache-ignite\\work\\w_idxs_corrupted\\index.bin", "rw");
+        /*RandomAccessFile file = new RandomAccessFile("C:\\Projects\\ignite\\apache-ignite\\work\\w_idxs_c\\index.bin", "rw");
         byte[] b = new byte[1];
         file.seek(20570);
         file.read(b, 0, 1);
@@ -213,6 +307,28 @@ public class IgniteIndexReader {
             System.out.println("options: path [partCnt] [pageSize] [filePageStoreVersion]");
 
             throw e;
+        }
+    }
+
+    private static class TreeNode {
+        final String s;
+        final List<TreeNode> children;
+
+        public TreeNode(String s, List<TreeNode> children) {
+            this.s = s;
+            this.children = children;
+        }
+    }
+
+    private static class MetaTreePrinter extends GridTreePrinter<TreeNode> {
+        /** {@inheritDoc} */
+        @Override protected List<TreeNode> getChildren(TreeNode treeNode) {
+            return treeNode.children;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected String formatTreeNode(TreeNode treeNode) {
+            return treeNode.s;
         }
     }
 }
