@@ -105,8 +105,8 @@ public class FilePageStore implements PageStore {
     //experimental fields
     private final int grpId;
 
-    public static ConcurrentHashMap<Class<? extends PageIO>, Set<FullPageId>> readTypesCounter = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<Class<? extends PageIO>, Set<FullPageId>> writeTypesCounter = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Integer, ConcurrentHashMap<Class<? extends PageIO>, Set<FullPageId>>> readTypesCounter = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Integer, ConcurrentHashMap<Class<? extends PageIO>, Set<FullPageId>>> writeTypesCounter = new ConcurrentHashMap<>();
 
     /**
      * @param file File.
@@ -387,7 +387,10 @@ public class FilePageStore implements PageStore {
 
                 PageIO pageIO = PageIO.getPageIO(addr);
 
-                readTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(new FullPageId(pageId, grpId));
+                readTypesCounter
+                    .computeIfAbsent(grpId, (key)->new ConcurrentHashMap<>())
+                    .computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>()))
+                    .add(new FullPageId(pageId, grpId));
             }
 
             PageIO.setCrc(pageBuf, 0);
@@ -646,7 +649,10 @@ public class FilePageStore implements PageStore {
 
                         PageIO pageIO = PageIO.getPageIO(addr);
 
-                        writeTypesCounter.computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>())).add(new FullPageId(pageId, grpId));
+                        writeTypesCounter
+                            .computeIfAbsent(grpId, (key)->new ConcurrentHashMap<>())
+                            .computeIfAbsent(pageIO.getClass(), aClass -> newSetFromMap(new ConcurrentHashMap<>()))
+                            .add(new FullPageId(pageId, grpId));
                     }
 
                     if (interrupted)
