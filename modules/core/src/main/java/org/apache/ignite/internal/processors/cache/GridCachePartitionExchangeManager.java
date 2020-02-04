@@ -46,9 +46,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.affinity.AffinityFunction;
@@ -68,6 +70,7 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.IgniteNeedReconnectException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.events.DiscoveryCustomEvent;
+import org.apache.ignite.internal.managers.communication.GridIoPolicy;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.managers.discovery.DiscoveryLocalJoinData;
@@ -1811,36 +1814,51 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     log.trace("Received local partition update [nodeId=" + node.id() + ", parts=" +
                         msg + ']');
 
-                boolean updated = false;
+                int parallelismLvl = U.availableThreadCount(cctx.kernalContext(), GridIoPolicy.SYSTEM_POOL, 2);
 
-                for (Map.Entry<Integer, GridDhtPartitionMap> entry : msg.partitions().entrySet()) {
-                    Integer grpId = entry.getKey();
+                try {
+                    boolean updated = U.doInParallel(
+                        parallelismLvl,
+                        cctx.kernalContext().getSystemExecutorService(),
+                        cctx.affinity().cacheGroups().values(),
+                        desc -> {
+                            Integer grpId = desc.groupId();
 
-                    CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
+                            CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
 
-                    if (grp != null &&
-                        grp.localStartVersion().compareTo(entry.getValue().topologyVersion()) > 0)
-                        continue;
+                            GridDhtPartitionMap partMap = msg.partitions().get(grpId);
 
-                    GridDhtPartitionTopology top = null;
+                            if ((partMap == null) || (grp != null &&
+                                grp.localStartVersion().compareTo(partMap.topologyVersion()) > 0))
+                                return false;
 
-                    if (grp == null)
-                        top = clientTops.get(grpId);
-                    else if (!grp.isLocal())
-                        top = grp.topology();
+                            GridDhtPartitionTopology top = null;
 
-                    if (top != null) {
-                        updated |= top.update(null, entry.getValue(), false);
+                            if (grp == null)
+                                top = clientTops.get(grpId);
+                            else if (!grp.isLocal())
+                                top = grp.topology();
 
-                        cctx.affinity().checkRebalanceState(top, grpId);
+                            if (top != null) {
+                                boolean upd = top.update(null, partMap, false);
+
+                                cctx.affinity().checkRebalanceState(top, grpId);
+
+                                return upd;
+                            }
+
+                            return false;
+                        }).stream().anyMatch(it -> it);
+
+                    if (updated) {
+                        if (log.isDebugEnabled())
+                            log.debug("Partitions have been scheduled to resend [reason=Single update from " + node.id() + "]");
+
+                        scheduleResendPartitions();
                     }
                 }
-
-                if (updated) {
-                    if (log.isDebugEnabled())
-                        log.debug("Partitions have been scheduled to resend [reason=Single update from " + node.id() + "]");
-
-                    scheduleResendPartitions();
+                catch (IgniteCheckedException e) {
+                    throw new IgniteException(e);
                 }
             }
             else {
@@ -3186,26 +3204,33 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                             if (rebalanceDelay > 0)
                                 U.sleep(rebalanceDelay);
 
-                            assignsMap = new HashMap<>();
-
                             IgniteCacheSnapshotManager snp = cctx.snapshot();
 
-                            for (final CacheGroupContext grp : cctx.cache().cacheGroups()) {
-                                long delay = grp.config().getRebalanceDelay();
+                            int parallelismLvl = U.availableThreadCount(cctx.kernalContext(), GridIoPolicy.SYSTEM_POOL, 2);
 
-                                boolean disableRebalance = snp.partitionsAreFrozen(grp);
+                            boolean forcePreload0 = forcePreload;
+                            GridDhtPartitionsExchangeFuture exchFut0 = exchFut;
 
-                                GridDhtPreloaderAssignments assigns = null;
+                            assignsMap = U.doInParallel(
+                                parallelismLvl,
+                                cctx.kernalContext().getSystemExecutorService(),
+                                cctx.cache().cacheGroups(),
+                                grp -> {
+                                    long delay = grp.config().getRebalanceDelay();
 
-                                // Don't delay for dummy reassigns to avoid infinite recursion.
-                                if ((delay == 0 || forcePreload) && !disableRebalance)
-                                    assigns = grp.preloader().generateAssignments(exchId, exchFut);
+                                    boolean disableRebalance = snp.partitionsAreFrozen(grp);
 
-                                assignsMap.put(grp.groupId(), assigns);
+                                    GridDhtPreloaderAssignments assigns = null;
 
-                                if (resVer == null)
-                                    resVer = grp.topology().readyTopologyVersion();
-                            }
+                                    // Don't delay for dummy reassigns to avoid infinite recursion.
+                                    if ((delay == 0 || forcePreload0) && !disableRebalance)
+                                        assigns = grp.preloader().generateAssignments(exchId, exchFut0);
+
+                                    return new T2<Integer, GridDhtPreloaderAssignments>(grp.groupId(), assigns);
+                                }).stream().collect(Collectors.toMap(T2::getKey, T2::getValue));
+
+                            if (resVer == null)
+                                resVer = cctx.exchange().readyAffinityVersion();
                         }
                     }
                     finally {

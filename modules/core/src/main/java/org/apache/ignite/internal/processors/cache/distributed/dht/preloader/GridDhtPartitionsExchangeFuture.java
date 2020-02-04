@@ -4264,14 +4264,33 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
     private void updatePartitionSingleMap(UUID nodeId, GridDhtPartitionsSingleMessage msg) {
         msgs.put(nodeId, msg);
 
-        for (Map.Entry<Integer, GridDhtPartitionMap> entry : msg.partitions().entrySet()) {
-            Integer grpId = entry.getKey();
-            CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
+        int parallelismLvl = U.availableThreadCount(cctx.kernalContext(), GridIoPolicy.SYSTEM_POOL, 2);
 
-            GridDhtPartitionTopology top = grp != null ? grp.topology() :
-                cctx.exchange().clientTopology(grpId, events().discoveryCache());
+        try {
+            U.doInParallel(
+                parallelismLvl,
+                cctx.kernalContext().getSystemExecutorService(),
+                cctx.affinity().cacheGroups().values(),
+                desc -> {
+                    Integer grpId = desc.groupId();
 
-            top.update(exchId, entry.getValue(), false);
+                    GridDhtPartitionMap partTopMap = msg.partitions().get(grpId);
+
+                    if (partTopMap == null)
+                        return null;
+
+                    CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
+
+                    GridDhtPartitionTopology top = grp != null ? grp.topology() :
+                        cctx.exchange().clientTopology(grpId, events().discoveryCache());
+
+                    top.update(exchId, partTopMap, false);
+
+                    return null;
+                });
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteException(e);
         }
     }
 
