@@ -19,7 +19,6 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -32,32 +31,44 @@ import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
-import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
 import org.apache.ignite.internal.processors.cache.persistence.IndexStorageImpl;
 import org.apache.ignite.internal.processors.cache.persistence.file.AsyncFileIOFactory;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStore;
-import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreV2;
+import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreFactory;
+import org.apache.ignite.internal.processors.cache.persistence.file.FileVersionCheckingFactory;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageMetaIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2InnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2LeafIO;
+import org.apache.ignite.internal.processors.query.h2.database.io.H2RowLinkIO;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.internal.util.lang.GridTreePrinter;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 
+import static java.util.Collections.singletonList;
+import static java.util.Optional.ofNullable;
+import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.partId;
 import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.INDEX_FILE_NAME;
+import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.PART_FILE_TEMPLATE;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO.ITEMS_OFF;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getType;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getVersion;
 
 public class IgniteIndexReader {
     private static final String META_TREE_NAME = "MetaTree";
@@ -70,66 +81,74 @@ public class IgniteIndexReader {
     }
 
     private final int pageSize;
-    private final int filePageStoreVer;
     private final int grpId;
+    private final int partCnt;
+    private final File cacheWorkDir;
+    private final DataStorageConfiguration dsCfg;
+    private final FilePageStoreFactory storeFactory;
+    private final AllocatedPageTracker allocatedTracker = AllocatedPageTracker.NO_OP;
 
-    public IgniteIndexReader(int pageSize, int filePageStoreVer, int grpId) {
+    private final Map<Class, TreeNodeGetter> treeNodeGetters = new HashMap<Class, TreeNodeGetter>() {{
+        put(BPlusMetaIO.class, (io, id, a, c) -> getTreeNodeFromMetaIo(io, id, a, c));
+        put(BPlusInnerIO.class, (io, id, a, c) -> getTreeNodeFromInnerIo(io, id, a, c));
+        put(H2ExtrasInnerIO.class, (io, id, a, c) -> getTreeNodeFromInnerIo(io, id, a, c));
+        put(IndexStorageImpl.MetaStoreInnerIO.class, (io, id, a, c) -> getTreeNodeFromInnerIo(io, id, a, c));
+        put(BPlusLeafIO.class, (io, id, a, c) -> getTreeNodeFromLeafIo(io, id, a, c));
+        put(H2ExtrasLeafIO.class, (io, id, a, c) -> getTreeNodeFromLeafIo(io, id, a, c));
+        put(IndexStorageImpl.MetaStoreLeafIO.class, (io, id, a, c) -> getTreeNodeFromLeafIo(io, id, a, c));
+    }};
+
+    public IgniteIndexReader(String cacheWorkDirPath, int pageSize, int partCnt, int filePageStoreVer, int grpId) {
         this.pageSize = pageSize;
-        this.filePageStoreVer = filePageStoreVer;
         this.grpId = grpId;
+        this.partCnt = partCnt;
+        this.dsCfg = new DataStorageConfiguration().setPageSize(pageSize);
+        this.cacheWorkDir = new File(cacheWorkDirPath);
+        this.storeFactory = new FileVersionCheckingFactory(new AsyncFileIOFactory(), dsCfg, grpId) {
+            /** {@inheritDoc} */
+            @Override public int latestVersion() {
+                return filePageStoreVer;
+            }
+        };
     }
 
-    private void findLostRootPages(String cacheWorkDirPath, int partCnt, int pageSize, int filePageStoreVer, int grpId) throws IgniteCheckedException {
-        DataStorageConfiguration dsCfg = new DataStorageConfiguration()
-            .setPageSize(pageSize);
+    private void print(String s) {
+        System.out.println(s);
+    }
 
-        File cacheWorkDir = new File(cacheWorkDirPath);
+    private void printErr(String s) {
+        System.err.println("\r" + s);
+    }
 
-        File idxFile = new File(cacheWorkDir, INDEX_FILE_NAME);
+    private void printErr(Exception e) {
+        e.printStackTrace();
+    }
 
-        if (!idxFile.exists())
-            throw new RuntimeException("File not found: " + idxFile.getPath());
-        else
-            System.out.println("Analyzing file: " + idxFile.getPath());
+    private File getFile(int partId) {
+        File file =  new File(cacheWorkDir, partId == -1 ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId));
+
+        if (!file.exists()) {
+            printErr("Analyzing only index.bin? Pass 0 as partCnt argument.");
+
+            throw new RuntimeException("File not found: " + file.getPath());
+        }
+        else if (partId == -1)
+            print("Analyzing file: " + file.getPath());
+
+        return file;
+    }
+
+    private void readIdx() throws IgniteCheckedException {
+        File idxFile = getFile(-1);
 
         long fileSize = idxFile.length();
 
-        FilePageStore idxPageStore = filePageStoreVer == 1
-            ? new FilePageStore(
-            PageMemory.FLAG_IDX,
-            idxFile,
-            new AsyncFileIOFactory(),
-            dsCfg,
-            AllocatedPageTracker.NO_OP,
-            grpId
-        )
-            : new FilePageStoreV2(
-            PageMemory.FLAG_IDX,
-            idxFile,
-            new AsyncFileIOFactory(),
-            dsCfg,
-            AllocatedPageTracker.NO_OP,
-            grpId
-        );
+        FilePageStore idxPageStore = storeFactory.createPageStore(FLAG_IDX, idxFile, allocatedTracker);
 
         List<FilePageStore> partPageStores = new ArrayList<>(partCnt);
 
-        for (int i = 0; i < partCnt; i++) {
-            int partId = i;
-
-            /*partPageStores.add(
-                new FilePageStoreV2(
-                    FLAG_DATA,
-                    () -> getPartitionFilePath(cacheWorkDir, partId),
-                    new AsyncFileIOFactory(),
-                    dsCfg,
-                    new LongAdderMetric("name", "desc")
-                )
-            );*/
-        }
-
-        Set<Long> treeMetaPageIds = new HashSet<>();
-        Set<Long> bPlusMetaIds = new HashSet<>();
+        for (int i = 0; i < partCnt; i++)
+            partPageStores.add(storeFactory.createPageStore(FLAG_DATA, getFile(i), allocatedTracker));
 
         Map<Class<? extends PageIO>, Long> pageClasses = new HashMap<>();
 
@@ -137,13 +156,19 @@ public class IgniteIndexReader {
 
         final long pagesNum = (fileSize - idxPageStore.headerSize()) / pageSize;
 
-        System.out.println("Going to check " + pagesNum + " pages.");
+        print("Going to check " + pagesNum + " pages.");
+
+        Map<Class, Set<Long>> pageIoIds = new HashMap<>();
+
+        long timeStarted = 0;
 
         for (int i = 0; i < pagesNum; i++) {
             ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
 
             try {
                 long addr = GridUnsafe.bufferAddress(buf);
+
+                long pageId = PageIdUtils.pageId(INDEX_PARTITION, FLAG_IDX, i);
 
                 //We got int overflow here on sber dataset.
                 final long off = (long)i * pageSize + idxPageStore.headerSize();
@@ -157,49 +182,46 @@ public class IgniteIndexReader {
                 if (io instanceof PageMetaIO) {
                     PageMetaIO pageMetaIO = (PageMetaIO)io;
 
-                    treeMetaPageIds.add(pageMetaIO.getTreeRoot(addr));
+                    Map<String, TreeValidationInfo> treeInfo =
+                        validateAllTrees(idxPageStore, partPageStores, pageMetaIO.getTreeRoot(addr));
 
-                    //printMetaTree(idxPageStore, pageSize, pageMetaIO.getTreeRoot(addr));
-                    validateAllTrees(idxPageStore, partPageStores, pageMetaIO.getTreeRoot(addr));
-                    System.exit(0);
+                    treeInfo.forEach((name, info) -> {
+                        info.innerPageIds.forEach(id -> {
+                            Class cls = name.equals(META_TREE_NAME)
+                                ? IndexStorageImpl.MetaStoreInnerIO.class
+                                : H2ExtrasInnerIO.class;
+
+                            pageIoIds.computeIfAbsent(cls, k -> new HashSet<>()).add(id);
+                        });
+
+                        pageIoIds.computeIfAbsent(BPlusMetaIO.class, k -> new HashSet<>()).add(info.rootPageId);
+                    });
+
+                    print("");
                 }
-                else if (io instanceof IndexStorageImpl.MetaStoreLeafIO) {
-                    IndexStorageImpl.MetaStoreLeafIO metaStoreLeafIO = (IndexStorageImpl.MetaStoreLeafIO)io;
+                else {
+                    if (timeStarted == 0)
+                        timeStarted = System.currentTimeMillis();
 
-                    for (int j = 0; j < (pageSize - ITEMS_OFF) / metaStoreLeafIO.getItemSize(); j++) {
-                        //System.out.println("offset: " + String.valueOf(i * pageSize + idxPageStore.headerSize()));
-                        IndexStorageImpl.IndexItem indexItem = metaStoreLeafIO.getLookupRow(null, addr, j);
+                    printProgress("Reading pages sequentially", i, pagesNum, timeStarted);
 
-                        if (indexItem.pageId() != 0) {
-                            ByteBuffer idxMetaBuf = GridUnsafe.allocateBuffer(pageSize); // for tree meta page
-
-                            try {
-                                long idxMetaBufAddr = GridUnsafe.bufferAddress(idxMetaBuf);
-
-                                idxPageStore.read(indexItem.pageId(), idxMetaBuf, false);
-
-                                treeMetaPageIds.add(indexItem.pageId());
-                            }
-                            finally {
-                                GridUnsafe.freeBuffer(idxMetaBuf);
-                            }
-                        }
-                    }
-                }
-                else if (io instanceof BPlusMetaIO) {
-                    BPlusMetaIO bPlusMetaIO = (BPlusMetaIO)io;
-
-                    long pageId = PageIdUtils.pageId(INDEX_PARTITION, FLAG_IDX, i);
-
-                    bPlusMetaIds.add(pageId);
+                    ofNullable(pageIoIds.get(io.getClass())).ifPresent((pageIds) -> {
+                        if (!pageIds.contains(pageId))
+                            throw new IgniteException(
+                                "Possibly orphan " + io.getClass().getSimpleName() + " page, pageId=" + pageId
+                            );
+                    });
                 }
             } catch (Throwable e) {
                 if (errorsNum < 1) {
-                    System.out.println("First error occurred on iteration step " + i);
+                    print("First error occurred on iteration step " + i);
 
-                    System.out.println("Exception occurred: " + e.toString());
                     e.printStackTrace();
+
+                    printErr("---Errors:");
                 }
+
+                printErr("Exception occurred: " + e.toString());
 
                 errorsNum++;
             }
@@ -208,45 +230,14 @@ public class IgniteIndexReader {
             }
         }
 
-        System.out.println("---Meta tree entries without actual index trees:");
+        print("---These pages types were encountered:");
+        pageClasses.forEach((key, val) -> print(key.getSimpleName() + ": " + val));
 
-        for (Long id : treeMetaPageIds) {
-            if (!bPlusMetaIds.contains(id))
-                System.out.println(id);
-        }
-
-        System.out.println("---");
-        System.out.println();
-        System.out.println("---Index root pages missing in meta tree: ");
-
-        for (Long id : bPlusMetaIds) {
-            if (!treeMetaPageIds.contains(id))
-                System.out.println(id);
-        }
-
-        System.out.println("---");
-
-        System.out.println("---These pages types were encountered:");
-        pageClasses.forEach((key, val) -> System.out.println(key.getSimpleName() + ": " + val));
-
-        System.out.println("---");
-        System.out.println("Total errors number: " + errorsNum);
+        print("---");
+        print("Total errors while pages encountering: " + errorsNum);
     }
 
-    /** */
-    private void printMetaTree(FilePageStore store, int pageSize, long pageId) {
-        System.out.println("---Printing meta tree---");
-
-        TreeNode rootNode = getTreeNode(store, pageSize, pageId, new HashMap<>(), new HashMap<>(), null, null);
-
-        String s = new MetaTreePrinter().print(rootNode);
-
-        System.out.println(s);
-
-        System.out.println("------------------------");
-    }
-
-    private void validateAllTrees(
+    private Map<String, TreeValidationInfo> validateAllTrees(
         FilePageStore idxStore,
         List<FilePageStore> partStores,
         long metaTreeRootPageId
@@ -261,59 +252,66 @@ public class IgniteIndexReader {
 
         long startTime = System.currentTimeMillis();
 
-        System.out.println();
+        print("");
 
         metaTreeValidationInfo.idxItems.forEach(item -> {
-            printProgress("Index trees validation", progress.incrementAndGet(), metaTreeValidationInfo.idxItems.size(), startTime);
+            printProgress("Index trees traversal", progress.incrementAndGet(), metaTreeValidationInfo.idxItems.size(), startTime);
 
             IndexStorageImpl.IndexItem idxItem = (IndexStorageImpl.IndexItem)item;
 
             TreeValidationInfo treeValidationInfo = validateTree(idxStore, partStores, idxItem.pageId(), false);
 
+            //treeInfos.put(idxItem.toString(), treeValidationInfo.merge(treeInfos.get(idxItem.toString())));
             treeInfos.put(idxItem.toString(), treeValidationInfo);
         });
 
         printValidationResults(treeInfos);
+
+        return treeInfos;
     }
 
     private void printValidationResults(Map<String, TreeValidationInfo> treeInfos) {
-        System.out.println("Validation results: ");
+        print("Tree traversal results: ");
 
         Map<Class, AtomicLong> totalStat = new HashMap<>();
 
         AtomicInteger totalErr = new AtomicInteger(0);
 
         treeInfos.forEach((idxName, validationInfo) -> {
-            System.out.println("-----");
-            System.out.println("Index tree: " + idxName);
-            System.out.println("-- Page stat:");
+            print("-----");
+            print("Index tree: " + idxName);
+            print("-- Page stat:");
 
             validationInfo.ioStat.forEach((cls, cnt) -> {
-                System.out.println(cls.getSimpleName() + ": " + cnt.get());
+                print(cls.getSimpleName() + ": " + cnt.get());
 
                 totalStat.computeIfAbsent(cls, k -> new AtomicLong(0)).addAndGet(cnt.get());
             });
 
             if (validationInfo.errors.size() > 0) {
-                System.out.println("-- Errors:");
+                print("-- Errors:");
 
                 validationInfo.errors.forEach((id, errors) -> {
-                    System.out.println("Page id=" + id + ", errors:");
+                    print("Page id=" + id + ", errors:");
 
                     errors.forEach(e -> e.printStackTrace());
 
                     totalErr.addAndGet(errors.size());
                 });
             }
+            else
+                print("No errors occurred while traversing.");
         });
 
-        System.out.println("-- Total page stat:");
+        print("-- Total page stat:");
 
-        totalStat.forEach((cls, cnt) -> System.out.println(cls.getSimpleName() + ": " + cnt.get()));
+        totalStat.forEach((cls, cnt) -> print(cls.getSimpleName() + ": " + cnt.get()));
 
-        System.out.println();
-        System.out.println("Total pages validated in tree: " + totalStat.values().stream().mapToLong(a -> a.get()).sum());
-        System.out.println("Total errors: " + totalErr.get());
+        print("");
+        print("Total trees: " + treeInfos.keySet().size());
+        print("Total pages found in trees: " + totalStat.values().stream().mapToLong(AtomicLong::get).sum());
+        print("Total errors: " + totalErr.get());
+        print("------------------");
     }
 
     /** */
@@ -327,121 +325,181 @@ public class IgniteIndexReader {
 
         Map<Long, Set<Throwable>> errors = new HashMap<>();
 
-        Set<Long> leafPageIds = new HashSet<>();
+        Set<Long> innerPageIds = new HashSet<>();
 
-        LeafCallback leafCb = isMetaTree
-            ? (io, pageAddr, pageId) -> leafPageIds.add(pageId)
-            : null;
+        PageCallback innerCb = (io, pageAddr, pageId) -> innerPageIds.add(pageId);
+
+        PageCallback leafCb =
+            isMetaTree ? null : (io, pageAddr, pageId) -> validateIndexLeaf(partStores, (H2ExtrasLeafIO)io, pageAddr);
 
         List<Object> idxItems = new LinkedList<>();
 
-        ItemCallback itemCb = isMetaTree
-            ? (currPageId, targetPageId, link) -> idxItems.add(targetPageId)
-            : null;
+        ItemCallback itemCb = isMetaTree ? (currPageId, targetPageId, link) -> idxItems.add(targetPageId) : null;
 
-        getTreeNode(idxStore, pageSize, rootPageId, ioStat, errors, leafCb, itemCb);
+        getTreeNode(rootPageId, new TreeNodeContext(idxStore, ioStat, errors, innerCb, leafCb, itemCb));
 
-        return new TreeValidationInfo(ioStat, errors, leafPageIds, idxItems);
+        return new TreeValidationInfo(ioStat, errors, innerPageIds, rootPageId, idxItems);
+    }
+
+    private void validateIndexLeaf(List<FilePageStore> partStores, H2ExtrasLeafIO io, long pageAddr) {
+        if (partCnt > 0) {
+            int itemsCnt = (pageSize - ITEMS_OFF) / io.getItemSize();
+
+            for (int j = 0; j < itemsCnt; j++) {
+                long link = io.getLink(pageAddr, j);
+
+                long linkedPageId = pageId(link);
+
+                int linkedPagePartId = partId(linkedPageId);
+
+                int linkedItemId = itemId(link);
+
+                ByteBuffer dataBuf = GridUnsafe.allocateBuffer(pageSize);
+
+                try {
+                    long dataBufAddr = GridUnsafe.bufferAddress(dataBuf);
+
+                    partStores.get(linkedPagePartId).read(linkedPageId, dataBuf, false);
+
+                    PageIO dataIo = PageIO.getPageIO(getType(dataBuf), getVersion(dataBuf));
+
+                    if (dataIo instanceof DataPageIO) {
+                        DataPageIO dataPageIO = (DataPageIO)dataIo;
+
+                        DataPagePayload payload = dataPageIO.readPayload(dataBufAddr, linkedItemId, pageSize);
+
+                        if (payload.offset() <= 0 || payload.payloadSize() <= 0) {
+                            GridStringBuilder payloadInfo = new GridStringBuilder("Invalid data page payload: ")
+                                .a("off=").a(payload.offset())
+                                .a(", size=").a(payload.payloadSize())
+                                .a(", nextLink=").a(payload.nextLink());
+
+                            throw new IgniteException(payloadInfo.toString());
+                        }
+                    }
+                }
+                catch (Exception e) {
+                    throw new IgniteException("Exception while trying to validate data page.", e);
+                }
+                finally {
+                    GridUnsafe.freeBuffer(dataBuf);
+                }
+            }
+        }
     }
 
     private TreeNode getTreeNode(
-        FilePageStore store,
-        int pageSize,
         long pageId,
-        Map<Class, AtomicLong> ioStat,
-        Map<Long, Set<Throwable>> errors,
-        LeafCallback leafCb,
-        ItemCallback itemCb
+        TreeNodeContext nodeCtx
     ) {
         final ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
 
         try {
-            final long addr = GridUnsafe.bufferAddress(buf);
+            nodeCtx.store.read(pageId, buf, false);
 
-            store.read(pageId, buf, false);
+            final long addr = GridUnsafe.bufferAddress(buf);
 
             final PageIO io = PageIO.getPageIO(addr);
 
-            ioStat.computeIfAbsent(io.getClass(), k -> new AtomicLong(0)).incrementAndGet();
+            nodeCtx.ioStat.computeIfAbsent(io.getClass(), k -> new AtomicLong(0)).incrementAndGet();
 
-            if (io instanceof BPlusMetaIO) {
-                BPlusMetaIO bPlusMetaIO = (BPlusMetaIO)io;
-
-                int rootLvl = bPlusMetaIO.getRootLevel(addr);
-                long rootId = bPlusMetaIO.getFirstPageId(addr, rootLvl);
-
-                return new TreeNode(pageId, io, null, Collections.singletonList(getTreeNode(store, pageSize, rootId, ioStat, errors, leafCb, itemCb)));
-            }
-            else if (io instanceof BPlusInnerIO) {
-                BPlusInnerIO innerIo = (BPlusInnerIO)io;
-
-                int cnt = innerIo.getCount(addr);
-
-                List<Long> childrenIds;
-
-                if (cnt > 0) {
-                    childrenIds = new ArrayList<>(cnt + 1);
-
-                    for (int i = 0; i < cnt; i++)
-                        childrenIds.add(innerIo.getLeft(addr, i));
-
-                    childrenIds.add(innerIo.getRight(addr, cnt - 1));
-                }
-                else {
-                    long left = innerIo.getLeft(addr, 0);
-
-                    childrenIds = left == 0 ? Collections.<Long>emptyList() : Collections.singletonList(left);
-                }
-
-                List<TreeNode> children = new ArrayList<>(childrenIds.size());
-
-                for (Long id : childrenIds)
-                    children.add(getTreeNode(store, pageSize, id, ioStat, errors, leafCb, itemCb));
-
-                return new TreeNode(pageId, io, null, children);
-            }
-            else if (io instanceof BPlusLeafIO) {
-                GridStringBuilder sb = new GridStringBuilder();
-
-                if (io instanceof IndexStorageImpl.MetaStoreLeafIO) {
-                    IndexStorageImpl.MetaStoreLeafIO metaLeafIO = (IndexStorageImpl.MetaStoreLeafIO)io;
-
-                    for (int j = 0; j < (pageSize - ITEMS_OFF) / metaLeafIO.getItemSize(); j++) {
-                        //System.out.println("offset: " + String.valueOf(i * pageSize + idxPageStore.headerSize()));
-                        IndexStorageImpl.IndexItem indexItem = metaLeafIO.getLookupRow(null, addr, j);
-
-                        if (indexItem.pageId() != 0) {
-                            sb.a(indexItem.toString() + " ");
-
-                            if (itemCb != null)
-                                itemCb.cb(pageId, indexItem, 0);
-                        }
-                    }
-                }
-                else {
-
-                }
-
-                if (leafCb != null)
-                    leafCb.cb(io, addr, pageId);
-
-                return new TreeNode(pageId, io, sb.toString(), Collections.emptyList());
-            }
-            else {
-                errors.computeIfAbsent(pageId, k -> new HashSet<>())
-                    .add(new Exception("Unexpected page io: " + io.getClass().getSimpleName()));
-
-                return new TreeNode(pageId, null, null, Collections.emptyList());
-            }
+            return ofNullable(treeNodeGetters.get(io.getClass()))
+                .map(getter -> getter.get(io, pageId, addr, nodeCtx))
+                .orElseThrow(() -> new IgniteException("Unexpected page io: " + io.getClass().getSimpleName()));
         }
         catch (Exception e) {
-            errors.computeIfAbsent(pageId, k -> new HashSet<>()).add(e);
+            nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>()).add(e);
 
             return new TreeNode(pageId, null, "exception: " + e.getMessage(), Collections.emptyList());
         }
         finally {
             GridUnsafe.freeBuffer(buf);
         }
+    }
+
+    /** */
+    private TreeNode getTreeNodeFromMetaIo(PageIO io, long pageId, long addr, TreeNodeContext nodeCtx) {
+        BPlusMetaIO bPlusMetaIO = (BPlusMetaIO)io;
+
+        int rootLvl = bPlusMetaIO.getRootLevel(addr);
+        long rootId = bPlusMetaIO.getFirstPageId(addr, rootLvl);
+
+        return new TreeNode(
+            pageId,
+            io,
+            null,
+            singletonList(getTreeNode(rootId, nodeCtx))
+        );
+    }
+
+    /** */
+    private TreeNode getTreeNodeFromInnerIo(PageIO io, long pageId, long addr, TreeNodeContext nodeCtx) {
+        BPlusInnerIO innerIo = (BPlusInnerIO)io;
+
+        int cnt = innerIo.getCount(addr);
+
+        List<Long> childrenIds;
+
+        if (cnt > 0) {
+            childrenIds = new ArrayList<>(cnt + 1);
+
+            for (int i = 0; i < cnt; i++)
+                childrenIds.add(innerIo.getLeft(addr, i));
+
+            childrenIds.add(innerIo.getRight(addr, cnt - 1));
+        }
+        else {
+            long left = innerIo.getLeft(addr, 0);
+
+            childrenIds = left == 0 ? Collections.<Long>emptyList() : singletonList(left);
+        }
+
+        List<TreeNode> children = new ArrayList<>(childrenIds.size());
+
+        for (Long id : childrenIds)
+            children.add(getTreeNode(id, nodeCtx));
+
+        if (nodeCtx.innerCb != null)
+            nodeCtx.innerCb.cb(io, addr, pageId);
+
+        return new TreeNode(pageId, io, null, children);
+    }
+
+    /** */
+    private TreeNode getTreeNodeFromLeafIo(PageIO io, long pageId, long addr, TreeNodeContext nodeCtx) {
+        GridStringBuilder sb = new GridStringBuilder();
+
+        if (io instanceof IndexStorageImpl.MetaStoreLeafIO) {
+            IndexStorageImpl.MetaStoreLeafIO metaLeafIO = (IndexStorageImpl.MetaStoreLeafIO)io;
+
+            for (int j = 0; j < (pageSize - ITEMS_OFF) / metaLeafIO.getItemSize(); j++) {
+                IndexStorageImpl.IndexItem indexItem = null;
+                try {
+                    indexItem = metaLeafIO.getLookupRow(null, addr, j);
+                }
+                catch (IgniteCheckedException e) {
+                    throw new IgniteException(e);
+                }
+
+                if (indexItem.pageId() != 0) {
+                    sb.a(indexItem.toString() + " ");
+
+                    if (nodeCtx.itemCb != null)
+                        nodeCtx.itemCb.cb(pageId, indexItem, 0);
+                }
+            }
+        }
+        else if (io instanceof H2RowLinkIO) {
+            if (nodeCtx.itemCb != null)
+                throw new UnsupportedOperationException("No item callback support for H2RowLinkIO.");
+        }
+        else
+            throw new IgniteException("Unexpected page io: " + io.getClass().getSimpleName());
+
+        if (nodeCtx.leafCb != null)
+            nodeCtx.leafCb.cb(io, addr, pageId);
+
+        return new TreeNode(pageId, io, sb.toString(), Collections.emptyList());
     }
 
     private static void printProgress(String caption, long curr, long total, long timeStarted) {
@@ -493,7 +551,7 @@ public class IgniteIndexReader {
         try {
             String dir = args[0];
 
-            int partCnt = args.length > 1 ? Integer.parseInt(args[1]) : 1024;
+            int partCnt = args.length > 1 ? Integer.parseInt(args[1]) : 0;
 
             int pageSize = args.length > 2 ? Integer.parseInt(args[2]) : 4096;
 
@@ -501,11 +559,11 @@ public class IgniteIndexReader {
 
             int grpId = args.length > 4 ? CU.cacheId(args[4]) : Integer.MAX_VALUE;
 
-            new IgniteIndexReader(pageSize, filePageStoreVer, grpId)
-                .findLostRootPages(dir, partCnt, pageSize, filePageStoreVer, grpId);
+            new IgniteIndexReader(dir, pageSize, partCnt, filePageStoreVer, grpId)
+                .readIdx();
         }
         catch (Exception e) {
-            System.out.println("options: path [partCnt] [pageSize] [filePageStoreVersion]");
+            System.err.println("options: path [partCnt] [pageSize] [filePageStoreVersion]");
 
             throw e;
         }
@@ -517,6 +575,7 @@ public class IgniteIndexReader {
         final String additionalInfo;
         final List<TreeNode> children;
 
+        /** */
         public TreeNode(long pageId, PageIO io, String additionalInfo, List<TreeNode> children) {
             this.pageId = pageId;
             this.io = io;
@@ -525,24 +584,37 @@ public class IgniteIndexReader {
         }
     }
 
-    private static class MetaTreePrinter extends GridTreePrinter<TreeNode> {
-        /** {@inheritDoc} */
-        @Override protected List<TreeNode> getChildren(TreeNode treeNode) {
-            return treeNode.children;
-        }
+    private static class TreeNodeContext {
+        final FilePageStore store;
+        final Map<Class, AtomicLong> ioStat;
+        final Map<Long, Set<Throwable>> errors;
+        final PageCallback innerCb;
+        final PageCallback leafCb;
+        final ItemCallback itemCb;
 
-        /** {@inheritDoc} */
-        @Override protected String formatTreeNode(TreeNode treeNode) {
-            return new GridStringBuilder()
-                .a(treeNode.io == null ? "UnknownPageType" : treeNode.io.getClass().getSimpleName())
-                .a(" [pageId=").a(treeNode.pageId)
-                .a(treeNode.additionalInfo == null ? "" : ", " + treeNode.additionalInfo)
-                .a("]")
-                .toString();
+        /** */
+        private TreeNodeContext(
+            FilePageStore store,
+            Map<Class, AtomicLong> ioStat,
+            Map<Long, Set<Throwable>> errors,
+            PageCallback innerCb,
+            PageCallback leafCb,
+            ItemCallback itemCb
+        ) {
+            this.store = store;
+            this.ioStat = ioStat;
+            this.errors = errors;
+            this.innerCb = innerCb;
+            this.leafCb = leafCb;
+            this.itemCb = itemCb;
         }
     }
 
-    private interface LeafCallback {
+    private interface TreeNodeGetter {
+        TreeNode get(PageIO io, long pageId, long addr, TreeNodeContext nodeCtx);
+    }
+
+    private interface PageCallback {
         void cb(PageIO io, long pageAddr, long pageId);
     }
 
@@ -553,19 +625,36 @@ public class IgniteIndexReader {
     private static class TreeValidationInfo {
         final Map<Class, AtomicLong> ioStat;
         final Map<Long, Set<Throwable>> errors;
-        final Collection<Long> leafPageIds;
+        final Set<Long> innerPageIds;
+        final long rootPageId;
         final List<Object> idxItems;
 
         public TreeValidationInfo(
             Map<Class, AtomicLong> ioStat,
             Map<Long, Set<Throwable>> errors,
-            Collection<Long> leafPageIds,
+            Set<Long> innerPageIds,
+            long rootPageId,
             List<Object> idxItems
         ) {
             this.ioStat = ioStat;
             this.errors = errors;
-            this.leafPageIds = leafPageIds;
+            this.innerPageIds = innerPageIds;
+            this.rootPageId = rootPageId;
             this.idxItems = idxItems;
+        }
+
+        TreeValidationInfo merge(TreeValidationInfo info) {
+            if (info != null) {
+                info.ioStat.forEach((k, v) -> ioStat.computeIfAbsent(k, kk -> new AtomicLong(0)).addAndGet(v.get()));
+
+                info.errors.forEach((k, v) -> errors.computeIfAbsent(k, kk -> new HashSet<>()).addAll(v));
+
+                innerPageIds.addAll(info.innerPageIds);
+
+                idxItems.addAll(info.idxItems);
+            }
+
+            return this;
         }
     }
 }
