@@ -230,7 +230,7 @@ public class IgniteIndexReader {
             }
         }
 
-        print("---These pages types were encountered:");
+        print("---These pages types were encountered during sequential scan:");
         pageClasses.forEach((key, val) -> print(key.getSimpleName() + ": " + val));
 
         print("---");
