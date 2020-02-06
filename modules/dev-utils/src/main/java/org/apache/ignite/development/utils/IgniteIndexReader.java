@@ -55,6 +55,7 @@ import org.apache.ignite.internal.processors.query.h2.database.io.H2RowLinkIO;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static java.util.Collections.singletonList;
 import static java.util.Optional.ofNullable;
@@ -72,6 +73,8 @@ import static org.apache.ignite.internal.processors.cache.persistence.tree.io.Pa
 
 public class IgniteIndexReader {
     private static final String META_TREE_NAME = "MetaTree";
+
+    private static final char[] HEX_CHARS = "0123456789ABCDEF".toCharArray();
 
     static {
         PageIO.registerH2(H2InnerIO.VERSIONS, H2LeafIO.VERSIONS);
@@ -152,13 +155,13 @@ public class IgniteIndexReader {
 
         Map<Class<? extends PageIO>, Long> pageClasses = new HashMap<>();
 
-        long errorsNum = 0;
-
         final long pagesNum = (fileSize - idxPageStore.headerSize()) / pageSize;
 
         print("Going to check " + pagesNum + " pages.");
 
         Map<Class, Set<Long>> pageIoIds = new HashMap<>();
+
+        List<Throwable> errors = new LinkedList<>();
 
         long timeStarted = 0;
 
@@ -213,28 +216,27 @@ public class IgniteIndexReader {
                     });
                 }
             } catch (Throwable e) {
-                if (errorsNum < 1) {
-                    print("First error occurred on iteration step " + i);
+                String err = "Exception occurred on step " + i + ": " + e.getMessage() + "; page=" + U.toHexString(buf);
 
-                    e.printStackTrace();
-
-                    printErr("---Errors:");
-                }
-
-                printErr("Exception occurred: " + e.toString());
-
-                errorsNum++;
+                errors.add(new IgniteException(err, e));
             }
             finally {
                 GridUnsafe.freeBuffer(buf);
             }
         }
 
+        if (!errors.isEmpty()) {
+            printErr("---Errors:");
+
+            errors.forEach(e -> printErr(e.toString()));
+        }
+
         print("---These pages types were encountered during sequential scan:");
         pageClasses.forEach((key, val) -> print(key.getSimpleName() + ": " + val));
 
         print("---");
-        print("Total errors while pages encountering: " + errorsNum);
+        print("Total pages encountered during sequential scan: " + pageClasses.values().stream().mapToLong(a -> a).sum());
+        print("Total errors while pages encountering: " + errors.size());
     }
 
     private Map<String, TreeValidationInfo> validateAllTrees(
