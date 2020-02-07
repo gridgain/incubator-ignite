@@ -2020,7 +2020,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             if (F.eq(dataTableEntry.getKey().schema(), schemaName)) {
                 GridH2Table h2Tbl = dataTableEntry.getValue();
 
-                if (h2Tbl.containsUserIndex(idxName) >= 0)
+                if (h2Tbl.userIndex(idxName) != null)
                     return h2Tbl;
             }
         }
@@ -2904,13 +2904,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         if (tbl == null)
             return 0;
 
-        final int idx = tbl.containsUserIndex(idxName);
+        H2TreeIndex idx = (H2TreeIndex)tbl.userIndex(idxName);
 
-        if (idx < 0)
-            return 0;
-
-        final H2TreeIndex index = (H2TreeIndex)tbl.index(idx);
-
-        return index.size();
+        return idx == null ? 0 : idx.size();
     }
 }

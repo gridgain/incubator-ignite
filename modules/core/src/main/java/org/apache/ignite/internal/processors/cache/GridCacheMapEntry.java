@@ -67,7 +67,9 @@ import org.apache.ignite.internal.processors.cache.version.GridCacheVersionConfl
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersionEx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersionedEntryEx;
 import org.apache.ignite.internal.processors.dr.GridDrType;
-import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
+import org.apache.ignite.internal.processors.query.QueryTypeDescriptorImpl;
+import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheFilter;
+import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheStat;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitorClosure;
 import org.apache.ignite.internal.util.IgniteTree;
 import org.apache.ignite.internal.util.lang.GridClosureException;
@@ -3851,13 +3853,15 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
     }
 
     /** {@inheritDoc} */
-    @Override public GridQueryTypeDescriptor updateIndex(SchemaIndexCacheVisitorClosure clo) throws IgniteCheckedException,
-        GridCacheEntryRemovedException {
+    @Override public void updateIndex(
+        SchemaIndexCacheVisitorClosure clo,
+        @Nullable SchemaIndexCacheStat stat
+    ) throws IgniteCheckedException, GridCacheEntryRemovedException {
         lockEntry();
 
         try {
             if (isInternal())
-                return null;
+                return;
 
             checkObsolete();
 
@@ -3866,14 +3870,23 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             if (row != null) {
                 clo.apply(row);
 
-                return cctx.kernalContext().query().typeByValue(cctx.cache().name(),
-                    cctx.cacheObjectContext(), row.key(), row.value(), true);
+                if (stat != null) {
+                    QueryTypeDescriptorImpl type = cctx.kernalContext().query().typeByValue(
+                        cctx.cache().name(),
+                        cctx.cacheObjectContext(),
+                        row.key(),
+                        row.value(),
+                        true
+                    );
+
+                    if (type != null)
+                        stat.types.put(type.name(), type);
+                }
             }
         }
         finally {
             unlockEntry();
         }
-        return null;
     }
 
     /** {@inheritDoc} */
