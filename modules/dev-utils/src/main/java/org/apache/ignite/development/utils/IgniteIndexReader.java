@@ -263,7 +263,6 @@ public class IgniteIndexReader {
 
             TreeValidationInfo treeValidationInfo = validateTree(idxStore, partStores, idxItem.pageId(), false);
 
-            //treeInfos.put(idxItem.toString(), treeValidationInfo.merge(treeInfos.get(idxItem.toString())));
             treeInfos.put(idxItem.toString(), treeValidationInfo);
         });
 
@@ -345,7 +344,7 @@ public class IgniteIndexReader {
 
     private void validateIndexLeaf(List<FilePageStore> partStores, H2ExtrasLeafIO io, long pageAddr) {
         if (partCnt > 0) {
-            int itemsCnt = (pageSize - ITEMS_OFF) / io.getItemSize();
+            int itemsCnt = io.getCount(pageAddr);
 
             for (int j = 0; j < itemsCnt; j++) {
                 long link = io.getLink(pageAddr, j);
