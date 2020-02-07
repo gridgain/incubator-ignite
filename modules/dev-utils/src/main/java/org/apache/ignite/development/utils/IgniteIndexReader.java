@@ -30,6 +30,8 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.LongStream;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -40,6 +42,8 @@ import org.apache.ignite.internal.processors.cache.persistence.file.AsyncFileIOF
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStore;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreFactory;
 import org.apache.ignite.internal.processors.cache.persistence.file.FileVersionCheckingFactory;
+import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListNodeIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
@@ -52,18 +56,24 @@ import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO
 import org.apache.ignite.internal.processors.query.h2.database.io.H2InnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2LeafIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2RowLinkIO;
+import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 import static java.util.Collections.singletonList;
 import static java.util.Optional.ofNullable;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.flag;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.partId;
 import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.INDEX_FILE_NAME;
 import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.PART_FILE_TEMPLATE;
@@ -73,8 +83,6 @@ import static org.apache.ignite.internal.processors.cache.persistence.tree.io.Pa
 
 public class IgniteIndexReader {
     private static final String META_TREE_NAME = "MetaTree";
-
-    private static final char[] HEX_CHARS = "0123456789ABCDEF".toCharArray();
 
     static {
         PageIO.registerH2(H2InnerIO.VERSIONS, H2LeafIO.VERSIONS);
@@ -115,20 +123,20 @@ public class IgniteIndexReader {
         };
     }
 
-    private void print(String s) {
+    private static void print(String s) {
         System.out.println(s);
     }
 
-    private void printErr(String s) {
+    private static void printErr(String s) {
         System.err.println("\r" + s);
     }
 
-    private void printErr(Exception e) {
-        e.printStackTrace();
+    private static long normalizePageId(long pageId) {
+        return pageId(partId(pageId), flag(pageId), pageIndex(pageId));
     }
 
     private File getFile(int partId) {
-        File file =  new File(cacheWorkDir, partId == -1 ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId));
+        File file =  new File(cacheWorkDir, partId == INDEX_PARTITION ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId));
 
         if (!file.exists()) {
             printErr("Analyzing only index.bin? Pass 0 as partCnt argument.");
@@ -142,7 +150,7 @@ public class IgniteIndexReader {
     }
 
     private void readIdx() throws IgniteCheckedException {
-        File idxFile = getFile(-1);
+        File idxFile = getFile(INDEX_PARTITION);
 
         long fileSize = idxFile.length();
 
@@ -160,6 +168,8 @@ public class IgniteIndexReader {
         print("Going to check " + pagesNum + " pages.");
 
         Map<Class, Set<Long>> pageIoIds = new HashMap<>();
+
+        AtomicReference<PageListsInfo> pageListsInfo = new AtomicReference<>();
 
         List<Throwable> errors = new LinkedList<>();
 
@@ -188,6 +198,8 @@ public class IgniteIndexReader {
                     Map<String, TreeValidationInfo> treeInfo =
                         validateAllTrees(idxPageStore, partPageStores, pageMetaIO.getTreeRoot(addr));
 
+                    printValidationResults(treeInfo);
+
                     treeInfo.forEach((name, info) -> {
                         info.innerPageIds.forEach(id -> {
                             Class cls = name.equals(META_TREE_NAME)
@@ -202,6 +214,11 @@ public class IgniteIndexReader {
 
                     print("");
                 }
+                else if (io instanceof PagesListMetaIO) {
+                    pageListsInfo.set(getPageListsMetaInfo(idxPageStore, pageId));
+
+                    printPagesListsInfo(pageListsInfo.get());
+                }
                 else {
                     if (timeStarted == 0)
                         timeStarted = System.currentTimeMillis();
@@ -209,10 +226,15 @@ public class IgniteIndexReader {
                     printProgress("Reading pages sequentially", i, pagesNum, timeStarted);
 
                     ofNullable(pageIoIds.get(io.getClass())).ifPresent((pageIds) -> {
-                        if (!pageIds.contains(pageId))
+                        if (!pageIds.contains(pageId)) {
+                            boolean foundInList =
+                                (pageListsInfo.get() != null && pageListsInfo.get().allPages.contains(pageId));
+
                             throw new IgniteException(
-                                "Possibly orphan " + io.getClass().getSimpleName() + " page, pageId=" + pageId
+                                "Possibly orphan " + io.getClass().getSimpleName() + " page, pageId=" + pageId +
+                                    (foundInList ? ", it has been found in page list." : "")
                             );
+                        }
                     });
                 }
             } catch (Throwable e) {
@@ -237,6 +259,85 @@ public class IgniteIndexReader {
         print("---");
         print("Total pages encountered during sequential scan: " + pageClasses.values().stream().mapToLong(a -> a).sum());
         print("Total errors while pages encountering: " + errors.size());
+    }
+
+    private PageListsInfo getPageListsMetaInfo(FilePageStore idxStore, long metaPageListId) {
+        Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData = new HashMap<>();
+
+        Set<Long> allPages = new HashSet<>();
+
+        Map<Long, Throwable> errors = new HashMap<>();
+
+        long nextMetaId = metaPageListId;
+
+        while(nextMetaId != 0) {
+            ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
+
+            try {
+                long addr = GridUnsafe.bufferAddress(buf);
+
+                idxStore.read(nextMetaId, buf, false);
+
+                PagesListMetaIO io = PageIO.getPageIO(addr);
+
+                Map<Integer, GridLongList> data = new HashMap<>();
+
+                io.getBucketsData(addr, data);
+
+                final long fNextMetaId = nextMetaId;
+
+                data.forEach((k, v) -> {
+                    List<Long> listIds = LongStream.of(v.array()).map(IgniteIndexReader::normalizePageId).boxed().collect(toList());
+
+                    listIds.forEach(listId -> allPages.addAll(getPageList(idxStore, listId)));
+
+                    bucketsData.put(new IgniteBiTuple<>(fNextMetaId, k), listIds);
+                });
+
+                nextMetaId = io.getNextMetaPageId(addr);
+            }
+            catch (Exception e) {
+                errors.put(nextMetaId, e);
+
+                nextMetaId = 0;
+            }
+            finally {
+                GridUnsafe.freeBuffer(buf);
+            }
+        }
+
+        return new PageListsInfo(bucketsData, allPages, errors);
+    }
+
+    private List<Long> getPageList(FilePageStore idxStore, long pageListStartId) {
+        List<Long> res = new LinkedList<>();
+
+        long nextNodeId = pageListStartId;
+
+        while(nextNodeId != 0) {
+            ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
+
+            try {
+                long addr = GridUnsafe.bufferAddress(buf);
+
+                idxStore.read(nextNodeId, buf, false);
+
+                PagesListNodeIO io = PageIO.getPageIO(addr);
+
+                for (int i = 0; i < io.getCount(addr); i++)
+                    res.add(normalizePageId(io.getAt(addr, i)));
+
+                nextNodeId = io.getNextId(addr);
+            }
+            catch (IgniteCheckedException e) {
+                throw new IgniteException(e.getMessage(), e);
+            }
+            finally {
+                GridUnsafe.freeBuffer(buf);
+            }
+        }
+
+         return res;
     }
 
     private Map<String, TreeValidationInfo> validateAllTrees(
@@ -265,8 +366,6 @@ public class IgniteIndexReader {
 
             treeInfos.put(idxItem.toString(), treeValidationInfo);
         });
-
-        printValidationResults(treeInfos);
 
         return treeInfos;
     }
@@ -311,7 +410,40 @@ public class IgniteIndexReader {
         print("");
         print("Total trees: " + treeInfos.keySet().size());
         print("Total pages found in trees: " + totalStat.values().stream().mapToLong(AtomicLong::get).sum());
-        print("Total errors: " + totalErr.get());
+        print("Total errors during trees traversal: " + totalErr.get());
+        print("------------------");
+    }
+
+    private void printPagesListsInfo(PageListsInfo pageListsInfo) {
+        print("---Page lists info.");
+        print("---Printing buckets data:");
+
+        pageListsInfo.bucketsData.forEach((bucket, bucketData) -> {
+            GridStringBuilder sb = new GridStringBuilder()
+                .a("List meta id=")
+                .a(bucket.get1())
+                .a(", bucket number=")
+                .a(bucket.get2())
+                .a(", lists=[")
+                .a(bucketData.stream().map(String::valueOf).collect(joining(", ")))
+                .a("]");
+
+            print(sb.toString());
+        });
+
+        if (!pageListsInfo.errors.isEmpty()) {
+            print("---Errors:");
+
+            pageListsInfo.errors.forEach((id, error) -> {
+                printErr("Page id: " + id + ", error: ");
+
+                error.printStackTrace();
+            });
+        }
+
+        print("");
+        print("Total index pages found in lists: " + pageListsInfo.allPages.size());
+        print("Total errors during lists scan: " + pageListsInfo.errors.size());
         print("------------------");
     }
 
@@ -656,6 +788,22 @@ public class IgniteIndexReader {
             }
 
             return this;
+        }
+    }
+
+    private static class PageListsInfo {
+        final Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData;
+        final Set<Long> allPages;
+        final Map<Long, Throwable> errors;
+
+        public PageListsInfo(
+            Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData,
+            Set<Long> allPages,
+            Map<Long, Throwable> errors
+        ) {
+            this.bucketsData = bucketsData;
+            this.allPages = allPages;
+            this.errors = errors;
         }
     }
 }
