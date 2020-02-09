@@ -19,6 +19,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -138,11 +140,8 @@ public class IgniteIndexReader {
     private File getFile(int partId) {
         File file =  new File(cacheWorkDir, partId == INDEX_PARTITION ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId));
 
-        if (!file.exists()) {
-            printErr("Analyzing only index.bin? Pass 0 as partCnt argument.");
-
-            throw new RuntimeException("File not found: " + file.getPath());
-        }
+        if (!file.exists())
+            return null;
         else if (partId == -1)
             print("Analyzing file: " + file.getPath());
 
@@ -152,14 +151,30 @@ public class IgniteIndexReader {
     private void readIdx() throws IgniteCheckedException {
         File idxFile = getFile(INDEX_PARTITION);
 
+        if (idxFile == null)
+            throw new RuntimeException("index.bin file not found");
+
         long fileSize = idxFile.length();
 
         FilePageStore idxPageStore = storeFactory.createPageStore(FLAG_IDX, idxFile, allocatedTracker);
 
-        List<FilePageStore> partPageStores = new ArrayList<>(partCnt);
+        FilePageStore[] partPageStores = new FilePageStore[partCnt];
 
-        for (int i = 0; i < partCnt; i++)
-            partPageStores.add(storeFactory.createPageStore(FLAG_DATA, getFile(i), allocatedTracker));
+        for (int i = 0; i < partCnt; i++) {
+            final File file = getFile(i);
+
+            if (file == null)
+                continue;
+
+            // Some of array members will be null if node doesn't have all partition files locally.
+            partPageStores[i] = storeFactory.createPageStore(FLAG_DATA, file, allocatedTracker);
+        }
+
+        long partPageStoresNum = Arrays.stream(partPageStores)
+                                       .filter(Objects::nonNull)
+                                       .count();
+
+        print("Partitions files num: " + partPageStoresNum);
 
         Map<Class<? extends PageIO>, Long> pageClasses = new HashMap<>();
 
@@ -342,7 +357,7 @@ public class IgniteIndexReader {
 
     private Map<String, TreeValidationInfo> validateAllTrees(
         FilePageStore idxStore,
-        List<FilePageStore> partStores,
+        FilePageStore[] partStores,
         long metaTreeRootPageId
     ) {
         Map<String, TreeValidationInfo> treeInfos = new HashMap<>();
@@ -450,7 +465,7 @@ public class IgniteIndexReader {
     /** */
     private TreeValidationInfo validateTree(
         FilePageStore idxStore,
-        List<FilePageStore> partStores,
+        FilePageStore[] partStores,
         long rootPageId,
         boolean isMetaTree
     ) {
@@ -474,7 +489,7 @@ public class IgniteIndexReader {
         return new TreeValidationInfo(ioStat, errors, innerPageIds, rootPageId, idxItems);
     }
 
-    private void validateIndexLeaf(List<FilePageStore> partStores, H2ExtrasLeafIO io, long pageAddr) {
+    private void validateIndexLeaf(FilePageStore[] partStores, H2ExtrasLeafIO io, long pageAddr) {
         if (partCnt > 0) {
             int itemsCnt = io.getCount(pageAddr);
 
@@ -492,7 +507,15 @@ public class IgniteIndexReader {
                 try {
                     long dataBufAddr = GridUnsafe.bufferAddress(dataBuf);
 
-                    partStores.get(linkedPagePartId).read(linkedPageId, dataBuf, false);
+                    final FilePageStore store = partStores[linkedPagePartId];
+
+                    if (store == null) {
+                        printErr("Corresponding store wasn't found for partId" + linkedPagePartId + ". Does partition file exist?");
+
+                        continue;
+                    }
+
+                    store.read(linkedPageId, dataBuf, false);
 
                     PageIO dataIo = PageIO.getPageIO(getType(dataBuf), getVersion(dataBuf));
 
