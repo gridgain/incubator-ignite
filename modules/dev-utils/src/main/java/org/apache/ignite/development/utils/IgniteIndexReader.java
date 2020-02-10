@@ -190,6 +190,8 @@ public class IgniteIndexReader {
 
         long timeStarted = 0;
 
+        ProgressPrinter progressPrinter = new ProgressPrinter("Reading pages sequentially", pagesNum);
+
         for (int i = 0; i < pagesNum; i++) {
             ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
 
@@ -238,7 +240,7 @@ public class IgniteIndexReader {
                     if (timeStarted == 0)
                         timeStarted = System.currentTimeMillis();
 
-                    printProgress("Reading pages sequentially", i, pagesNum, timeStarted);
+                    progressPrinter.printProgress(i, timeStarted);
 
                     ofNullable(pageIoIds.get(io.getClass())).ifPresent((pageIds) -> {
                         if (!pageIds.contains(pageId)) {
@@ -372,8 +374,10 @@ public class IgniteIndexReader {
 
         print("");
 
+        ProgressPrinter progressPrinter = new ProgressPrinter("Index trees traversal", metaTreeValidationInfo.idxItems.size());
+
         metaTreeValidationInfo.idxItems.forEach(item -> {
-            printProgress("Index trees traversal", progress.incrementAndGet(), metaTreeValidationInfo.idxItems.size(), startTime);
+            progressPrinter.printProgress(progress.incrementAndGet(), startTime);
 
             IndexStorageImpl.IndexItem idxItem = (IndexStorageImpl.IndexItem)item;
 
@@ -658,42 +662,6 @@ public class IgniteIndexReader {
         return new TreeNode(pageId, io, sb.toString(), Collections.emptyList());
     }
 
-    private static void printProgress(String caption, long curr, long total, long timeStarted) {
-        if (curr > total)
-            throw new RuntimeException("Current value can't be greater than total value.");
-
-        int progressTotalLen = 20;
-
-        String progressBarFmt = "\r%s: %4s [%" + progressTotalLen + "s] %s/%s (%s / %s)\r";
-
-        double currRatio = (double)curr / total;
-        int percentage = (int)(currRatio * 100);
-        int progressCurrLen = (int)(currRatio * progressTotalLen);
-        long timeRunning = System.currentTimeMillis() - timeStarted;
-        long timeEstimated = (long)(timeRunning / currRatio);
-
-        GridStringBuilder progressBuilder = new GridStringBuilder();
-
-        for (int i = 0; i < progressTotalLen; i++)
-            progressBuilder.a(i < progressCurrLen ? "=" : " ");
-
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
-
-        timeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-
-        String progressBar = String.format(
-            progressBarFmt,
-            caption,
-            percentage + "%",
-            progressBuilder.toString(),
-            curr,
-            total,
-            timeFormat.format(new Date(timeRunning)),
-            timeFormat.format(new Date(timeEstimated))
-        );
-
-        System.out.print(progressBar);
-    }
 
     public static void main(String[] args) throws Exception {
         /*RandomAccessFile file = new RandomAccessFile("C:\\Projects\\ignite\\apache-ignite\\work\\w_idxs_c\\index.bin", "rw");
@@ -827,6 +795,81 @@ public class IgniteIndexReader {
             this.bucketsData = bucketsData;
             this.allPages = allPages;
             this.errors = errors;
+        }
+    }
+
+    /**
+     * Class for printing progress of some tast.
+     * Progress is printed {@code chunksNum} times.
+     */
+    private static class ProgressPrinter {
+        private static final int DEFAULT_CHUNKS_NUM = 20;
+
+        private final long total;
+
+        private final int chunksNum;
+
+        private final String caption;
+
+        private int lastChunkLogged;
+
+        ProgressPrinter(String caption, long total) {
+            this(caption, total, DEFAULT_CHUNKS_NUM);
+        }
+
+        ProgressPrinter(String caption, long total, int chunksNum) {
+            this.caption = caption;
+            this.total = total;
+            this.chunksNum = chunksNum;
+        }
+
+        private void printProgress(long curr, long timeStarted) {
+            if (curr > total)
+                throw new RuntimeException("Current value can't be greater than total value.");
+
+            final double v = 1 - (total - curr) / (double)total;
+
+            final int currChunk = (int)(v * chunksNum);
+
+            if (currChunk > lastChunkLogged) {
+                lastChunkLogged++;
+
+                printProgress0(curr, timeStarted);
+            }
+        }
+
+        private void printProgress0(long curr, long timeStarted) {
+            int progressTotalLen = 20;
+
+            String progressBarFmt = "%s: %4s [%" + progressTotalLen + "s] %s/%s (%s / %s)";
+
+            double currRatio = (double)curr / total;
+            int percentage = (int)(currRatio * 100);
+            int progressCurrLen = (int)(currRatio * progressTotalLen);
+            long timeRunning = System.currentTimeMillis() - timeStarted;
+            long timeEstimated = (long)(timeRunning / currRatio);
+
+            GridStringBuilder progressBuilder = new GridStringBuilder();
+
+            for (int i = 0; i < progressTotalLen; i++)
+                progressBuilder.a(i < progressCurrLen ? "=" : " ");
+
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
+
+            timeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+            String progressBar = String.format(
+                progressBarFmt,
+                caption,
+                percentage + "%",
+                progressBuilder.toString(),
+                curr,
+                total,
+                timeFormat.format(new Date(timeRunning)),
+                timeFormat.format(new Date(timeEstimated))
+            );
+
+            System.out.println(progressBar);
         }
     }
 }
