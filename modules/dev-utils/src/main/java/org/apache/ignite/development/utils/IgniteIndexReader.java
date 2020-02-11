@@ -86,7 +86,11 @@ import static org.apache.ignite.internal.processors.cache.persistence.tree.io.Ab
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getType;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getVersion;
 
+/**
+ *
+ */
 public class IgniteIndexReader {
+    /** */
     private static final String META_TREE_NAME = "MetaTree";
 
     static {
@@ -96,23 +100,52 @@ public class IgniteIndexReader {
         H2ExtrasLeafIO.register();
     }
 
+    /** */
     private final int pageSize;
+
+    /** */
     private final int partCnt;
+
+    /** */
     private final File cacheWorkDir;
+
+    /** */
     private final DataStorageConfiguration dsCfg;
+
+    /** */
     private final FilePageStoreFactory storeFactory;
+
+    /** */
     private final AllocatedPageTracker allocatedTracker = AllocatedPageTracker.NO_OP;
+
+    /** */
     private final PrintStream outStream;
+
+    /** */
     private final PrintStream outErrStream;
+
+    /** */
     private final File idxFile;
+
+    /** */
     private final FilePageStore idxStore;
+
+    /** */
     private final FilePageStore[] partStores;
+
+    /** */
     private final long pagesNum;
+
+    /** */
     private final Set<Integer> missingPartitions = new HashSet<>();
 
+    /** */
     private PageIOProcessor innerPageIOProcessor = new InnerPageIOProcessor();
+
+    /** */
     private PageIOProcessor leafPageIOProcessor = new LeafPageIOProcessor();
 
+    /** */
     private final Map<Class, PageIOProcessor> ioProcessorsMap = new HashMap<Class, PageIOProcessor>() {{
         put(BPlusMetaIO.class, new MetaPageIOProcessor());
         put(BPlusInnerIO.class, innerPageIOProcessor);
@@ -123,6 +156,7 @@ public class IgniteIndexReader {
         put(IndexStorageImpl.MetaStoreLeafIO.class, leafPageIOProcessor);
     }};
 
+    /** */
     public IgniteIndexReader(String cacheWorkDirPath, int pageSize, int partCnt, int filePageStoreVer, String outputFile)
         throws IgniteCheckedException {
         this.pageSize = pageSize;
@@ -170,14 +204,17 @@ public class IgniteIndexReader {
         }
     }
 
+    /** */
     private void print(String s) {
         outStream.println(s);
     }
 
+    /** */
     private void printErr(String s) {
         outErrStream.println(s);
     }
 
+    /** */
     private void printStackTrace(Throwable e) {
         OutputStream os = new StringBuilderOutputStream();
 
@@ -186,10 +223,12 @@ public class IgniteIndexReader {
         printErr(os.toString());
     }
 
+    /** */
     private static long normalizePageId(long pageId) {
         return pageId(partId(pageId), flag(pageId), pageIndex(pageId));
     }
 
+    /** */
     private File getFile(int partId) {
         File file =  new File(cacheWorkDir, partId == INDEX_PARTITION ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId));
 
@@ -201,6 +240,7 @@ public class IgniteIndexReader {
         return file;
     }
 
+    /** */
     private void readIdx() {
         long partPageStoresNum = Arrays.stream(partStores)
                                        .filter(Objects::nonNull)
@@ -312,6 +352,7 @@ public class IgniteIndexReader {
             "from count of pages found in index trees and page lists.");
     }
 
+    /** */
     private PageListsInfo getPageListsMetaInfo(long metaPageListId) {
         Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData = new HashMap<>();
 
@@ -360,6 +401,7 @@ public class IgniteIndexReader {
         return new PageListsInfo(bucketsData, allPages, errors);
     }
 
+    /** */
     private List<Long> getPageList(long pageListStartId) {
         List<Long> res = new LinkedList<>();
 
@@ -391,6 +433,7 @@ public class IgniteIndexReader {
          return res;
     }
 
+    /** */
     private Map<String, TreeTraversalInfo> traverseAllTrees(long metaTreeRootPageId) {
         Map<String, TreeTraversalInfo> treeInfos = new HashMap<>();
 
@@ -413,6 +456,7 @@ public class IgniteIndexReader {
         return treeInfos;
     }
 
+    /** */
     private void printTraversalResults(Map<String, TreeTraversalInfo> treeInfos) {
         print("\nTree traversal results: ");
 
@@ -458,6 +502,7 @@ public class IgniteIndexReader {
         print("------------------");
     }
 
+    /** */
     private void printPagesListsInfo(PageListsInfo pageListsInfo) {
         print("\n---Page lists info.");
 
@@ -512,6 +557,7 @@ public class IgniteIndexReader {
         return new TreeTraversalInfo(ioStat, errors, innerPageIds, rootPageId, idxItems);
     }
 
+    /** */
     private TreeNode getTreeNode(long pageId, TreeNodeContext nodeCtx) {
         Class ioCls;
 
@@ -553,6 +599,7 @@ public class IgniteIndexReader {
         }
     }
 
+    /** */
     private static <T> T getOptionFromMap(Map<String, String> options, String name, Class<T> cls, Supplier<T> dfltVal) {
         String s = options.get(name);
 
@@ -569,6 +616,11 @@ public class IgniteIndexReader {
         return val == null ? dfltVal.get() : val;
     }
 
+    /**
+     * Entry point.
+     * @param args Arguments.
+     * @throws Exception If failed.
+     */
     public static void main(String[] args) throws Exception {
         try {
             Map<String, String> options = new HashMap<String, String>() {{
@@ -618,6 +670,9 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private static class TreeNode {
         final long pageId;
         final PageIO io;
@@ -633,6 +688,9 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private static class TreeNodeContext {
         final FilePageStore store;
         final Map<Class, AtomicLong> ioStat;
@@ -659,12 +717,16 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private static class PageContent {
         final PageIO io;
         final List<Long> linkedPageIds;
         final List<Object> items;
         final String info;
 
+        /** */
         public PageContent(PageIO io, List<Long> linkedPageIds, List<Object> items, String info) {
             this.io = io;
             this.linkedPageIds = linkedPageIds;
@@ -673,19 +735,35 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private interface PageCallback {
+        /** */
         void cb(PageContent pageContent, long pageId);
     }
 
+    /**
+     *
+     */
     private interface ItemCallback {
+        /** */
         void cb(long currPageId, Object item, long link);
     }
 
+    /**
+     *
+     */
     private interface PageIOProcessor {
+        /** */
         PageContent getContent(PageIO io, long addr, long pageId, TreeNodeContext nodeCtx);
+        /** */
         TreeNode getNode(PageContent content, long pageId, TreeNodeContext nodeCtx);
     }
 
+    /**
+     *
+     */
     private class MetaPageIOProcessor implements PageIOProcessor {
         /** {@inheritDoc} */
         @Override public PageContent getContent(PageIO io, long addr, long pageId, TreeNodeContext nodeCtx) {
@@ -703,6 +781,9 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private class InnerPageIOProcessor implements PageIOProcessor {
         /** {@inheritDoc} */
         @Override public PageContent getContent(PageIO io, long addr, long pageId, TreeNodeContext nodeCtx) {
@@ -743,6 +824,9 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private class LeafPageIOProcessor implements PageIOProcessor {
         /** {@inheritDoc} */
         @Override public PageContent getContent(PageIO io, long addr, long pageId, TreeNodeContext nodeCtx) {
@@ -780,6 +864,7 @@ public class IgniteIndexReader {
             return new PageContent(io, null, items, sb.toString());
         }
 
+        /** */
         private boolean processIndexLeaf(PageIO io, long addr, long pageId, TreeNodeContext nodeCtx) {
             if (io instanceof BPlusIO && io instanceof H2RowLinkIO) {
                 if (partCnt > 0) {
@@ -865,6 +950,9 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private static class TreeTraversalInfo {
         final Map<Class, AtomicLong> ioStat;
         final Map<Long, Set<Throwable>> errors;
@@ -872,6 +960,7 @@ public class IgniteIndexReader {
         final long rootPageId;
         final List<Object> idxItems;
 
+        /** */
         public TreeTraversalInfo(
             Map<Class, AtomicLong> ioStat,
             Map<Long, Set<Throwable>> errors,
@@ -887,11 +976,15 @@ public class IgniteIndexReader {
         }
     }
 
+    /**
+     *
+     */
     private static class PageListsInfo {
         final Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData;
         final Set<Long> allPages;
         final Map<Long, Throwable> errors;
 
+        /** */
         public PageListsInfo(
             Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData,
             Set<Long> allPages,
