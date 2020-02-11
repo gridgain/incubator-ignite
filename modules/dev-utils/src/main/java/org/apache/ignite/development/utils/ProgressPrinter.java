@@ -36,6 +36,9 @@ public class ProgressPrinter {
     private final long total;
 
     /** */
+    private long curr = 0;
+
+    /** */
     private final int chunksNum;
 
     /** */
@@ -45,7 +48,10 @@ public class ProgressPrinter {
     private final PrintStream printStream;
 
     /** */
-    private int lastChunkLogged;
+    private int lastChunkLogged = -1;
+
+    /** */
+    private Long timeStarted = null;
 
     /**
      * Constructor.
@@ -73,28 +79,33 @@ public class ProgressPrinter {
 
     /**
      * Prints current progress.
-     *
-     * @param curr Current count of processed items.
-     * @param timeStarted Timestamp when progress started.
      */
-    public void printProgress(long curr, long timeStarted) {
+    public void printProgress() {
+        curr++;
+
         if (curr > total)
             throw new RuntimeException("Current value can't be greater than total value.");
+
+        if (timeStarted == null) {
+            timeStarted = System.currentTimeMillis();
+
+            printStream.println();
+        }
 
         final double currRatio = (double)curr / total;
 
         final int currChunk = (int)(currRatio * chunksNum);
 
-        if (currChunk > lastChunkLogged) {
+        if (currChunk > lastChunkLogged || curr == total) {
             lastChunkLogged++;
 
-            printProgress0(curr, timeStarted, currRatio);
+            printProgress0(curr, currRatio);
         }
     }
 
     /** */
-    private void printProgress0(long curr, long timeStarted, double currRatio) {
-        String progressBarFmt = "%s: %4s [%" + PROGRESS_BAR_LENGTH + "s] %s/%s (%s / %s)";
+    private void printProgress0(long curr, double currRatio) {
+        String progressBarFmt = "\r%s: %4s [%" + PROGRESS_BAR_LENGTH + "s] %s/%s (%s / %s)";
 
         int percentage = (int)(currRatio * 100);
         int progressCurrLen = (int)(currRatio * PROGRESS_BAR_LENGTH);
@@ -121,6 +132,6 @@ public class ProgressPrinter {
             timeFormat.format(new Date(timeEstimated))
         );
 
-        printStream.println(progressBar);
+        printStream.print(progressBar);
     }
 }

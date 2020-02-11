@@ -18,6 +18,7 @@ package org.apache.ignite.development.utils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.LongStream;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -135,7 +138,7 @@ public class IgniteIndexReader {
 
         if (outputFile == null) {
             outStream = System.out;
-            outErrStream = System.err;
+            outErrStream = System.out;
         }
         else {
             try {
@@ -171,12 +174,16 @@ public class IgniteIndexReader {
         outStream.println(s);
     }
 
-    private void printConsole(String s) {
-        System.out.println(s);
-    }
-
     private void printErr(String s) {
         outErrStream.println(s);
+    }
+
+    private void printStackTrace(Throwable e) {
+        OutputStream os = new StringBuilderOutputStream();
+
+        e.printStackTrace(new PrintStream(os));
+
+        printErr(os.toString());
     }
 
     private static long normalizePageId(long pageId) {
@@ -194,7 +201,7 @@ public class IgniteIndexReader {
         return file;
     }
 
-    private void readIdx() throws IgniteCheckedException {
+    private void readIdx() {
         long partPageStoresNum = Arrays.stream(partStores)
                                        .filter(Objects::nonNull)
                                        .count();
@@ -207,11 +214,11 @@ public class IgniteIndexReader {
 
         Map<Class, Set<Long>> pageIoIds = new HashMap<>();
 
+        Map<String, TreeTraversalInfo> treeInfo = null;
+
         AtomicReference<PageListsInfo> pageListsInfo = new AtomicReference<>();
 
         List<Throwable> errors = new LinkedList<>();
-
-        long timeStarted = 0;
 
         ProgressPrinter progressPrinter = new ProgressPrinter(System.out, "Reading pages sequentially", pagesNum);
 
@@ -219,6 +226,8 @@ public class IgniteIndexReader {
             ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
 
             try {
+                progressPrinter.printProgress();
+
                 long addr = GridUnsafe.bufferAddress(buf);
 
                 long pageId = PageIdUtils.pageId(INDEX_PARTITION, FLAG_IDX, i);
@@ -235,10 +244,7 @@ public class IgniteIndexReader {
                 if (io instanceof PageMetaIO) {
                     PageMetaIO pageMetaIO = (PageMetaIO)io;
 
-                    Map<String, TreeValidationInfo> treeInfo =
-                        validateAllTrees(pageMetaIO.getTreeRoot(addr));
-
-                    printValidationResults(treeInfo);
+                    treeInfo = traverseAllTrees(pageMetaIO.getTreeRoot(addr));
 
                     treeInfo.forEach((name, info) -> {
                         info.innerPageIds.forEach(id -> {
@@ -254,17 +260,9 @@ public class IgniteIndexReader {
 
                     print("");
                 }
-                else if (io instanceof PagesListMetaIO) {
+                else if (io instanceof PagesListMetaIO)
                     pageListsInfo.set(getPageListsMetaInfo(pageId));
-
-                    printPagesListsInfo(pageListsInfo.get());
-                }
                 else {
-                    if (timeStarted == 0)
-                        timeStarted = System.currentTimeMillis();
-
-                    progressPrinter.printProgress(i, timeStarted);
-
                     ofNullable(pageIoIds.get(io.getClass())).ifPresent((pageIds) -> {
                         if (!pageIds.contains(pageId)) {
                             boolean foundInList =
@@ -287,18 +285,31 @@ public class IgniteIndexReader {
             }
         }
 
+        if (treeInfo == null)
+            printErr("No tree meta info found.");
+        else
+            printTraversalResults(treeInfo);
+
+        if (pageListsInfo.get() == null)
+            printErr("No page lists meta info found.");
+        else
+            printPagesListsInfo(pageListsInfo.get());
+
+        print("\n---These pages types were encountered during sequential scan:");
+        pageClasses.forEach((key, val) -> print(key.getSimpleName() + ": " + val));
+
         if (!errors.isEmpty()) {
-            printErr("---Errors:");
+            printErr("---");
+            printErr("Errors:");
 
             errors.forEach(e -> printErr(e.toString()));
         }
 
-        print("---These pages types were encountered during sequential scan:");
-        pageClasses.forEach((key, val) -> print(key.getSimpleName() + ": " + val));
-
         print("---");
         print("Total pages encountered during sequential scan: " + pageClasses.values().stream().mapToLong(a -> a).sum());
         print("Total errors while pages encountering: " + errors.size());
+        print("Note that some pages can be occupied by meta info, tracking info, etc., so total page count can differ " +
+            "from count of pages found in index trees and page lists.");
     }
 
     private PageListsInfo getPageListsMetaInfo(long metaPageListId) {
@@ -380,36 +391,30 @@ public class IgniteIndexReader {
          return res;
     }
 
-    private Map<String, TreeValidationInfo> validateAllTrees(long metaTreeRootPageId) {
-        Map<String, TreeValidationInfo> treeInfos = new HashMap<>();
+    private Map<String, TreeTraversalInfo> traverseAllTrees(long metaTreeRootPageId) {
+        Map<String, TreeTraversalInfo> treeInfos = new HashMap<>();
 
-        TreeValidationInfo metaTreeValidationInfo = validateTree(metaTreeRootPageId, true);
+        TreeTraversalInfo metaTreeTraversalInfo = traverseTree(metaTreeRootPageId, true);
 
-        treeInfos.put(META_TREE_NAME, metaTreeValidationInfo);
+        treeInfos.put(META_TREE_NAME, metaTreeTraversalInfo);
 
-        AtomicInteger progress = new AtomicInteger(0);
+        ProgressPrinter progressPrinter = new ProgressPrinter(System.out, "Index trees traversal", metaTreeTraversalInfo.idxItems.size());
 
-        long startTime = System.currentTimeMillis();
-
-        print("");
-
-        ProgressPrinter progressPrinter = new ProgressPrinter(System.out, "Index trees traversal", metaTreeValidationInfo.idxItems.size());
-
-        metaTreeValidationInfo.idxItems.forEach(item -> {
-            progressPrinter.printProgress(progress.incrementAndGet(), startTime);
+        metaTreeTraversalInfo.idxItems.forEach(item -> {
+            progressPrinter.printProgress();
 
             IndexStorageImpl.IndexItem idxItem = (IndexStorageImpl.IndexItem)item;
 
-            TreeValidationInfo treeValidationInfo = validateTree(idxItem.pageId(), false);
+            TreeTraversalInfo treeTraversalInfo = traverseTree(idxItem.pageId(), false);
 
-            treeInfos.put(idxItem.toString(), treeValidationInfo);
+            treeInfos.put(idxItem.toString(), treeTraversalInfo);
         });
 
         return treeInfos;
     }
 
-    private void printValidationResults(Map<String, TreeValidationInfo> treeInfos) {
-        print("Tree traversal results: ");
+    private void printTraversalResults(Map<String, TreeTraversalInfo> treeInfos) {
+        print("\nTree traversal results: ");
 
         Map<Class, AtomicLong> totalStat = new HashMap<>();
 
@@ -430,9 +435,9 @@ public class IgniteIndexReader {
                 print("-- Errors:");
 
                 validationInfo.errors.forEach((id, errors) -> {
-                    print("Page id=" + id + ", errors:");
+                    print("Page id=" + id + ", exceptions:");
 
-                    errors.forEach(e -> e.printStackTrace());
+                    errors.forEach(this::printStackTrace);
 
                     totalErr.addAndGet(errors.size());
                 });
@@ -441,7 +446,8 @@ public class IgniteIndexReader {
                 print("No errors occurred while traversing.");
         });
 
-        print("-- Total page stat:");
+        print("---");
+        print("Total page stat:");
 
         totalStat.forEach((cls, cnt) -> print(cls.getSimpleName() + ": " + cnt.get()));
 
@@ -453,8 +459,10 @@ public class IgniteIndexReader {
     }
 
     private void printPagesListsInfo(PageListsInfo pageListsInfo) {
-        print("---Page lists info.");
-        print("---Printing buckets data:");
+        print("\n---Page lists info.");
+
+        if (pageListsInfo.bucketsData.size() > 0)
+            print("---Printing buckets data:");
 
         pageListsInfo.bucketsData.forEach((bucket, bucketData) -> {
             GridStringBuilder sb = new GridStringBuilder()
@@ -473,9 +481,9 @@ public class IgniteIndexReader {
             print("---Errors:");
 
             pageListsInfo.errors.forEach((id, error) -> {
-                printErr("Page id: " + id + ", error: ");
+                printErr("Page id: " + id + ", exception: ");
 
-                error.printStackTrace();
+                printStackTrace(error);
             });
         }
 
@@ -486,7 +494,7 @@ public class IgniteIndexReader {
     }
 
     /** */
-    private TreeValidationInfo validateTree(long rootPageId, boolean isMetaTree) {
+    private TreeTraversalInfo traverseTree(long rootPageId, boolean isMetaTree) {
         Map<Class, AtomicLong> ioStat = new HashMap<>();
 
         Map<Long, Set<Throwable>> errors = new HashMap<>();
@@ -501,13 +509,10 @@ public class IgniteIndexReader {
 
         getTreeNode(rootPageId, new TreeNodeContext(idxStore, ioStat, errors, innerCb, null, itemCb));
 
-        return new TreeValidationInfo(ioStat, errors, innerPageIds, rootPageId, idxItems);
+        return new TreeTraversalInfo(ioStat, errors, innerPageIds, rootPageId, idxItems);
     }
 
-    private TreeNode getTreeNode(
-        long pageId,
-        TreeNodeContext nodeCtx
-    ) {
+    private TreeNode getTreeNode(long pageId, TreeNodeContext nodeCtx) {
         Class ioCls;
 
         PageContent pageContent;
@@ -548,23 +553,66 @@ public class IgniteIndexReader {
         }
     }
 
+    private static <T> T getOptionFromMap(Map<String, String> options, String name, Class<T> cls, Supplier<T> dfltVal) {
+        String s = options.get(name);
+
+        if (s == null)
+            return dfltVal.get();
+
+        T val = null;
+
+        if (cls.equals(String.class))
+            val = (T)s;
+        else if (cls.equals(Integer.class))
+            val = (T)new Integer(Integer.parseInt(s));
+
+        return val == null ? dfltVal.get() : val;
+    }
+
     public static void main(String[] args) throws Exception {
         try {
-            String dir = args[0];
+            Map<String, String> options = new HashMap<String, String>() {{
+                put("--dir", null);
+                put("--partCnt", null);
+                put("--pageSize", null);
+                put("--pageStoreVer", null);
+                put("--destFile", null);
+            }};
 
-            int partCnt = args.length > 1 ? Integer.parseInt(args[1]) : 0;
+            for (Iterator<String> iterator = Arrays.asList(args).iterator(); iterator.hasNext();) {
+                String option = iterator.next();
 
-            int pageSize = args.length > 2 ? Integer.parseInt(args[2]) : 4096;
+                if (!options.containsKey(option))
+                    throw new Exception("Unexpected option: " + option);
 
-            int filePageStoreVer = args.length > 3 ? Integer.parseInt(args[3]) : 2;
+                if (!iterator.hasNext())
+                    throw new Exception("Please specify a value for option: " + option);
 
-            String outputFile = args.length > 4 ? args[4] : null;
+                String val = iterator.next();
 
-            new IgniteIndexReader(dir, pageSize, partCnt, filePageStoreVer, outputFile)
+                options.put(option, val);
+            }
+
+            String dir = getOptionFromMap(options, "--dir", String.class, () -> { throw new IgniteException("File path was not specified."); } );
+
+            int partCnt = getOptionFromMap(options, "--partCnt", Integer.class, () -> 0);
+
+            int pageSize = getOptionFromMap(options, "--pageSize", Integer.class, () -> 4096);
+
+            int pageStoreVer = getOptionFromMap(options, "--pageStoreVer", Integer.class, () -> 2);
+
+            String destFile = getOptionFromMap(options, "--destFile", String.class, () -> null);
+
+            new IgniteIndexReader(dir, pageSize, partCnt, pageStoreVer, destFile)
                 .readIdx();
         }
         catch (Exception e) {
-            System.err.println("options: path [partCnt] [pageSize] [filePageStoreVersion]");
+            System.err.println("How to use: please pass option names, followed by space and option values. Options list:");
+            System.err.println("--dir: partition directory, where index.bin and (optionally) partition files are located (obligatory)");
+            System.err.println("--partCnt: partitions count (optional)");
+            System.err.println("--pageSize: page size (optional, default value is 4096)");
+            System.err.println("--pageStoreVer: page store version (optional, default value is 2)");
+            System.err.println("--destFile: file to print the report to (optional, by default report is printed to console)");
 
             throw e;
         }
@@ -789,8 +837,7 @@ public class IgniteIndexReader {
                             }
                         }
                         catch (Exception e) {
-                            nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>())
-                                .add(new IgniteException("Exception while trying to validate data page.", e));
+                            nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>()).add(e);
                         }
                         finally {
                             GridUnsafe.freeBuffer(dataBuf);
@@ -818,14 +865,14 @@ public class IgniteIndexReader {
         }
     }
 
-    private static class TreeValidationInfo {
+    private static class TreeTraversalInfo {
         final Map<Class, AtomicLong> ioStat;
         final Map<Long, Set<Throwable>> errors;
         final Set<Long> innerPageIds;
         final long rootPageId;
         final List<Object> idxItems;
 
-        public TreeValidationInfo(
+        public TreeTraversalInfo(
             Map<Class, AtomicLong> ioStat,
             Map<Long, Set<Throwable>> errors,
             Set<Long> innerPageIds,
