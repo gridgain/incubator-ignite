@@ -57,6 +57,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageI
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageMetaIO;
+import org.apache.ignite.internal.processors.cache.tree.PendingRowIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2InnerIO;
@@ -579,7 +580,7 @@ public class IgniteIndexReader {
 
                 nodeCtx.ioStat.computeIfAbsent(io.getClass(), k -> new AtomicLong(0)).incrementAndGet();
 
-                ioProcessor = ioProcessorsMap.get(ioCls);
+                ioProcessor = ioProcessorsMap.getOrDefault(ioCls, getDefaultIoProcessor(io));
 
                 if (ioProcessor == null)
                     throw new IgniteException("Unexpected page io: " + ioCls.getSimpleName());
@@ -597,6 +598,16 @@ public class IgniteIndexReader {
 
             return new TreeNode(pageId, null, "exception: " + e.getMessage(), Collections.emptyList());
         }
+    }
+
+    /** */
+    private PageIOProcessor getDefaultIoProcessor(PageIO io) {
+        if (io instanceof BPlusInnerIO)
+            return ioProcessorsMap.get(BPlusInnerIO.class);
+        else if (io instanceof BPlusLeafIO)
+            return ioProcessorsMap.get(BPlusLeafIO.class);
+        else
+            return null;
     }
 
     /** */
@@ -866,12 +877,20 @@ public class IgniteIndexReader {
 
         /** */
         private boolean processIndexLeaf(PageIO io, long addr, long pageId, TreeNodeContext nodeCtx) {
-            if (io instanceof BPlusIO && io instanceof H2RowLinkIO) {
+            if (io instanceof BPlusIO && (io instanceof H2RowLinkIO || io instanceof PendingRowIO)) {
                 if (partCnt > 0) {
                     int itemsCnt = ((BPlusIO)io).getCount(addr);
 
                     for (int j = 0; j < itemsCnt; j++) {
-                        long link = ((H2RowLinkIO)io).getLink(addr, j);
+                        long link = 0;
+
+                        if (io instanceof H2RowLinkIO)
+                            link = ((H2RowLinkIO)io).getLink(addr, j);
+                        else if (io instanceof PendingRowIO)
+                            link = ((PendingRowIO)io).getLink(addr, j);
+
+                        if (link == 0)
+                            throw new IgniteException("No link to data page on idx=" + j);
 
                         long linkedPageId = pageId(link);
 
