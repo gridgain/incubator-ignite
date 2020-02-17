@@ -348,7 +348,7 @@ public class IgniteIndexReader {
 
         print("---");
         print("Total pages encountered during sequential scan: " + pageClasses.values().stream().mapToLong(a -> a).sum());
-        print("Total errors while pages encountering: " + errors.size());
+        print("Total errors occurred during sequential scan: " + errors.size());
         print("Note that some pages can be occupied by meta info, tracking info, etc., so total page count can differ " +
             "from count of pages found in index trees and page lists.");
     }
@@ -358,6 +358,8 @@ public class IgniteIndexReader {
         Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData = new HashMap<>();
 
         Set<Long> allPages = new HashSet<>();
+
+        Map<Class, AtomicLong> pageListStat = new HashMap<>();
 
         Map<Long, Throwable> errors = new HashMap<>();
 
@@ -382,7 +384,7 @@ public class IgniteIndexReader {
                 data.forEach((k, v) -> {
                     List<Long> listIds = LongStream.of(v.array()).map(IgniteIndexReader::normalizePageId).boxed().collect(toList());
 
-                    listIds.forEach(listId -> allPages.addAll(getPageList(listId)));
+                    listIds.forEach(listId -> allPages.addAll(getPageList(listId, pageListStat)));
 
                     bucketsData.put(new IgniteBiTuple<>(fNextMetaId, k), listIds);
                 });
@@ -399,11 +401,11 @@ public class IgniteIndexReader {
             }
         }
 
-        return new PageListsInfo(bucketsData, allPages, errors);
+        return new PageListsInfo(bucketsData, allPages, pageListStat, errors);
     }
 
     /** */
-    private List<Long> getPageList(long pageListStartId) {
+    private List<Long> getPageList(long pageListStartId, Map<Class, AtomicLong> pageStat) {
         List<Long> res = new LinkedList<>();
 
         long nextNodeId = pageListStartId;
@@ -418,8 +420,26 @@ public class IgniteIndexReader {
 
                 PagesListNodeIO io = PageIO.getPageIO(addr);
 
-                for (int i = 0; i < io.getCount(addr); i++)
-                    res.add(normalizePageId(io.getAt(addr, i)));
+                for (int i = 0; i < io.getCount(addr); i++) {
+                    long pageId = normalizePageId(io.getAt(addr, i));
+
+                    res.add(pageId);
+
+                    ByteBuffer pageBuf = GridUnsafe.allocateBuffer(pageSize);
+
+                    try {
+                        long pageAddr = GridUnsafe.bufferAddress(pageBuf);
+
+                        idxStore.read(pageId, pageBuf, false);
+
+                        PageIO pageIO = PageIO.getPageIO(pageAddr);
+
+                        pageStat.computeIfAbsent(pageIO.getClass(), k -> new AtomicLong(0)).incrementAndGet();
+                    }
+                    finally {
+                        GridUnsafe.freeBuffer(pageBuf);
+                    }
+                }
 
                 nextNodeId = io.getNextId(addr);
             }
@@ -476,6 +496,8 @@ public class IgniteIndexReader {
                 totalStat.computeIfAbsent(cls, k -> new AtomicLong(0)).addAndGet(cnt.get());
             });
 
+            print("-- Count of items found in leaf pages: " + validationInfo.itemsCnt);
+
             if (validationInfo.errors.size() > 0) {
                 print("-- Errors:");
 
@@ -492,7 +514,7 @@ public class IgniteIndexReader {
         });
 
         print("---");
-        print("Total page stat:");
+        print("Total page stat collected during trees traversal:");
 
         totalStat.forEach((cls, cnt) -> print(cls.getSimpleName() + ": " + cnt.get()));
 
@@ -523,6 +545,12 @@ public class IgniteIndexReader {
             print(sb.toString());
         });
 
+        if (pageListsInfo.allPages.size() > 0) {
+            print("-- Page stat:");
+
+            pageListsInfo.pageListStat.forEach((cls, cnt) -> print(cls.getSimpleName() + ": " + cnt.get()));
+        }
+
         if (!pageListsInfo.errors.isEmpty()) {
             print("---Errors:");
 
@@ -551,11 +579,17 @@ public class IgniteIndexReader {
 
         List<Object> idxItems = new LinkedList<>();
 
-        ItemCallback itemCb = isMetaTree ? (currPageId, item, link) -> idxItems.add(item) : null;
+        AtomicLong idxItemsCnt = new AtomicLong(0);
+
+        ItemCallback itemCb = isMetaTree
+            ? (currPageId, item, link) -> idxItems.add(item)
+            : (currPageId, item, link) -> idxItemsCnt.incrementAndGet();
 
         getTreeNode(rootPageId, new TreeNodeContext(idxStore, ioStat, errors, innerCb, null, itemCb));
 
-        return new TreeTraversalInfo(ioStat, errors, innerPageIds, rootPageId, idxItems);
+        return isMetaTree
+            ? new TreeTraversalInfo(ioStat, errors, innerPageIds, rootPageId, idxItems)
+            : new TreeTraversalInfo(ioStat, errors, innerPageIds, rootPageId, idxItemsCnt.get());
     }
 
     /** */
@@ -866,7 +900,7 @@ public class IgniteIndexReader {
                 }
             }
             else {
-                boolean processed = processIndexLeaf(io, addr, pageId, nodeCtx);
+                boolean processed = processIndexLeaf(io, addr, pageId, items, nodeCtx);
 
                 if (!processed)
                     throw new IgniteException("Unexpected page io: " + io.getClass().getSimpleName());
@@ -876,22 +910,24 @@ public class IgniteIndexReader {
         }
 
         /** */
-        private boolean processIndexLeaf(PageIO io, long addr, long pageId, TreeNodeContext nodeCtx) {
+        private boolean processIndexLeaf(PageIO io, long addr, long pageId, List<Object> items, TreeNodeContext nodeCtx) {
             if (io instanceof BPlusIO && (io instanceof H2RowLinkIO || io instanceof PendingRowIO)) {
-                if (partCnt > 0) {
-                    int itemsCnt = ((BPlusIO)io).getCount(addr);
+                int itemsCnt = ((BPlusIO)io).getCount(addr);
 
-                    for (int j = 0; j < itemsCnt; j++) {
-                        long link = 0;
+                for (int j = 0; j < itemsCnt; j++) {
+                    long link = 0;
 
-                        if (io instanceof H2RowLinkIO)
-                            link = ((H2RowLinkIO)io).getLink(addr, j);
-                        else if (io instanceof PendingRowIO)
-                            link = ((PendingRowIO)io).getLink(addr, j);
+                    if (io instanceof H2RowLinkIO)
+                        link = ((H2RowLinkIO)io).getLink(addr, j);
+                    else if (io instanceof PendingRowIO)
+                        link = ((PendingRowIO)io).getLink(addr, j);
 
-                        if (link == 0)
-                            throw new IgniteException("No link to data page on idx=" + j);
+                    if (link == 0)
+                        throw new IgniteException("No link to data page on idx=" + j);
 
+                    items.add(link);
+
+                    if (partCnt > 0) {
                         long linkedPageId = pageId(link);
 
                         int linkedPagePartId = partId(linkedPageId);
@@ -978,6 +1014,7 @@ public class IgniteIndexReader {
         final Set<Long> innerPageIds;
         final long rootPageId;
         final List<Object> idxItems;
+        final long itemsCnt;
 
         /** */
         public TreeTraversalInfo(
@@ -992,6 +1029,22 @@ public class IgniteIndexReader {
             this.innerPageIds = innerPageIds;
             this.rootPageId = rootPageId;
             this.idxItems = idxItems;
+            this.itemsCnt = idxItems.size();
+        }
+
+        public TreeTraversalInfo(
+            Map<Class, AtomicLong> ioStat,
+            Map<Long, Set<Throwable>> errors,
+            Set<Long> innerPageIds,
+            long rootPageId,
+            long itemsCnt
+        ) {
+            this.ioStat = ioStat;
+            this.errors = errors;
+            this.innerPageIds = innerPageIds;
+            this.rootPageId = rootPageId;
+            this.idxItems = null;
+            this.itemsCnt = itemsCnt;
         }
     }
 
@@ -1001,16 +1054,19 @@ public class IgniteIndexReader {
     private static class PageListsInfo {
         final Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData;
         final Set<Long> allPages;
+        final Map<Class, AtomicLong> pageListStat;
         final Map<Long, Throwable> errors;
 
         /** */
         public PageListsInfo(
             Map<IgniteBiTuple<Long, Integer>, List<Long>> bucketsData,
             Set<Long> allPages,
+            Map<Class, AtomicLong> pageListStat,
             Map<Long, Throwable> errors
         ) {
             this.bucketsData = bucketsData;
             this.allPages = allPages;
+            this.pageListStat = pageListStat;
             this.errors = errors;
         }
     }
