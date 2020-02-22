@@ -23,9 +23,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
@@ -396,7 +398,11 @@ public class IgniteClientCacheInitializationFailTest extends GridCommonAbstractT
         }
 
         /** {@inheritDoc} */
-        @Override public long indexSize(String schemaName, String idxName) throws IgniteCheckedException {
+        @Override public long indexSize(
+            String schemaName,
+            String idxName,
+            @Nullable Map<String, AtomicLong> pageIoStat
+        ) throws IgniteCheckedException {
             return 0;
         }
     }

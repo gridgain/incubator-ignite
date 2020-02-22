@@ -20,7 +20,9 @@ package org.apache.ignite.internal.processors.query.h2.database;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -131,8 +133,8 @@ public class H2TreeIndex extends GridH2IndexBase {
             for (int i = 0; i < segments.length; i++) {
                 db.checkpointReadLock();
 
-            try {
-                RootPage page = getMetaPage(i);
+                try {
+                    RootPage page = getMetaPage(i);
 
                     segments[i] = new H2Tree(
                         name,
@@ -508,7 +510,7 @@ public class H2TreeIndex extends GridH2IndexBase {
 
             BPlusTree.TreeRowClosure<SearchRow, GridH2Row> filter = filterClosure();
 
-            return tree.size(filter);
+            return tree.size(filter, null);
         }
         catch (IgniteCheckedException e) {
             throw DbException.convert(e);
@@ -749,16 +751,17 @@ public class H2TreeIndex extends GridH2IndexBase {
     /**
      * Returns number of elements in the tree by scanning pages of the bottom (leaf) level.
      *
+     * @param pageIoStat PagIO read counters.
      * @return Number of elements in the tree.
      * @throws IgniteCheckedException If failed.
      */
-    public long size() throws IgniteCheckedException {
+    public long size(@Nullable Map<String, AtomicLong> pageIoStat) throws IgniteCheckedException {
         long ret = 0;
 
         for (int i = 0; i < segmentsCount(); i++) {
             final H2Tree tree = treeForRead(i);
 
-            ret += tree.size();
+            ret += tree.size(null, pageIoStat);
         }
 
         return ret;

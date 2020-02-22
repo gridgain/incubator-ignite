@@ -1244,7 +1244,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
             if (rowMatcher.apply(row))
                 ++correctMatchingRows;
 
-            assertEquals(correctMatchingRows, testTree.size(rowClosure));
+            assertEquals(correctMatchingRows, testTree.size(rowClosure, null));
 
             long correctSize = goldenMap.size();
 
@@ -1269,7 +1269,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
             if (rowMatcher.apply(row))
                 --correctMatchingRows;
 
-            assertEquals(correctMatchingRows, testTree.size(rowClosure));
+            assertEquals(correctMatchingRows, testTree.size(rowClosure, null));
 
             long correctSize = goldenMap.size();
 
@@ -1526,7 +1526,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
                     long correctSize = curPutKey.get() - curRmvKey.get();
 
                     treeContents.clear();
-                    long treeSize = tree.size(rowDumper);
+                    long treeSize = tree.size(rowDumper, null);
 
                     long minBound = correctSize - putRmvThreadCnt;
                     long maxBound = correctSize + putRmvThreadCnt;
@@ -1679,7 +1679,7 @@ public class BPlusTreeSelfTest extends GridCommonAbstractTest {
                 while (!stop.get()) {
                     treeContents.clear();
 
-                    long treeSize = tree.size(rowDumper);
+                    long treeSize = tree.size(rowDumper, null);
                     long curPutVal = curPutKey.get();
 
                     X.println(" ======> size=" + treeSize + "; last-put-value=" + curPutVal);

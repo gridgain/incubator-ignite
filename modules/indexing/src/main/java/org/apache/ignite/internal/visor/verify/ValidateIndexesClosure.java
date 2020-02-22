@@ -83,6 +83,7 @@ import org.h2.index.Index;
 import org.h2.message.DbException;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.nonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
@@ -144,8 +145,7 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
     private volatile ExecutorService calcExecutor;
 
     /** Collection to output size of indexes. */
-    private final List<T3<GridCacheContext, Index, Future<T2<Throwable, Long>>>> idxSizeFutures =
-        new ArrayList<>();
+    private final List<T3<GridCacheContext, Index, Future<IndexSize>>> idxSizeFutures = new ArrayList<>();
 
     /**
      * @param cacheNames Cache names.
@@ -352,32 +352,30 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         if (remainCalc != 0) {
             log.info("Waiting for " + remainCalc + " index sizes to be calculated.");
 
-            for (T3<GridCacheContext, Index, Future<T2<Throwable, Long>>> idxSizeFut : idxSizeFutures) {
+            for (T3<GridCacheContext, Index, Future<IndexSize>> idxSizeFut : idxSizeFutures) {
                 try {
                     idxSizeFut.get3().get();
                 }
                 catch (Throwable t) {
-                    idxSizeFut.set3(completedFuture(new T2<>(t, null)));
+                    idxSizeFut.set3(completedFuture(new IndexSize(t)));
                 }
             }
         }
 
         log.info("Output size of " + idxSizeFutureSize + " indexes: " + errStatPostfix(err));
 
-        for (T3<GridCacheContext, Index, Future<T2<Throwable, Long>>> idxSizeFut : idxSizeFutures) {
+        for (T3<GridCacheContext, Index, Future<IndexSize>> idxSizeFut : idxSizeFutures) {
             GridCacheContext cacheCtx = idxSizeFut.get1();
             CacheGroupContext cacheGrpCtx = cacheCtx.group();
             Index idx = idxSizeFut.get2();
 
-            String idxSizePrefix = "Result of calculating index size [grpId=" + cacheGrpCtx.groupId() + ", grpName=" +
-                cacheGrpCtx.name() + ", cacheId=" + cacheCtx.cacheId() + ", cacheName=" + cacheCtx.name() +
-                ", schemaName=" + idx.getSchema().getName() + ", tableName=" + idx.getTable().getName() +
-                ", indexName=" + idx.getName() + "]";
+            String idxSizePrefix = "    Result of calculating index size [grpId=" + cacheGrpCtx.groupId() +
+                ", grpName=" + cacheGrpCtx.name() + ", cacheId=" + cacheCtx.cacheId() + ", cacheName=" +
+                cacheCtx.name() + ", schemaName=" + idx.getSchema().getName() + ", tableName=" +
+                idx.getTable().getName() + ", indexName=" + idx.getName() + "] ";
 
             try {
-                T2<Throwable, Long> idxSize = idxSizeFut.get3().get();
-
-                log.info("  " + idxSizePrefix + ": size=" + idxSize.get2() + " " + errStatPostfix(idxSize.get1()));
+                log.info(idxSizePrefix + idxSizeFut.get3().get());
             }
             catch (Throwable ignore) {
             }
@@ -530,13 +528,13 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         GridDhtLocalPartition part
     ) {
         if (!part.reserve())
-            return Collections.emptyMap();
+            return emptyMap();
 
         ValidateIndexesPartitionResult partRes;
 
         try {
             if (part.state() != GridDhtPartitionState.OWNING)
-                return Collections.emptyMap();
+                return emptyMap();
 
             long updateCntrBefore = part.updateCounter();
 
@@ -682,7 +680,7 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
             U.error(log, "Failed to process partition [grpId=" + grpCtx.groupId() +
                 ", partId=" + part.id() + "]", e);
 
-            return Collections.emptyMap();
+            return emptyMap();
         }
         finally {
             part.release();
@@ -866,17 +864,21 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
      * @param idx Index.
      * @return Futures to get result of calculating index size.
      */
-    private Future<T2<Throwable, Long>> calcIdxSizeAsync(Index idx) {
+    private Future<IndexSize> calcIdxSizeAsync(Index idx) {
         return calcExecutor.submit(() -> {
-            T2<Throwable, Long> idxSizeRes = new T2<>();
+            IndexSize indexSize = new IndexSize();
 
             try {
-                idxSizeRes.set2(
-                    ignite.context().query().getIndexing().indexSize(idx.getSchema().getName(), idx.getName())
+                indexSize.set2(
+                    ignite.context().query().getIndexing().indexSize(
+                        idx.getSchema().getName(),
+                        idx.getName(),
+                        indexSize.get3()
+                    )
                 );
             }
             catch (Throwable t) {
-                idxSizeRes.set1(t);
+                indexSize.set1(t);
             }
             finally {
                 processedIndexSizes.incrementAndGet();
@@ -884,7 +886,33 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
                 printProgressOfIndexValidationIfNeeded();
             }
 
-            return idxSizeRes;
+            return indexSize;
         });
+    }
+
+    /**
+     * Container class for calculating index size.
+     */
+    private static class IndexSize extends T3<Throwable, Long, Map<String, AtomicLong>> {
+        /**
+         * Default constructor.
+         */
+        public IndexSize() {
+            super(null, null, new HashMap<>());
+        }
+
+        /**
+         * Constructor.
+         *
+         * @param err Error when calculating size of index.
+         */
+        public IndexSize(Throwable err) {
+            super(err, null, emptyMap());
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return "IndexSize[err=" + get1() + ", size=" + get2() + ", ioCnt=" + get3() + "]";
+        }
     }
 }

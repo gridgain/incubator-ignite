@@ -21,6 +21,8 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
@@ -361,9 +363,14 @@ public interface GridQueryIndexing {
      *
      * @param schemaName Schema name.
      * @param idxName Index name.
+     * @param pageIoStat PagIO read counters.
      * @return Index size (Number of elements) or {@code 0} if index not found.
      */
-    default long indexSize(String schemaName, String idxName) throws IgniteCheckedException {
+    default long indexSize(
+        String schemaName,
+        String idxName,
+        @Nullable Map<String, AtomicLong> pageIoStat
+    ) throws IgniteCheckedException {
         return 0;
     }
 }

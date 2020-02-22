@@ -2898,7 +2898,11 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     }
 
     /** {@inheritDoc} */
-    @Override public long indexSize(String schemaName, String idxName) throws IgniteCheckedException {
+    @Override public long indexSize(
+        String schemaName,
+        String idxName,
+        @Nullable Map<String, AtomicLong> pageIoStat
+    ) throws IgniteCheckedException {
         GridH2Table tbl = dataTableForIndex(schemaName, idxName);
 
         if (tbl == null)
@@ -2906,6 +2910,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         H2TreeIndex idx = (H2TreeIndex)tbl.userIndex(idxName);
 
-        return idx == null ? 0 : idx.size();
+        return idx == null ? 0 : idx.size(pageIoStat);
     }
 }

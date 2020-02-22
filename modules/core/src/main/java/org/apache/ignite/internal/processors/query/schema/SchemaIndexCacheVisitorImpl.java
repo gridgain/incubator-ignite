@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.processors.query.schema;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
@@ -175,21 +177,27 @@ public class SchemaIndexCacheVisitorImpl implements SchemaIndexCacheVisitor {
 
         final GridQueryIndexing idx = cctx.kernalContext().query().getIndexing();
 
+        Map<String, AtomicLong> ioStat = new HashMap<>();
+
         for (QueryTypeDescriptorImpl type : stat.types.values()) {
             res.a("        Type name=" + type.name());
             res.a(U.nl());
 
             final String pk = "_key_PK";
 
-            res.a("            Index: name=" + pk + ", size=" + idx.indexSize(type.schemaName(), pk));
+            ioStat.clear();
+            long idxSize = idx.indexSize(type.schemaName(), pk, ioStat);
+
+            res.a("            Index: name=" + pk + ", size=" + idxSize + ", ioStat=" + ioStat);
             res.a(U.nl());
 
             final Map<String, GridQueryIndexDescriptor> indexes = type.indexes();
 
             for (GridQueryIndexDescriptor descriptor : indexes.values()) {
-                final long size = idx.indexSize(type.schemaName(), descriptor.name());
+                ioStat.clear();
+                final long size = idx.indexSize(type.schemaName(), descriptor.name(), ioStat);
 
-                res.a("            Index: name=" + descriptor.name() + ", size=" + size);
+                res.a("            Index: name=" + descriptor.name() + ", size=" + size + ", ioStat=" + ioStat);
                 res.a(U.nl());
             }
         }

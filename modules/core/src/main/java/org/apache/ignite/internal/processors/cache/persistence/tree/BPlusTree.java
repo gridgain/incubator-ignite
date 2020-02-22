@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.Objects.nonNull;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_BPLUS_TREE_LOCK_RETRIES;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree.Bool.DONE;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree.Bool.FALSE;
@@ -932,13 +934,17 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      * @param metaId Meta page ID.
      * @param metaPage Meta page pointer.
      * @param lvl Level, if {@code 0} then it is a bottom level, if negative then root.
+     * @param pageIoStat PagIO read counters.
      * @return Page ID.
      */
-    private long getFirstPageId(long metaId, long metaPage, int lvl) {
+    private long getFirstPageId(long metaId, long metaPage, int lvl, @Nullable Map<String, AtomicLong> pageIoStat) {
         long pageAddr = readLock(metaId, metaPage); // Meta can't be removed.
 
         try {
             BPlusMetaIO io = BPlusMetaIO.VERSIONS.forPage(pageAddr);
+
+            if (nonNull(pageIoStat))
+                pageIoStat.computeIfAbsent(io.getClass().getName(), s -> new AtomicLong()).incrementAndGet();
 
             if (lvl < 0)
                 lvl = io.getRootLevel(pageAddr);
@@ -966,7 +972,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
         long metaPage = acquirePage(metaPageId);
         try  {
-            firstPageId = getFirstPageId(metaPageId, metaPage, 0); // Level 0 is always at the bottom.
+            firstPageId = getFirstPageId(metaPageId, metaPage, 0, null); // Level 0 is always at the bottom.
         }
         finally {
             releasePage(metaPageId, metaPage);
@@ -1068,7 +1074,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                 long metaPage = acquirePage(metaPageId);
 
                 try {
-                    curPageId = getFirstPageId(metaPageId, metaPage, 0); // Level 0 is always at the bottom.
+                    curPageId = getFirstPageId(metaPageId, metaPage, 0, null); // Level 0 is always at the bottom.
                 }
                 finally {
                     releasePage(metaPageId, metaPage);
@@ -1326,7 +1332,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
         long metaPage = acquirePage(metaPageId);
         try {
-            rootPageId = getFirstPageId(metaPageId, metaPage, -1);
+            rootPageId = getFirstPageId(metaPageId, metaPage, -1, null);
         }
         finally {
             releasePage(metaPageId, metaPage);
@@ -1351,7 +1357,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
             validateFirstPages(metaPageId, metaPage, rootLvl);
 
-            rootPageId = getFirstPageId(metaPageId, metaPage, rootLvl);
+            rootPageId = getFirstPageId(metaPageId, metaPage, rootLvl, null);
 
             validateDownPages(rootPageId, 0L, rootLvl);
 
@@ -1494,7 +1500,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         if (lvl == 0)
             fail("Leaf level: " + lvl);
 
-        long pageId = getFirstPageId(metaId, metaPage, lvl);
+        long pageId = getFirstPageId(metaId, metaPage, lvl, null);
 
         long leftmostChildId;
 
@@ -1518,7 +1524,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             releasePage(pageId, page);
         }
 
-        long firstDownPageId = getFirstPageId(metaId, metaPage, lvl - 1);
+        long firstDownPageId = getFirstPageId(metaId, metaPage, lvl - 1, null);
 
         if (firstDownPageId != leftmostChildId)
             fail(new SB("First: meta ").appendHex(firstDownPageId).a(", child ").appendHex(leftmostChildId));
@@ -2070,7 +2076,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteCheckedException If failed.
      */
     @Override public final long size() throws IgniteCheckedException {
-        return size(null);
+        return size(null, null);
     }
 
     /**
@@ -2079,10 +2085,14 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      * momentary consistency: the method may not see updates made in already scanned pages.
      *
      * @param filter The filter to use or null to count all elements.
+     * @param pageIoStat PagIO read counters.
      * @return Number of either all elements in the tree or the elements that match the filter.
      * @throws IgniteCheckedException If failed.
      */
-    public long size(@Nullable TreeRowClosure<L, T> filter) throws IgniteCheckedException {
+    public long size(
+        @Nullable TreeRowClosure<L, T> filter,
+        @Nullable Map<String, AtomicLong> pageIoStat
+    ) throws IgniteCheckedException {
         checkDestroyed();
 
         for (;;) {
@@ -2091,7 +2101,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             long metaPage = acquirePage(metaPageId);
 
             try {
-                curPageId = getFirstPageId(metaPageId, metaPage, 0); // Level 0 is always at the bottom.
+                curPageId = getFirstPageId(metaPageId, metaPage, 0, pageIoStat); // Level 0 is always at the bottom.
             }
             finally {
                 releasePage(metaPageId, metaPage);
@@ -2103,11 +2113,19 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             try {
                 long curPageAddr = readLock(curPageId, curPage);
 
-                if (curPageAddr == 0)
-                    continue; // The first page has gone: restart scan.
+                if (curPageAddr == 0) {
+                    // The first page has gone: restart scan.
+                    if (nonNull(pageIoStat))
+                        pageIoStat.computeIfAbsent("FIRST_PAGE_GONE", s -> new AtomicLong()).incrementAndGet();
+
+                    continue;
+                }
 
                 try {
                     BPlusIO<L> io = io(curPageAddr);
+
+                    if (nonNull(pageIoStat))
+                        pageIoStat.computeIfAbsent(io.getClass().getName(), s -> new AtomicLong()).incrementAndGet();
 
                     assert io.isLeaf();
 
