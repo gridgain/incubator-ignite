@@ -71,6 +71,7 @@ import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteCallable;
@@ -80,8 +81,10 @@ import org.h2.engine.Session;
 import org.h2.index.Cursor;
 import org.h2.index.Index;
 import org.h2.message.DbException;
+import org.jetbrains.annotations.Nullable;
 
 import static java.util.Objects.nonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
 
@@ -122,6 +125,9 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
     /** Counter of processed indexes. */
     private final AtomicInteger processedIndexes = new AtomicInteger(0);
 
+    /** Counter for calculating index size. */
+    private final AtomicInteger processedIndexSizes = new AtomicInteger(0);
+
     /** Counter of integrity checked indexes. */
     private final AtomicInteger integrityCheckedIndexes = new AtomicInteger(0);
 
@@ -136,6 +142,10 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
 
     /** Calculation executor. */
     private volatile ExecutorService calcExecutor;
+
+    /** Collection to output size of indexes. */
+    private final List<T3<GridCacheContext, Index, Future<T2<Throwable, Long>>>> idxSizeFutures =
+        new ArrayList<>();
 
     /**
      * @param cacheNames Cache names.
@@ -164,6 +174,7 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         }
         finally {
             printFilePageStoreStats(err);
+            printIndexSizes(err);
 
             calcExecutor.shutdown();
         }
@@ -266,8 +277,13 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         for (T2<CacheGroupContext, GridDhtLocalPartition> t2 : partArgs)
             procPartFutures.add(processPartitionAsync(t2.get1(), t2.get2()));
 
-        for (T2<GridCacheContext, Index> t2 : idxArgs)
-            procIdxFutures.add(processIndexAsync(t2.get1(), t2.get2()));
+        for (T2<GridCacheContext, Index> t2 : idxArgs) {
+            GridCacheContext cacheCtx = t2.get1();
+            Index idx = t2.get2();
+
+            procIdxFutures.add(processIndexAsync(cacheCtx, idx));
+            idxSizeFutures.add(new T3<>(cacheCtx, idx, calcIdxSizeAsync(idx)));
+        }
 
         Map<PartitionKey, ValidateIndexesPartitionResult> partResults = new HashMap<>();
         Map<String, ValidateIndexesPartitionResult> idxResults = new HashMap<>();
@@ -310,7 +326,7 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
     }
 
     private void printFilePageStoreStats(Throwable err) {
-        String errMsg = nonNull(err) ? "but was error=" + err : "";
+        String errMsg = errStatPostfix(err);
 
         log.info("FilePageStore read stat: " + errMsg);
         FilePageStore.readTypesCounter.forEach((groupId, groupStat) -> {
@@ -323,6 +339,59 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
             log.info("GroupId: " + groupId);
             groupStat.forEach((key, val) -> log.info(key.getSimpleName() + ": " + val.size()));
         });
+    }
+
+    private void printIndexSizes(Throwable err) {
+        int idxSizeFutureSize = idxSizeFutures.size();
+        
+        if (idxSizeFutureSize == 0)
+            return;
+
+        int remainCalc = totalIndexes - processedIndexSizes.get();
+
+        if (remainCalc != 0) {
+            log.info("Waiting for " + remainCalc + " index sizes to be calculated.");
+
+            for (T3<GridCacheContext, Index, Future<T2<Throwable, Long>>> idxSizeFut : idxSizeFutures) {
+                try {
+                    idxSizeFut.get3().get();
+                }
+                catch (Throwable t) {
+                    idxSizeFut.set3(completedFuture(new T2<>(t, null)));
+                }
+            }
+        }
+
+        log.info("Output size of " + idxSizeFutureSize + " indexes: " + errStatPostfix(err));
+
+        for (T3<GridCacheContext, Index, Future<T2<Throwable, Long>>> idxSizeFut : idxSizeFutures) {
+            GridCacheContext cacheCtx = idxSizeFut.get1();
+            CacheGroupContext cacheGrpCtx = cacheCtx.group();
+            Index idx = idxSizeFut.get2();
+
+            String idxSizePrefix = "Result of calculating index size [grpId=" + cacheGrpCtx.groupId() + ", grpName=" +
+                cacheGrpCtx.name() + ", cacheId=" + cacheCtx.cacheId() + ", cacheName=" + cacheCtx.name() +
+                ", schemaName=" + idx.getSchema().getName() + ", tableName=" + idx.getTable().getName() +
+                ", indexName=" + idx.getName() + "]";
+
+            try {
+                T2<Throwable, Long> idxSize = idxSizeFut.get3().get();
+
+                log.info("  " + idxSizePrefix + ": size=" + idxSize.get2() + " " + errStatPostfix(idxSize.get1()));
+            }
+            catch (Throwable ignore) {
+            }
+        }
+    }
+
+    /**
+     * Return postfix error string.
+     *
+     * @param err Error.
+     * @return Postfix error string.
+     */
+    private String errStatPostfix(@Nullable Throwable err) {
+        return nonNull(err) ? "but was error=" + err : "";
     }
 
     /**
@@ -633,8 +702,9 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
      */
     private void printProgressOfIndexValidationIfNeeded() {
         printProgressIfNeeded("Current progress of ValidateIndexesClosure: processed " +
-                processedPartitions.get() + " of " + totalPartitions + " partitions, " +
-                processedIndexes.get() + " of " + totalIndexes + " SQL indexes");
+            processedPartitions.get() + " of " + totalPartitions + " partitions, " +
+            processedIndexes.get() + " of " + totalIndexes + " SQL indexes, " +
+            processedIndexSizes.get() + " of " + totalIndexes + " calculated size of indexes");
     }
 
     /**
@@ -788,5 +858,33 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
             return  (IgniteException)e.getCause();
         else
             return new IgniteException(e.getCause());
+    }
+
+    /**
+     * Asynchronous calculation of the index size for the cache.
+     *
+     * @param idx Index.
+     * @return Futures to get result of calculating index size.
+     */
+    private Future<T2<Throwable, Long>> calcIdxSizeAsync(Index idx) {
+        return calcExecutor.submit(() -> {
+            T2<Throwable, Long> idxSizeRes = new T2<>();
+
+            try {
+                idxSizeRes.set2(
+                    ignite.context().query().getIndexing().indexSize(idx.getSchema().getName(), idx.getName())
+                );
+            }
+            catch (Throwable t) {
+                idxSizeRes.set1(t);
+            }
+            finally {
+                processedIndexSizes.incrementAndGet();
+
+                printProgressOfIndexValidationIfNeeded();
+            }
+
+            return idxSizeRes;
+        });
     }
 }
