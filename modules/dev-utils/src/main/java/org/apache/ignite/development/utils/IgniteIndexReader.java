@@ -43,6 +43,8 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
 import org.apache.ignite.internal.processors.cache.persistence.IndexStorageImpl;
+import org.apache.ignite.internal.processors.cache.persistence.IndexStorageImpl.IndexItem;
+import org.apache.ignite.internal.processors.cache.persistence.IndexStorageImpl.MetaStoreLeafIO;
 import org.apache.ignite.internal.processors.cache.persistence.file.AsyncFileIOFactory;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStore;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreFactory;
@@ -65,10 +67,11 @@ import org.apache.ignite.internal.processors.query.h2.database.io.H2LeafIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2RowLinkIO;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.GridStringBuilder;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.joining;
@@ -83,8 +86,13 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.partId;
 import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.INDEX_FILE_NAME;
 import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.PART_FILE_TEMPLATE;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getPageIO;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getType;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getVersion;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.reallocateBuffer;
 
 /**
  *
@@ -153,7 +161,7 @@ public class IgniteIndexReader {
         put(IndexStorageImpl.MetaStoreInnerIO.class, innerPageIOProcessor);
         put(BPlusLeafIO.class, leafPageIOProcessor);
         put(H2ExtrasLeafIO.class, leafPageIOProcessor);
-        put(IndexStorageImpl.MetaStoreLeafIO.class, leafPageIOProcessor);
+        put(MetaStoreLeafIO.class, leafPageIOProcessor);
     }};
 
     /** */
@@ -230,7 +238,7 @@ public class IgniteIndexReader {
 
     /** */
     private File getFile(int partId) {
-        File file =  new File(cacheWorkDir, partId == INDEX_PARTITION ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId));
+        File file = new File(cacheWorkDir, partId == INDEX_PARTITION ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId));
 
         if (!file.exists())
             return null;
@@ -243,8 +251,8 @@ public class IgniteIndexReader {
     /** */
     private void readIdx() {
         long partPageStoresNum = Arrays.stream(partStores)
-                                       .filter(Objects::nonNull)
-                                       .count();
+            .filter(Objects::nonNull)
+            .count();
 
         print("Partitions files num: " + partPageStoresNum);
 
@@ -256,6 +264,8 @@ public class IgniteIndexReader {
 
         Map<String, TreeTraversalInfo> treeInfo = null;
 
+        Map<String, TreeTraversalInfo> lvlInfo = null;
+
         AtomicReference<PageListsInfo> pageListsInfo = new AtomicReference<>();
 
         List<Throwable> errors = new LinkedList<>();
@@ -263,12 +273,12 @@ public class IgniteIndexReader {
         ProgressPrinter progressPrinter = new ProgressPrinter(System.out, "Reading pages sequentially", pagesNum);
 
         for (int i = 0; i < pagesNum; i++) {
-            ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
+            ByteBuffer buf = allocateBuffer(pageSize);
 
             try {
                 progressPrinter.printProgress();
 
-                long addr = GridUnsafe.bufferAddress(buf);
+                long addr = bufferAddress(buf);
 
                 long pageId = PageIdUtils.pageId(INDEX_PARTITION, FLAG_IDX, i);
 
@@ -277,14 +287,16 @@ public class IgniteIndexReader {
 
                 idxStore.readByOffset(off, buf, false);
 
-                PageIO io = PageIO.getPageIO(addr);
+                PageIO io = getPageIO(addr);
 
                 pageClasses.merge(io.getClass(), 1L, (oldVal, newVal) -> ++oldVal);
 
                 if (io instanceof PageMetaIO) {
                     PageMetaIO pageMetaIO = (PageMetaIO)io;
 
-                    treeInfo = traverseAllTrees(pageMetaIO.getTreeRoot(addr));
+                    long metaTreeRootPageId = pageMetaIO.getTreeRoot(addr);
+
+                    treeInfo = traverseAllTrees(metaTreeRootPageId);
 
                     treeInfo.forEach((name, info) -> {
                         info.innerPageIds.forEach(id -> {
@@ -297,6 +309,8 @@ public class IgniteIndexReader {
 
                         pageIoIds.computeIfAbsent(BPlusMetaIO.class, k -> new HashSet<>()).add(info.rootPageId);
                     });
+
+                    lvlInfo = traverseTreesByLvl(metaTreeRootPageId);
 
                     print("");
                 }
@@ -315,20 +329,26 @@ public class IgniteIndexReader {
                         }
                     });
                 }
-            } catch (Throwable e) {
+            }
+            catch (Throwable e) {
                 String err = "Exception occurred on step " + i + ": " + e.getMessage() + "; page=" + U.toHexString(buf);
 
                 errors.add(new IgniteException(err, e));
             }
             finally {
-                GridUnsafe.freeBuffer(buf);
+                freeBuffer(buf);
             }
         }
 
         if (treeInfo == null)
             printErr("No tree meta info found.");
         else
-            printTraversalResults(treeInfo);
+            printTraversalResults(treeInfo, "\nTree traversal results: ");
+
+        if (lvlInfo == null)
+            printErr("No tree meta info by lvl found.");
+        else
+            printTraversalResults(lvlInfo, "\nTree traversal by lvl results: ");
 
         if (pageListsInfo.get() == null)
             printErr("No page lists meta info found.");
@@ -364,15 +384,15 @@ public class IgniteIndexReader {
 
         long nextMetaId = metaPageListId;
 
-        while(nextMetaId != 0) {
-            ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
+        while (nextMetaId != 0) {
+            ByteBuffer buf = allocateBuffer(pageSize);
 
             try {
-                long addr = GridUnsafe.bufferAddress(buf);
+                long addr = bufferAddress(buf);
 
                 idxStore.read(nextMetaId, buf, false);
 
-                PagesListMetaIO io = PageIO.getPageIO(addr);
+                PagesListMetaIO io = getPageIO(addr);
 
                 Map<Integer, GridLongList> data = new HashMap<>();
 
@@ -396,7 +416,7 @@ public class IgniteIndexReader {
                 nextMetaId = 0;
             }
             finally {
-                GridUnsafe.freeBuffer(buf);
+                freeBuffer(buf);
             }
         }
 
@@ -409,34 +429,34 @@ public class IgniteIndexReader {
 
         long nextNodeId = pageListStartId;
 
-        while(nextNodeId != 0) {
-            ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
+        while (nextNodeId != 0) {
+            ByteBuffer buf = allocateBuffer(pageSize);
 
             try {
-                long addr = GridUnsafe.bufferAddress(buf);
+                long addr = bufferAddress(buf);
 
                 idxStore.read(nextNodeId, buf, false);
 
-                PagesListNodeIO io = PageIO.getPageIO(addr);
+                PagesListNodeIO io = getPageIO(addr);
 
                 for (int i = 0; i < io.getCount(addr); i++) {
                     long pageId = normalizePageId(io.getAt(addr, i));
 
                     res.add(pageId);
 
-                    ByteBuffer pageBuf = GridUnsafe.allocateBuffer(pageSize);
+                    ByteBuffer pageBuf = allocateBuffer(pageSize);
 
                     try {
-                        long pageAddr = GridUnsafe.bufferAddress(pageBuf);
+                        long pageAddr = bufferAddress(pageBuf);
 
                         idxStore.read(pageId, pageBuf, false);
 
-                        PageIO pageIO = PageIO.getPageIO(pageAddr);
+                        PageIO pageIO = getPageIO(pageAddr);
 
                         pageStat.computeIfAbsent(pageIO.getClass(), k -> new AtomicLong(0)).incrementAndGet();
                     }
                     finally {
-                        GridUnsafe.freeBuffer(pageBuf);
+                        freeBuffer(pageBuf);
                     }
                 }
 
@@ -446,11 +466,11 @@ public class IgniteIndexReader {
                 throw new IgniteException(e.getMessage(), e);
             }
             finally {
-                GridUnsafe.freeBuffer(buf);
+                freeBuffer(buf);
             }
         }
 
-         return res;
+        return res;
     }
 
     /** */
@@ -466,7 +486,7 @@ public class IgniteIndexReader {
         metaTreeTraversalInfo.idxItems.forEach(item -> {
             progressPrinter.printProgress();
 
-            IndexStorageImpl.IndexItem idxItem = (IndexStorageImpl.IndexItem)item;
+            IndexItem idxItem = (IndexItem)item;
 
             TreeTraversalInfo treeTraversalInfo = traverseTree(idxItem.pageId(), false);
 
@@ -477,8 +497,122 @@ public class IgniteIndexReader {
     }
 
     /** */
-    private void printTraversalResults(Map<String, TreeTraversalInfo> treeInfos) {
-        print("\nTree traversal results: ");
+    private Map<String, TreeTraversalInfo> traverseTreesByLvl(long metaTreeRootPageId) {
+        Map<String, TreeTraversalInfo> res = new HashMap<>();
+
+        ByteBuffer buf = allocateBuffer(pageSize);
+        try {
+            for (IndexItem indexItem : indexItems(metaTreeRootPageId)) {
+                Map<Class, AtomicLong> ioStat = new HashMap<>();
+                AtomicLong cnt = new AtomicLong();
+
+                buf = reallocateBuffer(buf, pageSize);
+                idxStore.read(indexItem.pageId(), buf, false);
+
+                long addr = bufferAddress(buf);
+                PageIO io = getPageIO(addr);
+
+                ioStat.computeIfAbsent(io.getClass(), cls -> new AtomicLong()).incrementAndGet();
+
+                if (!BPlusMetaIO.class.isInstance(io))
+                    continue;
+
+                BPlusMetaIO bPlusMetaIO = (BPlusMetaIO)io;
+                int lvlCnt = bPlusMetaIO.getLevelsCount(addr);
+
+                ByteBuffer pageBuf = allocateBuffer(pageSize);
+                try {
+                    for (int i = 0; i < lvlCnt; i++) {
+                        long pageId = bPlusMetaIO.getFirstPageId(addr, i);
+
+                        while (pageId != 0) {
+                            pageBuf = reallocateBuffer(pageBuf, pageSize);
+                            idxStore.read(pageId, pageBuf, false);
+
+                            long pageAddr = bufferAddress(pageBuf);
+                            PageIO pageIO = getPageIO(pageAddr);
+
+                            ioStat.computeIfAbsent(pageIO.getClass(), cls -> new AtomicLong()).incrementAndGet();
+
+                            if (!BPlusIO.class.isInstance(pageIO))
+                                continue;
+
+                            BPlusIO bPlusIO = (BPlusIO)pageIO;
+
+                            if (bPlusIO.isLeaf())
+                                cnt.addAndGet(bPlusIO.getCount(pageAddr));
+
+                            pageId = bPlusIO.getForward(pageAddr);
+                        }
+                    }
+                }
+                finally {
+                    freeBuffer(pageBuf);
+                }
+
+                res.put(
+                    indexItem.toString(),
+                    new TreeTraversalInfo(ioStat, emptyMap(), null, indexItem.pageId(), cnt.get())
+                );
+            }
+        }
+        catch (IgniteCheckedException e) {
+            e.printStackTrace();
+            return null;
+        }
+        finally {
+            freeBuffer(buf);
+        }
+        return res;
+    }
+
+    /** */
+    private List<IndexItem> indexItems(long metaTreeRootPageId) {
+        ByteBuffer buf = allocateBuffer(pageSize);
+        try {
+            idxStore.read(metaTreeRootPageId, buf, false);
+
+            long addr = bufferAddress(buf);
+            PageIO io = getPageIO(addr);
+
+            if (!BPlusMetaIO.class.isInstance(io))
+                return emptyList();
+
+            BPlusMetaIO bPlusMetaIO = (BPlusMetaIO)io;
+
+            int rootLvl = bPlusMetaIO.getRootLevel(addr);
+            long rootId = bPlusMetaIO.getFirstPageId(addr, rootLvl);
+
+            buf = reallocateBuffer(buf, pageSize);
+            idxStore.read(rootId, buf, false);
+
+            long rootAddr = bufferAddress(buf);
+            PageIO rootIo = getPageIO(rootAddr);
+
+            if (!MetaStoreLeafIO.class.isInstance(rootIo))
+                return emptyList();
+
+            MetaStoreLeafIO metaStoreLeafIO = (MetaStoreLeafIO)rootIo;
+            int cnt = metaStoreLeafIO.getCount(rootAddr);
+
+            List<IndexItem> indexItems = new ArrayList<>(cnt);
+
+            for (int i = 0; i < cnt; i++)
+                indexItems.add(metaStoreLeafIO.getLookupRow(null, rootAddr, i));
+
+            return indexItems;
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteException(e);
+        }
+        finally {
+            freeBuffer(buf);
+        }
+    }
+
+    /** */
+    private void printTraversalResults(Map<String, TreeTraversalInfo> treeInfos, String header) {
+        print(header);
 
         Map<Class, AtomicLong> totalStat = new HashMap<>();
 
@@ -600,14 +734,14 @@ public class IgniteIndexReader {
         PageIOProcessor ioProcessor;
 
         try {
-            final ByteBuffer buf = GridUnsafe.allocateBuffer(pageSize);
+            final ByteBuffer buf = allocateBuffer(pageSize);
 
             try {
                 nodeCtx.store.read(pageId, buf, false);
 
-                final long addr = GridUnsafe.bufferAddress(buf);
+                final long addr = bufferAddress(buf);
 
-                final PageIO io = PageIO.getPageIO(addr);
+                final PageIO io = getPageIO(addr);
 
                 ioCls = io.getClass();
 
@@ -621,7 +755,7 @@ public class IgniteIndexReader {
                 pageContent = ioProcessor.getContent(io, addr, pageId, nodeCtx);
             }
             finally {
-                GridUnsafe.freeBuffer(buf);
+                freeBuffer(buf);
             }
 
             return ioProcessor.getNode(pageContent, pageId, nodeCtx);
@@ -675,7 +809,7 @@ public class IgniteIndexReader {
                 put("--destFile", null);
             }};
 
-            for (Iterator<String> iterator = Arrays.asList(args).iterator(); iterator.hasNext();) {
+            for (Iterator<String> iterator = Arrays.asList(args).iterator(); iterator.hasNext(); ) {
                 String option = iterator.next();
 
                 if (!options.containsKey(option))
@@ -878,11 +1012,11 @@ public class IgniteIndexReader {
 
             List<Object> items = new LinkedList<>();
 
-            if (io instanceof IndexStorageImpl.MetaStoreLeafIO) {
-                IndexStorageImpl.MetaStoreLeafIO metaLeafIO = (IndexStorageImpl.MetaStoreLeafIO)io;
+            if (io instanceof MetaStoreLeafIO) {
+                MetaStoreLeafIO metaLeafIO = (MetaStoreLeafIO)io;
 
                 for (int j = 0; j < metaLeafIO.getCount(addr); j++) {
-                    IndexStorageImpl.IndexItem indexItem = null;
+                    IndexItem indexItem = null;
 
                     try {
                         indexItem = metaLeafIO.getLookupRow(null, addr, j);
@@ -936,10 +1070,10 @@ public class IgniteIndexReader {
 
                         int linkedItemId = itemId(link);
 
-                        ByteBuffer dataBuf = GridUnsafe.allocateBuffer(pageSize);
+                        ByteBuffer dataBuf = allocateBuffer(pageSize);
 
                         try {
-                            long dataBufAddr = GridUnsafe.bufferAddress(dataBuf);
+                            long dataBufAddr = bufferAddress(dataBuf);
 
                             if (linkedPagePartId > partStores.length - 1) {
                                 missingPartitions.add(linkedPagePartId);
@@ -958,7 +1092,7 @@ public class IgniteIndexReader {
 
                             store.read(linkedPageId, dataBuf, false);
 
-                            PageIO dataIo = PageIO.getPageIO(getType(dataBuf), getVersion(dataBuf));
+                            PageIO dataIo = getPageIO(getType(dataBuf), getVersion(dataBuf));
 
                             if (dataIo instanceof AbstractDataPageIO) {
                                 AbstractDataPageIO dataPageIO = (AbstractDataPageIO)dataIo;
@@ -979,7 +1113,7 @@ public class IgniteIndexReader {
                             nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>()).add(e);
                         }
                         finally {
-                            GridUnsafe.freeBuffer(dataBuf);
+                            freeBuffer(dataBuf);
                         }
                     }
                 }
