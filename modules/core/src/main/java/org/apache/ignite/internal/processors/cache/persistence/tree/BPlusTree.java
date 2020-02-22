@@ -2124,12 +2124,12 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                 try {
                     BPlusIO<L> io = io(curPageAddr);
 
-                    if (nonNull(pageIoStat))
-                        pageIoStat.computeIfAbsent(io.getClass().getName(), s -> new AtomicLong()).incrementAndGet();
-
                     assert io.isLeaf();
 
                     for (;;) {
+                        if (nonNull(pageIoStat))
+                            pageIoStat.computeIfAbsent(io.getClass().getName(), s -> new AtomicLong()).incrementAndGet();
+
                         int curPageSize = io.getCount(curPageAddr);
 
                         if (filter == null)
@@ -2171,6 +2171,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                                 curPageId = nextPageId;
                                 curPage = nextPage;
                                 curPageAddr = nextPageAddr;
+                                io = io(curPageAddr);
 
                                 nextPage = 0;
                                 nextPageAddr = 0;
