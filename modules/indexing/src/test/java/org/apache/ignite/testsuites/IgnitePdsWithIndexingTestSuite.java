@@ -26,6 +26,7 @@ import org.apache.ignite.internal.processors.database.IgniteDbSingleNodeWithInde
 import org.apache.ignite.internal.processors.database.IgnitePersistentStoreQueryWithMultipleClassesPerCacheTest;
 import org.apache.ignite.internal.processors.database.IgnitePersistentStoreSchemaLoadTest;
 import org.apache.ignite.internal.processors.database.IgniteTwoRegionsRebuildIndexTest;
+import org.apache.ignite.internal.processors.database.RebuildIndexTest;
 import org.apache.ignite.internal.processors.cache.persistence.db.IndexingMultithreadedLoadContinuousRestartTest;
 import org.apache.ignite.internal.processors.database.RebuildIndexWithHistoricalRebalanceTest;
 
@@ -50,6 +51,7 @@ public class IgnitePdsWithIndexingTestSuite extends TestSuite {
         suite.addTestSuite(IgniteTwoRegionsRebuildIndexTest.class);
         suite.addTestSuite(IndexingMultithreadedLoadContinuousRestartTest.class);
         suite.addTestSuite(RebuildIndexWithHistoricalRebalanceTest.class);
+        suite.addTestSuite(RebuildIndexTest.class);
 
         return suite;
     }

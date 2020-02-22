@@ -1150,6 +1150,11 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_USE_POOL_FOR_LAZY_QUERIES = "IGNITE_USE_POOL_FOR_LAZY_QUERIES";
 
     /**
+     * Enables extended logging of indexes rebuild process. Default {@code false}.
+     */
+    public static final String IGNITE_ENABLE_EXTRA_INDEX_REBUILD_LOGGING = "IGNITE_ENABLE_EXTRA_INDEX_REBUILD_LOGGING";
+
+    /**
      * Enforces singleton.
      */
     private IgniteSystemProperties() {

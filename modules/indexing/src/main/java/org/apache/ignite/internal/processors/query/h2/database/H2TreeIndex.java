@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
-
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -62,6 +61,8 @@ import org.h2.table.TableFilter;
 import org.h2.value.Value;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_ENABLE_EXTRA_INDEX_REBUILD_LOGGING;
+
 /**
  * H2 Index over {@link BPlusTree}.
  */
@@ -69,6 +70,11 @@ import org.jetbrains.annotations.Nullable;
 public class H2TreeIndex extends GridH2IndexBase {
     /** Default value for {@code IGNITE_MAX_INDEX_PAYLOAD_SIZE} */
     public static final int IGNITE_MAX_INDEX_PAYLOAD_SIZE_DEFAULT = 10;
+
+    //TODO: field is not final for testability. This should be fixed.
+    /** Is extra index rebuild logging enabled. */
+    private static boolean IS_EXTRA_INDEX_REBUILD_LOGGING_ENABLED =
+        IgniteSystemProperties.getBoolean(IGNITE_ENABLE_EXTRA_INDEX_REBUILD_LOGGING, false);
 
     /** */
     private final H2Tree[] segments;
@@ -159,6 +165,18 @@ public class H2TreeIndex extends GridH2IndexBase {
                             return v1 == v2 ? 0 : table.compareTypeSafe(v1, v2);
                         }
                     };
+
+                    if (IS_EXTRA_INDEX_REBUILD_LOGGING_ENABLED) {
+                        log.info("H2Tree created [cacheName=" + cctx.name() +
+                            ", cacheId=" + cctx.cacheId() +
+                            ", grpName=" + cctx.group().name() +
+                            ", grpId=" + cctx.groupId() +
+                            ", segment=" + i +
+                            ", size=" + segments[i].size() +
+                            ", pageId=" + page.pageId().pageId() +
+                            ", allocated=" + page.isAllocated() +
+                            ", tree=" + segments[i] + ']');
+                    }
                 }
                 finally {
                     db.checkpointReadUnlock();
@@ -746,4 +764,22 @@ public class H2TreeIndex extends GridH2IndexBase {
             return false;
         }
     };
+
+    /**
+     * Returns number of elements in the tree by scanning pages of the bottom (leaf) level.
+     *
+     * @return Number of elements in the tree.
+     * @throws IgniteCheckedException If failed.
+     */
+    public long size() throws IgniteCheckedException {
+        long ret = 0;
+
+        for (int i = 0; i < segmentsCount(); i++) {
+            final H2Tree tree = treeForRead(i);
+
+            ret += tree.size();
+        }
+
+        return ret;
+    }
 }
