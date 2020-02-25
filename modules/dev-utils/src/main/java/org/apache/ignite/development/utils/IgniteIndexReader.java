@@ -573,8 +573,11 @@ public class IgniteIndexReader {
 
                 ioStat.computeIfAbsent(io.getClass(), cls -> new AtomicLong()).incrementAndGet();
 
-                if (!BPlusMetaIO.class.isInstance(io))
+                if (!BPlusMetaIO.class.isInstance(io)) {
+                    printErr("WARNING: expected BPlusMetaIO but got " + io.getClass().getSimpleName());
+
                     continue;
+                }
 
                 BPlusMetaIO bPlusMetaIO = (BPlusMetaIO)io;
                 int lvlCnt = bPlusMetaIO.getLevelsCount(addr);
@@ -593,8 +596,11 @@ public class IgniteIndexReader {
 
                             ioStat.computeIfAbsent(pageIO.getClass(), cls -> new AtomicLong()).incrementAndGet();
 
-                            if (!BPlusIO.class.isInstance(pageIO))
+                            if (!BPlusIO.class.isInstance(pageIO)) {
+                                printErr("WARNING: expected BPlusIO but got " + pageIO.getClass().getSimpleName());
+
                                 continue;
+                            }
 
                             BPlusIO bPlusIO = (BPlusIO)pageIO;
 
