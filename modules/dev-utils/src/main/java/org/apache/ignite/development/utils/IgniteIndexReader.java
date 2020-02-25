@@ -355,6 +355,8 @@ public class IgniteIndexReader {
         else
             printPagesListsInfo(pageListsInfo.get());
 
+        printTraversesDiff(treeInfo, lvlInfo);
+
         print("\n---These pages types were encountered during sequential scan:");
         pageClasses.forEach((key, val) -> print(key.getSimpleName() + ": " + val));
 
@@ -370,6 +372,53 @@ public class IgniteIndexReader {
         print("Total errors occurred during sequential scan: " + errors.size());
         print("Note that some pages can be occupied by meta info, tracking info, etc., so total page count can differ " +
             "from count of pages found in index trees and page lists.");
+    }
+
+    private void printTraversesDiff(Map<String, TreeTraversalInfo> classicTraverse, Map<String, TreeTraversalInfo> lvlTraverse) {
+        print("Printing diff for classic an level traversals");
+
+        if (classicTraverse == null) {
+            print("classicTraverse is null");
+
+            return;
+        }
+
+        if (lvlTraverse == null) {
+            print("lvlTraverse is null");
+
+            return;
+        }
+
+        Set<String> classicUniqueIndexes = new HashSet<>(classicTraverse.keySet());
+        Set<String> levelUniqueIndexes = new HashSet<>(lvlTraverse.keySet());
+
+        classicUniqueIndexes.removeAll(lvlTraverse.keySet());
+        levelUniqueIndexes.removeAll(classicTraverse.keySet());
+
+        if (!classicUniqueIndexes.isEmpty()) {
+            print("Classic traversal unique indexes:");
+            classicUniqueIndexes.forEach(this::print);
+            print("");
+        }
+
+        if (!levelUniqueIndexes.isEmpty()) {
+            print("Level traversal unique indexes:");
+            levelUniqueIndexes.forEach(this::print);
+            print("");
+        }
+
+        classicTraverse.forEach((classicIdxName, classicTraversalInfo) -> {
+            TreeTraversalInfo lvlTraversalInfo = lvlTraverse.get(classicIdxName);
+
+            if (lvlTraversalInfo == null)
+                return;
+
+            if (!classicTraversalInfo.compareIoStats(lvlTraversalInfo))
+                print("Different iostats for classic and level traversal for index: " + classicIdxName);
+        });
+
+
+        print("Finished printing diff for classic an level traversals");
     }
 
     /** */
@@ -500,9 +549,19 @@ public class IgniteIndexReader {
     private Map<String, TreeTraversalInfo> traverseTreesByLvl(long metaTreeRootPageId) {
         Map<String, TreeTraversalInfo> res = new HashMap<>();
 
+        TreeTraversalInfo metaTreeTraversalInfo = traverseTree(metaTreeRootPageId, true);
+
         ByteBuffer buf = allocateBuffer(pageSize);
         try {
-            for (IndexItem indexItem : indexItems(metaTreeRootPageId)) {
+            for (Object indexItemObj : metaTreeTraversalInfo.idxItems) {
+                IndexItem indexItem = (IndexItem)indexItemObj;
+
+                if (indexItem == null) {
+                    print("Unexpected indexItem class: " + indexItem.getClass().getSimpleName());
+
+                    return null;
+                }
+
                 Map<Class, AtomicLong> ioStat = new HashMap<>();
                 AtomicLong cnt = new AtomicLong();
 
@@ -566,7 +625,9 @@ public class IgniteIndexReader {
         return res;
     }
 
-    /** */
+    /**
+     * Method doesn't work if number of indexes is big enough.
+     */
     private List<IndexItem> indexItems(long metaTreeRootPageId) {
         ByteBuffer buf = allocateBuffer(pageSize);
         try {
@@ -589,6 +650,7 @@ public class IgniteIndexReader {
             long rootAddr = bufferAddress(buf);
             PageIO rootIo = getPageIO(rootAddr);
 
+            // Always true for big trees
             if (!MetaStoreLeafIO.class.isInstance(rootIo))
                 return emptyList();
 
@@ -1178,6 +1240,25 @@ public class IgniteIndexReader {
             this.rootPageId = rootPageId;
             this.idxItems = null;
             this.itemsCnt = itemsCnt;
+        }
+
+        boolean compareIoStats(TreeTraversalInfo other) {
+            Map<Class, AtomicLong> otherIoStat = other.ioStat;
+
+            if(otherIoStat.size() != ioStat.size())
+                return false;
+
+            for (Map.Entry<Class, AtomicLong> entry: ioStat.entrySet()) {
+                AtomicLong otherCntr = otherIoStat.get(entry.getKey());
+
+                if (otherCntr == null)
+                    return false;
+
+                if (otherCntr.get() != entry.getValue().get())
+                    return false;
+            }
+
+            return true;
         }
     }
 
