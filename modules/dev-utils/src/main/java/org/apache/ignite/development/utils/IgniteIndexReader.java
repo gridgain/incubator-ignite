@@ -59,6 +59,9 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMeta
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionCountersIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIOV2;
 import org.apache.ignite.internal.processors.cache.tree.PendingRowIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO;
@@ -69,6 +72,8 @@ import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
+
+import javax.swing.tree.TreeNode;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -246,6 +251,103 @@ public class IgniteIndexReader {
             print("Analyzing file: " + file.getPath());
 
         return file;
+    }
+
+    /** */
+    private void readParts() throws IgniteCheckedException {
+        ByteBuffer buf = allocateBuffer(pageSize);
+
+        long pageAddr = bufferAddress(buf);
+
+        Map<Class, Set<Long>> pageIoIds = new HashMap<>();
+
+        for (FilePageStore partStore : partStores) {
+            partStore.sync();
+
+            ProgressPrinter progressPrinter = new ProgressPrinter(System.out, "Reading partitions", partStore.pages());
+
+            for (int i = 0; i < partStore.pages(); ++i) {
+                //progressPrinter.printProgress();
+
+                buf.rewind();
+
+                long off = (long)i * pageSize + idxStore.headerSize();
+
+                partStore.readByOffset(off, buf, false);
+
+                PageIO io = getPageIO(pageAddr);
+
+                if (io instanceof BPlusMetaIO) {
+                    BPlusMetaIO treeIO = (BPlusMetaIO)io;
+
+                    int rootLvl = treeIO.getRootLevel(pageAddr);
+                    long rootId = treeIO.getFirstPageId(pageAddr, rootLvl);
+
+                    Map<String, TreeTraversalInfo> treeInfo = traverseAllTrees(rootId);
+
+                    treeInfo.forEach((name, info) -> {
+                        info.innerPageIds.forEach(id -> {
+                            Class cls = name.equals(META_TREE_NAME)
+                                ? IndexStorageImpl.MetaStoreInnerIO.class
+                                : H2ExtrasInnerIO.class;
+
+                            pageIoIds.computeIfAbsent(cls, k -> new HashSet<>()).add(id);
+                        });
+
+                        pageIoIds.computeIfAbsent(BPlusMetaIO.class, k -> new HashSet<>()).add(info.rootPageId);
+                    });
+
+                    Map<String, TreeTraversalInfo> lvlInfo = traverseTreesByLvl(rootId);
+
+                    if (lvlInfo == null)
+                        printErr("No tree meta info by lvl found.");
+                    else
+                        printTraversalResults(lvlInfo, "\nTree traversal by lvl results: ");
+
+                    print("");
+                }
+                else if (io instanceof PagePartitionMetaIO) {
+                    Map<Integer, Long> cacheSizes = new HashMap<>();
+
+                    long nextId = 0;
+
+                    long cntrsPageId = ((PagePartitionMetaIO) io).getCountersPageId(pageAddr);
+
+                    if (cntrsPageId == 0L)
+                        print(partStore.getFileAbsolutePath() + " zero counters.");
+                    else {
+                        while (true) {
+                            cntrsPageId = nextId != 0 ? nextId : ((PagePartitionMetaIO) io).getCountersPageId(pageAddr);
+
+                            int idx = pageIndex(cntrsPageId);
+
+                            ByteBuffer buf0 = allocateBuffer(pageSize);
+
+                            long addr0 = bufferAddress(buf0);
+
+                            long off0 = (long) idx * pageSize + idxStore.headerSize();
+
+                            partStore.readByOffset(off0, buf0, false);
+
+                            PageIO io0 = getPageIO(pageAddr);
+
+                            if (io0 instanceof PagePartitionCountersIO) {
+                                PagePartitionCountersIO cntrsIO = (PagePartitionCountersIO) io0;
+
+                                if (cntrsIO.readCacheSizes(addr0, cacheSizes))
+                                    break;
+
+                                nextId = cntrsIO.getNextCountersPageId(addr0);
+
+                                assert nextId != 0;
+                            }
+                        }
+                    }
+
+                    cacheSizes.forEach((k, v) -> print("caahe: " + k + " size: " + v));
+                }
+            }
+        }
     }
 
     /** */
@@ -786,7 +888,8 @@ public class IgniteIndexReader {
             ? (currPageId, item, link) -> idxItems.add(item)
             : (currPageId, item, link) -> idxItemsCnt.incrementAndGet();
 
-        getTreeNode(rootPageId, new TreeNodeContext(idxStore, ioStat, errors, innerCb, null, itemCb));
+        getTreeNode(rootPageId, new TreeNodeContext(idxStore !!! передать другой стор, ioStat, errors, innerCb, null,
+        itemCb));
 
         return isMetaTree
             ? new TreeTraversalInfo(ioStat, errors, innerPageIds, rootPageId, idxItems)
@@ -901,8 +1004,11 @@ public class IgniteIndexReader {
 
             String destFile = getOptionFromMap(options, "--destFile", String.class, () -> null);
 
-            new IgniteIndexReader(dir, pageSize, partCnt, pageStoreVer, destFile)
-                .readIdx();
+            IgniteIndexReader reader = new IgniteIndexReader(dir, pageSize, partCnt, pageStoreVer, destFile);
+
+            reader.readIdx();
+
+            reader.readParts();
         }
         catch (Exception e) {
             System.err.println("How to use: please pass option names, followed by space and option values. Options list:");
