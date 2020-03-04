@@ -62,6 +62,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageMetaI
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionCountersIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIOV2;
+import org.apache.ignite.internal.processors.cache.tree.DataLeafIO;
 import org.apache.ignite.internal.processors.cache.tree.PendingRowIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO;
@@ -271,7 +272,7 @@ public class IgniteIndexReader {
 
                 buf.rewind();
 
-                long off = (long)i * pageSize + idxStore.headerSize();
+                long off = (long)i * pageSize + partStore.headerSize();
 
                 partStore.readByOffset(off, buf, false);
 
@@ -280,31 +281,37 @@ public class IgniteIndexReader {
                 if (io instanceof BPlusMetaIO) {
                     BPlusMetaIO treeIO = (BPlusMetaIO)io;
 
-                    int rootLvl = treeIO.getRootLevel(pageAddr);
-                    long rootId = treeIO.getFirstPageId(pageAddr, rootLvl);
+                    int levels = treeIO.getLevelsCount(pageAddr);
 
-                    Map<String, TreeTraversalInfo> treeInfo = traverseAllTrees(rootId);
+                    // read leafs.
+                    long firstPageId = treeIO.getFirstPageId(pageAddr, 0);
 
-                    treeInfo.forEach((name, info) -> {
-                        info.innerPageIds.forEach(id -> {
-                            Class cls = name.equals(META_TREE_NAME)
-                                ? IndexStorageImpl.MetaStoreInnerIO.class
-                                : H2ExtrasInnerIO.class;
+                    long pageId = firstPageId;
 
-                            pageIoIds.computeIfAbsent(cls, k -> new HashSet<>()).add(id);
-                        });
+                    ByteBuffer pageBuf = allocateBuffer(pageSize);
 
-                        pageIoIds.computeIfAbsent(BPlusMetaIO.class, k -> new HashSet<>()).add(info.rootPageId);
-                    });
+                    long pageAddr0 = bufferAddress(pageBuf);
 
-                    Map<String, TreeTraversalInfo> lvlInfo = traverseTreesByLvl(rootId);
+                    while (pageId != 0) {
+                        pageBuf.rewind();
 
-                    if (lvlInfo == null)
-                        printErr("No tree meta info by lvl found.");
-                    else
-                        printTraversalResults(lvlInfo, "\nTree traversal by lvl results: ");
+                        partStore.read(pageId, pageBuf, false);
 
-                    print("");
+                        PageIO pageIO = getPageIO(pageAddr0);
+                        DataLeafIO
+
+                        if (!BPlusIO.class.isInstance(pageIO)) {
+                            printErr("WARNING: expected BPlusIO but got " + pageIO.getClass().getSimpleName());
+
+                            continue;
+                        }
+
+                        BPlusIO bPlusIO = (BPlusIO)pageIO;
+
+                        assert bPlusIO.isLeaf() : "not leaf page found";
+
+                        pageId = bPlusIO.getForward(pageAddr0);
+                    }
                 }
                 else if (io instanceof PagePartitionMetaIO) {
                     Map<Integer, Long> cacheSizes = new HashMap<>();
@@ -325,7 +332,7 @@ public class IgniteIndexReader {
 
                             long addr0 = bufferAddress(buf0);
 
-                            long off0 = (long) idx * pageSize + idxStore.headerSize();
+                            long off0 = (long) idx * pageSize + partStore.headerSize();
 
                             partStore.readByOffset(off0, buf0, false);
 
@@ -348,6 +355,8 @@ public class IgniteIndexReader {
                 }
             }
         }
+
+        freeBuffer(buf);
     }
 
     /** */
@@ -398,7 +407,7 @@ public class IgniteIndexReader {
 
                     long metaTreeRootPageId = pageMetaIO.getTreeRoot(addr);
 
-                    treeInfo = traverseAllTrees(metaTreeRootPageId);
+                    treeInfo = traverseAllTrees(metaTreeRootPageId, idxStore);
 
                     treeInfo.forEach((name, info) -> {
                         info.innerPageIds.forEach(id -> {
@@ -412,7 +421,7 @@ public class IgniteIndexReader {
                         pageIoIds.computeIfAbsent(BPlusMetaIO.class, k -> new HashSet<>()).add(info.rootPageId);
                     });
 
-                    lvlInfo = traverseTreesByLvl(metaTreeRootPageId);
+                    lvlInfo = traverseTreesByLvl(metaTreeRootPageId, idxStore);
 
                     print("");
                 }
@@ -625,10 +634,10 @@ public class IgniteIndexReader {
     }
 
     /** */
-    private Map<String, TreeTraversalInfo> traverseAllTrees(long metaTreeRootPageId) {
+    private Map<String, TreeTraversalInfo> traverseAllTrees(long metaTreeRootPageId, FilePageStore store) {
         Map<String, TreeTraversalInfo> treeInfos = new HashMap<>();
 
-        TreeTraversalInfo metaTreeTraversalInfo = traverseTree(metaTreeRootPageId, true);
+        TreeTraversalInfo metaTreeTraversalInfo = traverseTree(metaTreeRootPageId, true, store);
 
         treeInfos.put(META_TREE_NAME, metaTreeTraversalInfo);
 
@@ -639,7 +648,7 @@ public class IgniteIndexReader {
 
             IndexItem idxItem = (IndexItem)item;
 
-            TreeTraversalInfo treeTraversalInfo = traverseTree(idxItem.pageId(), false);
+            TreeTraversalInfo treeTraversalInfo = traverseTree(idxItem.pageId(), false, store);
 
             treeInfos.put(idxItem.toString(), treeTraversalInfo);
         });
@@ -648,10 +657,10 @@ public class IgniteIndexReader {
     }
 
     /** */
-    private Map<String, TreeTraversalInfo> traverseTreesByLvl(long metaTreeRootPageId) {
+    private Map<String, TreeTraversalInfo> traverseTreesByLvl(long metaTreeRootPageId, FilePageStore store) {
         Map<String, TreeTraversalInfo> res = new HashMap<>();
 
-        TreeTraversalInfo metaTreeTraversalInfo = traverseTree(metaTreeRootPageId, true);
+        TreeTraversalInfo metaTreeTraversalInfo = traverseTree(metaTreeRootPageId, true, store);
 
         ByteBuffer buf = allocateBuffer(pageSize);
         try {
@@ -668,7 +677,7 @@ public class IgniteIndexReader {
                 AtomicLong cnt = new AtomicLong();
 
                 buf = reallocateBuffer(buf, pageSize);
-                idxStore.read(indexItem.pageId(), buf, false);
+                store.read(indexItem.pageId(), buf, false);
 
                 long addr = bufferAddress(buf);
                 PageIO io = getPageIO(addr);
@@ -691,7 +700,7 @@ public class IgniteIndexReader {
 
                         while (pageId != 0) {
                             pageBuf = reallocateBuffer(pageBuf, pageSize);
-                            idxStore.read(pageId, pageBuf, false);
+                            store.read(pageId, pageBuf, false);
 
                             long pageAddr = bufferAddress(pageBuf);
                             PageIO pageIO = getPageIO(pageAddr);
@@ -871,7 +880,7 @@ public class IgniteIndexReader {
     }
 
     /** */
-    private TreeTraversalInfo traverseTree(long rootPageId, boolean isMetaTree) {
+    private TreeTraversalInfo traverseTree(long rootPageId, boolean isMetaTree, FilePageStore store) {
         Map<Class, AtomicLong> ioStat = new HashMap<>();
 
         Map<Long, Set<Throwable>> errors = new HashMap<>();
@@ -888,8 +897,7 @@ public class IgniteIndexReader {
             ? (currPageId, item, link) -> idxItems.add(item)
             : (currPageId, item, link) -> idxItemsCnt.incrementAndGet();
 
-        getTreeNode(rootPageId, new TreeNodeContext(idxStore !!! передать другой стор, ioStat, errors, innerCb, null,
-        itemCb));
+        getTreeNode(rootPageId, new TreeNodeContext(store, ioStat, errors, innerCb, null, itemCb));
 
         return isMetaTree
             ? new TreeTraversalInfo(ioStat, errors, innerPageIds, rootPageId, idxItems)

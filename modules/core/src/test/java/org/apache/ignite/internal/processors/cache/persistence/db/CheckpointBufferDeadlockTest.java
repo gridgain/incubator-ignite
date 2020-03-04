@@ -320,7 +320,7 @@ public class CheckpointBufferDeadlockTest extends GridCommonAbstractTest {
         db.enableCheckpoints(true).get();
 
         //check that there is no problem with pinned pages
-        ig.destroyCache(cacheName);
+        //ig.destroyCache(cacheName);
 
         assertFalse(strLog.toString().contains("AssertionError"));
     }
