@@ -42,8 +42,8 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.AbstractWalRe
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileDescriptor;
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointer;
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileWriteAheadLogManager.ReadFileHandle;
+import org.apache.ignite.internal.processors.cache.persistence.wal.SegmentEofException;
 import org.apache.ignite.internal.processors.cache.persistence.wal.WalSegmentTailReachedException;
-import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.FileInput;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentFileInputFactory;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentIO;
@@ -317,7 +317,7 @@ class StandaloneWalRecordsIterator extends AbstractWalRecordsIterator {
         @Nullable FileWALPointer ptr
     ) {
         if (e instanceof IgniteCheckedException)
-            if (X.hasCause(e, IgniteDataIntegrityViolationException.class))
+            if (X.hasCause(e, SegmentEofException.class))
                 // "curIdx" is an index in walFileDescriptors list.
                 if (curIdx == walFileDescriptors.size() - 1)
                     // This means that there is no explicit last sengment, so we stop as if we reached the end

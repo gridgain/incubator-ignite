@@ -370,6 +370,8 @@ public class RecordV1Serializer implements RecordSerializer {
 
         WALRecord res = null;
 
+        Throwable th = null;
+
         try {
             SimpleFileInput.Crc32CheckingFileInput in = in0.startRead(skipCrc);
 
@@ -381,6 +383,9 @@ public class RecordV1Serializer implements RecordSerializer {
                 assert res != null;
 
                 res.size((int)(in0.position() - startPos + CRC_SIZE)); // Account for CRC which will be read afterwards.
+            }
+            catch (Throwable e) {
+                th = e;
             }
             finally {
                 in.close();
@@ -400,6 +405,9 @@ public class RecordV1Serializer implements RecordSerializer {
             catch (IOException ignore) {
                 // No-op. It just for information. Fail calculate file size.
             }
+
+            if (th != null && th instanceof SegmentEofException)
+                throw (SegmentEofException)th;
 
             IgniteCheckedException ex =
                 new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
