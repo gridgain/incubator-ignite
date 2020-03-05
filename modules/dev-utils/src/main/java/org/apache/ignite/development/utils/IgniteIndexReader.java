@@ -56,6 +56,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageMetaIO;
@@ -63,7 +64,9 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageParti
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionMetaIOV2;
 import org.apache.ignite.internal.processors.cache.tree.DataLeafIO;
+import org.apache.ignite.internal.processors.cache.tree.DataRow;
 import org.apache.ignite.internal.processors.cache.tree.PendingRowIO;
+import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2InnerIO;
@@ -297,20 +300,44 @@ public class IgniteIndexReader {
 
                         partStore.read(pageId, pageBuf, false);
 
-                        PageIO pageIO = getPageIO(pageAddr0);
-                        DataLeafIO
+                        BPlusIO pageIO = getPageIO(pageAddr0);
 
-                        if (!BPlusIO.class.isInstance(pageIO)) {
-                            printErr("WARNING: expected BPlusIO but got " + pageIO.getClass().getSimpleName());
+                        if (!DataLeafIO.class.isInstance(pageIO)) {
+                            //printErr("WARNING: expected DataLeafIO but got " + pageIO.getClass().getSimpleName());
 
                             continue;
                         }
 
-                        BPlusIO bPlusIO = (BPlusIO)pageIO;
+                        DataLeafIO leafIO = (DataLeafIO)pageIO;
 
-                        assert bPlusIO.isLeaf() : "not leaf page found";
+                        assert leafIO.isLeaf() : "not leaf page found";
 
-                        pageId = bPlusIO.getForward(pageAddr0);
+                        int itemsCnt = leafIO.getCount(pageAddr0);
+
+                        for (int idx = 0; idx < itemsCnt; ++idx) {
+                            long link = leafIO.getLink(pageAddr0, idx);
+                            int hash = leafIO.getHash(pageAddr0, idx);
+                            int cacheId = leafIO.getCacheId(pageAddr0, idx);
+
+                            if (cacheId == 0 && link != 0)
+                                print("cacheId: " + cacheId + " link: " + link);
+
+                            if (link != 0) {
+                                ByteBuffer b0 = allocateBuffer(pageSize);
+
+                                long a0 = bufferAddress(b0);
+
+                                long p0 = pageId(link);
+
+                                partStore.read(p0, b0, false);
+
+                                DataPageIO pIO = getPageIO(a0);
+
+                                System.err.println(pIO);
+                            }
+                        }
+
+                        pageId = leafIO.getForward(pageAddr0);
                     }
                 }
                 else if (io instanceof PagePartitionMetaIO) {
