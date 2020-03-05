@@ -19,8 +19,6 @@ package org.apache.ignite.internal.processors.cache.persistence.wal.io;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.zip.CRC32;
-
 import org.apache.ignite.internal.processors.cache.persistence.file.FileIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.ByteBufferBackedDataInput;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.FastCrc;
@@ -69,6 +67,9 @@ public interface FileInput extends ByteBufferBackedDataInput {
         /** */
         private FileInput delegate;
 
+        private int calcCrc = -1;
+        private int writtenCrc = -1;
+
         /**
          */
         public Crc32CheckingFileInput(FileInput delegate, boolean skipCheck) {
@@ -97,7 +98,11 @@ public interface FileInput extends ByteBufferBackedDataInput {
 
             int val = crc.getValue();
 
+            this.calcCrc = val;
+
             int writtenCrc =  this.readInt();
+
+            this.writtenCrc = writtenCrc;
 
             if ((val ^ writtenCrc) != 0 && !skipCheck) {
                 // If it last message we will skip it (EOF will be thrown).
@@ -107,6 +112,14 @@ public interface FileInput extends ByteBufferBackedDataInput {
                     "val: " + val + " writtenCrc: " + writtenCrc
                 );
             }
+        }
+
+        public int calcCrc() {
+            return calcCrc;
+        }
+
+        public int writtenCrc() {
+            return writtenCrc;
         }
 
         /**
