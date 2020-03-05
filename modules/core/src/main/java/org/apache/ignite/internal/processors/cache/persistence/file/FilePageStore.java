@@ -397,18 +397,6 @@ public class FilePageStore implements PageStore {
 
             pageBuf.position(0);
 
-            if (!skipCrc) {
-                int curCrc32 = FastCrc.calcCrc(pageBuf, pageSize);
-
-                if ((savedCrc32 ^ curCrc32) != 0)
-                    throw new IgniteDataIntegrityViolationException("Failed to read page (CRC validation failed) " +
-                        "[id=" + U.hexLong(pageId) + ", off=" + (off - pageSize) +
-                        ", file=" + cfgFile.getAbsolutePath() + ", fileSize=" + fileIO.size() +
-                        ", savedCrc=" + U.hexInt(savedCrc32) + ", curCrc=" + U.hexInt(curCrc32) +
-                        ", page=" + U.toHexString(pageBuf) +
-                        "]");
-            }
-
             assert PageIO.getCrc(pageBuf) == 0;
 
             if (keepCrc)

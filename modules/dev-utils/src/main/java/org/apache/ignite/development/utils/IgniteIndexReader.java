@@ -263,7 +263,7 @@ public class IgniteIndexReader {
 
         long pageAddr = bufferAddress(buf);
 
-        Map<Class, Set<Long>> pageIoIds = new HashMap<>();
+        Set<Long> partLinks = new HashSet<>();
 
         for (FilePageStore partStore : partStores) {
             partStore.sync();
@@ -286,21 +286,21 @@ public class IgniteIndexReader {
 
                     int levels = treeIO.getLevelsCount(pageAddr);
 
-                    // read leafs.
+                    // read leafs. why only 0 level btw, 1 not interesting ?
                     long firstPageId = treeIO.getFirstPageId(pageAddr, 0);
 
                     long pageId = firstPageId;
 
                     ByteBuffer pageBuf = allocateBuffer(pageSize);
 
-                    long pageAddr0 = bufferAddress(pageBuf);
+                    long pageBufAddr = bufferAddress(pageBuf);
 
                     while (pageId != 0) {
                         pageBuf.rewind();
 
                         partStore.read(pageId, pageBuf, false);
 
-                        BPlusIO pageIO = getPageIO(pageAddr0);
+                        BPlusIO pageIO = getPageIO(pageBufAddr);
 
                         if (!DataLeafIO.class.isInstance(pageIO)) {
                             //printErr("WARNING: expected DataLeafIO but got " + pageIO.getClass().getSimpleName());
@@ -312,33 +312,12 @@ public class IgniteIndexReader {
 
                         assert leafIO.isLeaf() : "not leaf page found";
 
-                        int itemsCnt = leafIO.getCount(pageAddr0);
+                        processIndexLeafForParts(leafIO, pageBufAddr, pageId, partStore, partLinks);
 
-                        for (int idx = 0; idx < itemsCnt; ++idx) {
-                            long link = leafIO.getLink(pageAddr0, idx);
-                            int hash = leafIO.getHash(pageAddr0, idx);
-                            int cacheId = leafIO.getCacheId(pageAddr0, idx);
-
-                            if (cacheId == 0 && link != 0)
-                                print("cacheId: " + cacheId + " link: " + link);
-
-                            if (link != 0) {
-                                ByteBuffer b0 = allocateBuffer(pageSize);
-
-                                long a0 = bufferAddress(b0);
-
-                                long p0 = pageId(link);
-
-                                partStore.read(p0, b0, false);
-
-                                DataPageIO pIO = getPageIO(a0);
-
-                                System.err.println(pIO);
-                            }
-                        }
-
-                        pageId = leafIO.getForward(pageAddr0);
+                        pageId = leafIO.getForward(pageBufAddr);
                     }
+
+                    iterateOverIdx(partLinks);
                 }
                 else if (io instanceof PagePartitionMetaIO) {
                     Map<Integer, Long> cacheSizes = new HashMap<>();
@@ -383,7 +362,132 @@ public class IgniteIndexReader {
             }
         }
 
+        // need correctly close all initialised buffers here !
         freeBuffer(buf);
+    }
+
+    /** copy pasted code, need to merge this func in future. */
+    private boolean processIndexLeafForParts(
+        PageIO io,
+        long addr,
+        long pageId,
+        FilePageStore store,
+        Set<Long> items/*,
+        TreeNodeContext nodeCtx*/) {
+        if (io instanceof BPlusIO && (io instanceof H2RowLinkIO || io instanceof PendingRowIO || io instanceof DataLeafIO)) {
+            int itemsCnt = ((BPlusIO)io).getCount(addr);
+
+            ByteBuffer dataBuf = allocateBuffer(pageSize);
+
+            long dataBufAddr = bufferAddress(dataBuf);
+
+            for (int j = 0; j < itemsCnt; j++) {
+                long link;
+
+                dataBuf.rewind();
+
+                if (io instanceof DataLeafIO)
+                    link = ((DataLeafIO)io).getLink(addr, j);
+                else
+                    continue; // check no additional LinkIO need here, looks like Pending not needed now but may be
+                // in future
+
+                if (link == 0)
+                    throw new IgniteException("No link to data page on idx=" + j);
+
+                long linkedPageId = pageId(link);
+
+                int linkedItemId = itemId(link);
+
+                try {
+                    store.read(linkedPageId, dataBuf, false);
+
+                    PageIO dataIo = getPageIO(getType(dataBuf), getVersion(dataBuf));
+
+                    if (dataIo instanceof AbstractDataPageIO) {
+                        AbstractDataPageIO dataPageIO = (AbstractDataPageIO)dataIo;
+
+                        DataPagePayload payload = dataPageIO.readPayload(dataBufAddr, linkedItemId, pageSize);
+
+                        if (payload.offset() <= 0 || payload.payloadSize() <= 0) {
+                            GridStringBuilder payloadInfo = new GridStringBuilder("Invalid data page payload: ")
+                                .a("off=").a(payload.offset())
+                                .a(", size=").a(payload.payloadSize())
+                                .a(", nextLink=").a(payload.nextLink());
+
+                            throw new IgniteException(payloadInfo.toString());
+                        }
+
+                        items.add(link);
+                    }
+                }
+                catch (Exception e) {
+                    //nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>()).add(e);
+                }
+            }
+            freeBuffer(dataBuf);
+
+            return true;
+        }
+        else
+            return false;
+    }
+
+    private void iterateOverIdx(Set<Long> partLinks) throws IgniteCheckedException {
+        ByteBuffer buf = allocateBuffer(pageSize);
+
+        long pageAddr = bufferAddress(buf);
+
+        Set<Long> fronIdx2PartLinks = new HashSet<>();
+
+        for (int i = 0; i < idxStore.pages(); ++i) {
+            buf.rewind();
+
+            long off = (long) i * pageSize + idxStore.headerSize();
+
+            idxStore.readByOffset(off, buf, false);
+
+            PageIO io = getPageIO(pageAddr);
+
+            if (io instanceof PageMetaIO) {
+                PageMetaIO pageMetaIO = (PageMetaIO)io;
+
+                long metaTreeRootPageId = pageMetaIO.getTreeRoot(pageAddr);
+
+                Map<String, TreeTraversalInfo> lvlInfo = traverseTreesByLvl(metaTreeRootPageId, idxStore);
+
+                BPlusMetaIO treeIO = (BPlusMetaIO) io;
+
+                int levels = treeIO.getLevelsCount(pageAddr);
+
+                // read leafs. why only 0 level btw, 1 not interesting ?
+                long firstPageId = treeIO.getFirstPageId(pageAddr, 0);
+
+                long pageId = firstPageId;
+
+                ByteBuffer pageBuf = allocateBuffer(pageSize);
+
+                long pageBufAddr = bufferAddress(pageBuf);
+
+                while (pageId != 0) {
+                    pageBuf.rewind();
+
+                    idxStore.read(pageId, pageBuf, false);
+
+                    BPlusIO pageIO = getPageIO(pageBufAddr);
+
+                    BPlusLeafIO leafIO = (BPlusLeafIO)pageIO;
+
+                    assert leafIO.isLeaf() : "not leaf page found";
+
+                    processIndexLeafForParts(leafIO, pageBufAddr, pageId, idxStore, fronIdx2PartLinks);
+
+                    pageId = leafIO.getForward(pageBufAddr);
+                }
+            }
+        }
+
+        assert fronIdx2PartLinks.containsAll(partLinks);
     }
 
     /** */
