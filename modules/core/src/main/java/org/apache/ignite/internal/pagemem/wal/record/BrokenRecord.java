@@ -15,7 +15,7 @@
  */
 package org.apache.ignite.internal.pagemem.wal.record;
 
-import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.X;
 
 public class BrokenRecord extends WALRecord {
     private final WALRecord innerRecord;
@@ -33,7 +33,9 @@ public class BrokenRecord extends WALRecord {
     @Override public String toString() {
         String e = exception == null ? "unknown" : exception.getMessage();
 
-        return "[ERROR] BROKEN_RECORD (Exception: " + e + ")" +
-            S.toString(BrokenRecord.class, this);
+        String rootCause = exception == null ? null : X.getCause(exception).toString();
+
+        return "[ERROR] BROKEN_RECORD: " + innerRecord + "; exception: " + e +
+            (rootCause == null ? "" : ", rootCause: " + rootCause);
     }
 }

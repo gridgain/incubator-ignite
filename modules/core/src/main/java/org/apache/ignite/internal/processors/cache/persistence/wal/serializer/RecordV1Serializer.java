@@ -372,8 +372,10 @@ public class RecordV1Serializer implements RecordSerializer {
 
         Throwable th = null;
 
+        SimpleFileInput.Crc32CheckingFileInput in = null;
+
         try {
-            SimpleFileInput.Crc32CheckingFileInput in = in0.startRead(skipCrc);
+            in = in0.startRead(skipCrc);
 
             try {
                 startPos = in0.position();
@@ -412,8 +414,11 @@ public class RecordV1Serializer implements RecordSerializer {
             IgniteCheckedException ex =
                 new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
 
-            if (res != null)
-                return new BrokenRecord(res, ex);
+            if (res != null) {
+                WALRecord r = (in == null ? res : new CRCLoggingRecord(res, startPos, in.calcCrc(), in.writtenCrc()));
+
+                return new BrokenRecord(r, ex);
+            }
 
             throw ex;
         }
