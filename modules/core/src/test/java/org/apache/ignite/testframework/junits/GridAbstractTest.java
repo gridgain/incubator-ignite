@@ -53,6 +53,7 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.binary.BinaryBasicNameMapper;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.BinaryConfiguration;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -1793,6 +1794,8 @@ public abstract class GridAbstractTest extends TestCase {
         cfg.setNearConfiguration(new NearCacheConfiguration());
         cfg.setWriteSynchronizationMode(FULL_SYNC);
         cfg.setEvictionPolicy(null);
+
+        cfg.setAffinity(new RendezvousAffinityFunction(false, 1));
 
         return cfg;
     }

@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -105,7 +106,8 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
                     .setKeyFields(new HashSet<>(Arrays.asList("keyStr", "keyLong", "keyPojo")))
                     .setIndexes(indexes)
             ))
-            .setSqlIndexMaxInlineSize(inlineSize);
+            .setSqlIndexMaxInlineSize(inlineSize)
+            .setAffinity(new RendezvousAffinityFunction(false, 1));
 
         igniteCfg.setCacheConfiguration(ccfg);
 

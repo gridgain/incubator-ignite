@@ -387,7 +387,9 @@ public class IgniteIndexReader {
                 dataBuf.rewind();
 
                 if (io instanceof DataLeafIO)
-                    link = ((DataLeafIO)io).getLink(addr, j);
+                    link = ((RowLinkIO)io).getLink(addr, j);
+                else if (io instanceof H2ExtrasLeafIO)
+                    link = ((H2RowLinkIO)io).getLink(addr, j);
                 else
                     continue; // check no additional LinkIO need here, looks like Pending not needed now but may be
                 // in future
@@ -395,35 +397,7 @@ public class IgniteIndexReader {
                 if (link == 0)
                     throw new IgniteException("No link to data page on idx=" + j);
 
-                long linkedPageId = pageId(link);
-
-                int linkedItemId = itemId(link);
-
-                try {
-                    store.read(linkedPageId, dataBuf, false);
-
-                    PageIO dataIo = getPageIO(getType(dataBuf), getVersion(dataBuf));
-
-                    if (dataIo instanceof AbstractDataPageIO) {
-                        AbstractDataPageIO dataPageIO = (AbstractDataPageIO)dataIo;
-
-                        DataPagePayload payload = dataPageIO.readPayload(dataBufAddr, linkedItemId, pageSize);
-
-                        if (payload.offset() <= 0 || payload.payloadSize() <= 0) {
-                            GridStringBuilder payloadInfo = new GridStringBuilder("Invalid data page payload: ")
-                                .a("off=").a(payload.offset())
-                                .a(", size=").a(payload.payloadSize())
-                                .a(", nextLink=").a(payload.nextLink());
-
-                            throw new IgniteException(payloadInfo.toString());
-                        }
-
-                        items.add(link);
-                    }
-                }
-                catch (Exception e) {
-                    //nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>()).add(e);
-                }
+                items.add(link);
             }
             freeBuffer(dataBuf);
 
@@ -449,16 +423,16 @@ public class IgniteIndexReader {
 
             PageIO io = getPageIO(pageAddr);
 
-            if (io instanceof PageMetaIO) {
-                PageMetaIO pageMetaIO = (PageMetaIO)io;
+            if (io instanceof BPlusMetaIO) {
+                BPlusMetaIO pageMetaIO = (BPlusMetaIO)io;
 
-                long metaTreeRootPageId = pageMetaIO.getTreeRoot(pageAddr);
+                //long metaTreeRootPageId = pageMetaIO.getTreeRoot(pageAddr);
 
-                Map<String, TreeTraversalInfo> lvlInfo = traverseTreesByLvl(metaTreeRootPageId, idxStore);
+                //PageMetaIO
+
+                //Map<String, TreeTraversalInfo> lvlInfo = traverseTreesByLvl(metaTreeRootPageId, idxStore);
 
                 BPlusMetaIO treeIO = (BPlusMetaIO) io;
-
-                int levels = treeIO.getLevelsCount(pageAddr);
 
                 // read leafs. why only 0 level btw, 1 not interesting ?
                 long firstPageId = treeIO.getFirstPageId(pageAddr, 0);
