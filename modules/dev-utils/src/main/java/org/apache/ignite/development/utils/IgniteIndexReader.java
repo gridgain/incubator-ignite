@@ -509,6 +509,8 @@ public class IgniteIndexReader implements AutoCloseable {
 
         treesInfo.remove(META_TREE_NAME);
 
+        Map<String, Integer> cacheIds = new HashMap<>();
+
         ProgressPrinter progressPrinter = new ProgressPrinter(System.out, "Checking partitions", partCnt);
 
         for (int i = 0; i < partCnt; i++) {
@@ -546,7 +548,7 @@ public class IgniteIndexReader implements AutoCloseable {
 
                             TreeTraversalInfo tree = e.getValue();
 
-                            int cacheId = getCacheId(name);
+                            int cacheId = cacheIds.computeIfAbsent(name, this::getCacheId);
 
                             if (cacheId != cacheAwareLink.cacheId)
                                 continue; // It's index for other cache, don't check.
