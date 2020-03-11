@@ -1189,7 +1189,11 @@ public class IgniteIndexReader implements AutoCloseable {
                 progressPrinter.printProgress();
 
                 try {
-                    copyFromStreamToFile(f.toFile(), new File(destDir.getPath(), f.getFileName().toString()));
+                    copyFromStreamToFile(
+                        f.toFile(),
+                        new File(destDir.getPath(), f.getFileName().toString()),
+                        f.getFileName().toString().equals(INDEX_FILE_NAME) ? FLAG_IDX : FLAG_DATA
+                    );
                 }
                 catch (Exception e) {
                     File destF = new File(destDir.getPath(), f.getFileName().toString());
@@ -1209,7 +1213,7 @@ public class IgniteIndexReader implements AutoCloseable {
     }
 
     /** */
-    private int copyFromStreamToFile(File idxIn, File idxOut) throws IOException, IgniteCheckedException {
+    private int copyFromStreamToFile(File fileInPath, File fileOutPath, byte flag) throws IOException, IgniteCheckedException {
         ByteBuffer readBuf = GridUnsafe.allocateBuffer(pageSize);
 
         try {
@@ -1217,16 +1221,16 @@ public class IgniteIndexReader implements AutoCloseable {
 
             long readAddr = GridUnsafe.bufferAddress(readBuf);
 
-            ByteBuffer hdrBuf = headerBuffer(FLAG_IDX, pageSize);
+            ByteBuffer hdrBuf = headerBuffer(flag, pageSize);
 
-            try (FileChannel ch = FileChannel.open(idxOut.toPath(), WRITE, CREATE)) {
+            try (FileChannel ch = FileChannel.open(fileOutPath.toPath(), WRITE, CREATE)) {
                 int hdrSize = hdrBuf.limit();
 
                 ch.write(hdrBuf, 0);
 
                 int pageCnt = 0;
 
-                FileChannel stream = new RandomAccessFile(idxIn, "r").getChannel();
+                FileChannel stream = new RandomAccessFile(fileInPath, "r").getChannel();
 
                 while (readNextPage(readBuf, stream, pageSize)) {
                     pageCnt++;
@@ -1240,6 +1244,7 @@ public class IgniteIndexReader implements AutoCloseable {
                     int pageIdx = PageIdUtils.pageIndex(pageId);
 
                     int crcSaved = PageIO.getCrc(readAddr);
+
                     PageIO.setCrc(readAddr, 0);
 
                     int calced = FastCrc.calcCrc(readBuf, pageSize);
@@ -1263,7 +1268,6 @@ public class IgniteIndexReader implements AutoCloseable {
                             changed = true;
 
                             break;
-
                         case PageIO.T_META:
                         case PageIO.T_PART_META:
                             PageMetaIO io = PageIO.getPageIO(pageType, PageIO.getVersion(readAddr));
@@ -1279,7 +1283,6 @@ public class IgniteIndexReader implements AutoCloseable {
 
                             break;
                     }
-
                     if (changed) {
                         PageIO.setCrc(readAddr, 0);
 
@@ -1289,7 +1292,6 @@ public class IgniteIndexReader implements AutoCloseable {
 
                         readBuf.rewind();
                     }
-
                     ch.write(readBuf, hdrSize + ((long)pageIdx) * pageSize);
 
                     readBuf.rewind();
@@ -1301,7 +1303,7 @@ public class IgniteIndexReader implements AutoCloseable {
             }
         }
         finally {
-            GridUnsafe.freeBuffer(readBuf);
+            freeBuffer(readBuf);
         }
     }
 
@@ -1330,33 +1332,6 @@ public class IgniteIndexReader implements AutoCloseable {
         FilePageStore store = storeFactory.createPageStore(type, null, storeFactory.latestVersion(), allocationTracker);
 
         return store.header(type, pageSize);
-    }
-
-    /**
-     * Gets CLI option from filled options map.
-     * @param options Options and their values.
-     * @param name Option name.
-     * @param cls Value class,
-     * @param dfltVal Default value supplier.
-     * @param <T> Value type.
-     * @return Value.
-     */
-    private static <T> T getOptionFromMap(Map<String, String> options, String name, Class<T> cls, Supplier<T> dfltVal) {
-        String s = options.get(name);
-
-        if (s == null)
-            return dfltVal.get();
-
-        T val = null;
-
-        if (cls.equals(String.class))
-            val = (T)s;
-        else if (cls.equals(Integer.class))
-            val = (T)new Integer(Integer.parseInt(s));
-        else if (cls.equals(Boolean.class))
-            val = (T)Boolean.valueOf(s);
-
-        return val == null ? dfltVal.get() : val;
     }
 
     /**
