@@ -1831,7 +1831,7 @@ public class IgniteIndexReader implements AutoCloseable {
                             sb.a(idxItem.toString() + " ");
                     }
                     else
-                        idxItem = getLeafItem(leafIO, addr, j, nodeCtx);
+                        idxItem = getLeafItem(leafIO, pageId, addr, j, nodeCtx);
                 }
                 catch (Exception e) {
                     nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>()).add(e);
@@ -1845,7 +1845,7 @@ public class IgniteIndexReader implements AutoCloseable {
         }
 
         /** */
-        private Object getLeafItem(BPlusLeafIO io, long addr, int idx, TreeTraverseContext nodeCtx)
+        private Object getLeafItem(BPlusLeafIO io, long pageId, long addr, int idx, TreeTraverseContext nodeCtx)
             throws IgniteCheckedException {
             if (isLinkIo(io)) {
                 final long link = getLink(io, addr, idx);
@@ -1872,8 +1872,11 @@ public class IgniteIndexReader implements AutoCloseable {
                     if (linkedPagePartId > partStores.length - 1) {
                         missingPartitions.add(linkedPagePartId);
 
-                        throw new IgniteException("Calculated data page partition id exceeds given partitions count: " +
-                            linkedPagePartId + ", partCnt=" + partCnt);
+                        nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>())
+                            .add(new IgniteException("Calculated data page partition id exceeds given partitions " +
+                                "count: " + linkedPagePartId + ", partCnt=" + partCnt));
+
+                        return res;
                     }
 
                     final FilePageStore store = partStores[linkedPagePartId];
@@ -1881,7 +1884,11 @@ public class IgniteIndexReader implements AutoCloseable {
                     if (store == null) {
                         missingPartitions.add(linkedPagePartId);
 
-                        throw new IgniteException("Corresponding store wasn't found for partId=" + linkedPagePartId + ". Does partition file exist?");
+                        nodeCtx.errors.computeIfAbsent(pageId, k -> new HashSet<>())
+                            .add(new IgniteException("Corresponding store wasn't found for partId=" +
+                                linkedPagePartId + ". Does partition file exist?"));
+
+                        return res;
                     }
 
                     doWithBuffer((dataBuf, dataBufAddr) -> {
