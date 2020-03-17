@@ -1277,6 +1277,11 @@ public class GridNioServer<T> {
      * Client worker for direct mode.
      */
     private class DirectNioClientWorker extends AbstractNioClientWorker {
+        private static final int SLOW_READ_THRESHOLD = 500;
+        private static final int SLOW_READ_NUM_THRESHOLD = 20;
+
+        private int slowReads;
+
         /**
          * @param idx Index of this worker in server's array.
          * @param igniteInstanceName Ignite instance name.
@@ -1329,6 +1334,16 @@ public class GridNioServer<T> {
                 close(ses, null);
 
                 return;
+            }
+
+            if (cnt < SLOW_READ_THRESHOLD) {
+                slowReads++;
+
+                if (slowReads == SLOW_READ_NUM_THRESHOLD) {
+                    log.error("A slow connection has been found! ses=" + ses);
+                }
+            } else {
+                slowReads = 0;
             }
 
             if (log.isTraceEnabled())
