@@ -13,7 +13,7 @@
 
         <property name="gridLogger">
             <bean class="org.apache.ignite.logger.log4j2.Log4J2Logger">
-                <constructor-arg value="config/ignite-log4j2.xml" />
+                <constructor-arg name="cfgFile" value="config/ignite-log4j2.xml"/>
             </bean>
         </property>
     </bean>
