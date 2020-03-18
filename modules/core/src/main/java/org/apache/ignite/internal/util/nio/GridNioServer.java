@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -1279,8 +1280,10 @@ public class GridNioServer<T> {
     private class DirectNioClientWorker extends AbstractNioClientWorker {
         private static final int SLOW_READ_THRESHOLD = 500;
         private static final int SLOW_READ_NUM_THRESHOLD = 20;
+        private static final int READS_LIMIT = 1000;
 
-        private int slowReads;
+        private Map<GridNioSession, Integer> slowReadsMap = new HashMap<>();
+        private Map<GridNioSession, Integer> readsMap = new HashMap<>();
 
         /**
          * @param idx Index of this worker in server's array.
@@ -1337,13 +1340,11 @@ public class GridNioServer<T> {
             }
 
             if (cnt < SLOW_READ_THRESHOLD) {
-                slowReads++;
-
-                if (slowReads == SLOW_READ_NUM_THRESHOLD) {
+                if (inc(slowReadsMap, ses) == SLOW_READ_NUM_THRESHOLD) {
                     log.error("A slow connection has been found! ses=" + ses);
                 }
             } else {
-                slowReads = 0;
+                slowReadsMap.remove(ses);
             }
 
             if (log.isTraceEnabled())
@@ -1375,10 +1376,26 @@ public class GridNioServer<T> {
 
                     registerWrite(ses);
                 }
+
+                if (inc(readsMap, ses) == READS_LIMIT) {
+                    close(ses, null, true);
+                    readsMap.remove(ses);
+                }
             }
             catch (IgniteCheckedException e) {
                 close(ses, e);
             }
+        }
+
+        private int inc(Map<GridNioSession, Integer> map, GridNioSession ses) {
+            Integer oldVal = map.get(ses);
+            if (oldVal == null)
+                oldVal = 0;
+
+            int newVal = oldVal + 1;
+            map.put(ses, newVal);
+
+            return newVal;
         }
 
         /**
