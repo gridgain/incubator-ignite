@@ -16,13 +16,12 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
-import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteSystemProperties;
-import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
-import org.apache.ignite.internal.processors.cache.CacheGroupContext;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionDemander.RebalanceFuture;
-
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,12 +38,23 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.ToLongFunction;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionDemander.RebalanceFuture;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.valueOf;
 import static java.lang.System.currentTimeMillis;
 import static java.time.ZoneId.systemDefault;
 import static java.time.format.DateTimeFormatter.ofPattern;
+import static java.util.Comparator.comparing;
 import static java.util.Comparator.comparingInt;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.nonNull;
@@ -64,13 +74,20 @@ import static org.apache.ignite.IgniteSystemProperties.getBoolean;
  */
 class RebalanceStatisticsUtils {
     /** To format the date and time. */
-    private static final DateTimeFormatter REBALANCE_STATISTICS_DTF = ofPattern("YYYY-MM-dd HH:mm:ss,SSS");
+    private static final DateTimeFormatter DTF = ofPattern("YYYY-MM-dd HH:mm:ss,SSS");
 
+    // TODO: kirill удалить
     /** Text for successful or not rebalances. */
     private static final String SUCCESSFUL_OR_NOT_REBALANCE_TEXT = "including successful and not rebalances";
-
     /** Text successful rebalance. */
     private static final String SUCCESSFUL_REBALANCE_TEXT = "successful rebalance";
+
+    /** Supplier statistics header. */
+    private static final String SUP_STAT_HEAD = "Supplier statistics: ";
+
+    /** Supplier statistics aliases. */
+    private static final String SUP_STAT_ALIASES = "Aliases: p - partitions, e - entries, b - bytes, d - duration, " +
+        "h - historical, nodeId mapping (nodeId=id,consistentId) ";
 
     /**
      * Private constructor.
@@ -78,6 +95,281 @@ class RebalanceStatisticsUtils {
     private RebalanceStatisticsUtils() {
         throw new RuntimeException("don't create");
     }
+
+    /**
+     * Returns ability to print statistics for rebalance depending on
+     * {@link IgniteSystemProperties#IGNITE_QUIET IGNITE_QUIET} and
+     * {@link IgniteSystemProperties#IGNITE_WRITE_REBALANCE_STATISTICS
+     * IGNITE_WRITE_REBALANCE_STATISTICS}.
+     * <br/>
+     * {@code True} returns only if {@code IGNITE_QUIET = false} and
+     * {@code IGNITE_WRITE_REBALANCE_STATISTICS = true}, otherwise
+     * {@code false}.
+     *
+     * @return {@code True} if printing statistics for rebalance is available.
+     */
+    public static boolean availablePrintRebalanceStatistics() {
+        return !getBoolean(IGNITE_QUIET, true) && getBoolean(IGNITE_WRITE_REBALANCE_STATISTICS, false);
+    }
+
+    /**
+     * Returns ability to print partitions distribution depending on
+     * {@link IgniteSystemProperties#IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS}.
+     * <br/>
+     * {@code True} returns only if
+     * {@code IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS = true}, otherwise
+     * {@code false}.
+     *
+     * @return {@code True} if printing partitions distribution is available.
+     */
+    public static boolean availablePrintPartitionsDistribution() {
+        return getBoolean(IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, false);
+    }
+
+    /**
+     * Creating a string representation of group cache rebalance statistics for
+     * logging.
+     *
+     * @param cacheGrpCtx Cache group context.
+     * @param stat Rebalance statistics.
+     * @param suc Flag for successful rebalancing.
+     * @param top Topology version.
+     * @return String representation of rebalance statistics for cache group.
+     */
+    public static String cacheGroupRebalanceStatistics(
+        CacheGroupContext cacheGrpCtx,
+        CacheGroupRebalanceStatistics stat,
+        boolean suc,
+        AffinityTopologyVersion top
+    ) {
+        SB sb = new SB();
+
+        sb.a("Information per cache group (").a(suc ? "successful" : "interrupted").a(" rebalance): [")
+            .a(grpInfo(cacheGrpCtx)).a(", ").a(time(stat.start(), stat.end())).a(", restarted=")
+            .a(stat.attempt() - 1).a("] ");
+
+        Map<ClusterNode, CacheGroupSupplierRebalanceStatistics> supStats = stat.supplierStatistics();
+        if (supStats.isEmpty())
+            return sb.toString();
+
+        sb.a(SUP_STAT_HEAD);
+
+        int nodeId = 0;
+        for (CacheGroupSupplierRebalanceStatistics supStat : supStats.values()) {
+            long fp = 0, hp = 0;
+
+            for (Entry<Integer, Boolean> pe : supStat.partitions().entrySet()) {
+                if (pe.getValue())
+                    fp++;
+                else
+                    hp++;
+            }
+
+            long fe = supStat.fullEntries().sum(), he = supStat.histEntries().sum();
+            long fb = supStat.fullBytes().sum(), hb = supStat.histBytes().sum();
+
+            sb.a(supInfo(nodeId++, fp, hp, fe, he, fb, hb, supStat.start(), supStat.end()));
+        }
+
+        sb.a(SUP_STAT_ALIASES);
+
+        nodeId = 0;
+        for (ClusterNode supNode : supStats.keySet())
+            sb.a(supInfo(nodeId++, supNode));
+
+        if (!availablePrintPartitionsDistribution())
+            return sb.toString();
+
+        sb.a("Partitions distribution per cache group (").a(suc ? "successful" : "interrupted").a(" rebalance): [")
+            .a(grpInfo(cacheGrpCtx)).a("] ");
+
+        SortedMap<Integer, Boolean> parts = new TreeMap<>();
+        for (CacheGroupSupplierRebalanceStatistics supStat : supStats.values())
+            parts.putAll(supStat.partitions());
+
+        AffinityAssignment aff = cacheGrpCtx.affinity().cachedAffinity(top);
+
+        Map<ClusterNode, Integer> affNodes = new HashMap<>();
+        nodeId = 0;
+        for (ClusterNode affNode : aff.nodes())
+            affNodes.put(affNode, nodeId++);
+
+        SortedSet<ClusterNode> partNodes = new TreeSet<>(comparing(affNodes::get));
+        boolean f;
+
+        for (Entry<Integer, Boolean> part : parts.entrySet()) {
+            partNodes.clear();
+
+            int p = part.getKey();
+            partNodes.addAll(aff.get(p));
+
+            f = true;
+
+            sb.a(p).a(" = ");
+            for (ClusterNode partNode : partNodes) {
+                if (!f)
+                    sb.a(',');
+                else
+                    f = false;
+
+                sb.a('[').a(affNodes.get(partNode)).a(aff.primaryPartitions(partNode.id()).contains(p) ? ",pr" : ",bu")
+                    .a(supStats.containsKey(partNode) ? ",su" : "").a("]");
+
+            }
+            sb.a(!part.getValue() ? " h " : " ");
+        }
+
+        sb.a("Aliases: pr - primary, bu - backup, su - supplier node, h - historical, nodeId mapping ")
+            .a("(nodeId=id,consistentId) ");
+
+        partNodes.addAll(affNodes.keySet());
+
+        for (ClusterNode affNode : partNodes)
+            sb.a(supInfo(affNodes.get(affNode), affNode));
+
+        return sb.toString();
+    }
+
+    /**
+     * Creating a string representation of total rebalance statistics for all
+     * cache groups for logging.
+     *
+     * @param totalStat Statistics of rebalance for cache groups.
+     * @return String representation of total rebalance statistics
+     *      for all cache groups.
+     */
+    public static String totalRebalanceStatistic(Map<CacheGroupContext, CacheGroupTotalRebalanceStatistics> totalStat) {
+        SB sb = new SB();
+
+        long start = totalStat.values().stream().mapToLong(CacheGroupTotalRebalanceStatistics::start).min().orElse(0);
+        long end = totalStat.values().stream().mapToLong(CacheGroupTotalRebalanceStatistics::end).max().orElse(0);
+
+        sb.a("Total information (including successful and not rebalances): [").a(time(start, end)).a("] ");
+
+        Set<ClusterNode> supNodes = new HashSet<>();
+        for (CacheGroupTotalRebalanceStatistics stat : totalStat.values())
+            supNodes.addAll(stat.supplierStatistics().keySet());
+
+        if (supNodes.isEmpty())
+            return sb.toString();
+
+        sb.a(SUP_STAT_HEAD);
+
+        int nodeId = 0;
+        for (ClusterNode supNode : supNodes) {
+            long fp = 0, hp = 0, fe = 0, he = 0, fb = 0, hb = 0, s = 0, e = 0;
+
+            for (CacheGroupTotalRebalanceStatistics stat : totalStat.values()) {
+                if (!stat.supplierStatistics().containsKey(supNode))
+                    continue;
+
+                CacheGroupTotalSupplierRebalanceStatistics supStat = stat.supplierStatistics().get(supNode);
+                fp += supStat.fullParts().sum();
+                hp += supStat.histParts().sum();
+                fe += supStat.fullEntries().sum();
+                he += supStat.histEntries().sum();
+                fb += supStat.fullBytes().sum();
+                hb += supStat.histBytes().sum();
+                s = s == 0 ? supStat.start().get() : min(supStat.start().get(), s);
+                e = max(supStat.end().get(), e);
+            }
+
+            sb.a(supInfo(nodeId++, fp, hp, fe, he, fb, hb, s, e));
+        }
+
+        sb.a(SUP_STAT_ALIASES);
+
+        nodeId = 0;
+        for (ClusterNode supNode : supNodes)
+            sb.a(supInfo(nodeId++, supNode));
+
+        return sb.toString();
+    }
+
+    /**
+     * Creation of information by supplier in format:
+     * [{@code nodeId} = Consistent id].
+     *
+     * @param nodeId       Supplier node id.
+     * @param supplierNode Supplier node.
+     * @return Supplier info string.
+     */
+    private static String supInfo(int nodeId, ClusterNode supplierNode) {
+        return new SB("[").a(nodeId).a('=').a(supplierNode.consistentId().toString()).a("] ").toString();
+    }
+
+    /**
+     * Creating a rebalance statistics string for supplier.
+     *
+     * @param nodeId Supplier node id.
+     * @param fp Counter of partitions received by full rebalance.
+     * @param hp Counter of partitions received by historical rebalance.
+     * @param fe Counter of entries received by full rebalance.
+     * @param he Counter of entries received by historical rebalance.
+     * @param fb Counter of bytes received by full rebalance.
+     * @param hb Counter of bytes received by historical rebalance.
+     * @param s Start time of rebalance in milliseconds.
+     * @param e End time of rebalance in milliseconds.
+     * @return Supplier info string.
+     */
+    private static String supInfo(int nodeId, long fp, long hp, long fe, long he, long fb, long hb, long s, long e) {
+        SB sb = new SB();
+        sb.a("[nodeId=").a(nodeId);
+
+        if (fp > 0)
+            sb.a(", p=").a(fp);
+
+        if (hp > 0)
+            sb.a(", hp=").a(hp);
+
+        if (fe > 0)
+            sb.a(", e=").a(fe);
+
+        if (he > 0)
+            sb.a(", he=").a(he);
+
+        if (fb > 0)
+            sb.a(", b=").a(fb);
+
+        if (hb > 0)
+            sb.a(", hb=").a(hb);
+
+        return sb.a(", d=").a(e - s).a(" ms] ").toString();
+    }
+
+    /**
+     * Creating a string with time information.
+     *
+     * @param start Start time in milliseconds.
+     * @param end   End time in milliseconds.
+     * @return String with time information.
+     */
+    private static String time(long start, long end) {
+        return new SB().a("startTime=").a(DTF.format(toLocalDateTime(start))).a(", finishTime=")
+            .a(DTF.format(toLocalDateTime(start))).a(", d=").a(end - start).a(" ms").toString();
+    }
+
+    /**
+     * Creating information for a cache group.
+     *
+     * @param cacheGrpCtx Cache group context.
+     * @return Group info.
+     */
+    private static String grpInfo(CacheGroupContext cacheGrpCtx) {
+        return new SB().a("id=").a(cacheGrpCtx.groupId()).a(", name=").a(cacheGrpCtx.cacheOrGroupName()).toString();
+    }
+
+    /**
+     * Convert time in millis to local date time.
+     *
+     * @param time Time in mills.
+     * @return The local date-time.
+     */
+    private static LocalDateTime toLocalDateTime(final long time) {
+        return new Date(time).toInstant().atZone(systemDefault()).toLocalDateTime();
+    }
+
+    // TODO: kirill удалить все ниже
 
     /** Rebalance future statistics. */
     static class RebalanceFutureStatistics {
@@ -91,7 +383,7 @@ class RebalanceStatisticsUtils {
         private final Map<ClusterNode, RebalanceMessageStatistics> msgStats = new ConcurrentHashMap<>();
 
         /** Is needed or not to print rebalance statistics. */
-        private final boolean printRebalanceStatistics = printRebalanceStatistics();
+        private final boolean printRebalanceStatistics = availablePrintRebalanceStatistics();
 
         /**
          * Add new message statistics.
@@ -227,29 +519,8 @@ class RebalanceStatisticsUtils {
     }
 
     /**
-     * Finds out if statistics can be printed regarding
-     * {@link IgniteSystemProperties#IGNITE_QUIET},
-     * {@link IgniteSystemProperties#IGNITE_WRITE_REBALANCE_STATISTICS}.
-     *
-     * @return Is print statistics enabled.
-     */
-    public static boolean printRebalanceStatistics() {
-        return !getBoolean(IGNITE_QUIET, true) && getBoolean(IGNITE_WRITE_REBALANCE_STATISTICS, false);
-    }
-
-    /**
-     * Finds out if partitions distribution can be printed regarding
-     * {@link IgniteSystemProperties#IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS}.
-     *
-     * @return Is print partitions distribution enabled.
-     */
-    public static boolean printPartitionsDistribution() {
-        return getBoolean(IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, false);
-    }
-
-    /**
      * Return rebalance statistics. Required to call this method if
-     * {@link #printRebalanceStatistics()} == true.
+     * {@link #availablePrintRebalanceStatistics()} == true.
      * <p/>
      * Flag {@code finish} should reflect was full rebalance finished or not.
      * <br/>
@@ -274,7 +545,7 @@ class RebalanceStatisticsUtils {
         final Map<CacheGroupContext, Collection<RebalanceFuture>> rebFutrs
     ) throws IgniteCheckedException {
         assert nonNull(rebFutrs);
-        assert printRebalanceStatistics() : "Can't print statistics";
+        assert availablePrintRebalanceStatistics() : "Can't print statistics";
 
         AtomicInteger nodeCnt = new AtomicInteger();
 
@@ -362,7 +633,7 @@ class RebalanceStatisticsUtils {
 
     /**
      * Write partitions distribution per cache group. Only for last success rebalance.
-     * Works if {@link #printPartitionsDistribution()} return true.
+     * Works if {@link #availablePrintPartitionsDistribution()} return true.
      *
      * @param rebFutrs Participating in successful and not rebalances, require not null.
      * @param nodeAliases For print nodeId=1 instead long string, require not null.
@@ -382,7 +653,7 @@ class RebalanceStatisticsUtils {
         assert nonNull(nodeCnt);
         assert nonNull(joiner);
 
-        if (!printPartitionsDistribution())
+        if (!availablePrintPartitionsDistribution())
             return;
 
         joiner.add("Partitions distribution per cache group (" + SUCCESSFUL_REBALANCE_TEXT + "):");
@@ -504,16 +775,6 @@ class RebalanceStatisticsUtils {
     }
 
     /**
-     * Convert time in millis to local date time.
-     *
-     * @param time Time in mills.
-     * @return The local date-time.
-     */
-    private static LocalDateTime toLocalDateTime(final long time) {
-        return new Date(time).toInstant().atZone(systemDefault()).toLocalDateTime();
-    }
-
-    /**
      * Get min {@link RebalanceFutureStatistics#startTime} in stream rebalance future's.
      *
      * @param stream Stream rebalance future, require not null.
@@ -572,11 +833,11 @@ class RebalanceStatisticsUtils {
      * @param start Start time in ms.
      * @param end End time in ms.
      * @return Formatted string of rebalance time.
-     * @see #REBALANCE_STATISTICS_DTF
+     * @see #DTF
      */
     private static String toStartEndDuration(final long start, final long end) {
-        return "startTime=" + REBALANCE_STATISTICS_DTF.format(toLocalDateTime(start)) + ", finishTime=" +
-            REBALANCE_STATISTICS_DTF.format(toLocalDateTime(end)) + ", d=" + (end - start) + " ms";
+        return "startTime=" + DTF.format(toLocalDateTime(start)) + ", finishTime=" +
+            DTF.format(toLocalDateTime(end)) + ", d=" + (end - start) + " ms";
     }
 
     /**
