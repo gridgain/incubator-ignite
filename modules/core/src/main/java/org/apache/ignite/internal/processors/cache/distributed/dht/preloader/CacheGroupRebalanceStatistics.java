@@ -21,7 +21,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.cluster.ClusterNode;
 
-/** Rebalance statistics for cache group. */
+/**
+ * Rebalance statistics for cache group.
+ */
 public class CacheGroupRebalanceStatistics {
     /** Start time of rebalance in milliseconds. */
     private volatile long start;
@@ -91,12 +93,7 @@ public class CacheGroupRebalanceStatistics {
      * @param b            Count of bytes.
      */
     public void update(ClusterNode supplierNode, int p, boolean hist, long e, long b) {
-        CacheGroupSupplierRebalanceStatistics supplierStat = supplierRebalanceStatistics(supplierNode);
-
-        supplierStat.partitions().put(p, !hist);
-
-        (hist ? supplierStat.histEntries() : supplierStat.fullEntries()).add(e);
-        (hist ? supplierStat.histBytes() : supplierStat.fullBytes()).add(b);
+        supplierRebalanceStatistics(supplierNode).update(hist, p, e, b);
     }
 
     /**

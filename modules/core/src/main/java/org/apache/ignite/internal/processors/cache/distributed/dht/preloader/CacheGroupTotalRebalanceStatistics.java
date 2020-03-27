@@ -25,7 +25,9 @@ import org.apache.ignite.cluster.ClusterNode;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-/** Total statistics of rebalance for cache group. */
+/**
+ * Total statistics of rebalance for cache group.
+ */
 public class CacheGroupTotalRebalanceStatistics {
     /** Start time of rebalance in milliseconds. */
     private final AtomicLong start = new AtomicLong();
@@ -53,8 +55,6 @@ public class CacheGroupTotalRebalanceStatistics {
             );
 
             CacheGroupSupplierRebalanceStatistics grpSupStat = grpSupStatEntry.getValue();
-            totalSupStat.start().getAndUpdate(s -> s == 0 ? grpSupStat.start() : min(grpSupStat.start(), s));
-            totalSupStat.end().getAndUpdate(e -> max(grpSupStat.end(), e));
 
             long fp = 0, hp = 0;
             for (Entry<Integer, Boolean> part : grpSupStat.partitions().entrySet()) {
@@ -64,12 +64,16 @@ public class CacheGroupTotalRebalanceStatistics {
                     hp++;
             }
 
-            totalSupStat.fullParts().add(fp);
-            totalSupStat.histParts().add(hp);
-            totalSupStat.fullEntries().add(grpSupStat.fullEntries().sum());
-            totalSupStat.histEntries().add(grpSupStat.histEntries().sum());
-            totalSupStat.fullBytes().add(grpSupStat.fullBytes().sum());
-            totalSupStat.histBytes().add(grpSupStat.histBytes().sum());
+            totalSupStat.update(
+                grpSupStat.start(),
+                grpSupStat.end(),
+                fp,
+                hp,
+                grpSupStat.fullEntries(),
+                grpSupStat.histEntries(),
+                grpSupStat.fullBytes(),
+                grpSupStat.histBytes()
+            );
         }
     }
 

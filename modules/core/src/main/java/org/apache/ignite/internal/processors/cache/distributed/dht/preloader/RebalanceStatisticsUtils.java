@@ -73,14 +73,8 @@ import static org.apache.ignite.IgniteSystemProperties.getBoolean;
  * Utility class for rebalance statistics.
  */
 class RebalanceStatisticsUtils {
-    /** To format the date and time. */
+    /** Formatter for date-time objects. */
     private static final DateTimeFormatter DTF = ofPattern("YYYY-MM-dd HH:mm:ss,SSS");
-
-    // TODO: kirill удалить
-    /** Text for successful or not rebalances. */
-    private static final String SUCCESSFUL_OR_NOT_REBALANCE_TEXT = "including successful and not rebalances";
-    /** Text successful rebalance. */
-    private static final String SUCCESSFUL_REBALANCE_TEXT = "successful rebalance";
 
     /** Supplier statistics header. */
     private static final String SUP_STAT_HEAD = "Supplier statistics: ";
@@ -88,6 +82,12 @@ class RebalanceStatisticsUtils {
     /** Supplier statistics aliases. */
     private static final String SUP_STAT_ALIASES = "Aliases: p - partitions, e - entries, b - bytes, d - duration, " +
         "h - historical, nodeId mapping (nodeId=id,consistentId) ";
+
+    // TODO: kirill удалить
+    /** Text for successful or not rebalances. */
+    private static final String SUCCESSFUL_OR_NOT_REBALANCE_TEXT = "including successful and not rebalances";
+    /** Text successful rebalance. */
+    private static final String SUCCESSFUL_REBALANCE_TEXT = "successful rebalance";
 
     /**
      * Private constructor.
@@ -165,8 +165,8 @@ class RebalanceStatisticsUtils {
                     hp++;
             }
 
-            long fe = supStat.fullEntries().sum(), he = supStat.histEntries().sum();
-            long fb = supStat.fullBytes().sum(), hb = supStat.histBytes().sum();
+            long fe = supStat.fullEntries(), he = supStat.histEntries();
+            long fb = supStat.fullBytes(), hb = supStat.histBytes();
 
             sb.a(supInfo(nodeId++, fp, hp, fe, he, fb, hb, supStat.start(), supStat.end()));
         }
@@ -264,14 +264,14 @@ class RebalanceStatisticsUtils {
                     continue;
 
                 CacheGroupTotalSupplierRebalanceStatistics supStat = stat.supplierStatistics().get(supNode);
-                fp += supStat.fullParts().sum();
-                hp += supStat.histParts().sum();
-                fe += supStat.fullEntries().sum();
-                he += supStat.histEntries().sum();
-                fb += supStat.fullBytes().sum();
-                hb += supStat.histBytes().sum();
-                s = s == 0 ? supStat.start().get() : min(supStat.start().get(), s);
-                e = max(supStat.end().get(), e);
+                fp += supStat.fullParts();
+                hp += supStat.histParts();
+                fe += supStat.fullEntries();
+                he += supStat.histEntries();
+                fb += supStat.fullBytes();
+                hb += supStat.histBytes();
+                s = s == 0 ? supStat.start() : min(supStat.start(), s);
+                e = max(supStat.end(), e);
             }
 
             sb.a(supInfo(nodeId++, fp, hp, fe, he, fb, hb, s, e));
