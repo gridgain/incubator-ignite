@@ -93,7 +93,9 @@ import static org.apache.ignite.events.EventType.EVT_CACHE_REBALANCE_PART_LOADED
 import static org.apache.ignite.events.EventType.EVT_CACHE_REBALANCE_STARTED;
 import static org.apache.ignite.events.EventType.EVT_CACHE_REBALANCE_STOPPED;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.availablePrintRebalanceStatistics;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.cacheGroupRebalanceStatistics;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.rebalanceStatistics;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.totalRebalanceStatistic;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState.MOVING;
 import static org.apache.ignite.internal.processors.dr.GridDrType.DR_NONE;
 import static org.apache.ignite.internal.processors.dr.GridDrType.DR_PRELOAD;
@@ -128,7 +130,11 @@ public class GridDhtPartitionDemander {
     /** Last exchange future. */
     private volatile GridDhtPartitionsExchangeFuture lastExchangeFut;
 
-    // TODO: kirill подумать и про это
+    /** Total statistics of rebalance. */
+    @GridToStringExclude
+    @Nullable private final CacheGroupTotalRebalanceStatistics totalStat;
+
+    // TODO: kirill удалить
     /** Futures involved in the last rebalance. For statistics. */
     @GridToStringExclude
     private final Collection<RebalanceFuture> lastStatFutures = new ConcurrentLinkedQueue<>();
@@ -154,6 +160,8 @@ public class GridDhtPartitionDemander {
             rebalanceFut.onDone(true);
             syncFut.onDone();
         }
+
+        totalStat = availablePrintRebalanceStatistics() ? new CacheGroupTotalRebalanceStatistics() : null;
     }
 
     /**
@@ -1785,9 +1793,9 @@ public class GridDhtPartitionDemander {
         }
 
         /**
-         * Printing rebalance statistics into log. <br/>
-         * Statistics for cache group will be printed, as well as total
-         * statistics if rebalance ends for all cache groups.
+         * Logging statistics of rebalance. Statistics will be printed for
+         * cache group and total if rebalance has ended for all cache groups
+         * successfully.
          *
          * @throws IgniteCheckedException If error occurs.
          */
@@ -1797,7 +1805,31 @@ public class GridDhtPartitionDemander {
 
             rebalanceStatistics.end(U.currentTimeMillis());
 
+            if (log.isInfoEnabled())
+                log.info(cacheGroupRebalanceStatistics(grp, rebalanceStatistics, get(), topVer));
 
+            ((GridDhtPreloader)grp.preloader()).demander().totalStat.update(rebalanceStatistics);
+            rebalanceStatistics.reset();
+
+            //Check that rebalance is over for all cache groups successfully
+            for (GridCacheContext cacheCtx : ctx.cacheContexts()) {
+                IgniteInternalFuture<Boolean> rebFut = cacheCtx.preloader().rebalanceFuture();
+
+                if (!rebFut.isDone() || !rebFut.get())
+                    return;
+            }
+
+            Map<CacheGroupContext, CacheGroupTotalRebalanceStatistics> totalStats =
+                demanders().stream().collect(toMap(d -> d.grp, d -> d.totalStat));
+
+            if (log.isInfoEnabled())
+                log.info(totalRebalanceStatistic(totalStats));
+
+            totalStats.forEach((grpCtx, totalStat) -> totalStat.reset());
+
+            // TODO: kirill удалить все ниже
+            if(getClass() != null)
+                return;
 
             stat.endTime(currentTimeMillis());
             ((GridDhtPreloader)grp.preloader()).demander().lastStatFutures.add(this);

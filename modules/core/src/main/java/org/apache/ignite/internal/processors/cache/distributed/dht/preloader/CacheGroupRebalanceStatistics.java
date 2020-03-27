@@ -32,7 +32,7 @@ public class CacheGroupRebalanceStatistics {
     private volatile long end;
 
     /** Rebalance attempt. */
-    private final int attempt;
+    private volatile int attempt;
 
     /** Rebalance statistics for suppliers. */
     private final Map<ClusterNode, CacheGroupSupplierRebalanceStatistics> supplierStat = new ConcurrentHashMap<>();
@@ -148,6 +148,17 @@ public class CacheGroupRebalanceStatistics {
      */
     public int attempt() {
         return attempt;
+    }
+
+    /**
+     * Reset statistics.
+     */
+    public void reset() {
+        start = 0L;
+        end = 0L;
+        attempt = 0;
+
+        supplierStat.clear();
     }
 
     /**

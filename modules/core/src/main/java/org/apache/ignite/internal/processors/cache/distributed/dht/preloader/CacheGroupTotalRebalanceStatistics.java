@@ -103,4 +103,14 @@ public class CacheGroupTotalRebalanceStatistics {
     public Map<ClusterNode, CacheGroupTotalSupplierRebalanceStatistics> supplierStatistics() {
         return supStat;
     }
+
+    /**
+     * Reset statistics.
+     */
+    public void reset() {
+        start.set(0);
+        end.set(0);
+
+        supStat.clear();
+    }
 }

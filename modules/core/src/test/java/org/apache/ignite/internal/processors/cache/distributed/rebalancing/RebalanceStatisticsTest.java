@@ -399,9 +399,10 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
         /** {@inheritDoc} */
         @Override public void accept(String logStr) {
             if (logStr.contains(INFORMATION_PER_CACHE_GROUP_TEXT))
-                (logStr.contains(TOTAL_INFORMATION_TEXT) ? totalStats : statPerCacheGrps).add(logStr);
-
-            if (logStr.contains(STARTED_REBALANCE_ROUTINE_TEXT)) {
+                statPerCacheGrps.add(logStr);
+            else if (logStr.contains(TOTAL_INFORMATION_TEXT))
+                totalStats.add(logStr);
+            else if (logStr.contains(STARTED_REBALANCE_ROUTINE_TEXT)) {
                 cacheGrpRebParts.computeIfAbsent(
                     extractValue(cacheGrpExtractor, logStr),
                     s -> newSetFromMap(new ConcurrentHashMap<>())
