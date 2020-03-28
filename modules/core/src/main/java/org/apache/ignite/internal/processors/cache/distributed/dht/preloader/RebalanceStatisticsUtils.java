@@ -316,7 +316,7 @@ class RebalanceStatisticsUtils {
      */
     private static String time(long start, long end) {
         return new SB().a("startTime=").a(DTF.format(toLocalDateTime(start))).a(", finishTime=")
-            .a(DTF.format(toLocalDateTime(start))).a(", d=").a(end - start).a(" ms").toString();
+            .a(DTF.format(toLocalDateTime(end))).a(", d=").a(end - start).a(" ms").toString();
     }
 
     /**

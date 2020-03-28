@@ -573,13 +573,6 @@ public class GridDhtPartitionDemander {
                                 else
                                     preloadEntries(topVer, supplierNode, p, infos, entryCnt, byteCnt);
 
-                                rebalanceFut.processed.get(p).increment();
-                                
-                                // If message was last for this partition,
-                                // then we take ownership.
-                                if (last)
-                                    ownPartition(rebalanceFut, part, supplierNodeId, supplyMsg);
-
                                 if (nonNull(rebalanceStat)) {
                                     rebalanceStat.update(
                                         supplierNode,
@@ -589,6 +582,13 @@ public class GridDhtPartitionDemander {
                                         byteCnt.get()
                                     );
                                 }
+
+                                rebalanceFut.processed.get(p).increment();
+                                
+                                // If message was last for this partition,
+                                // then we take ownership.
+                                if (last)
+                                    ownPartition(rebalanceFut, part, supplierNodeId, supplyMsg);
                             }
                             finally {
                                 part.release();

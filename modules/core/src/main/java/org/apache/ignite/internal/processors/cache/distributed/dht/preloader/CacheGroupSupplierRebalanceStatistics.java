@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Statistics for rebalance cache group by supplier.
@@ -62,6 +63,8 @@ public class CacheGroupSupplierRebalanceStatistics {
 
         (hist ? histEntries : fullEntries).add(e);
         (hist ? histBytes : fullBytes).add(b);
+
+        end = U.currentTimeMillis();
     }
 
     /**
