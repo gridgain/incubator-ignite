@@ -48,7 +48,7 @@ import static org.apache.ignite.IgniteSystemProperties.getBoolean;
 /**
  * Utility class for rebalance statistics.
  */
-class RebalanceStatisticsUtils {
+public class RebalanceStatisticsUtils {
     /** Formatter for date-time objects. */
     private static final DateTimeFormatter DTF = ofPattern("YYYY-MM-dd HH:mm:ss,SSS");
 

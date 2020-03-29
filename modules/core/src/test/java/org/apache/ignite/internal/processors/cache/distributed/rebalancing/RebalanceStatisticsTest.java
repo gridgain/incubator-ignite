@@ -57,6 +57,8 @@ import static java.util.stream.Stream.of;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_QUIET;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_WRITE_REBALANCE_STATISTICS;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.availablePrintPartitionsDistribution;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.availablePrintRebalanceStatistics;
 import static org.apache.ignite.testframework.LogListener.matches;
 
 /**
@@ -116,6 +118,7 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         return super.getConfiguration(igniteInstanceName)
+            .setConsistentId(igniteInstanceName)
             .setCacheConfiguration(cacheCfgs)
             .setRebalanceThreadPoolSize(5)
             .setGridLogger(listenLog);
@@ -150,15 +153,23 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
         int nodeId = 0;
         startGrid(nodeId++);
 
+        assertFalse(availablePrintRebalanceStatistics());
+        assertFalse(availablePrintPartitionsDistribution());
         restartNode(nodeId, l -> assertFalse(l.check()), grpRebStat, totalRebStat, pDistr);
 
         setProperty(IGNITE_QUIET, FALSE.toString());
+        assertFalse(availablePrintRebalanceStatistics());
+        assertFalse(availablePrintPartitionsDistribution());
         restartNode(nodeId, l -> assertFalse(l.check()), grpRebStat, totalRebStat, pDistr);
 
         setProperty(IGNITE_WRITE_REBALANCE_STATISTICS, TRUE.toString());
+        assertTrue(availablePrintRebalanceStatistics());
+        assertFalse(availablePrintPartitionsDistribution());
         restartNode(nodeId, l -> assertEquals(l != pDistr, l.check()), grpRebStat, totalRebStat);
 
         setProperty(IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, TRUE.toString());
+        assertTrue(availablePrintRebalanceStatistics());
+        assertTrue(availablePrintPartitionsDistribution());
         restartNode(nodeId, l -> assertTrue(l.check()), grpRebStat, totalRebStat, pDistr);
     }
 
