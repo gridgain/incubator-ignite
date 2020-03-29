@@ -16,8 +16,6 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.rebalancing;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,14 +34,21 @@ import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.testframework.ListeningTestLogger;
+import org.apache.ignite.testframework.LogListener;
+import org.apache.ignite.testframework.junits.SystemPropertiesList;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static java.lang.Integer.parseInt;
+import static java.lang.System.setProperty;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.nonNull;
+import static java.util.Objects.requireNonNull;
 import static java.util.regex.Pattern.compile;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.IntStream.range;
@@ -52,23 +57,22 @@ import static java.util.stream.Stream.of;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_QUIET;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_WRITE_REBALANCE_STATISTICS;
-import static org.apache.ignite.testframework.GridTestUtils.assertNotContains;
+import static org.apache.ignite.testframework.LogListener.matches;
 
 /**
  * For testing of rebalance statistics.
  */
-@WithSystemProperty(key = IGNITE_QUIET, value = "false")
-@WithSystemProperty(key = IGNITE_WRITE_REBALANCE_STATISTICS, value = "true")
-@WithSystemProperty(key = IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, value = "true")
+@SystemPropertiesList(value = {
+    @WithSystemProperty(key = IGNITE_QUIET, value = "false"),
+    @WithSystemProperty(key = IGNITE_WRITE_REBALANCE_STATISTICS, value = "true"),
+    @WithSystemProperty(key = IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, value = "true")
+})
 public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     /** Cache names. */
     private static final String[] DEFAULT_CACHE_NAMES = {"ch0", "ch1", "ch2", "ch3"};
 
     /** Total information text. */
     private static final String TOTAL_INFORMATION_TEXT = "Total information";
-
-    /** Partitions distribution text. */
-    private static final String PARTITIONS_DISTRIBUTION_TEXT = "Partitions distribution per cache group";
 
     /** Topic statistics text. */
     public static final String TOPIC_STATISTICS_TEXT = "Topic statistics:";
@@ -89,13 +93,7 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     private static final int DEFAULT_NODE_CNT = 3;
 
     /** Logger for listen messages. */
-    private final ListeningTestLogger log = new ListeningTestLogger(false, super.log);
-
-    /** For remember messages from standard output. */
-    private final ByteArrayOutputStream baos = new ByteArrayOutputStream(32 * 1024);
-
-    /** For write messages from standard output. */
-    private final PrintWriter pw = new PrintWriter(baos);
+    private final ListeningTestLogger listenLog = new ListeningTestLogger(false, log);
 
     /** Caches configurations. */
     private CacheConfiguration[] cacheCfgs;
@@ -108,6 +106,8 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
+        listenLog.clearListeners();
+
         stopAllGrids();
 
         super.afterTest();
@@ -115,11 +115,10 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
-        cfg.setCacheConfiguration(cacheCfgs);
-        cfg.setRebalanceThreadPoolSize(5);
-        cfg.setGridLogger(log);
-        return cfg;
+        return super.getConfiguration(igniteInstanceName)
+            .setCacheConfiguration(cacheCfgs)
+            .setRebalanceThreadPoolSize(5)
+            .setGridLogger(listenLog);
     }
 
     /** {@inheritDoc} */
@@ -128,63 +127,39 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     }
 
     /**
-     * Create cache configuration.
-     *
-     * @param cacheName Cache name.
-     * @param parts Count of partitions.
-     * @param backups Count backup.
-     * @return Cache configuration.
-     */
-    private CacheConfiguration cacheConfiguration(final String cacheName, final int parts, final int backups) {
-        CacheConfiguration<Object, Object> ccfg = new CacheConfiguration<>(cacheName);
-        ccfg.setCacheMode(CacheMode.PARTITIONED);
-        ccfg.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
-        ccfg.setAffinity(new RendezvousAffinityFunction(false, parts));
-        ccfg.setBackups(backups);
-        ccfg.setGroupName(grpName);
-        return ccfg;
-    }
-
-    /**
-     * Test check that not present statistics in log output, if we not set system properties {@code IGNITE_QUIET},
-     * {@code IGNITE_WRITE_REBALANCE_STATISTICS}.
+     * Test checks that rebalance statistics are output into log only if
+     * {@link IgniteSystemProperties#IGNITE_QUIET} == {@code false} and
+     * {@link IgniteSystemProperties#IGNITE_WRITE_REBALANCE_STATISTICS} ==
+     * {@code true}, also partition distribution is present in statistics only
+     * if {@link IgniteSystemProperties#IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS}
+     * == {@code true}.
      *
      * @throws Exception if any error occurs.
-     * @see IgniteSystemProperties#IGNITE_QUIET
-     * @see IgniteSystemProperties#IGNITE_WRITE_REBALANCE_STATISTICS
      */
     @Test
     @WithSystemProperty(key = IGNITE_QUIET, value = "true")
     @WithSystemProperty(key = IGNITE_WRITE_REBALANCE_STATISTICS, value = "false")
-    public void testNotPrintStat() throws Exception {
-        createCluster();
-
-        log.registerListener(pw::write);
-
-        int nodeCnt = DEFAULT_NODE_CNT;
-
-        assertNotContainsAfterCreateNewNode(nodeCnt++, TOTAL_INFORMATION_TEXT);
-
-        System.setProperty(IGNITE_QUIET, Boolean.FALSE.toString());
-
-        assertNotContainsAfterCreateNewNode(nodeCnt++, TOTAL_INFORMATION_TEXT);
-    }
-
-    /**
-     * Test check that not present partition distribution in log output, if we not set system properties {@code
-     * IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS}.
-     *
-     * @throws Exception if any error occurs.
-     * @see IgniteSystemProperties#IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS
-     */
-    @Test
     @WithSystemProperty(key = IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, value = "false")
-    public void testNotPrintPartitionDistribution() throws Exception {
-        createCluster();
+    public void testPrintIntoLogRebStatDependSysProps() throws Exception {
+        LogListener grpRebStat = matches(compile("Information per cache group \\((.)* rebalance\\):")).build();
+        LogListener totalRebStat = matches("Total information (including successful and not rebalances):").build();
+        LogListener pDistr = matches(compile("Partitions distribution per cache group \\((.)* rebalance\\):")).build();
 
-        log.registerListener(pw::write);
+        listenLog.registerAllListeners(grpRebStat, totalRebStat, pDistr);
 
-        assertNotContainsAfterCreateNewNode(DEFAULT_NODE_CNT, PARTITIONS_DISTRIBUTION_TEXT);
+        int nodeId = 0;
+        startGrid(nodeId++);
+
+        restartNode(nodeId, l -> assertFalse(l.check()), grpRebStat, totalRebStat, pDistr);
+
+        setProperty(IGNITE_QUIET, FALSE.toString());
+        restartNode(nodeId, l -> assertFalse(l.check()), grpRebStat, totalRebStat, pDistr);
+
+        setProperty(IGNITE_WRITE_REBALANCE_STATISTICS, TRUE.toString());
+        restartNode(nodeId, l -> assertEquals(l != pDistr, l.check()), grpRebStat, totalRebStat);
+
+        setProperty(IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, TRUE.toString());
+        restartNode(nodeId, l -> assertTrue(l.check()), grpRebStat, totalRebStat, pDistr);
     }
 
     /**
@@ -232,10 +207,60 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     }
 
     /**
+     * Create cache configuration.
+     *
+     * @param cacheName Cache name.
+     * @param parts Count of partitions.
+     * @param backups Count backup.
+     * @return Cache configuration.
+     */
+    private CacheConfiguration cacheConfiguration(final String cacheName, final int parts, final int backups) {
+        requireNonNull(cacheName);
+
+        return new CacheConfiguration<>(cacheName)
+            .setCacheMode(CacheMode.PARTITIONED)
+            .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
+            .setAffinity(new RendezvousAffinityFunction(false, parts))
+            .setBackups(backups)
+            .setGroupName(grpName);
+    }
+
+    /**
+     * Restarting a node with log listeners.
+     *
+     * @param nodeId        Node id.
+     * @param checkConsumer Checking listeners.
+     * @param logListeners  Log listeners.
+     * @throws Exception if any error occurs.
+     */
+    private void restartNode(
+        int nodeId,
+        Consumer<LogListener> checkConsumer,
+        LogListener... logListeners
+    ) throws Exception {
+        requireNonNull(checkConsumer);
+        requireNonNull(logListeners);
+
+        A.ensure(logListeners.length > 0, "Empty logListeners");
+
+        for (LogListener rebLogListener : logListeners)
+            rebLogListener.reset();
+
+        stopGrid(nodeId);
+        awaitPartitionMapExchange();
+
+        startGrid(nodeId);
+        awaitPartitionMapExchange();
+
+        for (LogListener rebLogListener : logListeners)
+            checkConsumer.accept(rebLogListener);
+    }
+
+    /**
      * Creating a cluster and populating caches.
      *
-     * @throws Exception if any error occurs.
-     * */
+     * @throws Exception If failed.
+     */
     private void createCluster() throws Exception{
         cacheCfgs = defaultCacheConfigurations(10, 2);
 
@@ -251,9 +276,9 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
      * @throws Exception if any error occurs.
      */
     private void checkOutputRebalanceStatistics(int nodeId) throws Exception {
-        LogListener logLsnr = new LogListener();
+        RebLogListener logLsnr = new RebLogListener();
 
-        log.registerListener(logLsnr);
+        listenLog.registerListener(logLsnr);
 
         IgniteEx newNode = startGrid(nodeId);
 
@@ -338,23 +363,6 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     }
 
     /**
-     * Create new node and check that {@code notContainsStr} not present in log output.
-     *
-     * @param idx New node index.
-     * @param notContainsStr String for assertNotContains in log output.
-     * @throws Exception if any error occurs.
-     */
-    private void assertNotContainsAfterCreateNewNode(final int idx, final String notContainsStr) throws Exception {
-        baos.reset();
-
-        startGrid(idx);
-
-        awaitPartitionMapExchange();
-
-        assertNotContains(super.log, baos.toString(), notContainsStr);
-    }
-
-    /**
      * Extract numbers and sum its.
      *
      * @param s String of numbers, require not null.
@@ -377,7 +385,7 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     /**
      * Log listener for testing rebalance statistics.
      */
-    private class LogListener implements Consumer<String> {
+    private class RebLogListener implements Consumer<String> {
         /** Started rebalance routine text. */
         static final String STARTED_REBALANCE_ROUTINE_TEXT = "Started rebalance routine";
 
