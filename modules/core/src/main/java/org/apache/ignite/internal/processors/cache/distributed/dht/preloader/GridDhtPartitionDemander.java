@@ -1805,5 +1805,23 @@ public class GridDhtPartitionDemander {
 
             totalStats.forEach((grpCtx, totalStat) -> totalStat.reset());
         }
+
+        /**
+         * Return rebalance statistics.
+         *
+         * @return Rebalance statistics.
+         */
+        @Nullable public CacheGroupRebalanceStatistics statistics() {
+            return stat;
+        }
+    }
+
+    /**
+     * Return total statistics of rebalance.
+     *
+     * @return Total statistics of rebalance.
+     */
+    @Nullable public CacheGroupTotalRebalanceStatistics totalStatistics() {
+        return totalRebStat;
     }
 }

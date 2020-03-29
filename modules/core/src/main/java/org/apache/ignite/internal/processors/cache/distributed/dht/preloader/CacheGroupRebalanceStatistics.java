@@ -38,6 +38,12 @@ public class CacheGroupRebalanceStatistics {
     private final Map<ClusterNode, CacheGroupSupplierRebalanceStatistics> supplierStat = new ConcurrentHashMap<>();
 
     /**
+     * Default constructor.
+     */
+    public CacheGroupRebalanceStatistics() {
+    }
+
+    /**
      * Constructor.
      *
      * @param attempt Rebalance attempt, must be greater than {@code 0}.
@@ -46,6 +52,18 @@ public class CacheGroupRebalanceStatistics {
         assert attempt > 0;
 
         this.attempt = attempt;
+    }
+
+    /**
+     * Copying constructor.
+     *
+     * @param other Other instance.
+     */
+    public CacheGroupRebalanceStatistics(CacheGroupRebalanceStatistics other) {
+        attempt = other.attempt;
+        start = other.start;
+        end = other.end;
+        supplierStat.putAll(other.supplierStat);
     }
 
     /**

@@ -39,6 +39,23 @@ public class CacheGroupTotalRebalanceStatistics {
     private final Map<ClusterNode, CacheGroupTotalSupplierRebalanceStatistics> supStat = new ConcurrentHashMap<>();
 
     /**
+     * Default constructor.
+     */
+    public CacheGroupTotalRebalanceStatistics() {
+    }
+
+    /**
+     * Copying constructor.
+     *
+     * @param other Other instance.
+     */
+    public CacheGroupTotalRebalanceStatistics(CacheGroupTotalRebalanceStatistics other) {
+        start.set(other.start.get());
+        end.set(other.end.get());
+        supStat.putAll(other.supStat);
+    }
+
+    /**
      * Updating statistics for supplier.
      *
      * @param grpStat Cache group rebalance statistics.
