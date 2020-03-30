@@ -216,7 +216,8 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
             totalStatPred,
             null,
             beforeRestartNode,
-            afterRestartNode
+            afterRestartNode,
+            false
         );
     }
 
@@ -289,7 +290,8 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
             totalStatPred,
             grpCtx -> !UTILITY_CACHE_NAME.equals(grpCtx.cacheOrGroupName()),
             beforeRestartNode,
-            afterRestartNode
+            afterRestartNode,
+            true
         );
     }
 
@@ -492,6 +494,7 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
      * @param grpFilter Cache group filter.
      * @param expStart Expected start time.
      * @param expEnd Expected end time.
+     * @param hist Historical rebalance.
      */
     private void checkStat(
         int nodeId,
@@ -501,7 +504,8 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
         TotalStatPred totalStatPred,
         @Nullable Predicate<CacheGroupContext> grpFilter,
         long expStart,
-        long expEnd
+        long expEnd,
+        boolean hist
     ) {
         requireNonNull(expGrpStats);
         requireNonNull(expTotalStats);
@@ -533,7 +537,7 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
             assertEquals(1, actGrpStat.attempt());
 
             CacheGroupRebalanceStatistics expGrpStat = expGrpStats.get(t4.get2().cacheOrGroupName());
-            checkGrpStat(expGrpStat, actGrpStat, expStart, expEnd);
+            checkGrpStat(expGrpStat, actGrpStat, expStart, expEnd, hist);
         }
 
         for (T2<IgniteEx, Map<CacheGroupContext, CacheGroupTotalRebalanceStatistics>> t2 : totalStatPred.values) {
@@ -564,13 +568,16 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
      *
      * @param exp Expected rebalance statistics.
      * @param act Actual rebalance statistics.
-a
+     * @param expStart Expected start time.
+     * @param expEnd Expected end time.
+     * @param hist Historical rebalance.
      */
     private void checkGrpStat(
         CacheGroupRebalanceStatistics exp,
         CacheGroupRebalanceStatistics act,
         long expStart,
-        long expEnd
+        long expEnd,
+        boolean hist
     ) {
         assertNotNull(exp);
         assertNotNull(act);
@@ -592,6 +599,7 @@ a
             checkTime(expStart, expEnd, actSupStat.start(), actSupStat.end());
 
             assertEquals(expSupStat.partitions(), actSupStat.partitions());
+            actSupStat.partitions().values().forEach(p -> assertEquals(!hist, (boolean) p));
 
             assertEquals(expSupStat.fullEntries(), actSupStat.fullEntries());
             assertEquals(expSupStat.histEntries(), actSupStat.histEntries());
