@@ -23,20 +23,26 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.IgniteRebalanceIterator;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CacheGroupRebalanceStatistics;
@@ -66,17 +72,21 @@ import org.apache.ignite.testframework.junits.SystemPropertiesList;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.thread.IgniteThread;
+import org.jetbrains.annotations.Nullable;
 import org.junit.Test;
 
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.System.setProperty;
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Pattern.compile;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_WAL_REBALANCE_THRESHOLD;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_QUIET;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_WRITE_REBALANCE_STATISTICS;
+import static org.apache.ignite.internal.processors.cache.GridCacheUtils.UTILITY_CACHE_NAME;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.availablePrintPartitionsDistribution;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.RebalanceStatisticsUtils.availablePrintRebalanceStatistics;
 import static org.apache.ignite.internal.util.IgniteUtils.currentTimeMillis;
@@ -97,11 +107,17 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     /** Caches configurations. */
     private CacheConfiguration[] cacheCfgs;
 
+    /** Data storage configuration. */
+    private DataStorageConfiguration dsCfg;
+
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         listenLog.clearListeners();
 
         stopAllGrids();
+
+        if (nonNull(dsCfg))
+            cleanPersistenceDir();
 
         super.afterTest();
     }
@@ -112,7 +128,8 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
             .setConsistentId(igniteInstanceName)
             .setCacheConfiguration(cacheCfgs)
             .setRebalanceThreadPoolSize(5)
-            .setGridLogger(listenLog);
+            .setGridLogger(listenLog)
+            .setDataStorageConfiguration(dsCfg);
     }
 
     /**
@@ -143,22 +160,22 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
 
         assertFalse(availablePrintRebalanceStatistics());
         assertFalse(availablePrintPartitionsDistribution());
-        restartNode(nodeId, l -> assertFalse(l.check()), logListeners);
+        restartNode(nodeId, null, null, l -> assertFalse(l.check()), logListeners);
 
         setProperty(IGNITE_QUIET, FALSE.toString());
         assertFalse(availablePrintRebalanceStatistics());
         assertFalse(availablePrintPartitionsDistribution());
-        restartNode(nodeId, l -> assertFalse(l.check()), logListeners);
+        restartNode(nodeId, null, null, l -> assertFalse(l.check()), logListeners);
 
         setProperty(IGNITE_WRITE_REBALANCE_STATISTICS, TRUE.toString());
         assertTrue(availablePrintRebalanceStatistics());
         assertFalse(availablePrintPartitionsDistribution());
-        restartNode(nodeId, l -> assertEquals(l != logListeners[2], l.check()), logListeners);
+        restartNode(nodeId, null, null, l -> assertEquals(l != logListeners[2], l.check()), logListeners);
 
         setProperty(IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS, TRUE.toString());
         assertTrue(availablePrintRebalanceStatistics());
         assertTrue(availablePrintPartitionsDistribution());
-        restartNode(nodeId, l -> assertTrue(l.check()), logListeners);
+        restartNode(nodeId, null, null, l -> assertTrue(l.check()), logListeners);
     }
 
     /**
@@ -168,26 +185,7 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
      */
     @Test
     public void testFullRebalanceStatistics() throws Exception {
-        String grpName0 = "grp0";
-        String grpName1 = "grp1";
-
-        cacheCfgs = new CacheConfiguration[] {
-            cacheConfiguration("ch_0_0", grpName0, 10, 2),
-            cacheConfiguration("ch_0_1", grpName0, 10, 2),
-            cacheConfiguration("ch_0_2", grpName0, 10, 2),
-            cacheConfiguration("ch_1_0", grpName1, 10, 2),
-            cacheConfiguration("ch_1_1", grpName1, 10, 2),
-        };
-
-        IgniteEx crd = startGrids(3);
-
-        for (CacheConfiguration cacheCfg : cacheCfgs) {
-            String cacheName = cacheCfg.getName();
-            IgniteCache<Object, Object> cache = crd.cache(cacheName);
-
-            for (int i = 0; i < cacheCfg.getAffinity().partitions(); i++)
-                partitionKeys(cache, i, 10, i * 10).forEach(k -> cache.put(k, cacheName + "_val_" + k));
-        }
+        createCluster(3);
 
         int restartNodeId = 2;
         Map<String, CacheGroupRebalanceStatistics> expGrpStats = calcGrpStat(restartNodeId);
@@ -206,44 +204,138 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
         long beforeRestartNode = currentTimeMillis();
 
         listenLog.registerAllListeners(logListeners);
-        restartNode(restartNodeId, l -> assertTrue(l.check()), logListeners);
+        restartNode(restartNodeId, null, null, l -> assertTrue(l.check()), logListeners);
 
         long afterRestartNode = currentTimeMillis();
 
-        //checking that only for nodeId=2 had statistics into log
-        Set<String> nodes = grpStatPred.values.stream().map(GridTuple4::get1).map(Ignite::name).collect(toSet());
-        totalStatPred.values.stream().map(IgniteBiTuple::get1).map(Ignite::name).forEach(nodes::add);
+        checkStat(
+            restartNodeId,
+            expGrpStats,
+            expTotalStats,
+            grpStatPred,
+            totalStatPred,
+            null,
+            beforeRestartNode,
+            afterRestartNode
+        );
+    }
 
-        assertEquals(1, nodes.size());
-        assertTrue(nodes.contains(grid(restartNodeId).name()));
+    /**
+     * Test statistics of a historical rebalance.
+     *
+     * @throws Exception if any error occurs.
+     */
+    @Test
+    @WithSystemProperty(key = IGNITE_PDS_WAL_REBALANCE_THRESHOLD, value = "0")
+    public void testHistRebalanceStatistics() throws Exception {
+        dsCfg = new DataStorageConfiguration()
+            .setDefaultDataRegionConfiguration(
+                new DataRegionConfiguration()
+                    .setMaxSize(200 * 1024 * 1024)
+                    .setPersistenceEnabled(true)
+            ).setWalMode(WALMode.LOG_ONLY);
 
-        assertEquals(expGrpStats.size(), grpStatPred.values.size());
+        IgniteEx crd = createCluster(3);
 
-        for (T4<IgniteEx, CacheGroupContext, Boolean, CacheGroupRebalanceStatistics> t4 : grpStatPred.values) {
-            //check that result was successful
-            assertTrue(t4.get3());
+        GrpStatPred grpStatPred = new GrpStatPred();
+        TotalStatPred totalStatPred = new TotalStatPred();
 
-            CacheGroupRebalanceStatistics actGrpStat = t4.get4();
-            assertEquals(1, actGrpStat.attempt());
+        LogListener[] logListeners = {
+            matches(grpStatPred).build(),
+            matches(totalStatPred).build()
+        };
 
-            CacheGroupRebalanceStatistics expGrpStat = expGrpStats.get(t4.get2().cacheOrGroupName());
-            checkGrpStat(expGrpStat, actGrpStat, beforeRestartNode, afterRestartNode);
-        }
+        listenLog.registerAllListeners(logListeners);
 
-        for (T2<IgniteEx, Map<CacheGroupContext, CacheGroupTotalRebalanceStatistics>> t2 : totalStatPred.values) {
-            Map<CacheGroupContext, CacheGroupTotalRebalanceStatistics> actTotalStats = t2.get2();
+        int restartNodeId = 2;
+        AtomicReference<Map<String, CacheGroupRebalanceStatistics>> calcGrpStatRef = new AtomicReference<>();
 
-            assertEquals(expTotalStats.size(), actTotalStats.size());
-            assertTrue(actTotalStats.size() > 0);
+        long beforeRestartNode = currentTimeMillis();
 
-            for (Entry<CacheGroupContext, CacheGroupTotalRebalanceStatistics> actTotalStatE : actTotalStats.entrySet()) {
-                checkTotalStat(
-                    expTotalStats.get(actTotalStatE.getKey().cacheOrGroupName()),
-                    actTotalStatE.getValue(),
-                    beforeRestartNode,
-                    afterRestartNode
-                );
-            }
+        restartNode(
+            restartNodeId,
+            () -> populateCluster(crd, 10, "_"),
+            node -> {
+                AffinityTopologyVersion waitTopVer = crd.context().discovery().topologyVersionEx();
+                node.context().cache().context().exchange().affinityReadyFuture(waitTopVer).listen(f -> {
+                    try {
+                        calcGrpStatRef.set(calcGrpStat(restartNodeId));
+                    }
+                    catch (Exception e) {
+                        throw new IgniteException(e);
+                    }
+                });
+            },
+            l -> assertTrue(l.check()),
+            logListeners
+        );
+
+        long afterRestartNode = currentTimeMillis();
+
+        Map<String, CacheGroupRebalanceStatistics> expGrpStats = calcGrpStatRef.get();
+        assertNotNull(expGrpStats);
+
+        Map<String, CacheGroupTotalRebalanceStatistics> expTotalStats = new HashMap<>();
+        updateTotalStat(expTotalStats, expGrpStats);
+
+        expGrpStats.remove(UTILITY_CACHE_NAME);
+        expTotalStats.remove(UTILITY_CACHE_NAME);
+
+        checkStat(
+            restartNodeId,
+            expGrpStats,
+            expTotalStats,
+            grpStatPred,
+            totalStatPred,
+            grpCtx -> !UTILITY_CACHE_NAME.equals(grpCtx.cacheOrGroupName()),
+            beforeRestartNode,
+            afterRestartNode
+        );
+    }
+
+    /**
+     * Create and populate cluster.
+     *
+     * @param nodeCnt Node count.
+     * @return Coordinator.
+     * @throws Exception if any error occurs.
+     */
+    private IgniteEx createCluster(int nodeCnt) throws Exception {
+        String grpName0 = "grp0";
+        String grpName1 = "grp1";
+
+        cacheCfgs = new CacheConfiguration[] {
+            cacheConfiguration("ch_0_0", grpName0, 10, 2),
+            cacheConfiguration("ch_0_1", grpName0, 10, 2),
+            cacheConfiguration("ch_0_2", grpName0, 10, 2),
+            cacheConfiguration("ch_1_0", grpName1, 10, 2),
+            cacheConfiguration("ch_1_1", grpName1, 10, 2),
+        };
+
+        IgniteEx crd = startGrids(nodeCnt);
+        crd.cluster().active(true);
+
+        populateCluster(crd, 10, "");
+        return crd;
+    }
+
+    /**
+     * Сontent of node data on all partitions for all caches.
+     *
+     * @param node Node.
+     * @param cnt  Count values.
+     * @param add  Additional value postfix.
+     */
+    private void populateCluster(IgniteEx node, int cnt, String add) {
+        requireNonNull(node);
+        requireNonNull(add);
+
+        for (CacheConfiguration cacheCfg : cacheCfgs) {
+            String cacheName = cacheCfg.getName();
+            IgniteCache<Object, Object> cache = node.cache(cacheName);
+
+            for (int i = 0; i < cacheCfg.getAffinity().partitions(); i++)
+                partitionKeys(cache, i, cnt, i * cnt).forEach(k -> cache.put(k, cacheName + "_val_" + k + add));
         }
     }
 
@@ -272,12 +364,16 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
      * Restarting a node with log listeners.
      *
      * @param nodeId        Node id.
+     * @param afterStop Function after stop node.
+     * @param afterStart Function after start node.
      * @param checkConsumer Checking listeners.
      * @param logListeners  Log listeners.
      * @throws Exception if any error occurs.
      */
     private void restartNode(
         int nodeId,
+        @Nullable Runnable afterStop,
+        @Nullable Consumer<IgniteEx> afterStart,
         Consumer<LogListener> checkConsumer,
         LogListener... logListeners
     ) throws Exception {
@@ -292,7 +388,13 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
         stopGrid(nodeId);
         awaitPartitionMapExchange();
 
-        startGrid(nodeId);
+        if (nonNull(afterStop))
+            afterStop.run();
+
+        IgniteEx node = startGrid(nodeId);
+        if(nonNull(afterStart))
+            afterStart.accept(node);
+
         awaitPartitionMapExchange();
 
         for (LogListener rebLogListener : logListeners)
@@ -313,8 +415,12 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
             CacheGroupRebalanceStatistics grpStat = new CacheGroupRebalanceStatistics();
             grpStats.put(grpCtx.cacheOrGroupName(), grpStat);
 
-            for (GridDhtLocalPartition locPart : grpCtx.topology().localPartitions())
+            Map<GridDhtLocalPartition, GridDhtPartitionState> locPartState = new HashMap<>();
+
+            for (GridDhtLocalPartition locPart : grpCtx.topology().localPartitions()) {
+                locPartState.put(locPart, locPart.state());
                 locPart.setState(GridDhtPartitionState.MOVING);
+            }
 
             GridDhtPartitionsExchangeFuture exchFut = grpCtx.shared().exchange().lastTopologyFuture();
             GridDhtPartitionExchangeId exchId = exchFut.exchangeId();
@@ -348,6 +454,8 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
                 for (Integer remPartId : remainingParts)
                     grpStat.update(supplierNode.localNode(), remPartId, rebIter.historical(remPartId), 0, 0);
             }
+
+            locPartState.forEach(GridDhtLocalPartition::setState);
         }
         return grpStats;
     }
@@ -374,12 +482,89 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
     }
 
     /**
+     * Checking statistic rebalance.
+     *
+     * @param nodeId Node id.
+     * @param expGrpStats Expected group statistics.
+     * @param expTotalStats Expected total statistics.
+     * @param grpStatPred Actual group statistics.
+     * @param totalStatPred Actual total statistics.
+     * @param grpFilter Cache group filter.
+     * @param expStart Expected start time.
+     * @param expEnd Expected end time.
+     */
+    private void checkStat(
+        int nodeId,
+        Map<String, CacheGroupRebalanceStatistics> expGrpStats,
+        Map<String, CacheGroupTotalRebalanceStatistics> expTotalStats,
+        GrpStatPred grpStatPred,
+        TotalStatPred totalStatPred,
+        @Nullable Predicate<CacheGroupContext> grpFilter,
+        long expStart,
+        long expEnd
+    ) {
+        requireNonNull(expGrpStats);
+        requireNonNull(expTotalStats);
+        requireNonNull(grpStatPred);
+        requireNonNull(totalStatPred);
+
+        //checking that only for nodeId=2 had statistics into log
+        Set<String> nodes = grpStatPred.values.stream().map(GridTuple4::get1).map(Ignite::name).collect(toSet());
+        totalStatPred.values.stream().map(IgniteBiTuple::get1).map(Ignite::name).forEach(nodes::add);
+
+        assertEquals(1, nodes.size());
+        assertTrue(nodes.contains(grid(nodeId).name()));
+
+        int actGrpStatSize = nonNull(grpFilter) ?
+            (int)grpStatPred.values.stream().map(GridTuple4::get2).filter(grpFilter).count() :
+            grpStatPred.values.size();
+
+        assertEquals(expGrpStats.size(), actGrpStatSize);
+        assertTrue(actGrpStatSize > 0);
+
+        for (T4<IgniteEx, CacheGroupContext, Boolean, CacheGroupRebalanceStatistics> t4 : grpStatPred.values) {
+            if (nonNull(grpFilter) && !grpFilter.test(t4.get2()))
+                continue;
+
+            //check that result was successful
+            assertTrue(t4.get3());
+
+            CacheGroupRebalanceStatistics actGrpStat = t4.get4();
+            assertEquals(1, actGrpStat.attempt());
+
+            CacheGroupRebalanceStatistics expGrpStat = expGrpStats.get(t4.get2().cacheOrGroupName());
+            checkGrpStat(expGrpStat, actGrpStat, expStart, expEnd);
+        }
+
+        for (T2<IgniteEx, Map<CacheGroupContext, CacheGroupTotalRebalanceStatistics>> t2 : totalStatPred.values) {
+            Map<CacheGroupContext, CacheGroupTotalRebalanceStatistics> actTotalStats = t2.get2();
+
+            int actTotalStatSize = nonNull(grpFilter) ?
+                (int)actTotalStats.keySet().stream().filter(grpFilter).count() : actTotalStats.size();
+
+            assertEquals(expTotalStats.size(), actTotalStatSize);
+            assertTrue(actTotalStatSize > 0);
+
+            for (Entry<CacheGroupContext, CacheGroupTotalRebalanceStatistics> actTotalStatE : actTotalStats.entrySet()) {
+                if (nonNull(grpFilter) && !grpFilter.test(actTotalStatE.getKey()))
+                    continue;
+
+                checkTotalStat(
+                    expTotalStats.get(actTotalStatE.getKey().cacheOrGroupName()),
+                    actTotalStatE.getValue(),
+                    expStart,
+                    expEnd
+                );
+            }
+        }
+    }
+
+    /**
      * Checking equality of {@code exp} and {@code act}.
      *
      * @param exp Expected rebalance statistics.
      * @param act Actual rebalance statistics.
-     * @param expStart Expected start time.
-     * @param expEnd Expected end time.
+a
      */
     private void checkGrpStat(
         CacheGroupRebalanceStatistics exp,
