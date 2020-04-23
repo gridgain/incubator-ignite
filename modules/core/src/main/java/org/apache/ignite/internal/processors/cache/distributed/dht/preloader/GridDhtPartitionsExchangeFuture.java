@@ -3726,6 +3726,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                     }
                     catch (IgniteCheckedException ex) {
                         log.warning(String.format(PARTITION_STATE_FAILED_MSG, grpCtx.cacheOrGroupName(), ex.getMessage()));
+                        U.dumpStack(log, "FIND");
                         // TODO: Handle such errors https://issues.apache.org/jira/browse/IGNITE-7833
                     }
 

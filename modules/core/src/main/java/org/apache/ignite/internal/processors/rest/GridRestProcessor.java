@@ -104,13 +104,13 @@ public class GridRestProcessor extends GridProcessorAdapter {
         "org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyRestProtocol";
 
     /** Delay between sessions timeout checks. */
-    private static final int SES_TIMEOUT_CHECK_DELAY = 1_000;
+    private static final int SES_TIMEOUT_CHECK_DELAY = 1;
 
     /** Default session timeout, in seconds. */
-    private static final int DFLT_SES_TIMEOUT = 30;
+    private static final int DFLT_SES_TIMEOUT = 1;
 
     /** The default interval used to invalidate sessions, in seconds. */
-    private static final int DFLT_SES_TOKEN_INVALIDATE_INTERVAL = 5 * 60;
+    private static final int DFLT_SES_TOKEN_INVALIDATE_INTERVAL = 1;
 
     /** Index of task name wrapped by VisorGatewayTask */
     private static final int WRAPPED_TASK_IDX = 1;
@@ -496,8 +496,8 @@ public class GridRestProcessor extends GridProcessorAdapter {
     public GridRestProcessor(GridKernalContext ctx) {
         super(ctx);
 
-        sesTtl = IgniteSystemProperties.getLong(IGNITE_REST_SESSION_TIMEOUT, DFLT_SES_TIMEOUT) * 1000;
-        sesTokTtl = IgniteSystemProperties.getLong(IGNITE_REST_SECURITY_TOKEN_TIMEOUT, DFLT_SES_TOKEN_INVALIDATE_INTERVAL) * 1000;
+        sesTtl = IgniteSystemProperties.getLong(IGNITE_REST_SESSION_TIMEOUT, DFLT_SES_TIMEOUT) * 100;
+        sesTokTtl = IgniteSystemProperties.getLong(IGNITE_REST_SECURITY_TOKEN_TIMEOUT, DFLT_SES_TOKEN_INVALIDATE_INTERVAL) * 100;
 
         sesTimeoutCheckerThread = new IgniteThread(ctx.igniteInstanceName(), "session-timeout-worker",
             new GridWorker(ctx.igniteInstanceName(), "session-timeout-worker", log) {
