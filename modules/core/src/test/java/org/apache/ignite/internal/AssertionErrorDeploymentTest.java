@@ -19,7 +19,6 @@ package org.apache.ignite.internal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.MutableEntry;
 import org.apache.ignite.Ignite;
@@ -33,8 +32,6 @@ import org.apache.ignite.compute.ComputeTaskName;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.failure.StopNodeFailureHandler;
-import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateInvokeRequest;
-import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.ListeningTestLogger;
 import org.apache.ignite.testframework.LogListener;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
@@ -42,6 +39,9 @@ import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CACHE_REMOVED_ENTRIES_TTL;
 
+/**
+ * Reproducer SDSB-11790.
+ */
 public class AssertionErrorDeploymentTest extends GridCommonAbstractTest {
     /** Listening logger. */
     private final ListeningTestLogger listeningLog = new ListeningTestLogger(true, log);
@@ -59,7 +59,6 @@ public class AssertionErrorDeploymentTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         return super.getConfiguration(igniteInstanceName)
             .setGridLogger(listeningLog)
-            .setCommunicationSpi(new TestRecordingCommunicationSpi())
             .setClientMode(igniteInstanceName.contains("client"))
             .setPeerClassLoadingEnabled(true)
             .setFailureHandler(new StopNodeFailureHandler())
@@ -79,9 +78,7 @@ public class AssertionErrorDeploymentTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange();
 
-        LogListener logLsnr = LogListener.matches("Removed undeployed class").build();
-
-        LogListener logLsnr0 = LogListener.matches(logStr -> {
+        LogListener logLsnr = LogListener.matches(logStr -> {
             if (logStr.startsWith("Retrieved auto-loaded resource from spi:") &&
                 logStr.contains(TestCacheEntryProcessor.class.getSimpleName())) {
 
@@ -94,39 +91,10 @@ public class AssertionErrorDeploymentTest extends GridCommonAbstractTest {
         }).build();
 
         listeningLog.registerListener(logLsnr);
-        listeningLog.registerListener(logLsnr0);
-
-        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
-
-        spi.blockMessages((node, msg) -> {
-            log.info("SEE msg=" + msg.getClass().getSimpleName() + " " + msg);
-            return GridNearAtomicSingleUpdateInvokeRequest.class.isInstance(msg);
-        });
-
-        CountDownLatch latch = new CountDownLatch(1);
-
-        GridTestUtils.runAsync(() -> {
-            latch.countDown();
-            spi.waitForBlocked();
-
-            try {
-                crd.compute().localDeployTask(TestTask.class, new TestClassLoader());
-            }
-            finally {
-                spi.stopBlock();
-            }
-
-            return null;
-        });
-
-        latch.await();
 
         client.cache(DEFAULT_CACHE_NAME).invoke(1, new TestCacheEntryProcessor());
 
-        doSleep(1_000);
-
         assertTrue(logLsnr.check());
-        assertTrue(logLsnr0.check());
     }
 
     /**
