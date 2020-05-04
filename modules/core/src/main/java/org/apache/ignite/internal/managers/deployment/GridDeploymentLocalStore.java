@@ -192,34 +192,37 @@ class GridDeploymentLocalStore extends GridDeploymentStoreAdapter {
 
                 Class<?> cls = U.forName(clsName != null ? clsName : alias, ldr);
 
-                spi.register(ldr, cls);
 
-                rsrc = spi.findResource(cls.getName());
+                synchronized (mux) {
+                    spi.register(ldr, cls);
 
-                if (rsrc != null && rsrc.getResourceClass().equals(cls)) {
-                    if (log.isDebugEnabled())
-                        log.debug("Retrieved auto-loaded resource from spi: " + rsrc);
+                    rsrc = spi.findResource(cls.getName());
 
-                    //TODO: remove when sdsb-11790 is fixed
-                    if (ldr.toString().contains("AppClassLoader") && cls.getName().contains("TestCacheEntryProcessor")) {
-                        LocalDeploymentSpi.testResourcesPrepared = true;
+                    if (rsrc != null && rsrc.getResourceClass().equals(cls)) {
+                        if (log.isDebugEnabled())
+                            log.debug("Retrieved auto-loaded resource from spi: " + rsrc);
 
-                        try {
-                            U.sleep(5000);
+                        //TODO: remove when sdsb-11790 is fixed
+                        if (ldr.toString().contains("AppClassLoader") && cls.getName().contains("TestCacheEntryProcessor")) {
+                            LocalDeploymentSpi.testResourcesPrepared = true;
+
+                            try {
+                                U.sleep(5000);
+                            }
+                            catch (IgniteInterruptedCheckedException e) {
+                                e.printStackTrace();
+                            }
                         }
-                        catch (IgniteInterruptedCheckedException e) {
-                            e.printStackTrace();
-                        }
+
+                        dep = deploy(ctx.config().getDeploymentMode(), ldr, cls, meta.alias(), meta.record());
+
+                        assert dep != null;
                     }
+                    else {
+                        U.warn(log, "Failed to find resource from deployment SPI even after registering: " + meta);
 
-                    dep = deploy(ctx.config().getDeploymentMode(), ldr, cls, meta.alias(), meta.record());
-
-                    assert dep != null;
-                }
-                else {
-                    U.warn(log, "Failed to find resource from deployment SPI even after registering: " + meta);
-
-                    return null;
+                        return null;
+                    }
                 }
             }
             catch (ClassNotFoundException ignored) {
@@ -367,19 +370,21 @@ class GridDeploymentLocalStore extends GridDeploymentStoreAdapter {
             if (clsLdr.getClass().equals(GridDeploymentClassLoader.class))
                 clsLdr = clsLdr.getParent();
 
-            spi.register(clsLdr, cls);
+            synchronized (mux) {
+                spi.register(clsLdr, cls);
 
-            GridDeployment dep = deployment(cls.getName());
+                GridDeployment dep = deployment(cls.getName());
 
-            if (dep == null) {
-                DeploymentResource rsrc = spi.findResource(cls.getName());
+                if (dep == null) {
+                    DeploymentResource rsrc = spi.findResource(cls.getName());
 
-                if (rsrc != null && rsrc.getClassLoader() == clsLdr)
-                    dep = deploy(ctx.config().getDeploymentMode(), rsrc.getClassLoader(),
-                        rsrc.getResourceClass(), rsrc.getName(), true);
+                    if (rsrc != null && rsrc.getClassLoader() == clsLdr)
+                        dep = deploy(ctx.config().getDeploymentMode(), rsrc.getClassLoader(),
+                            rsrc.getResourceClass(), rsrc.getName(), true);
+                }
+
+                return dep;
             }
-
-            return dep;
         }
         catch (IgniteSpiException e) {
             recordDeployFailed(cls, clsLdr, true);
