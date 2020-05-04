@@ -36,6 +36,7 @@ import org.apache.ignite.configuration.DeploymentMode;
 import org.apache.ignite.events.DeploymentEvent;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteDeploymentCheckedException;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.util.GridAnnotationsCache;
 import org.apache.ignite.internal.util.GridClassLoaderCache;
 import org.apache.ignite.internal.util.typedef.F;
@@ -47,6 +48,7 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.deployment.DeploymentListener;
 import org.apache.ignite.spi.deployment.DeploymentResource;
 import org.apache.ignite.spi.deployment.DeploymentSpi;
+import org.apache.ignite.spi.deployment.local.LocalDeploymentSpi;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.events.EventType.EVT_CLASS_DEPLOYED;
@@ -197,6 +199,18 @@ class GridDeploymentLocalStore extends GridDeploymentStoreAdapter {
                 if (rsrc != null && rsrc.getResourceClass().equals(cls)) {
                     if (log.isDebugEnabled())
                         log.debug("Retrieved auto-loaded resource from spi: " + rsrc);
+
+                    //TODO: remove when sdsb-11790 is fixed
+                    if (ldr.toString().contains("AppClassLoader") && cls.getName().contains("TestCacheEntryProcessor")) {
+                        LocalDeploymentSpi.testResourcesPrepared = true;
+
+                        try {
+                            U.sleep(5000);
+                        }
+                        catch (IgniteInterruptedCheckedException e) {
+                            e.printStackTrace();
+                        }
+                    }
 
                     dep = deploy(ctx.config().getDeploymentMode(), ldr, cls, meta.alias(), meta.record());
 

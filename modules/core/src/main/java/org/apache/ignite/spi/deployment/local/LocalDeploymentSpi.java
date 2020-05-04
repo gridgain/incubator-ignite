@@ -68,6 +68,9 @@ import org.jsr166.ConcurrentLinkedHashMap;
 @IgniteSpiConsistencyChecked(optional = false)
 @IgnoreIfPeerClassLoadingDisabled
 public class LocalDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi {
+    /** TODO: For testing. Remove after sdsb-11790 is fixed */
+    public static volatile boolean testResourcesPrepared = false;
+
     /** Enables additional check for resource name on resources removal. */
     public static final String IGNITE_DEPLOYMENT_ADDITIONAL_CHECK = "IGNITE.DEPLOYMENT.ADDITIONAL.CHECK";
 

@@ -32,6 +32,7 @@ import org.apache.ignite.compute.ComputeTaskName;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.failure.StopNodeFailureHandler;
+import org.apache.ignite.spi.deployment.local.LocalDeploymentSpi;
 import org.apache.ignite.testframework.ListeningTestLogger;
 import org.apache.ignite.testframework.LogListener;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
@@ -78,23 +79,17 @@ public class AssertionErrorDeploymentTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange();
 
-        LogListener logLsnr = LogListener.matches(logStr -> {
-            if (logStr.startsWith("Retrieved auto-loaded resource from spi:") &&
-                logStr.contains(TestCacheEntryProcessor.class.getSimpleName())) {
+        new Thread(() -> {
+            while (true) {
+                if (LocalDeploymentSpi.testResourcesPrepared) {
+                    crd.compute().localDeployTask(TestTaskVer2.class, new TestClassLoader());
 
-                System.out.println("dirty getting a breakdown location " + logStr);
-                crd.compute().localDeployTask(TestTaskVer2.class, new TestClassLoader());
-                return true;
+                    break;
+                }
             }
-
-            return false;
-        }).build();
-
-        listeningLog.registerListener(logLsnr);
+        }).start();
 
         client.cache(DEFAULT_CACHE_NAME).invoke(1, new TestCacheEntryProcessor());
-
-        assertTrue(logLsnr.check());
     }
 
     /**
