@@ -1,15 +1,22 @@
 package org.apache.ignite.internal.processors.query;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteCompute;
-import org.apache.ignite.cache.*;
+import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
-import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.configuration.*;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.failure.StopNodeOrHaltFailureHandler;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -20,9 +27,6 @@ import org.apache.ignite.testframework.ListeningTestLogger;
 import org.apache.ignite.testframework.LogListener;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.multijvm.IgniteProcessProxy;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  *
@@ -217,5 +221,70 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
             List<List<?>> all = igniteEx.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery(selectIdxSql)).getAll();
             return all.size() > 0;
         }, 30_000));
+    }
+
+    /**
+     * Scenario:
+     * 1. Launch some nodes
+     * 2. Initiate indexes rebuild
+     * 3. Stop cluster BEFORE indexes rebuild is finished
+     * 4. Start cluster again
+     * 5. You may or may not get error "Maximum number of retries 1000 reached for Put operation" on some nodes.
+     * 6. Make this error appear somehow.
+     */
+    public void testAddIndexV1() throws Exception {
+        final Random rand = new Random();
+        IgniteEx igniteEx = startGrids(2);
+        igniteEx.cluster().active(true);
+
+        final IgniteEx client = (IgniteEx)startGrid(CLIENT_NODE_NAME);
+
+        IgniteDataStreamer<Long, Long> streamer = igniteEx.dataStreamer(DEFAULT_CACHE_NAME);
+
+        for (int i = 0; i < 10_000; i++)
+            streamer.addData(rand.nextLong(), rand.nextLong());
+
+        U.sleep(5000);
+
+        //GridTestUtils.waitForCondition(() -> streamer.future().isDone(), 60_0000);
+
+        System.out.println("debug: cache populated");
+
+        GridTestUtils.runAsync(() -> {
+                try {
+                    igniteEx.compute(igniteEx.cluster().forClients()).run(new IgniteRunnable() {
+                        @IgniteInstanceResource
+                        Ignite ignite;
+
+                        @Override public void run() {
+                            try {
+                                ignite.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + " ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
+                                ignite.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + "1 ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
+                                ignite.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + "2 ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
+                                ignite.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + "3 ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
+                            }
+                            catch (Exception e) {
+                                System.out.println("!!!!!");//TODO
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                }
+                catch (Exception e) {
+                    System.out.println("!!!!!");//TODO
+                    e.printStackTrace();
+                }
+            }
+        );
+
+        System.out.println("debug: going to stop");
+
+        stopAllGrids(true);
+
+        U.sleep(500);
+
+        System.out.println("debug: going to restart");
+
+        IgniteEx igniteEx1 = startGrids(2);
     }
 }
