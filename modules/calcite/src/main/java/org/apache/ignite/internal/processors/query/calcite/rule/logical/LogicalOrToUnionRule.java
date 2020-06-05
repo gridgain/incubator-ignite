@@ -26,13 +26,11 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalUnion;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.ignite.internal.processors.query.calcite.rule.RuleUtils;
 
 /**
  *
@@ -72,14 +70,14 @@ public class LogicalOrToUnionRule extends RelOptRule {
                 LogicalFilter.create(input, operands.get(0)),
                 LogicalFilter.create(input, RexUtil.andNot(rexBuilder, operands.get(1), operands.get(0)))), true);
 
-        LogicalUnion union2 =
-            LogicalUnion.create(Arrays.asList(
-                LogicalFilter.create(input, operands.get(1)),
-                LogicalFilter.create(input, RexUtil.andNot(rexBuilder, operands.get(0), operands.get(1)))), true);
+//        LogicalUnion union2 =
+//            LogicalUnion.create(Arrays.asList(
+//                LogicalFilter.create(input, operands.get(1)),
+//                LogicalFilter.create(input, RexUtil.andNot(rexBuilder, operands.get(0), operands.get(1)))), true);
 //
 //        RuleUtils.transformTo(call, Arrays.asList(RelOptUtil.createCastRel(union1, rel.getRowType(), false),
 //            RelOptUtil.createCastRel(union2, rel.getRowType(), false)));
 
-        RuleUtils.transformTo(call, RelOptUtil.createCastRel(union1, rel.getRowType(), false));
+        call.transformTo(RelOptUtil.createCastRel(union1, rel.getRowType(), false));
     }
 }

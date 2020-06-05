@@ -41,7 +41,8 @@ public class RegisterIndexRule extends RelOptRule {
 
     /** */
     public RegisterIndexRule() {
-        super(operandJ(IgniteTableScan.class, null, scan -> PK_INDEX_NAME.equals(scan.indexName()), any()));
+        super(operandJ(IgniteTableScan.class, null,
+            scan -> PK_INDEX_NAME.equals(scan.indexName()) && scan.condition() == null, any()));
     }
 
     /** {@inheritDoc} */
