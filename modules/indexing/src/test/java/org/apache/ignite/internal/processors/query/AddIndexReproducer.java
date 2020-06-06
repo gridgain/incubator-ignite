@@ -32,7 +32,6 @@ import org.apache.ignite.testframework.junits.multijvm.IgniteProcessProxy;
  *
  */
 public class AddIndexReproducer extends GridCommonAbstractTest {
-
     /** Client node name. */
     private static final String CLIENT_NODE_NAME = "client";
 
@@ -59,7 +58,7 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected boolean isMultiJvm() {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -235,9 +234,10 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
     public void testAddIndexV1() throws Exception {
         final Random rand = new Random();
         IgniteEx igniteEx = startGrids(2);
-        igniteEx.cluster().active(true);
 
         final IgniteEx client = (IgniteEx)startGrid(CLIENT_NODE_NAME);
+
+        igniteEx.cluster().active(true);
 
         IgniteDataStreamer<Long, Long> streamer = igniteEx.dataStreamer(DEFAULT_CACHE_NAME);
 
@@ -252,7 +252,7 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
 
         GridTestUtils.runAsync(() -> {
                 try {
-                    igniteEx.compute(igniteEx.cluster().forClients()).run(new IgniteRunnable() {
+                    client.compute().run(new IgniteRunnable() {
                         @IgniteInstanceResource
                         Ignite ignite;
 
@@ -277,6 +277,8 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
             }
         );
 
+        //TODO achieve the task launch and its interruption
+
         System.out.println("debug: going to stop");
 
         stopAllGrids(true);
@@ -286,5 +288,26 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
         System.out.println("debug: going to restart");
 
         IgniteEx igniteEx1 = startGrids(2);
+
+        igniteEx1.cluster().active(true);
+
+        IgniteEx cl = (IgniteEx) startGrid(CLIENT_NODE_NAME);
+
+        awaitPartitionMapExchange();
+
+        cl.compute().run(new IgniteRunnable() {
+            @IgniteInstanceResource
+            Ignite ignite;
+
+            @Override public void run() {
+                try {
+                    ignite.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + " ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
+               }
+                catch (Exception e) {
+                    System.out.println("????");
+                    e.printStackTrace();
+                }
+            }
+        });
     }
 }
