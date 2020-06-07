@@ -47,6 +47,9 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
     /** Keys count. */
     private static final int KEY_CNT = 10_000;
 
+    /** Logger */
+    private final ListeningTestLogger testLogger = new ListeningTestLogger(true, null);
+
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
@@ -54,6 +57,8 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
         stopAllGrids();
 
         cleanPersistenceDir();
+
+        testLogger.clearListeners();
     }
 
     /** {@inheritDoc} */
@@ -68,6 +73,8 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
         stopAllGrids();
 
         cleanPersistenceDir();
+
+        testLogger.clearListeners();
     }
 
     /** {@inheritDoc} */
@@ -115,6 +122,8 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
                 .setQueryEntities(Collections.singleton(qryEntity2))
                 .setAffinity(new RendezvousAffinityFunction(false, 16))
         );
+
+        configuration.setGridLogger(testLogger);
 
         return configuration;
     }
@@ -291,7 +300,7 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
 
         igniteEx1.cluster().active(true);
 
-        IgniteEx cl = (IgniteEx) startGrid(CLIENT_NODE_NAME);
+        IgniteEx cl = (IgniteEx)startGrid(CLIENT_NODE_NAME);
 
         awaitPartitionMapExchange();
 
@@ -302,12 +311,78 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
             @Override public void run() {
                 try {
                     ignite.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + " ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
-               }
+                }
                 catch (Exception e) {
                     System.out.println("????");
                     e.printStackTrace();
                 }
             }
         });
+    }
+
+    public void testAddIndexV2() throws Exception {
+        final Random rand = new Random();
+        IgniteEx igniteEx = startGrids(2);
+        igniteEx.cluster().active(true);
+
+        final IgniteEx client = (IgniteEx)startGrid(CLIENT_NODE_NAME);
+
+        final IgniteCache<Long, Long> cache = client.cache(DEFAULT_CACHE_NAME);
+
+        System.out.println("!!!!! 1 "+System.currentTimeMillis());
+
+        for (int i = 0; i < 10_000; i++) {
+            cache.put(Long.valueOf(i), rand.nextLong());
+        }
+
+        System.out.println("!!!!! 2 "+System.currentTimeMillis());
+
+        final LogListener startLsnr = LogListener.matches(s -> s.startsWith("Started indexes rebuilding for cache [name=" + DEFAULT_CACHE_NAME)).times(1).build();
+        testLogger.registerListener(startLsnr);
+
+        final LogListener finishLsnr = LogListener.matches(s -> s.startsWith("Finished indexes rebuilding for cache [name=" + DEFAULT_CACHE_NAME)).times(1).build();
+        testLogger.registerListener(finishLsnr);
+
+        final LogListener pmeLsnr = LogListener.matches(s -> s.startsWith("Completed partition exchange")).times(1).build();
+        testLogger.registerListener(pmeLsnr);
+
+        final LogListener ioLsnr = LogListener.matches(s -> s.startsWith("Started local index operation")).times(1).build();
+        testLogger.registerListener(ioLsnr);
+
+        GridTestUtils.runAsync(() -> {
+                try {
+                    System.out.println("!!!!! 3 "+System.currentTimeMillis());
+                    client.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + " ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
+                    System.out.println("!!!!! 4 "+System.currentTimeMillis());
+                }
+                catch (Exception e) {
+                    System.out.println("!!!!!");//TODO
+                    e.printStackTrace();
+                }
+            }
+        );
+
+        System.out.println("!!!!! 5 "+System.currentTimeMillis());
+
+        //TODO achieve the task launch and its interruption
+        assertTrue(GridTestUtils.waitForCondition(ioLsnr::check, 60_000));
+
+        System.out.println("!!!!! 6 "+System.currentTimeMillis());
+
+        System.out.println("debug: going to stop");
+
+        stopAllGrids(true);
+
+        System.out.println("debug: going to restart");
+
+        IgniteEx igniteEx1 = startGrids(2);
+
+        igniteEx1.cluster().active(true);
+
+        IgniteEx cl = (IgniteEx)startGrid(CLIENT_NODE_NAME);
+
+        cl.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + " ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
+
+        assertTrue(GridTestUtils.waitForCondition(finishLsnr::check, 60_000));
     }
 }
