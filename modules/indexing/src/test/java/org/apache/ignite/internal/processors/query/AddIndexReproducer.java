@@ -19,6 +19,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.failure.StopNodeOrHaltFailureHandler;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.IgniteInstanceResource;
@@ -48,7 +49,7 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
     private static final int KEY_CNT = 10_000;
 
     /** Logger */
-    private final ListeningTestLogger testLogger = new ListeningTestLogger(true, null);
+    private final ListeningTestLogger testLogger = new ListeningTestLogger(false, log);
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
@@ -59,6 +60,17 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
         cleanPersistenceDir();
 
         testLogger.clearListeners();
+
+        BPlusTree.pageHndWrapper = (tree, hnd) -> {
+            if (hnd instanceof BPlusTree.Insert) {
+                try {
+                    Thread.sleep(100);
+                }
+                catch (Exception ignore) {
+                }
+            }
+            return hnd;
+        };
     }
 
     /** {@inheritDoc} */
@@ -365,7 +377,7 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
         System.out.println("!!!!! 5 "+System.currentTimeMillis());
 
         //TODO achieve the task launch and its interruption
-        assertTrue(GridTestUtils.waitForCondition(ioLsnr::check, 60_000));
+//        assertTrue(GridTestUtils.waitForCondition(ioLsnr::check, 60_000));
 
         System.out.println("!!!!! 6 "+System.currentTimeMillis());
 
@@ -378,10 +390,6 @@ public class AddIndexReproducer extends GridCommonAbstractTest {
         IgniteEx igniteEx1 = startGrids(2);
 
         igniteEx1.cluster().active(true);
-
-        IgniteEx cl = (IgniteEx)startGrid(CLIENT_NODE_NAME);
-
-        cl.cache(DEFAULT_CACHE_NAME).query(new SqlFieldsQuery("CREATE INDEX " + INDEX_NAME + " ON \"" + DEFAULT_CACHE_NAME + "\"." + TABLE_NAME + "(" + COLUMN_NAME + ")"));
 
         assertTrue(GridTestUtils.waitForCondition(finishLsnr::check, 60_000));
     }
