@@ -19,14 +19,16 @@ package org.apache.ignite.internal.managers.indexing;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Timer;
+import java.util.TimerTask;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.SkipDaemon;
 import org.apache.ignite.internal.managers.GridManagerAdapter;
+import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.util.GridEmptyCloseableIterator;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.spi.IgniteSpiCloseableIterator;
-import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
 import org.apache.ignite.spi.indexing.IndexingSpi;
 
@@ -37,6 +39,9 @@ import org.apache.ignite.spi.indexing.IndexingSpi;
 public class GridIndexingManager extends GridManagerAdapter<IndexingSpi> {
     /** */
     private final GridSpinBusyLock busyLock = new GridSpinBusyLock();
+
+    // For SDSB-11828 debug
+    private static int minLockRetries = Integer.MAX_VALUE;
 
     /**
      * @param ctx  Kernal context.
@@ -50,6 +55,23 @@ public class GridIndexingManager extends GridManagerAdapter<IndexingSpi> {
      */
     @Override public void start() throws IgniteCheckedException {
         startSpi();
+
+        // For SDSB-11828 debug
+        new Timer().schedule(
+            new TimerTask() {
+                @Override public void run() {
+                    if (minLockRetries > BPlusTree.minPutLockRetries) {
+                        minLockRetries = BPlusTree.minPutLockRetries;
+
+                        if (log != null)
+                            log.warning("New minimum lock retries: " + minLockRetries);
+                        else
+                            System.out.println("Log resource unavailable. New minimum lock retries: " + minLockRetries);
+                    }
+                }
+            },
+            1000,
+            1000);
 
         if (log.isDebugEnabled())
             log.debug(startInfo());

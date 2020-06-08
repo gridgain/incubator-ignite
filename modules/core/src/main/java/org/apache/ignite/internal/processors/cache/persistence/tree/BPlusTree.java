@@ -110,6 +110,9 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
     private static final int LOCK_RETRIES = IgniteSystemProperties.getInteger(
         IGNITE_BPLUS_TREE_LOCK_RETRIES, IGNITE_BPLUS_TREE_LOCK_RETRIES_DEFAULT);
 
+    /** Minimum number put lock retries. Needed for SDSB-11828 reproducer. Do not use in production.*/
+    public static int minPutLockRetries = LOCK_RETRIES + 1;
+
     /** */
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
 
@@ -3122,6 +3125,9 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
         /** {@inheritDoc} */
         @Override void checkLockRetry() throws IgniteCheckedException {
+            if (lockRetriesCnt < minPutLockRetries)
+                minPutLockRetries = lockRetriesCnt;
+
             //non null tailId means that lock on tail page still hold and we can't fail with exception.
             if (tailId == NULL_PAGE_ID)
                 super.checkLockRetry();
