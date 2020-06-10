@@ -472,8 +472,6 @@ public class GridQueryProcessor extends GridProcessorAdapter {
             else {
                 schemaOps.put(schemaName, schemaOp);
 
-                System.err.println("!!sp:" + schemaName + " " + schemaOps.size());;
-
                 return exchangeReady;
             }
         }
@@ -557,10 +555,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     // Completed top operation.
                     op.finishMessage(msg);
 
-                    if (op.started()) {
-                        System.err.println("!!!spr3");
+                    if (op.started())
                         op.doFinish();
-                    }
                 }
                 else {
                     // Completed operation in the middle, will schedule completion later.
@@ -582,8 +578,6 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                 String schemaName = proposeMsg.schemaName();
 
                 SchemaOperation op = schemaOps.remove(schemaName);
-
-                System.err.println("!!!spr1:" + proposeMsg);
 
                 assert op != null;
                 assert F.eq(op.id(), opId);
@@ -1689,15 +1683,10 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     idxIt.remove();
             }
 
-            System.err.println("Notify in-progress " + schemaOps);
-
             // Notify in-progress index operations.
             for (SchemaOperation op : schemaOps.values()) {
-                if (op.started()) {
+                if (op.started())
                     op.manager().worker().cancel();
-
-                    System.err.println("oc: " + op.manager().worker().name());
-                }
             }
 
             // Notify indexing.
@@ -2926,8 +2915,6 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     synchronized (stateMux) {
                         SchemaOperation op = schemaOps.remove(schemaName);
 
-                        System.err.println("!!!spr2:" + proposeMsg);
-
                         assert op != null;
                         assert F.eq(op.id(), opId);
 
@@ -2946,8 +2933,6 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
                         if (nextOp != null) {
                             schemaOps.put(schemaName, nextOp);
-
-                            System.err.println("!!!sp2:" + nextOp.proposeMessage());
 
                             if (log.isDebugEnabled())
                                 log.debug("Next schema change operation started [opId=" + nextOp.id() + ']');

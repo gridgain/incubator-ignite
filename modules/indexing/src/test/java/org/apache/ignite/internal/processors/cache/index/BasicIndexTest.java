@@ -23,55 +23,31 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
-import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
-import org.apache.ignite.cache.query.FieldsQueryCursor;
-import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.processors.cache.CacheGroupContext;
-import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
 import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
-import org.apache.ignite.internal.processors.cache.KeyCacheObject;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
-import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
-import org.apache.ignite.internal.processors.cache.persistence.GridCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
-import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
-import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
-import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
-import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
 import org.apache.ignite.internal.processors.query.GridQueryProcessor;
 import org.apache.ignite.internal.util.typedef.G;
-import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.ListeningTestLogger;
 import org.apache.ignite.testframework.LogListener;
-
-import javax.cache.Cache;
 
 /**
  * A set of basic tests for caches with indexes.
@@ -131,33 +107,7 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
             ))
             .setSqlIndexMaxInlineSize(inlineSize);
 
-        CacheConfiguration<Key, Val> ccfg1 = new CacheConfiguration<Key, Val>("cache0")
-            .setQueryEntities(Collections.singleton(
-                new QueryEntity()
-                    .setKeyType(Key.class.getName())
-                    .setValueType(Val.class.getName())
-                    .setFields(fields)
-                    .setKeyFields(new HashSet<>(Arrays.asList("keyStr", "keyLong", "keyPojo")))
-                    .setIndexes(indexes)
-            ))
-            .setSqlIndexMaxInlineSize(inlineSize)
-            .setGroupName("g1")
-            .setAffinity(new RendezvousAffinityFunction(false, 10));
-
-        CacheConfiguration<Key, Val> ccfg2 = new CacheConfiguration<Key, Val>("cache1")
-            .setQueryEntities(Collections.singleton(
-                new QueryEntity()
-                    .setKeyType(Key.class.getName())
-                    .setValueType(Val.class.getName())
-                    .setFields(fields)
-                    .setKeyFields(new HashSet<>(Arrays.asList("keyStr", "keyLong", "keyPojo")))
-                    .setIndexes(indexes)
-            ))
-            .setSqlIndexMaxInlineSize(inlineSize)
-            .setGroupName("g1")
-            .setAffinity(new RendezvousAffinityFunction(false, 10));
-
-        igniteCfg.setCacheConfiguration(ccfg, ccfg1, ccfg2);
+        igniteCfg.setCacheConfiguration(ccfg);
 
         if (isPersistenceEnabled) {
             igniteCfg.setDataStorageConfiguration(new DataStorageConfiguration()
@@ -401,143 +351,6 @@ public class BasicIndexTest extends AbstractIndexingCommonTest {
             checkAll();
 
             stopAllGrids();
-        }
-    }
-
-    /** */
-    private void populateCache0() {
-        IgniteCache<Key, Val> cache = grid(0).cache("cache0");
-
-        // Be paranoid and populate first even indexes in ascending order, then odd indexes in descending
-        // to check that inserting in the middle works.
-
-        for (int i = 0; i < 100_000; i += 2)
-            cache.put(key(i), val(i));
-    }
-
-    /** */
-    private void checkCache() {
-        IgniteCache<Key, Val> cache = grid(0).cache("cache0");
-
-        for (int i = 0; i < 50_000; i += 2)
-            assertEquals(val(i), cache.get(key(i)));
-    }
-
-    public void test0() throws Exception {
-        isPersistenceEnabled = true;
-
-        indexes = Collections.singletonList(new QueryIndex("valLong"));
-
-        inlineSize = 33;
-
-        IgniteEx ig0 = startGrid(0);
-
-        Ignition.setClientMode(true);
-
-        IgniteEx client = startGrid(10);
-
-        ig0.cluster().active(true);
-
-        populateCache0();
-
-        IgniteCache<Key, Val> cache = grid(0).cache("cache0");
-
-        IgniteInternalFuture f1 = GridTestUtils.runAsync(() -> {
-            client.compute(ig0.cluster()).call(new IgniteCallable<FieldsQueryCursor<List<?>>>() {
-                @Override public FieldsQueryCursor<List<?>> call() throws Exception {
-                    System.err.println("start!!!");
-                    FieldsQueryCursor<List<?>> res = cache.query(new SqlFieldsQuery("create index \"idx1\" on Val" +
-                        "(valStr) INLINE_SIZE 20 PARALLEL 2"));
-                    System.err.println("stop!!!");
-                    return res;
-                }
-            });
-        });
-
-        IgniteInternalFuture f2 = GridTestUtils.runAsync(() -> {
-            client.compute(ig0.cluster()).call(new IgniteCallable<FieldsQueryCursor<List<?>>>() {
-                @Override public FieldsQueryCursor<List<?>> call() throws Exception {
-                    FieldsQueryCursor<List<?>> res = cache.query(new SqlFieldsQuery("create index \"idx2\" on Val" +
-                        "(valPojo) INLINE_SIZE 20 PARALLEL 1"));
-                    return res;
-                }
-            });
-        });
-
-        IgniteInternalFuture f3 = GridTestUtils.runAsync(() -> {
-            client.compute(ig0.cluster()).call(new IgniteCallable<FieldsQueryCursor<List<?>>>() {
-                @Override public FieldsQueryCursor<List<?>> call() throws Exception {
-                    FieldsQueryCursor<List<?>> res = cache.query(new SqlFieldsQuery("create index \"idx3\" on Val" +
-                        "(valPojo) INLINE_SIZE 20 PARALLEL 1"));
-                    return res;
-                }
-            });
-        });
-
-        ///////
-
-        String cacheName = "cache0";
-
-        int cacheId = CU.cacheId(cacheName);
-
-        GridCacheContext<Object, Object> ctx = ig0.context().cache().context().cacheContext(cacheId);
-
-        // Get current update counter
-        String grpName = ig0.context().cache().context().cacheContext(cacheId).config().getGroupName();
-        int cacheGrpId = grpName == null ? cacheName.hashCode() : grpName.hashCode();
-
-        GridDhtLocalPartition locPart = ctx.dht().topology().localPartition(1);
-
-        IgniteCacheOffheapManager.CacheDataStore dataStore = ig0.context().cache().context().cache().cacheGroup(cacheGrpId).offheap().dataStore(locPart);
-
-        // Do update
-        GridCacheDatabaseSharedManager db = (GridCacheDatabaseSharedManager)ig0.context().cache().context().database();
-
-        db.checkpointReadLock();
-
-        try {
-            IgniteCacheOffheapManager.CacheDataStore innerStore = U.field(dataStore, "delegate");
-
-            // IgniteCacheOffheapManagerImpl.CacheDataRowStore
-            Object rowStore = U.field(innerStore, "rowStore");
-
-            // IgniteCacheOffheapManagerImpl.CacheDataTree
-            Object dataTree = U.field(innerStore, "dataTree");
-
-            System.err.println(dataTree);
-        }
-        finally {
-            db.checkpointReadUnlock();
-        }
-
-        int timeout = ThreadLocalRandom.current().nextInt(200, 400);
-
-        U.sleep(timeout);
-
-        System.err.println("deactivate!!!");
-
-        client.cluster().active(false);
-/*
-        client.cluster().active(true);
-
-        checkCache();
-
-        f1.get(); f2.get(); f3.get();*/
-    }
-
-    class CacheDataTree0 extends CacheDataTree {
-        /**
-         * @param grp        Ccahe group.
-         * @param name       Tree name.
-         * @param reuseList  Reuse list.
-         * @param rowStore   Row store.
-         * @param metaPageId Meta page ID.
-         * @param initNew    Initialize new index.
-         * @param lockLsnr
-         * @throws IgniteCheckedException If failed.
-         */
-        public CacheDataTree0(CacheGroupContext grp, String name, ReuseList reuseList, CacheDataRowStore rowStore, long metaPageId, boolean initNew, PageLockListener lockLsnr) throws IgniteCheckedException {
-            super(grp, name, reuseList, rowStore, metaPageId, initNew, lockLsnr);
         }
     }
 

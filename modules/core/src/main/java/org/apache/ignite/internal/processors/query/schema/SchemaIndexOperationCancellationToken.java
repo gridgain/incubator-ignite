@@ -20,8 +20,6 @@ package org.apache.ignite.internal.processors.query.schema;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Index operation cancellation token.
@@ -29,8 +27,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class SchemaIndexOperationCancellationToken {
     /** Cancel flag. */
     private final AtomicBoolean flag = new AtomicBoolean();
-
-    ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     /**
      * Get cancel state.
@@ -41,27 +37,13 @@ public class SchemaIndexOperationCancellationToken {
         return flag.get();
     }
 
-    public void getLock() {
-        lock.readLock().lock();
-    }
-
-    public void unLock() {
-        lock.readLock().unlock();
-    }
-
     /**
      * Do cancel.
      *
      * @return {@code True} if cancel flag was set by this call.
      */
     public boolean cancel() {
-        lock.writeLock().lock();
-        try {
-            return flag.compareAndSet(false, true);
-        }
-        finally {
-            lock.writeLock().unlock();
-        }
+        return flag.compareAndSet(false, true);
     }
 
     /** {@inheritDoc} */
