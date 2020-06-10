@@ -246,10 +246,16 @@ public class SchemaIndexCacheVisitorImpl implements SchemaIndexCacheVisitor {
                 GridCacheEntryEx entry = cctx.cache().entryEx(key);
 
                 try {
+                    if (cancel != null)
+                        cancel.getLock();
+
                     entry.updateIndex(clo);
                 }
                 finally {
                     entry.touch();
+
+                    if (cancel != null)
+                        cancel.unLock();
                 }
 
                 break;

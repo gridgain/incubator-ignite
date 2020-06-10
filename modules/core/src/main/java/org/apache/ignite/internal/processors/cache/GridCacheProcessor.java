@@ -1271,6 +1271,8 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
             cache.stop();
 
+            System.err.println("!!!cs: " + cache.name());
+
             ctx.kernalContext().query().onCacheStop(ctx, !cache.context().group().persistenceEnabled() || destroy);
 
             if (isNearEnabled(ctx)) {
