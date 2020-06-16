@@ -588,7 +588,19 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
     /** {@inheritDoc} */
     @Override public void write(int grpId, long pageId, ByteBuffer pageBuf, int tag) throws IgniteCheckedException {
-        writeInternal(grpId, pageId, pageBuf, tag, true);
+        int partId = PageIdUtils.partId(pageId);
+
+        PageStore store = getStore(grpId, partId);
+
+        try {
+            // Do we still need to set calculateCrc as true?
+            store.write(pageId, pageBuf, tag, true);
+        }
+        catch (StorageException e) {
+            cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+
+            throw e;
+        }
     }
 
     /** {@inheritDoc} */
@@ -596,59 +608,6 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         PageStore store = getStore(grpId, PageIdUtils.partId(pageId));
 
         return store.pageOffset(pageId);
-    }
-
-    /**
-     * @param cacheId Cache ID to write.
-     * @param pageId Page ID.
-     * @param pageBuf Page buffer.
-     * @param tag Partition tag (growing 1-based partition file version). Used to validate page is not outdated
-     * @param calculateCrc if {@code False} crc calculation will be forcibly skipped.
-     * @return PageStore to which the page has been written.
-     * @throws IgniteCheckedException If IO error occurred.
-     */
-    public PageStore writeInternal(int cacheId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc)
-        throws IgniteCheckedException {
-        int partId = PageIdUtils.partId(pageId);
-
-        PageStore store = getStore(cacheId, partId);
-
-        try {
-            int pageSize = store.getPageSize();
-            int compressedPageSize = pageSize;
-
-            GridCacheContext cctx0 = cctx.cacheContext(cacheId);
-
-            if (cctx0 != null) {
-                assert pageBuf.position() == 0 && pageBuf.limit() == pageSize : pageBuf;
-
-                ByteBuffer compressedPageBuf = cctx0.compress().compressPage(pageBuf, store);
-
-                if (compressedPageBuf != pageBuf) {
-                    compressedPageSize = PageIO.getCompressedSize(compressedPageBuf);
-
-                    if (!calculateCrc) {
-                        calculateCrc = true;
-                        PageIO.setCrc(compressedPageBuf, 0); // It will be recalculated over compressed data further.
-                    }
-
-                    PageIO.setCrc(pageBuf, 0); // It is expected to be reset to 0 after each write.
-                    pageBuf = compressedPageBuf;
-                }
-            }
-
-            store.write(pageId, pageBuf, tag, calculateCrc);
-
-            if (pageSize > compressedPageSize)
-                store.punchHole(pageId, compressedPageSize); // TODO maybe add async punch mode?
-        }
-        catch (StorageException e) {
-            cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
-
-            throw e;
-        }
-
-        return store;
     }
 
     /**
