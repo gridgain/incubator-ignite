@@ -137,6 +137,7 @@ public interface IgnitePageStoreManager extends GridCacheSharedManager, IgniteCh
      * @param grpId Cache group ID.
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write.
+     * @param tag Partition tag (growing 1-based partition file version). Used to validate page is not outdated
      * @throws IgniteCheckedException If failed to write page.
      */
     public void write(int grpId, long pageId, ByteBuffer pageBuf, int tag) throws IgniteCheckedException;

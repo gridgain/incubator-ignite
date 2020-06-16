@@ -96,6 +96,7 @@ import org.apache.ignite.internal.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
+import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.store.IgnitePageStoreManager;
@@ -3159,7 +3160,17 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     long pageId = fullPageId.pageId();
 
                     // Write buf to page store.
-                    PageStore store = storeMgr.writeInternal(groupId, pageId, buf, tag, true);
+                    int partId = PageIdUtils.partId(pageId);
+                    PageStore store = storeMgr.getStore(groupId, partId);
+
+                    try {
+                        store.write(pageId, buf, tag, true);
+                    }
+                    catch (StorageException e) {
+                        cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+
+                        throw e;
+                    }
 
                     // Save store for future fsync.
                     updStores.add(store);
@@ -4763,7 +4774,18 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
                     getCheckpointer().currentProgress().updateWrittenPages(1);
 
-                    PageStore store = storeMgr.writeInternal(groupId, pageId, buf, tag, true);
+                    int partId = PageIdUtils.partId(pageId);
+
+                    PageStore store = storeMgr.getStore(groupId, partId);
+
+                    try {
+                        store.write(pageId, buf, tag, true);
+                    }
+                    catch (StorageException e) {
+                        cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+
+                        throw e;
+                    }
 
                     updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
                 }
