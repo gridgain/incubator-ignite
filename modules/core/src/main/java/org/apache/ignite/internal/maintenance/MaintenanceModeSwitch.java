@@ -17,26 +17,34 @@
 
 package org.apache.ignite.internal.maintenance;
 
-import org.jetbrains.annotations.Nullable;
-
+import java.util.ArrayList;
 import java.util.List;
 
 /** */
 public class MaintenanceModeSwitch {
-    private List<MaintenanceTarget> targets;
+    private List<MaintenanceTarget> targets = new ArrayList<>();
 
-    /** */
-    public boolean switchToMaintenance() {
-        if (targets != null)
-            return true;
+    public MaintenanceModeSwitch() {
 
-        return false;
     }
 
-    @Nullable public static MaintenanceModeSwitch checkMaintenace(String igniteHome) {
+    public MaintenanceModeSwitch(List<MaintenanceTarget> targets) {
+        this.targets.addAll(targets);
+    }
+
+    /** */
+    public boolean maintenanceOfType(MaintenanceType type) {
+        return targets.stream().anyMatch(target -> target.type() == type);
+    }
+
+    public static MaintenanceModeSwitch checkMaintenace(String igniteHome) {
         // TODO check special file here and instanciate needed targets
 
+        return new MaintenanceModeSwitch();
+    }
 
-        return null;
+    //TODO remove when quick and dirty phase of development is over
+    public void addTarget(MaintenanceTarget target) {
+        targets.add(target);
     }
 }

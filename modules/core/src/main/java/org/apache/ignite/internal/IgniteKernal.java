@@ -112,6 +112,7 @@ import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.binary.BinaryUtils;
 import org.apache.ignite.internal.cluster.ClusterGroupAdapter;
 import org.apache.ignite.internal.cluster.IgniteClusterEx;
+import org.apache.ignite.internal.maintenance.MaintenanceModeSwitch;
 import org.apache.ignite.internal.managers.GridManager;
 import org.apache.ignite.internal.managers.IgniteMBeansManager;
 import org.apache.ignite.internal.managers.checkpoint.GridCheckpointManager;
@@ -143,6 +144,7 @@ import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProce
 import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessorImpl;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
+import org.apache.ignite.internal.processors.cache.persistence.defragmentation.DefragmentationTarget;
 import org.apache.ignite.internal.processors.cache.persistence.filename.PdsConsistentIdProcessor;
 import org.apache.ignite.internal.processors.cacheobject.IgniteCacheObjectProcessor;
 import org.apache.ignite.internal.processors.closure.GridClosureProcessor;
@@ -1126,6 +1128,13 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 hnd,
                 longJVMPauseDetector
             );
+
+            MaintenanceModeSwitch mtncSwitch = MaintenanceModeSwitch.checkMaintenace("");
+            ctx.maintenanceSwitch(mtncSwitch);
+
+            if (IgniteSystemProperties.getBoolean("DEFRAGMENTATION", false)) {
+                mtncSwitch.addTarget(new DefragmentationTarget());
+            }
 
             startProcessor(new DiagnosticProcessor(ctx));
 

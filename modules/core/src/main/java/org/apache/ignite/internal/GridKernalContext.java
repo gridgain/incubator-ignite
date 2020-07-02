@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.maintenance.MaintenanceModeSwitch;
 import org.apache.ignite.internal.managers.checkpoint.GridCheckpointManager;
 import org.apache.ignite.internal.managers.collision.GridCollisionManager;
 import org.apache.ignite.internal.managers.communication.GridIoManager;
@@ -771,6 +772,9 @@ public interface GridKernalContext extends Iterable<GridComponent> {
      * @return {@code True} if node is in recovery mode (before join to topology).
      */
     public boolean recoveryMode();
+
+    /** */
+    public MaintenanceModeSwitch maintenanceSwitch();
 
     /**
      * @return Local continuous tasks processor.

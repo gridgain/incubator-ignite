@@ -38,6 +38,7 @@ import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.failure.FailureType;
+import org.apache.ignite.internal.maintenance.MaintenanceModeSwitch;
 import org.apache.ignite.internal.managers.checkpoint.GridCheckpointManager;
 import org.apache.ignite.internal.managers.collision.GridCollisionManager;
 import org.apache.ignite.internal.managers.communication.GridIoManager;
@@ -470,6 +471,9 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
 
     /** */
     private final boolean igniteDaemon = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_DAEMON);
+
+    /** */
+    private MaintenanceModeSwitch maintenanceSwitch;
 
     /**
      * No-arg constructor is required by externalization.
@@ -1308,6 +1312,14 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
     /** {@inheritDoc} */
     @Override public boolean recoveryMode() {
         return recoveryMode;
+    }
+
+    @Override public MaintenanceModeSwitch maintenanceSwitch() {
+        return maintenanceSwitch;
+    }
+
+    public void maintenanceSwitch(MaintenanceModeSwitch maintenanceSwitch) {
+        this.maintenanceSwitch = maintenanceSwitch;
     }
 
     /**

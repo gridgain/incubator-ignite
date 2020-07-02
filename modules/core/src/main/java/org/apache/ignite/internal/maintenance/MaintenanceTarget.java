@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.maintenance;
 
 public interface MaintenanceTarget {
+    MaintenanceType type();
+
     boolean reached();
 
     void markReached();

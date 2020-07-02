@@ -90,6 +90,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.LongJVMPauseDetector;
 import org.apache.ignite.internal.NodeStoppingException;
+import org.apache.ignite.internal.maintenance.MaintenanceType;
 import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
@@ -885,7 +886,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
                 notifyMetastorageReadyForRead();
 
-                if (IgniteSystemProperties.getBoolean("DEFRAGMENTATION", false))
+                if (cctx.kernalContext().maintenanceSwitch().maintenanceOfType(MaintenanceType.PDS_DEFRAGMENTATION))
                     prepareCacheDefragmentation();
             }
             finally {

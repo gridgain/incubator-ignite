@@ -37,6 +37,7 @@ import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.LongJVMPauseDetector;
 import org.apache.ignite.internal.MarshallerContextImpl;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
+import org.apache.ignite.internal.maintenance.MaintenanceModeSwitch;
 import org.apache.ignite.internal.managers.checkpoint.GridCheckpointManager;
 import org.apache.ignite.internal.managers.collision.GridCollisionManager;
 import org.apache.ignite.internal.managers.communication.GridIoManager;
@@ -703,6 +704,11 @@ public class StandaloneGridKernalContext implements GridKernalContext {
     /** {@inheritDoc} */
     @Override public boolean recoveryMode() {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public MaintenanceModeSwitch maintenanceSwitch() {
+        return null;
     }
 
     /** {@inheritDoc} */

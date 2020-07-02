@@ -18,11 +18,17 @@
 package org.apache.ignite.internal.processors.cache.persistence.defragmentation;
 
 import org.apache.ignite.internal.maintenance.MaintenanceTarget;
+import org.apache.ignite.internal.maintenance.MaintenanceType;
 
 /** */
 public class DefragmentationTarget implements MaintenanceTarget {
-
+    /** */
     private boolean reached;
+
+    @Override
+    public MaintenanceType type() {
+        return MaintenanceType.PDS_DEFRAGMENTATION;
+    }
 
     @Override
     public boolean reached() {
