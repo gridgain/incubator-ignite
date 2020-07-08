@@ -1129,12 +1129,10 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 longJVMPauseDetector
             );
 
-            MaintenanceModeSwitch mtncSwitch = MaintenanceModeSwitch.checkMaintenace("");
-            ctx.maintenanceSwitch(mtncSwitch);
+            MaintenanceModeSwitch mtncSwitch = MaintenanceModeSwitch.checkMaintenace(cfg.getWorkDirectory(),
+                CU.isPersistenceEnabled(cfg));
 
-            if (IgniteSystemProperties.getBoolean("DEFRAGMENTATION", false)) {
-                mtncSwitch.addTarget(new DefragmentationTarget());
-            }
+            ctx.maintenanceSwitch(mtncSwitch);
 
             startProcessor(new DiagnosticProcessor(ctx));
 

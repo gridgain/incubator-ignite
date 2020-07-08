@@ -25,12 +25,16 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.maintenance.MaintenanceType;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -41,7 +45,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.internal.maintenance.MaintenanceModeSwitch.MAINTENANCE_DESCRIPTOR;
 import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.DFLT_STORE_DIR;
 
 public class IgnitePdsDefragmentationTest extends GridCommonAbstractTest {
@@ -104,25 +110,29 @@ public class IgnitePdsDefragmentationTest extends GridCommonAbstractTest {
 
         fillCache(ig.cache(DEFAULT_CACHE_NAME));
 
+        String workDir = ig.configuration().getWorkDirectory();
+
         stopGrid(0);
 
-        String defrag = "DEFRAGMENTATION";
+        File mntcDesc = new File(workDir, MAINTENANCE_DESCRIPTOR);
 
-        System.setProperty(defrag, "true");
-
-        try {
-            startGrid(0);
+        try (FileOutputStream out = new FileOutputStream(mntcDesc)) {
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, UTF_8))) {
+                writer.write(MaintenanceType.PDS_DEFRAGMENTATION.name());
+            }
         }
-        finally {
-            System.clearProperty(defrag);
+        catch (IOException ignored) {
+            // No-op.
         }
 
-        File workDir = U.resolveWorkDirectory(U.defaultWorkDirectory(), DFLT_STORE_DIR, false);
+        startGrid(0);
+
+        File workDirFile = U.resolveWorkDirectory(U.defaultWorkDirectory(), DFLT_STORE_DIR, false);
 
         AtomicReference<File> cachePartFile = new AtomicReference<>();
         AtomicReference<File> defragCachePartFile = new AtomicReference<>();
 
-        Files.walkFileTree(workDir.toPath(), new FileVisitor<Path>() {
+        Files.walkFileTree(workDirFile.toPath(), new FileVisitor<Path>() {
             @Override
             public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes basicFileAttributes) throws IOException {
                 return FileVisitResult.CONTINUE;

@@ -17,15 +17,26 @@
 
 package org.apache.ignite.internal.maintenance;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
 /** */
 public class MaintenanceModeSwitch {
+    /** */
+    public static final String MAINTENANCE_DESCRIPTOR = "maintenance.desc";
+
     private List<MaintenanceTarget> targets = new ArrayList<>();
 
     public MaintenanceModeSwitch() {
-
     }
 
     public MaintenanceModeSwitch(List<MaintenanceTarget> targets) {
@@ -37,10 +48,44 @@ public class MaintenanceModeSwitch {
         return targets.stream().anyMatch(target -> target.type() == type);
     }
 
-    public static MaintenanceModeSwitch checkMaintenace(String igniteHome) {
-        // TODO check special file here and instanciate needed targets
+    public static MaintenanceModeSwitch checkMaintenace(String igniteWorkDir, boolean persistenceEnabled) {
+        if (!persistenceEnabled)
+            return new MaintenanceModeSwitch();
 
-        return new MaintenanceModeSwitch();
+        Path mntcDescPath = Paths.get(igniteWorkDir).resolve(MAINTENANCE_DESCRIPTOR);
+
+        if (!Files.exists(mntcDescPath))
+            return new MaintenanceModeSwitch();
+
+        File mntcDesc = mntcDescPath.toFile();
+
+        List<MaintenanceTarget> targets = new ArrayList<>();
+
+        try (FileInputStream in = new FileInputStream(mntcDesc)) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                String mntcLine;
+
+                MaintenanceTargetFactory factory = MaintenanceTargetFactory.instance();
+
+                while ((mntcLine = reader.readLine()) != null) {
+                    // TODO debug logging about reading maintenance file
+
+                    try {
+                        targets.add(factory.createFromDescriptor(mntcLine));
+                    }
+                    catch (IllegalArgumentException e) {
+                        // TODO info or warning about broken format of particular target
+                    }
+                }
+            }
+        }
+        catch (IOException e) {
+            //TODO pass in a logger to warn user about IO when reading maintenance descriptor
+
+            return new MaintenanceModeSwitch();
+        }
+
+        return new MaintenanceModeSwitch(targets);
     }
 
     //TODO remove when quick and dirty phase of development is over
