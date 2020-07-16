@@ -813,9 +813,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                 if (log != null && log.isDebugEnabled())
                     log.debug("Save next snapshot before checkpoint start for grId = " + grpId
                         + ", nextSnapshotTag = " + nextSnapshotTag);
-
-                // Artifact of GG-29915 merge.
-                addPartitions(ctx);
             }
             finally {
                 pageMem.writeUnlock(grpId, metaPageId, metaPage, null, true);
@@ -827,6 +824,9 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
         finally {
             pageMem.releasePage(grpId, metaPageId, metaPage);
         }
+
+        // Artifact of GG-29915 merge.
+        addPartitions(ctx);
     }
 
     /**
