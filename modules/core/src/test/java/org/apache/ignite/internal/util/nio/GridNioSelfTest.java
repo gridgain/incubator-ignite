@@ -40,10 +40,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+
 import javax.net.ssl.SSLSocket;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.util.GridConcurrentHashSet;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -109,11 +112,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
 
         final AtomicReference<Exception> err = new AtomicReference<>();
 
-        GridNioServerListener lsnr = new GridNioServerListenerAdapter() {
-            @Override public void onConnected(GridNioSession ses) {
-                // No-op.
-            }
-
+        GridNioServerListener lsnr = new GridNioServerListener() {
             @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
                 if (e != null)
                     err.compareAndSet(null, e);
@@ -162,22 +161,8 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testServerShutdown() throws Exception {
-        GridNioServerListener lsnr = new GridNioServerListenerAdapter() {
-            @Override public void onConnected(GridNioSession ses) {
-                // No-op.
-            }
-
-            @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
-                // No-op.
-            }
-
-            @Override public void onMessage(GridNioSession ses, Object msg) {
-                // Reply with echo.
-                ses.send(msg);
-            }
-        };
-
-        GridNioServer<?> srvr = startServer(new GridPlainParser(), lsnr);
+        // Reply with echo.
+        GridNioServer<?> srvr = startServer(new GridPlainParser(), GridNioSession::send);
 
         Socket s = createSocket();
 
@@ -220,10 +205,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
     public void testCorrectSocketClose() throws Exception {
         final AtomicReference<Exception> err = new AtomicReference<>();
 
-        GridNioServerListener lsnr = new GridNioServerListenerAdapter() {
-            @Override public void onConnected(GridNioSession ses) {
-                // No-op.
-            }
+        GridNioServerListener lsnr = new GridNioServerListener() {
 
             @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
                 if (e != null)
@@ -264,22 +246,8 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testThroughput() throws Exception {
-        GridNioServerListener lsnr = new GridNioServerListenerAdapter() {
-            @Override public void onConnected(GridNioSession ses) {
-                // No-op.
-            }
-
-            @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
-                // No-op.
-            }
-
-            @Override public void onMessage(GridNioSession ses, Object msg) {
-                // Reply with echo.
-                ses.send(msg);
-            }
-        };
-
-        final GridNioServer<?> srvr = startServer(new GridPlainParser(), lsnr);
+        // Reply with echo.
+        final GridNioServer<?> srvr = startServer(new GridPlainParser(), GridNioSession::send);
 
         final AtomicLong cnt = new AtomicLong();
 
@@ -351,7 +319,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
 
         final CountDownLatch connectLatch = new CountDownLatch(1);
 
-        GridNioServerListener lsnr = new GridNioServerListenerAdapter() {
+        GridNioServerListener lsnr = new GridNioServerListener() {
             @Override public void onConnected(GridNioSession ses) {
                 info("On connected: " + ses);
 
@@ -425,16 +393,13 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
 
         final CountDownLatch connectLatch = new CountDownLatch(1);
 
-        GridNioServerListener lsnr = new GridNioServerListenerAdapter() {
+        GridNioServerListener lsnr = new GridNioServerListener() {
             @Override public void onConnected(GridNioSession ses) {
                 info("On connected: " + ses);
 
                 sesRef.set(ses);
 
                 connectLatch.countDown();
-            }
-
-            @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
             }
 
             @Override public void onMessage(GridNioSession ses, Object msg) {
@@ -930,15 +895,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
 
         final CountDownLatch latch = new CountDownLatch(sesCnt);
 
-        GridNioServerListener<byte[]> lsnr = new GridNioServerListenerAdapter<byte[]>() {
-            @Override public void onConnected(GridNioSession ses) {
-                // No-op.
-            }
-
-            @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
-                // No-op.
-            }
-
+        GridNioServerListener<byte[]> lsnr = new GridNioServerListener<byte[]>() {
             @Override public void onMessage(GridNioSession ses, byte[] msg) {
                 // No-op.
             }
@@ -995,13 +952,9 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
 
         final byte[] bytes = "Reply.".getBytes();
 
-        GridNioServerListener<byte[]> lsnr = new GridNioServerListenerAdapter<byte[]>() {
+        GridNioServerListener<byte[]> lsnr = new GridNioServerListener<byte[]>() {
             @Override public void onConnected(GridNioSession ses) {
                 ses.send(bytes);
-            }
-
-            @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
-                // No-op.
             }
 
             @Override public void onMessage(GridNioSession ses, byte[] msg) {
@@ -1295,7 +1248,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
     /**
      *
      */
-    private static class NioListener extends GridNioServerListenerAdapter<byte[]> {
+    private static class NioListener implements GridNioServerListener<byte[]> {
         /** */
         private final AtomicInteger msgCnt = new AtomicInteger(0);
 
@@ -1310,16 +1263,6 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
          */
         NioListener(CountDownLatch latch) {
             this.latch = latch;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onConnected(GridNioSession ses) {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
-            // No-op.
         }
 
         /** {@inheritDoc} */
@@ -1362,11 +1305,7 @@ public class GridNioSelfTest extends GridCommonAbstractTest {
     /**
      * Echo listener.
      */
-    private static class EchoListener extends GridNioServerListenerAdapter<byte[]> {
-        /** {@inheritDoc} */
-        @Override public void onConnected(GridNioSession ses) {
-            // No-op.
-        }
+    private static class EchoListener implements GridNioServerListener<byte[]> {
 
         /** {@inheritDoc} */
         @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {

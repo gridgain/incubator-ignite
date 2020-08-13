@@ -22,10 +22,12 @@ import java.net.UnknownHostException;
 import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.UUID;
+
 import javax.management.JMException;
 import javax.management.ObjectName;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -35,11 +37,11 @@ import org.apache.ignite.internal.client.router.GridTcpRouterConfiguration;
 import org.apache.ignite.internal.client.router.GridTcpRouterMBean;
 import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientMessage;
-import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
-import org.apache.ignite.internal.util.nio.GridNioFilter;
 import org.apache.ignite.internal.util.nio.GridNioParser;
 import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilter;
 import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lifecycle.LifecycleAware;

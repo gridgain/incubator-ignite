@@ -19,8 +19,8 @@ package org.apache.ignite.internal.util.nio;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.UUID;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -40,6 +40,9 @@ public class GridTcpNioCommunicationClient extends GridAbstractCommunicationClie
 
     /** Logger. */
     private final IgniteLogger log;
+
+    /** */
+    private final GridNioRecoveryDescriptor recovery;
 
     /**
      * @param connIdx Connection index.
@@ -87,22 +90,6 @@ public class GridTcpNioCommunicationClient extends GridAbstractCommunicationClie
         super.forceClose();
 
         ses.close();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void sendMessage(byte[] data, int len) throws IgniteCheckedException {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void sendMessage(ByteBuffer data) throws IgniteCheckedException {
-        if (closed())
-            throw new IgniteCheckedException("Client was closed: " + this);
-
-        GridNioFuture<?> fut = ses.send(data);
-
-        if (fut.isDone())
-            fut.get();
     }
 
     /** {@inheritDoc} */

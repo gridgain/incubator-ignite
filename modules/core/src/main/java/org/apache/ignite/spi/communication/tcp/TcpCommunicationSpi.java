@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -301,6 +302,9 @@ public class TcpCommunicationSpi extends TcpCommunicationConfigInitializer {
 
     /** Handshake message type. */
     public static final short HANDSHAKE_MSG_TYPE = -3;
+
+    /** Handshake message type v2. */
+    public static final short HANDSHAKE_MSG_TYPE_V2 = -44;
 
     /** Handshake wait message type. */
     public static final short HANDSHAKE_WAIT_MSG_TYPE = -28;

@@ -20,16 +20,15 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
-import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.logger.GridTestLog4jLogger;
-import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -57,13 +56,9 @@ public class GridNioBenchmarkTest {
      * @throws IgniteCheckedException If NIO server initialisation failed.
      */
     public void run() throws UnknownHostException, IgniteCheckedException {
-        GridNioServerListener<ByteBuffer> lsnr = new GridNioServerListenerAdapter<ByteBuffer>() {
+        GridNioServerListener<ByteBuffer> lsnr = new GridNioServerListener<ByteBuffer>() {
             @Override public void onConnected(GridNioSession ses) {
                 X.print("New connection accepted.");
-            }
-
-            @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
-                // No-op.
             }
 
             @Override public void onMessage(GridNioSession ses, ByteBuffer msg) {

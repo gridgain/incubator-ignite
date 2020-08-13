@@ -16,17 +16,16 @@
 
 package org.apache.ignite.internal.util.nio;
 
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
-import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.lang.IgniteInClosure;
 
 /**
  * Future that represents already completed result.
  */
 public class GridNioFinishedFuture<R> extends GridFinishedFuture<R> implements GridNioFuture<R> {
-    /** Message thread flag. */
-    private boolean msgThread;
+    /** */
+    public GridNioFinishedFuture() {
+        super((R)null);
+    }
 
     /**
      * @param res Result.
@@ -43,32 +42,7 @@ public class GridNioFinishedFuture<R> extends GridFinishedFuture<R> implements G
     }
 
     /** {@inheritDoc} */
-    @Override public void messageThread(boolean msgThread) {
-        this.msgThread = msgThread;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean messageThread() {
-        return msgThread;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean skipRecovery() {
-        return true;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onAckReceived() {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override public IgniteInClosure<IgniteException> ackClosure() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(GridNioFinishedFuture.class, this, super.toString());
+    @Override public void onError(Exception e) {
+        // No-op
     }
 }

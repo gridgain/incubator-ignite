@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util.nio;
+package org.apache.ignite.internal.util.nio.filter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.nio.GridNioException;
+import org.apache.ignite.internal.util.nio.GridNioFuture;
+import org.apache.ignite.internal.util.nio.GridNioParser;
+import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -29,16 +34,16 @@ import org.apache.ignite.lang.IgniteInClosure;
 /**
  * Filter that transforms byte buffers to user-defined objects and vice-versa with specified {@link GridNioParser}.
  */
-public class GridNioCodecFilter extends GridNioFilterAdapter {
+public class GridNioCodecFilter extends GridAbstractNioFilter {
     /** Parser used. */
-    private GridNioParser parser;
+    private final GridNioParser parser;
 
     /** Grid logger. */
     @GridToStringExclude
-    private IgniteLogger log;
+    private final IgniteLogger log;
 
     /** Whether direct mode is used. */
-    private boolean directMode;
+    private final boolean directMode;
 
     /**
      * Creates a codec filter.
@@ -58,24 +63,6 @@ public class GridNioCodecFilter extends GridNioFilterAdapter {
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(GridNioCodecFilter.class, this);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionOpened(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionOpened(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionClosed(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionClosed(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onExceptionCaught(
-        GridNioSession ses,
-        IgniteCheckedException ex
-    ) throws IgniteCheckedException {
-        proceedExceptionCaught(ses, ex);
     }
 
     /** {@inheritDoc} */
@@ -131,18 +118,4 @@ public class GridNioCodecFilter extends GridNioFilterAdapter {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) throws IgniteCheckedException {
-        return proceedSessionClose(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionIdleTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionIdleTimeout(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionWriteTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionWriteTimeout(ses);
-    }
 }

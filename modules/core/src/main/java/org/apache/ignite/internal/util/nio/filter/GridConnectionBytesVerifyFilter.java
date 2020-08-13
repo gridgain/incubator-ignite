@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util.nio;
+package org.apache.ignite.internal.util.nio.filter;
 
 import java.nio.ByteBuffer;
+
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.nio.GridNioException;
+import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteInClosure;
 
 /**
  * Verifies that first bytes received in accepted (incoming)
@@ -31,7 +33,7 @@ import org.apache.ignite.lang.IgniteInClosure;
  * First {@code U.IGNITE_HEADER.length} bytes are consumed by this filter
  * and all other bytes are forwarded through chain without any modification.
  */
-public class GridConnectionBytesVerifyFilter extends GridNioFilterAdapter {
+public class GridConnectionBytesVerifyFilter extends GridAbstractNioFilter {
     /** */
     private static final int MAGIC_META_KEY = GridNioSessionMetaKey.nextUniqueKey();
 
@@ -39,7 +41,7 @@ public class GridConnectionBytesVerifyFilter extends GridNioFilterAdapter {
     private static final int MAGIC_BUF_KEY = GridNioSessionMetaKey.nextUniqueKey();
 
     /** */
-    private IgniteLogger log;
+    private final IgniteLogger log;
 
     /**
      * Creates a filter instance.
@@ -50,34 +52,6 @@ public class GridConnectionBytesVerifyFilter extends GridNioFilterAdapter {
         super("GridConnectionBytesVerifyFilter");
 
         this.log = log;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionOpened(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionOpened(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionClosed(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionClosed(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onExceptionCaught(
-        GridNioSession ses,
-        IgniteCheckedException ex
-    ) throws IgniteCheckedException {
-        proceedExceptionCaught(ses, ex);
-    }
-
-    /** {@inheritDoc} */
-    @Override public GridNioFuture<?> onSessionWrite(
-        GridNioSession ses,
-        Object msg,
-        boolean fut,
-        IgniteInClosure<IgniteException> ackC
-    ) throws IgniteCheckedException {
-        return proceedSessionWrite(ses, msg, fut, ackC);
     }
 
     /** {@inheritDoc} */
@@ -130,20 +104,5 @@ public class GridConnectionBytesVerifyFilter extends GridNioFilterAdapter {
         }
         else
             proceedMessageReceived(ses, buf);
-    }
-
-    /** {@inheritDoc} */
-    @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) throws IgniteCheckedException {
-        return proceedSessionClose(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionIdleTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionIdleTimeout(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionWriteTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionWriteTimeout(ses);
     }
 }

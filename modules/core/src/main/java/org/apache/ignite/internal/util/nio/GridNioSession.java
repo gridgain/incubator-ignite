@@ -18,6 +18,7 @@ package org.apache.ignite.internal.util.nio;
 
 import java.net.InetSocketAddress;
 import java.security.cert.Certificate;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.lang.IgniteInClosure;
@@ -27,6 +28,9 @@ import org.jetbrains.annotations.Nullable;
  * This interface represents established or closed connection between nio server and remote client.
  */
 public interface GridNioSession {
+    /** */
+    final long DEFAILT_IDLE_TIMEOUT = -1;
+
     /**
      * Gets local address of this session.
      *
@@ -40,6 +44,15 @@ public interface GridNioSession {
      * @return Address of remote peer or {@code null} if non-socket communication is used.
      */
     @Nullable public InetSocketAddress remoteAddress();
+
+    /**
+     * Gets session idle tiomeout.
+     *
+     * @return Total count of bytes sent.
+     */
+    public default long idleTimeout() {
+        return DEFAILT_IDLE_TIMEOUT;
+    }
 
     /**
      * Gets the total count of bytes sent since the session was created.
@@ -96,7 +109,17 @@ public interface GridNioSession {
      *
      * @return Future representing result.
      */
-    public GridNioFuture<Boolean> close();
+    public default GridNioFuture<Boolean> close() {
+        return close(null);
+    }
+
+    /**
+     * Performs a request for asynchronous session close.
+     *
+     * @param cause Optional close cause.
+     * @return Future representing result.
+     */
+    public GridNioFuture<Boolean> close(@Nullable IgniteCheckedException cause);
 
     /**
      * Performs a request for asynchronous data send.
@@ -105,7 +128,26 @@ public interface GridNioSession {
      *            to the nio server.
      * @return Future representing result.
      */
-    public GridNioFuture<?> send(Object msg);
+    public default GridNioFuture<?> send(Object msg) {
+        return send(msg, null);
+    }
+
+    /**
+     * @param msg Message to be sent.
+     * @param ackC Optional closure invoked when ack for message is received.
+     */
+    public GridNioFuture<?> send(Object msg, @Nullable IgniteInClosure<IgniteException> ackC);
+
+    /**
+     * Performs a request for asynchronous data send.
+     *
+     * @param msg Message to be sent. This message will be eventually passed in to a parser plugged
+     *            to the nio server.
+     * @throws IgniteCheckedException If failed.
+     */
+    public default void sendNoFuture(Object msg) throws IgniteCheckedException {
+        sendNoFuture(msg, null);
+    }
 
     /**
      * @param msg Message to be sent.
@@ -165,13 +207,6 @@ public interface GridNioSession {
     public GridNioFuture<?> pauseReads();
 
     /**
-     * Checks whether reads are paused.
-     *
-     * @return {@code True} if reads are paused.
-     */
-    public boolean readsPaused();
-
-    /**
      * @param recoveryDesc Recovery descriptor.
      */
     public void outRecoveryDescriptor(GridNioRecoveryDescriptor recoveryDesc);
@@ -190,9 +225,4 @@ public interface GridNioSession {
      * @return Recovery descriptor if recovery is supported, {@code null otherwise.}
      */
     @Nullable public GridNioRecoveryDescriptor inRecoveryDescriptor();
-
-    /**
-     * @param msg System message to send.
-     */
-    public void systemMessage(Object msg);
 }

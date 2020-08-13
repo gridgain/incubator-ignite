@@ -18,8 +18,8 @@ package org.apache.ignite.internal.util.nio;
 
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.UUID;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.util.lang.IgniteInClosure2X;
@@ -75,19 +75,6 @@ public interface GridCommunicationClient {
     public long getIdleTime();
 
     /**
-     * @param data Data to send.
-     * @throws IgniteCheckedException If failed.
-     */
-    public void sendMessage(ByteBuffer data) throws IgniteCheckedException;
-
-    /**
-     * @param data Data to send.
-     * @param len Length.
-     * @throws IgniteCheckedException If failed.
-     */
-    public void sendMessage(byte[] data, int len) throws IgniteCheckedException;
-
-    /**
      * @param nodeId Remote node ID. Provided only for sync clients.
      * @param msg Message to send.
      * @param c Ack closure.
@@ -106,4 +93,9 @@ public interface GridCommunicationClient {
      * @return Connection index.
      */
     public int connectionIndex();
+
+    /** */
+    public default GridNioRecoveryDescriptor recovery() {
+        return null;
+    }
 }

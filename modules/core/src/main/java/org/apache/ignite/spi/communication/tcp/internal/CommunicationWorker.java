@@ -26,6 +26,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
 import org.apache.ignite.IgniteException;
@@ -202,7 +203,9 @@ public class CommunicationWorker extends GridWorker {
      * Process idle.
      */
     private void processIdle() {
-        cleanupRecovery();
+        cleanupRecovery(nioSrvWrapper.recoveryDescs());
+        cleanupRecovery(nioSrvWrapper.inRecDescs());
+        cleanupRecovery(nioSrvWrapper.outRecDescs());
 
         for (Map.Entry<UUID, GridCommunicationClient[]> e : clientPool.entrySet()) {
             UUID nodeId = e.getKey();
@@ -227,9 +230,7 @@ public class CommunicationWorker extends GridWorker {
                 GridNioRecoveryDescriptor recovery = null;
 
                 if (!(cfg.usePairedConnections() && usePairedConnections(node, attrs.pairedConnection())) && client instanceof GridTcpNioCommunicationClient) {
-                    recovery = nioSrvWrapper.recoveryDescs().get(new ConnectionKey(
-                        node.id(), client.connectionIndex(), -1)
-                    );
+                    recovery = nioSrvWrapper.recoveryDescs().get(ConnectionKey.newOutgoingKey(node.id(), client.connectionIndex()));
 
                     if (recovery != null && recovery.lastAcknowledged() != recovery.received()) {
                         RecoveryLastReceivedMessage msg = new RecoveryLastReceivedMessage(recovery.received());
@@ -255,9 +256,7 @@ public class CommunicationWorker extends GridWorker {
 
                 if (idleTime >= cfg.idleConnectionTimeout()) {
                     if (recovery == null && cfg.usePairedConnections() && usePairedConnections(node, attrs.pairedConnection()))
-                        recovery = nioSrvWrapper.outRecDescs().get(new ConnectionKey(
-                            node.id(), client.connectionIndex(), -1)
-                        );
+                        recovery = nioSrvWrapper.outRecDescs().get(ConnectionKey.newOutgoingKey(node.id(), client.connectionIndex()));
 
                     if (recovery != null &&
                         recovery.nodeAlive(nodeGetter.apply(nodeId)) &&
@@ -304,7 +303,7 @@ public class CommunicationWorker extends GridWorker {
             }
 
             try {
-                nioSrvWrapper.nio().sendSystem(ses, msg);
+                ses.send(msg);
 
                 recovery.lastAcknowledged(msg.received());
             }
@@ -312,15 +311,6 @@ public class CommunicationWorker extends GridWorker {
                 U.error(log, "Failed to send message: " + e, e);
             }
         }
-    }
-
-    /**
-     * Cleanup recovery.
-     */
-    private void cleanupRecovery() {
-        cleanupRecovery(nioSrvWrapper.recoveryDescs());
-        cleanupRecovery(nioSrvWrapper.inRecDescs());
-        cleanupRecovery(nioSrvWrapper.outRecDescs());
     }
 
     /**

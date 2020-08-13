@@ -17,6 +17,7 @@
 package org.apache.ignite.internal.util.nio;
 
 import java.util.EventListener;
+
 import org.apache.ignite.failure.FailureType;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,30 +25,6 @@ import org.jetbrains.annotations.Nullable;
  * Listener passed in to the {@link GridNioServer} that will be notified on client events.
  */
 public interface GridNioServerListener<T> extends EventListener {
-    /**
-     * This method is called whenever a new client is connected and session is created.
-     *
-     * @param ses Newly created session for remote client.
-     */
-    public void onConnected(GridNioSession ses);
-
-    /**
-     * This method is called whenever client is disconnected due to correct connection close
-     * or due to {@code IOException} during network operations.
-     *
-     * @param ses Closed session.
-     * @param e Exception occurred, if any.
-     */
-    public void onDisconnected(GridNioSession ses, @Nullable Exception e);
-
-    /**
-     * Handle message sent.
-     *
-     * @param ses Session.
-     * @param msg Message.
-     */
-    void onMessageSent(GridNioSession ses, T msg);
-
     /**
      * This method is called whenever a {@link GridNioParser} returns non-null value.
      *
@@ -57,22 +34,67 @@ public interface GridNioServerListener<T> extends EventListener {
     public void onMessage(GridNioSession ses, T msg);
 
     /**
+     * This method is called whenever a new client is connected and session is created.
+     *
+     * @param ses Newly created session for remote client.
+     */
+    public default void onConnected(GridNioSession ses) {
+        // No-op.
+    }
+
+    /**
+     * This method is called whenever client is disconnected due to correct connection close
+     * or due to {@code IOException} during network operations.
+     *
+     * @param ses Closed session.
+     * @param e Exception occurred, if any.
+     */
+    public default void onDisconnected(GridNioSession ses, @Nullable Exception e) {
+        // No-op.
+    }
+
+    /**
+     * Handle message sent.
+     *
+     * @param ses Session.
+     * @param msg Message.
+     */
+    default void onMessageSent(GridNioSession ses, T msg) {
+        // No-op.
+    }
+
+    /**
      * Called when session has non-empty write queue and server did not send any data
      * within timeout interval.
      *
      * @param ses Session that has timed out writes.
      */
-    public void onSessionWriteTimeout(GridNioSession ses);
+    public default void onSessionWriteTimeout(GridNioSession ses) {
+        // No-op.
+    }
+
+    /**
+     * Called when session did not receive any activity.
+     *
+     * @param ses Session that is idle.
+     */
+    public default void onSessionIdle(GridNioSession ses) {
+        // No-op.
+    }
 
     /**
      * Called when session did not receive any activity within timeout interval.
      *
      * @param ses Session that is idle.
      */
-    public void onSessionIdleTimeout(GridNioSession ses);
+    public default void onSessionIdleTimeout(GridNioSession ses) {
+        // No-op.
+    }
 
     /**
      * Called when critical failure occurs in server implementation.
      */
-    public void onFailure(FailureType failureType, Throwable failure);
+    public default void onFailure(FailureType failureType, Throwable failure) {
+        // No-op.
+    }
 }

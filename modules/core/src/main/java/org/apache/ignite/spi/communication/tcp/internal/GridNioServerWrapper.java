@@ -30,11 +30,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
@@ -46,23 +47,24 @@ import org.apache.ignite.internal.processors.metric.GridMetricManager;
 import org.apache.ignite.internal.processors.timeout.GridSpiTimeoutObject;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.processors.tracing.Tracing;
-import org.apache.ignite.internal.util.GridConcurrentFactory;
 import org.apache.ignite.internal.util.IgniteExceptionRegistry;
 import org.apache.ignite.internal.util.function.ThrowableBiFunction;
 import org.apache.ignite.internal.util.function.ThrowableSupplier;
 import org.apache.ignite.internal.util.nio.GridCommunicationClient;
-import org.apache.ignite.internal.util.nio.GridConnectionBytesVerifyFilter;
 import org.apache.ignite.internal.util.nio.GridDirectParser;
-import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
-import org.apache.ignite.internal.util.nio.GridNioFilter;
 import org.apache.ignite.internal.util.nio.GridNioMessageReaderFactory;
 import org.apache.ignite.internal.util.nio.GridNioMessageWriterFactory;
 import org.apache.ignite.internal.util.nio.GridNioRecoveryDescriptor;
 import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
-import org.apache.ignite.internal.util.nio.GridNioTracerFilter;
 import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
+import org.apache.ignite.internal.util.nio.filter.GridConnectionBytesVerifyFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioTracerFilter;
+import org.apache.ignite.internal.util.nio.filter.NioHandshakeFilter;
+import org.apache.ignite.internal.util.nio.filter.NioRecoveryFilter;
 import org.apache.ignite.internal.util.nio.ssl.BlockingSslHandler;
 import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
 import org.apache.ignite.internal.util.nio.ssl.GridSslMeta;
@@ -86,6 +88,7 @@ import org.apache.ignite.spi.communication.tcp.messages.HandshakeMessage;
 import org.apache.ignite.spi.communication.tcp.messages.HandshakeMessage2;
 import org.apache.ignite.spi.communication.tcp.messages.NodeIdMessage;
 import org.apache.ignite.spi.communication.tcp.messages.RecoveryLastReceivedMessage;
+import org.apache.ignite.spi.communication.tcp.messages.SystemMessage;
 import org.apache.ignite.spi.discovery.IgniteDiscoveryThread;
 import org.jetbrains.annotations.Nullable;
 
@@ -99,7 +102,6 @@ import static org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi.makeMe
 import static org.apache.ignite.spi.communication.tcp.internal.CommunicationTcpUtils.handshakeTimeoutException;
 import static org.apache.ignite.spi.communication.tcp.internal.CommunicationTcpUtils.isRecoverableException;
 import static org.apache.ignite.spi.communication.tcp.internal.CommunicationTcpUtils.nodeAddresses;
-import static org.apache.ignite.spi.communication.tcp.internal.CommunicationTcpUtils.usePairedConnections;
 import static org.apache.ignite.spi.communication.tcp.messages.RecoveryLastReceivedMessage.ALREADY_CONNECTED;
 import static org.apache.ignite.spi.communication.tcp.messages.RecoveryLastReceivedMessage.NEED_WAIT;
 import static org.apache.ignite.spi.communication.tcp.messages.RecoveryLastReceivedMessage.NODE_STOPPING;
@@ -167,15 +169,6 @@ public class GridNioServerWrapper {
 
     /** Create tcp client fun. */
     private final ThrowableBiFunction<ClusterNode, Integer, GridCommunicationClient, IgniteCheckedException> createTcpClientFun;
-
-    /** Recovery descs. */
-    private final ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> recoveryDescs = GridConcurrentFactory.newMap();
-
-    /** Out rec descs. */
-    private final ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> outRecDescs = GridConcurrentFactory.newMap();
-
-    /** In rec descs. */
-    private final ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> inRecDescs = GridConcurrentFactory.newMap();
 
     /** Recovery and idle clients handler. */
     private volatile CommunicationWorker commWorker;
@@ -390,7 +383,7 @@ public class GridNioServerWrapper {
                     if (cfg.socketSendBuffer() > 0)
                         ch.socket().setSendBufferSize(cfg.socketSendBuffer());
 
-                    ConnectionKey connKey = new ConnectionKey(node.id(), connIdx, -1);
+                    ConnectionKey connKey = ConnectionKey.newOutgoingKey(node.id(), connIdx);
 
                     GridNioRecoveryDescriptor recoveryDesc = outRecoveryDescriptor(node, connKey);
 
@@ -674,39 +667,6 @@ public class GridNioServerWrapper {
     }
 
     /**
-     * @param node Node.
-     * @param key Connection key.
-     * @return Recovery descriptor for incoming connection.
-     */
-    public GridNioRecoveryDescriptor inRecoveryDescriptor(ClusterNode node, ConnectionKey key) {
-        if (cfg.usePairedConnections() && usePairedConnections(node, attrs.pairedConnection()))
-            return recoveryDescriptor(inRecDescs, true, node, key);
-        else
-            return recoveryDescriptor(recoveryDescs, false, node, key);
-    }
-
-    /**
-     * @return Recovery descs.
-     */
-    public ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> recoveryDescs() {
-        return recoveryDescs;
-    }
-
-    /**
-     * @return Out rec descs.
-     */
-    public ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> outRecDescs() {
-        return outRecDescs;
-    }
-
-    /**
-     * @return In rec descs.
-     */
-    public ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> inRecDescs() {
-        return inRecDescs;
-    }
-
-    /**
      * Process errors if TCP/IP {@link GridNioSession} creation to remote node hasn't been performed.
      *
      * @param node Remote node.
@@ -835,7 +795,7 @@ public class GridNioServerWrapper {
                     msgFactory,
                     readerFactory);
 
-                IgnitePredicate<Message> skipRecoveryPred = msg -> msg instanceof RecoveryLastReceivedMessage;
+                IgnitePredicate<Message> skipRecoveryPred = msg -> msg instanceof SystemMessage;
 
                 boolean clientMode = Boolean.TRUE.equals(igniteCfg.isClientMode());
 
@@ -856,7 +816,9 @@ public class GridNioServerWrapper {
 
                     filters = new GridNioFilter[] {
                         new GridNioTracerFilter(log, tracing),
+                        new NioRecoveryFilter(),
                         new GridNioCodecFilter(parser, log, true),
+                        new NioHandshakeFilter(),
                         new GridConnectionBytesVerifyFilter(log),
                         sslFilter
                     };
@@ -864,7 +826,9 @@ public class GridNioServerWrapper {
                 else
                     filters = new GridNioFilter[] {
                         new GridNioTracerFilter(log, tracing),
+                        new NioRecoveryFilter(),
                         new GridNioCodecFilter(parser, log, true),
+                        new NioHandshakeFilter(),
                         new GridConnectionBytesVerifyFilter(log)
                     };
 
@@ -934,61 +898,6 @@ public class GridNioServerWrapper {
         // If free port wasn't found.
         throw new IgniteCheckedException("Failed to bind to any port within range [startPort=" + cfg.localPort() +
             ", portRange=" + cfg.localPortRange() + ", locHost=" + cfg.localHost() + ']', lastEx);
-    }
-
-    /**
-     * @param node Node.
-     * @param key Connection key.
-     * @return Recovery descriptor for outgoing connection.
-     */
-    private GridNioRecoveryDescriptor outRecoveryDescriptor(ClusterNode node, ConnectionKey key) {
-        if (cfg.usePairedConnections() && usePairedConnections(node, attrs.pairedConnection()))
-            return recoveryDescriptor(outRecDescs, true, node, key);
-        else
-            return recoveryDescriptor(recoveryDescs, false, node, key);
-    }
-
-    /**
-     * @param recoveryDescs Descriptors map.
-     * @param pairedConnections {@code True} if in/out connections pair is used for communication with node.
-     * @param node Node.
-     * @param key Connection key.
-     * @return Recovery receive data for given node.
-     */
-    private GridNioRecoveryDescriptor recoveryDescriptor(
-        ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> recoveryDescs,
-        boolean pairedConnections,
-        ClusterNode node,
-        ConnectionKey key) {
-        GridNioRecoveryDescriptor recovery = recoveryDescs.get(key);
-
-        if (recovery == null) {
-            if (log.isDebugEnabled())
-                log.debug("Missing recovery descriptor for the node (will create a new one) " +
-                    "[locNodeId=" + locNodeSupplier.get().id() +
-                    ", key=" + key + ", rmtNode=" + node + ']');
-
-            int maxSize = Math.max(cfg.messageQueueLimit(), cfg.ackSendThreshold());
-
-            int queueLimit = cfg.unackedMsgsBufferSize() != 0 ? cfg.unackedMsgsBufferSize() : (maxSize * 128);
-
-            GridNioRecoveryDescriptor old = recoveryDescs.putIfAbsent(key,
-                recovery = new GridNioRecoveryDescriptor(pairedConnections, queueLimit, node, log));
-
-            if (old != null) {
-                recovery = old;
-
-                if (log.isDebugEnabled())
-                    log.debug("Will use existing recovery descriptor: " + recovery);
-            }
-            else {
-                if (log.isDebugEnabled())
-                    log.debug("Initialized recovery descriptor [desc=" + recovery + ", maxSize=" + maxSize +
-                        ", queueLimit=" + queueLimit + ']');
-            }
-        }
-
-        return recovery;
     }
 
     /**

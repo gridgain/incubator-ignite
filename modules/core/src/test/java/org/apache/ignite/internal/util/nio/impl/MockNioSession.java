@@ -18,6 +18,7 @@ package org.apache.ignite.internal.util.nio.impl;
 
 import java.net.InetSocketAddress;
 import java.security.cert.Certificate;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.util.lang.GridMetadataAwareAdapter;
@@ -104,18 +105,17 @@ public class MockNioSession extends GridMetadataAwareAdapter implements GridNioS
     }
 
     /** {@inheritDoc} */
-    @Override public GridNioFuture<Boolean> close() {
+    @Override public GridNioFuture<Boolean> close(@Nullable IgniteCheckedException cause) {
         return new GridNioFinishedFuture<>(true);
     }
 
     /** {@inheritDoc} */
-    @Override public GridNioFuture<?> send(Object msg) {
-        return new GridNioFinishedFuture<>(true);
+    @Override public GridNioFuture<?> send(Object msg, @Nullable IgniteInClosure<IgniteException> ackC) {
+        return new GridNioFinishedFuture<>();
     }
 
     /** {@inheritDoc} */
-    @Override public void sendNoFuture(Object msg, @Nullable IgniteInClosure<IgniteException> ackC)
-        throws IgniteCheckedException {
+    @Override public void sendNoFuture(Object msg, @Nullable IgniteInClosure<IgniteException> ackC) throws IgniteCheckedException {
         // No-op.
     }
 
@@ -137,11 +137,6 @@ public class MockNioSession extends GridMetadataAwareAdapter implements GridNioS
     /** {@inheritDoc} */
     @Override public Certificate[] certificates() {
         return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean readsPaused() {
-        return false;
     }
 
     /** {@inheritDoc} */

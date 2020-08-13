@@ -16,22 +16,24 @@
 
 package org.apache.ignite.internal.util.nio.ssl;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.SSLException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLException;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.util.nio.GridNioException;
-import org.apache.ignite.internal.util.nio.GridNioFilterAdapter;
 import org.apache.ignite.internal.util.nio.GridNioFinishedFuture;
 import org.apache.ignite.internal.util.nio.GridNioFuture;
 import org.apache.ignite.internal.util.nio.GridNioFutureImpl;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
+import org.apache.ignite.internal.util.nio.filter.GridAbstractNioFilter;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteInClosure;
 
@@ -40,12 +42,12 @@ import static org.apache.ignite.internal.util.nio.GridNioSessionMetaKey.SSL_META
 /**
  * Implementation of SSL filter using {@link SSLEngine}
  */
-public class GridNioSslFilter extends GridNioFilterAdapter {
+public class GridNioSslFilter extends GridAbstractNioFilter {
     /** SSL handshake future metadata key. */
     public static final int HANDSHAKE_FUT_META_KEY = GridNioSessionMetaKey.nextUniqueKey();
 
     /** Logger to use. */
-    private IgniteLogger log;
+    private final IgniteLogger log;
 
     /** Set to true if engine should request client authentication. */
     private boolean wantClientAuth;
@@ -60,13 +62,13 @@ public class GridNioSslFilter extends GridNioFilterAdapter {
     private String[] enabledProtos;
 
     /** SSL context to use. */
-    private SSLContext sslCtx;
+    private final SSLContext sslCtx;
 
     /** Order. */
-    private ByteOrder order;
+    private final ByteOrder order;
 
     /** Allocate direct buffer or heap buffer. */
-    private boolean directBuf;
+    private final boolean directBuf;
 
     /** Whether direct mode is used. */
     private boolean directMode;
@@ -234,12 +236,6 @@ public class GridNioSslFilter extends GridNioFilterAdapter {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public void onExceptionCaught(GridNioSession ses, IgniteCheckedException ex)
-        throws IgniteCheckedException {
-        proceedExceptionCaught(ses, ex);
-    }
-
     /**
      * @param ses Session.
      * @return SSL handshake flag.
@@ -294,7 +290,7 @@ public class GridNioSslFilter extends GridNioFilterAdapter {
         ByteBuffer input = checkMessage(ses, msg);
 
         if (!input.hasRemaining())
-            return new GridNioFinishedFuture<Object>(null);
+            return new GridNioFinishedFuture<>();
 
         GridNioSslHandler hnd = sslHandler(ses);
 
@@ -302,7 +298,7 @@ public class GridNioSslFilter extends GridNioFilterAdapter {
 
         try {
             if (hnd.isOutboundDone())
-                return new GridNioFinishedFuture<Object>(new IOException("Failed to send data (secure session was " +
+                return new GridNioFinishedFuture<>(new IOException("Failed to send data (secure session was " +
                     "already closed): " + ses));
 
             if (hnd.isHandshakeFinished()) {
@@ -365,7 +361,7 @@ public class GridNioSslFilter extends GridNioFilterAdapter {
     }
 
     /** {@inheritDoc} */
-    @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) throws IgniteCheckedException {
+    @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses, Exception cause) throws IgniteCheckedException {
         GridNioSslHandler hnd = sslHandler(ses);
 
         hnd.lock();
@@ -397,17 +393,7 @@ public class GridNioSslFilter extends GridNioFilterAdapter {
             U.warn(log, "Failed to shutdown SSL session gracefully (will force close) [ex=" + e + ", ses=" + ses + ']');
         }
 
-        return proceedSessionClose(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionIdleTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionIdleTimeout(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionWriteTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionWriteTimeout(ses);
+        return proceedSessionClose(ses, cause);
     }
 
     /**

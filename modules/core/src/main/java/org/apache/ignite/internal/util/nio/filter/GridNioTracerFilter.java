@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util.nio;
+package org.apache.ignite.internal.util.nio.filter;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -25,6 +25,8 @@ import org.apache.ignite.internal.processors.tracing.NoopTracing;
 import org.apache.ignite.internal.processors.tracing.Span;
 import org.apache.ignite.internal.processors.tracing.Tracing;
 import org.apache.ignite.internal.processors.tracing.messages.SpanTransport;
+import org.apache.ignite.internal.util.nio.GridNioFuture;
+import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteInClosure;
@@ -34,10 +36,10 @@ import static org.apache.ignite.internal.processors.tracing.SpanType.COMMUNICATI
 /**
  * Filter that inject and extract tracing span from/to process.
  */
-public class GridNioTracerFilter extends GridNioFilterAdapter {
+public class GridNioTracerFilter extends GridAbstractNioFilter {
     /** Grid logger. */
     @GridToStringExclude
-    private IgniteLogger log;
+    private final IgniteLogger log;
 
     /** Tracing processor. */
     private final Tracing tracer;
@@ -61,35 +63,12 @@ public class GridNioTracerFilter extends GridNioFilterAdapter {
     }
 
     /** {@inheritDoc} */
-    @Override public void onSessionOpened(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionOpened(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionClosed(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionClosed(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onExceptionCaught(
-        GridNioSession ses,
-        IgniteCheckedException ex
-    ) throws IgniteCheckedException {
-        proceedExceptionCaught(ses, ex);
-    }
-
-    /** {@inheritDoc} */
-    @Override public GridNioFuture<?> onSessionWrite(
-        GridNioSession ses,
-        Object msg,
-        boolean fut,
-        IgniteInClosure<IgniteException> ackC
-    ) throws IgniteCheckedException {
+    @Override public GridNioFuture<?> onSessionWrite(GridNioSession ses, Object msg, boolean fut,
+        IgniteInClosure<IgniteException> ackC) throws IgniteCheckedException {
         if (msg instanceof SpanTransport && MTC.span() != NoopSpan.INSTANCE)
             ((SpanTransport)msg).span(tracer.serialize(MTC.span()));
 
         return proceedSessionWrite(ses, msg, fut, ackC);
-
     }
 
     /** {@inheritDoc} */
@@ -105,20 +84,5 @@ public class GridNioTracerFilter extends GridNioFilterAdapter {
         }
         else
             proceedMessageReceived(ses, msg);
-    }
-
-    /** {@inheritDoc} */
-    @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) throws IgniteCheckedException {
-        return proceedSessionClose(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionIdleTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionIdleTimeout(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionWriteTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionWriteTimeout(ses);
     }
 }

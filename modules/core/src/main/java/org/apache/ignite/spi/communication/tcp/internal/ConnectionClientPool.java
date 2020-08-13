@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
@@ -209,7 +210,7 @@ public class ConnectionClientPool {
                 // Do not allow concurrent connects.
                 GridFutureAdapter<GridCommunicationClient> fut = new ConnectFuture();
 
-                ConnectionKey connKey = new ConnectionKey(nodeId, connIdx, -1);
+                ConnectionKey connKey = ConnectionKey.newOutgoingKey(nodeId, connIdx);
 
                 GridFutureAdapter<GridCommunicationClient> oldFut = clientFuts.putIfAbsent(connKey, fut);
 
@@ -357,7 +358,7 @@ public class ConnectionClientPool {
                 }
             });
 
-            clientFuts.put(new ConnectionKey(node.id(), connIdx, -1), triggerFut);
+            clientFuts.put(ConnectionKey.newOutgoingKey(node.id(), connIdx), triggerFut);
 
             fut = triggerFut;
 

@@ -18,14 +18,14 @@ package org.apache.ignite.internal.util.nio.impl;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.internal.util.nio.GridNioFilterAdapter;
-import org.apache.ignite.internal.util.nio.GridNioFilterChain;
 import org.apache.ignite.internal.util.nio.GridNioFuture;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
-import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
 import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.filter.GridAbstractNioFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilterChain;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
@@ -76,7 +76,7 @@ public class GridNioFilterChainSelfTest extends GridCommonAbstractTest {
         final AtomicReference<ByteBuffer> rcvdMsgObj = new AtomicReference<>();
         final AtomicReference<Object> sndMsgObj = new AtomicReference<>();
 
-        GridNioServerListener<Object> testLsnr = new GridNioServerListenerAdapter<Object>() {
+        GridNioServerListener<Object> testLsnr = new GridNioServerListener<Object>() {
             @Override public void onConnected(GridNioSession ses) {
                 connectedEvt.compareAndSet(null, ses.<String>meta(OPENED_META_NAME));
             }
@@ -100,19 +100,7 @@ public class GridNioFilterChainSelfTest extends GridCommonAbstractTest {
             }
         };
 
-        GridNioFilterAdapter testHead = new GridNioFilterAdapter("TestHead") {
-            @Override public void onSessionOpened(GridNioSession ses) throws IgniteCheckedException {
-                proceedSessionOpened(ses);
-            }
-
-            @Override public void onSessionClosed(GridNioSession ses) throws IgniteCheckedException {
-                proceedSessionClosed(ses);
-            }
-
-            @Override public void onExceptionCaught(GridNioSession ses, IgniteCheckedException ex) throws IgniteCheckedException {
-                proceedExceptionCaught(ses, ex);
-            }
-
+        GridAbstractNioFilter testHead = new GridAbstractNioFilter("TestHead") {
             @Override public GridNioFuture<?> onSessionWrite(GridNioSession ses, Object msg, boolean fut, IgniteInClosure<IgniteException> ackC) {
                 sndEvt.compareAndSet(null, ses.<String>meta(MESSAGE_WRITE_META_NAME));
 
@@ -121,23 +109,12 @@ public class GridNioFilterChainSelfTest extends GridCommonAbstractTest {
                 return null;
             }
 
-            @Override public void onMessageReceived(GridNioSession ses, Object msg) throws IgniteCheckedException {
-                proceedMessageReceived(ses, msg);
-            }
-
-            @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) {
+            @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses, Exception cause) {
                 closeEvt.compareAndSet(null, ses.<String>meta(CLOSE_META_NAME));
 
                 return null;
             }
 
-            @Override public void onSessionIdleTimeout(GridNioSession ses) throws IgniteCheckedException {
-                proceedSessionIdleTimeout(ses);
-            }
-
-            @Override public void onSessionWriteTimeout(GridNioSession ses) throws IgniteCheckedException {
-                proceedSessionWriteTimeout(ses);
-            }
         };
 
         GridNioFilterChain<Object> chain = new GridNioFilterChain<>(log, testLsnr, testHead,
@@ -153,7 +130,7 @@ public class GridNioFilterChainSelfTest extends GridCommonAbstractTest {
         chain.onMessageReceived(ses, rcvd);
         chain.onSessionIdleTimeout(ses);
         chain.onSessionWriteTimeout(ses);
-        assertNull(chain.onSessionClose(ses));
+        assertNull(chain.onSessionClose(ses, null));
         assertNull(chain.onSessionWrite(ses, snd, true, null));
 
         assertEquals("DCBA", connectedEvt.get());
@@ -172,7 +149,7 @@ public class GridNioFilterChainSelfTest extends GridCommonAbstractTest {
     /**
      *
      */
-    private static class AppendingFilter extends GridNioFilterAdapter {
+    private static class AppendingFilter extends GridAbstractNioFilter {
         /** Param that will be appended to event trace. */
         private String param;
 
@@ -223,10 +200,10 @@ public class GridNioFilterChainSelfTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) throws IgniteCheckedException {
+        @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses, Exception cause) throws IgniteCheckedException {
             chainMeta(ses, CLOSE_META_NAME);
 
-            return proceedSessionClose(ses);
+            return proceedSessionClose(ses, cause);
         }
 
         /** {@inheritDoc} */

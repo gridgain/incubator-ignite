@@ -19,7 +19,6 @@ package org.apache.ignite.spi.discovery.zk.internal;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
-import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,6 +32,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryNTimes;
@@ -683,22 +683,6 @@ class ZookeeperDiscoverySpiTestBase extends GridCommonAbstractTest {
             /** {@inheritDoc} */
             @Override public long getIdleTime() {
                 return delegate.getIdleTime();
-            }
-
-            /** {@inheritDoc} */
-            @Override public void sendMessage(ByteBuffer data) throws IgniteCheckedException {
-                if (failure && !matrix.hasConnection(locNode, remoteNode))
-                    throw new IgniteCheckedException("Test", new SocketTimeoutException());
-
-                delegate.sendMessage(data);
-            }
-
-            /** {@inheritDoc} */
-            @Override public void sendMessage(byte[] data, int len) throws IgniteCheckedException {
-                if (failure && !matrix.hasConnection(locNode, remoteNode))
-                    throw new IgniteCheckedException("Test", new SocketTimeoutException());
-
-                delegate.sendMessage(data, len);
             }
 
             /** {@inheritDoc} */

@@ -18,10 +18,12 @@ package org.apache.ignite.spi.communication.tcp.messages;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
+
 import org.apache.ignite.internal.IgniteCodeGeneratingFail;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 
 /**
  * Updated handshake message.
@@ -58,7 +60,7 @@ public class HandshakeMessage2 extends HandshakeMessage {
 
     /** {@inheritDoc} */
     @Override public short directType() {
-        return -44;
+        return TcpCommunicationSpi.HANDSHAKE_MSG_TYPE_V2;
     }
 
     /** {@inheritDoc} */

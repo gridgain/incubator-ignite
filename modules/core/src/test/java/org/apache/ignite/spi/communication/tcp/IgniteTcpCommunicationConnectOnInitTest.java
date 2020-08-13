@@ -25,12 +25,12 @@ import java.nio.channels.SocketChannel;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.util.nio.GridNioServer;
-import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.IgniteSpiException;
@@ -42,7 +42,6 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
-import org.jetbrains.annotations.Nullable;
 import org.junit.Test;
 
 /**
@@ -130,24 +129,10 @@ public class IgniteTcpCommunicationConnectOnInitTest extends GridCommonAbstractT
 
         for (int i = 0; i < 10; i++) {
             try {
-                GridNioServerListenerAdapter lsnr = new GridNioServerListenerAdapter() {
-                    @Override public void onConnected(GridNioSession ses) {
-                        // No-op.
-                    }
-
-                    @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
-                        // No-op.
-                    }
-
-                    @Override public void onMessage(GridNioSession ses, Object msg) {
-                        // No-op.
-                    }
-                };
-
                 GridNioServer<?> srvr = GridNioServer.builder()
                     .address(U.getLocalHost())
                     .port(srvPort)
-                    .listener(lsnr)
+                    .listener((s, m) -> {})
                     .logger(log)
                     .selectorCount(Runtime.getRuntime().availableProcessors())
                     .igniteInstanceName("nio-test-grid")

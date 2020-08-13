@@ -22,20 +22,21 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
 import org.apache.ignite.internal.processors.metric.impl.LongAdderMetric;
-import org.apache.ignite.internal.util.nio.GridNioFilter;
-import org.apache.ignite.internal.util.nio.GridNioFilterAdapter;
-import org.apache.ignite.internal.util.nio.GridNioFilterChain;
 import org.apache.ignite.internal.util.nio.GridNioFinishedFuture;
 import org.apache.ignite.internal.util.nio.GridNioFuture;
 import org.apache.ignite.internal.util.nio.GridNioMessageWriterFactory;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridNioSessionImpl;
+import org.apache.ignite.internal.util.nio.filter.GridAbstractNioFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilterChain;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
@@ -182,16 +183,16 @@ public class IpcToNioAdapter<T> {
             sentBytesCntMetric.add(cnt);
         }
         catch (IOException | IgniteCheckedException e) {
-            return new GridNioFinishedFuture<Object>(e);
+            return new GridNioFinishedFuture<>(e);
         }
 
-        return new GridNioFinishedFuture<>((Object)null);
+        return new GridNioFinishedFuture<>();
     }
 
     /**
      * Filter forwarding messages from chain's head to this server.
      */
-    private class HeadFilter extends GridNioFilterAdapter {
+    private class HeadFilter extends GridAbstractNioFilter {
         /**
          * Assigns filter name.
          */
@@ -200,24 +201,7 @@ public class IpcToNioAdapter<T> {
         }
 
         /** {@inheritDoc} */
-        @Override public void onSessionOpened(GridNioSession ses) throws IgniteCheckedException {
-            proceedSessionOpened(ses);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onSessionClosed(GridNioSession ses) throws IgniteCheckedException {
-            proceedSessionClosed(ses);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onExceptionCaught(GridNioSession ses, IgniteCheckedException ex) throws IgniteCheckedException {
-            proceedExceptionCaught(ses, ex);
-        }
-
-        /** {@inheritDoc} */
-        @Override public GridNioFuture<?> onSessionWrite(GridNioSession ses,
-            Object msg,
-            boolean fut,
+        @Override public GridNioFuture<?> onSessionWrite(GridNioSession ses, Object msg, boolean fut,
             IgniteInClosure<IgniteException> ackC) {
             assert ses == IpcToNioAdapter.this.ses;
 
@@ -225,12 +209,7 @@ public class IpcToNioAdapter<T> {
         }
 
         /** {@inheritDoc} */
-        @Override public void onMessageReceived(GridNioSession ses, Object msg) throws IgniteCheckedException {
-            proceedMessageReceived(ses, msg);
-        }
-
-        /** {@inheritDoc} */
-        @Override public GridNioFuture<?> onPauseReads(GridNioSession ses) throws IgniteCheckedException {
+        @Override public GridNioFuture<?> onPauseReads(GridNioSession ses) {
             // This call should be synced externally to avoid races.
             boolean b = latchRef.compareAndSet(null, new CountDownLatch(1));
 
@@ -240,7 +219,7 @@ public class IpcToNioAdapter<T> {
         }
 
         /** {@inheritDoc} */
-        @Override public GridNioFuture<?> onResumeReads(GridNioSession ses) throws IgniteCheckedException {
+        @Override public GridNioFuture<?> onResumeReads(GridNioSession ses) {
             // This call should be synced externally to avoid races.
             CountDownLatch latch = latchRef.getAndSet(null);
 
@@ -251,7 +230,7 @@ public class IpcToNioAdapter<T> {
         }
 
         /** {@inheritDoc} */
-        @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) {
+        @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses, Exception cause) {
             assert ses == IpcToNioAdapter.this.ses;
 
             boolean closed = IpcToNioAdapter.this.ses.setClosed();
@@ -262,14 +241,5 @@ public class IpcToNioAdapter<T> {
             return new GridNioFinishedFuture<>(closed);
         }
 
-        /** {@inheritDoc} */
-        @Override public void onSessionIdleTimeout(GridNioSession ses) throws IgniteCheckedException {
-            proceedSessionIdleTimeout(ses);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onSessionWriteTimeout(GridNioSession ses) throws IgniteCheckedException {
-            proceedSessionWriteTimeout(ses);
-        }
     }
 }

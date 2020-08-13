@@ -18,6 +18,7 @@ package org.apache.ignite.internal.processors.rest.protocols.tcp.redis;
 
 import java.util.EnumMap;
 import java.util.Map;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.GridKernalContext;
@@ -41,7 +42,7 @@ import org.apache.ignite.internal.processors.rest.handlers.redis.string.GridRedi
 import org.apache.ignite.internal.processors.rest.handlers.redis.string.GridRedisSetRangeCommandHandler;
 import org.apache.ignite.internal.processors.rest.handlers.redis.string.GridRedisStrlenCommandHandler;
 import org.apache.ignite.internal.util.nio.GridNioFuture;
-import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
+import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
 import org.apache.ignite.internal.util.typedef.CIX1;
@@ -51,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Listener for Redis protocol requests.
  */
-public class GridRedisNioListener extends GridNioServerListenerAdapter<GridRedisMessage> {
+public class GridRedisNioListener implements GridNioServerListener<GridRedisMessage> {
     /** Logger. */
     private final IgniteLogger log;
 

@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
@@ -317,7 +318,7 @@ public class TcpCommunicationConnectionCheckFuture extends GridFutureAdapter<Bit
                 sesMeta = new GridLeanMap<>(3);
 
                 // Set dummy key to identify connection-check outgoing connection.
-                ConnectionKey connKey = new ConnectionKey(rmtNodeId, -1, -1, true);
+                ConnectionKey connKey = ConnectionKey.newDummyKey(rmtNodeId);
 
                 sesMeta.put(TcpCommunicationSpi.CONN_IDX_META, connKey);
                 sesMeta.put(TcpCommunicationSpi.CONSISTENT_ID_META, consistentId);

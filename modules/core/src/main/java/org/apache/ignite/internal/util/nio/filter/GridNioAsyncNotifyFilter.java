@@ -14,29 +14,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util.nio;
+package org.apache.ignite.internal.util.nio.filter;
 
 import java.util.concurrent.Executor;
+
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.internal.util.worker.GridWorkerPool;
-import org.apache.ignite.lang.IgniteInClosure;
 
 /**
  * Enables multithreaded notification of session opened, message received and session closed events.
  */
-public class GridNioAsyncNotifyFilter extends GridNioFilterAdapter {
+public class GridNioAsyncNotifyFilter extends GridAbstractNioFilter {
     /** Logger. */
-    private IgniteLogger log;
+    private final IgniteLogger log;
 
     /** Worker pool. */
-    private GridWorkerPool workerPool;
+    private final GridWorkerPool workerPool;
 
     /** Ignite instance name. */
-    private String igniteInstanceName;
+    private final String igniteInstanceName;
 
     /**
      * Assigns filter name to a filter.
@@ -46,8 +46,6 @@ public class GridNioAsyncNotifyFilter extends GridNioFilterAdapter {
      * @param log Logger.
      */
     public GridNioAsyncNotifyFilter(String igniteInstanceName, Executor exec, IgniteLogger log) {
-        super(GridNioAsyncNotifyFilter.class.getSimpleName());
-
         this.igniteInstanceName = igniteInstanceName;
         this.log = log;
 
@@ -142,37 +140,6 @@ public class GridNioAsyncNotifyFilter extends GridNioFilterAdapter {
                 }
             }
         });
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onExceptionCaught(GridNioSession ses,
-        IgniteCheckedException ex) throws IgniteCheckedException {
-        proceedExceptionCaught(ses, ex);
-    }
-
-    /** {@inheritDoc} */
-    @Override public GridNioFuture<?> onSessionWrite(
-        GridNioSession ses,
-        Object msg,
-        boolean fut,
-        IgniteInClosure<IgniteException> ackC
-    ) throws IgniteCheckedException {
-        return proceedSessionWrite(ses, msg, fut, ackC);
-    }
-
-    /** {@inheritDoc} */
-    @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses) throws IgniteCheckedException {
-        return proceedSessionClose(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionIdleTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionIdleTimeout(ses);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onSessionWriteTimeout(GridNioSession ses) throws IgniteCheckedException {
-        proceedSessionWriteTimeout(ses);
     }
 
     /**

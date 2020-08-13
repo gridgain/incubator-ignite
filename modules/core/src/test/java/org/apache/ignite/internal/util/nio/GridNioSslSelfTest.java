@@ -18,8 +18,11 @@ package org.apache.ignite.internal.util.nio;
 
 import java.net.Socket;
 import java.nio.ByteOrder;
+
 import javax.net.ssl.SSLContext;
+
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
 import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;

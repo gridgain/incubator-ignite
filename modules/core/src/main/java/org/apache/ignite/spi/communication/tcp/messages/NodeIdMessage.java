@@ -18,10 +18,10 @@ package org.apache.ignite.spi.communication.tcp.messages;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
+
 import org.apache.ignite.internal.IgniteCodeGeneratingFail;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
@@ -30,7 +30,7 @@ import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
  * Node ID message.
  */
 @IgniteCodeGeneratingFail
-public class NodeIdMessage implements Message {
+public class NodeIdMessage implements SystemMessage {
     /** */
     private static final long serialVersionUID = 0L;
 

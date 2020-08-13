@@ -17,18 +17,19 @@
 package org.apache.ignite.spi.communication.tcp.internal.shmem;
 
 import java.util.Set;
+
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.tracing.Tracing;
 import org.apache.ignite.internal.util.GridConcurrentLinkedHashSet;
 import org.apache.ignite.internal.util.ipc.IpcEndpoint;
 import org.apache.ignite.internal.util.ipc.IpcToNioAdapter;
-import org.apache.ignite.internal.util.nio.GridConnectionBytesVerifyFilter;
 import org.apache.ignite.internal.util.nio.GridDirectParser;
-import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
 import org.apache.ignite.internal.util.nio.GridNioMessageReaderFactory;
 import org.apache.ignite.internal.util.nio.GridNioMessageWriterFactory;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
-import org.apache.ignite.internal.util.nio.GridNioTracerFilter;
+import org.apache.ignite.internal.util.nio.filter.GridConnectionBytesVerifyFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioTracerFilter;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.plugin.extensions.communication.Message;

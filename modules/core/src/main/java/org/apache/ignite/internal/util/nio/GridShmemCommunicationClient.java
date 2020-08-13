@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -113,23 +114,6 @@ public class GridShmemCommunicationClient extends GridAbstractCommunicationClien
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void sendMessage(byte[] data, int len) throws IgniteCheckedException {
-        if (closed())
-            throw new IgniteCheckedException("Communication client was closed: " + this);
-
-        try {
-            shmem.outputStream().write(data, 0, len);
-
-            sentBytesCntMetric.add(len);
-        }
-        catch (IOException e) {
-            throw new IgniteCheckedException("Failed to send message to remote node: " + shmem, e);
-        }
-
-        markUsed();
-    }
-
-    /** {@inheritDoc} */
     @Override public synchronized boolean sendMessage(UUID nodeId, Message msg,
         IgniteInClosure<IgniteException> c) throws IgniteCheckedException {
         assert nodeId != null;
@@ -154,11 +138,6 @@ public class GridShmemCommunicationClient extends GridAbstractCommunicationClien
             c.apply(null);
 
         return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void sendMessage(ByteBuffer data) throws IgniteCheckedException {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

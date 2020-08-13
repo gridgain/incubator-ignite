@@ -19,7 +19,7 @@ package org.apache.ignite.internal.util.nio;
 /**
  *
  */
-interface GridNioKeyAttachment {
+public interface GridNioKeyAttachment {
     /**
      * @return {@code True} if session was created.
      */

@@ -18,6 +18,8 @@ package org.apache.ignite.internal.util.nio;
 
 import java.util.Collection;
 import java.util.List;
+
+import org.apache.ignite.internal.util.nio.operation.SessionOperationRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -25,23 +27,24 @@ import org.jetbrains.annotations.Nullable;
  */
 interface GridNioWorker {
     /**
+     * @return Worker index.
+     */
+    public int index();
+
+    /**
      * @param req Change request.
      */
-    public void offer(GridNioServer.SessionChangeRequest req);
+    public void offer(SessionOperationRequest req);
 
     /**
      * @param reqs Change requests.
      */
-    public void offer(Collection<GridNioServer.SessionChangeRequest> reqs);
+    public void offer(Collection<SessionOperationRequest> reqs);
 
     /**
      * @param ses Session.
+     *
      * @return Session state change requests.
      */
-    @Nullable public List<GridNioServer.SessionChangeRequest> clearSessionRequests(GridNioSession ses);
-
-    /**
-     * @param ses Session to register write interest for.
-     */
-    public void registerWrite(GridSelectorNioSessionImpl ses);
+    @Nullable public List<SessionOperationRequest> clearSessionRequests(GridNioSession ses);
 }

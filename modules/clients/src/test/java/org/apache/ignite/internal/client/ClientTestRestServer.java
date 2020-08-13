@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.client.marshaller.GridClientMarshaller;
@@ -38,11 +39,11 @@ import org.apache.ignite.internal.processors.rest.client.message.GridClientPingP
 import org.apache.ignite.internal.processors.rest.client.message.GridClientResponse;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientTopologyRequest;
 import org.apache.ignite.internal.processors.rest.protocols.tcp.GridTcpRestParser;
-import org.apache.ignite.internal.util.nio.GridNioAsyncNotifyFilter;
-import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
 import org.apache.ignite.internal.util.nio.GridNioServer;
-import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
+import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.filter.GridNioAsyncNotifyFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -229,7 +230,7 @@ public class ClientTestRestServer {
     /**
      * Test listener.
      */
-    private class TestListener extends GridNioServerListenerAdapter<GridClientMessage> {
+    private class TestListener implements GridNioServerListener<GridClientMessage> {
         /** {@inheritDoc} */
         @Override public void onConnected(GridNioSession ses) {
             lastSes = ses;

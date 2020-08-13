@@ -34,10 +34,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.net.ssl.SSLContext;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.client.GridClientClosedException;
 import org.apache.ignite.internal.client.GridClientConfiguration;
 import org.apache.ignite.internal.client.GridClientException;
@@ -55,11 +56,11 @@ import org.apache.ignite.internal.processors.rest.client.message.GridClientHands
 import org.apache.ignite.internal.processors.rest.client.message.GridClientMessage;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientPingPacket;
 import org.apache.ignite.internal.processors.rest.protocols.tcp.GridTcpRestParser;
-import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
-import org.apache.ignite.internal.util.nio.GridNioFilter;
 import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilter;
 import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -591,7 +592,7 @@ public abstract class GridClientConnectionManagerAdapter implements GridClientCo
 
     /**
      */
-    private static class NioListener implements GridNioServerListener {
+    private static class NioListener implements GridNioServerListener<Object> {
         /** */
         private final Logger log;
 
@@ -628,11 +629,6 @@ public abstract class GridClientConnectionManagerAdapter implements GridClientCo
         }
 
         /** {@inheritDoc} */
-        @Override public void onMessageSent(GridNioSession ses, Object msg) {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
         @Override public void onMessage(GridNioSession ses, Object msg) {
             GridClientFutureAdapter<Boolean> handshakeFut =
                 ses.removeMeta(GridClientNioTcpConnection.SES_META_HANDSHAKE);
@@ -658,11 +654,6 @@ public abstract class GridClientConnectionManagerAdapter implements GridClientCo
                     }
                 }
             }
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onFailure(FailureType failureType, Throwable failure) {
-            // No-op.
         }
 
         /**

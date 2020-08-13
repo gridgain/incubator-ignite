@@ -36,7 +36,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.net.ssl.SSLContext;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterState;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -82,8 +84,8 @@ import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
 import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
 import org.apache.ignite.internal.util.typedef.CI1;
-import org.apache.ignite.internal.visor.util.VisorIllegalStateException;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.visor.util.VisorIllegalStateException;
 import org.apache.ignite.plugin.security.SecurityCredentials;
 import org.jetbrains.annotations.Nullable;
 
@@ -297,7 +299,7 @@ public class GridClientNioTcpConnection extends GridClientConnection {
         finally {
             if (cleanup) {
                 if (ses != null)
-                    srv.close(ses);
+                    srv.close(ses, null);
 
                 if (sock != null)
                     sock.close();

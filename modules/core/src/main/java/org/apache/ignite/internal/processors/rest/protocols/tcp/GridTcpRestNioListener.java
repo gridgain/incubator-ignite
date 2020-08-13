@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.GridKernalContext;
@@ -58,7 +59,7 @@ import org.apache.ignite.internal.processors.rest.request.GridRestRequest;
 import org.apache.ignite.internal.processors.rest.request.GridRestTaskRequest;
 import org.apache.ignite.internal.processors.rest.request.GridRestTopologyRequest;
 import org.apache.ignite.internal.util.nio.GridNioFuture;
-import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
+import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
 import org.apache.ignite.internal.util.typedef.CI1;
@@ -102,7 +103,7 @@ import static org.apache.ignite.internal.util.nio.GridNioSessionMetaKey.MARSHALL
 /**
  * Listener for nio server that handles incoming tcp rest packets.
  */
-public class GridTcpRestNioListener extends GridNioServerListenerAdapter<GridClientMessage> {
+public class GridTcpRestNioListener implements GridNioServerListener<GridClientMessage> {
     /** Mapping of {@code GridCacheOperation} to {@code GridRestCommand}. */
     private static final Map<GridClientCacheRequest.GridCacheOperation, GridRestCommand> cacheCmdMap =
         new EnumMap<>(GridClientCacheRequest.GridCacheOperation.class);
@@ -186,11 +187,6 @@ public class GridTcpRestNioListener extends GridNioServerListenerAdapter<GridCli
         this.marshMap = marshMap;
 
         marshMapLatch.countDown();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onConnected(GridNioSession ses) {
-        // No-op.
     }
 
     /** {@inheritDoc} */

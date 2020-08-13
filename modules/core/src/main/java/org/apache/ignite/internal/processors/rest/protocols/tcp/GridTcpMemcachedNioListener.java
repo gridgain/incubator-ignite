@@ -18,6 +18,7 @@ package org.apache.ignite.internal.processors.rest.protocols.tcp;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -32,7 +33,7 @@ import org.apache.ignite.internal.util.future.GridEmbeddedFuture;
 import org.apache.ignite.internal.util.lang.GridTuple3;
 import org.apache.ignite.internal.util.lang.IgniteClosure2X;
 import org.apache.ignite.internal.util.nio.GridNioFuture;
-import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
+import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.typedef.C2;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -61,7 +62,7 @@ import static org.apache.ignite.internal.util.nio.GridNioSessionMetaKey.LAST_FUT
 /**
  * Handles memcache requests.
  */
-public class GridTcpMemcachedNioListener extends GridNioServerListenerAdapter<GridMemcachedMessage> {
+public class GridTcpMemcachedNioListener implements GridNioServerListener<GridMemcachedMessage> {
     /** Used cache name in case the name was not defined in a request. */
     private static final String CACHE_NAME = "default";
 

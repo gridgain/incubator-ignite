@@ -25,10 +25,12 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
+
 import javax.cache.configuration.Factory;
 import javax.management.JMException;
 import javax.management.ObjectName;
 import javax.net.ssl.SSLContext;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -41,11 +43,11 @@ import org.apache.ignite.internal.processors.odbc.jdbc.JdbcConnectionContext;
 import org.apache.ignite.internal.processors.odbc.odbc.OdbcConnectionContext;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.HostAndPortRange;
-import org.apache.ignite.internal.util.nio.GridNioAsyncNotifyFilter;
-import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
-import org.apache.ignite.internal.util.nio.GridNioFilter;
 import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.filter.GridNioAsyncNotifyFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioCodecFilter;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilter;
 import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -373,7 +375,7 @@ public class ClientListenerProcessor extends GridProcessorAdapter {
             if (connCtx == null || ses.closeTime() != 0)
                 continue; // Skip non-initialized or closed session.
 
-            srv.close(ses);
+            srv.close(ses, null);
 
             if (log.isInfoEnabled()) {
                 log.info("Client session has been dropped: "
@@ -614,7 +616,7 @@ public class ClientListenerProcessor extends GridProcessorAdapter {
                     return false;
                 }
 
-                srv.close(ses);
+                srv.close(ses, null);
 
                 if (log.isInfoEnabled()) {
                     log.info("Client session has been dropped: " +

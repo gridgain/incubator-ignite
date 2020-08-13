@@ -19,9 +19,12 @@ package org.apache.ignite.internal.util.nio;
 import java.net.InetSocketAddress;
 import java.security.cert.Certificate;
 import java.util.concurrent.atomic.AtomicLong;
+
 import javax.net.ssl.SSLPeerUnverifiedException;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.internal.util.nio.filter.GridNioFilterChain;
 import org.apache.ignite.internal.util.nio.ssl.GridSslMeta;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -45,10 +48,13 @@ public class GridNioSessionImpl implements GridNioSession {
     private final InetSocketAddress rmtAddr;
 
     /** Session create timestamp. */
-    private long createTime;
+    private final long createTime;
 
     /** Session close timestamp. */
     private final AtomicLong closeTime = new AtomicLong();
+
+    /** Session idle timeout. */
+    protected volatile long idleTimeout = DEFAILT_IDLE_TIMEOUT;
 
     /** Sent bytes counter. */
     private volatile long bytesSent;
@@ -71,17 +77,11 @@ public class GridNioSessionImpl implements GridNioSession {
     /** Last read activity timestamp. */
     private volatile long lastRcvTime;
 
-    /** Reads paused flag. */
-    private volatile boolean readsPaused;
-
     /** Filter chain that will handle write and close requests. */
-    private GridNioFilterChain filterChain;
+    private final GridNioFilterChain<?> filterChain;
 
     /** Accepted flag. */
     private final boolean accepted;
-
-    /** For debug purposes. */
-    private volatile boolean markedForClose;
 
     /**
      * @param filterChain Chain.
@@ -90,7 +90,7 @@ public class GridNioSessionImpl implements GridNioSession {
      * @param accepted {@code True} if this session was initiated from remote host.
      */
     public GridNioSessionImpl(
-        GridNioFilterChain filterChain,
+        GridNioFilterChain<?> filterChain,
         @Nullable InetSocketAddress locAddr,
         @Nullable InetSocketAddress rmtAddr,
         boolean accepted
@@ -109,23 +109,25 @@ public class GridNioSessionImpl implements GridNioSession {
     }
 
     /** {@inheritDoc} */
-    @Override public GridNioFuture<?> send(Object msg) {
+    @Override public GridNioFuture<?> send(Object msg, IgniteInClosure<IgniteException> ackC) {
         try {
-            resetSendScheduleTime();
+            sndSchedTime = U.currentTimeMillis();
 
-            return chain().onSessionWrite(this, msg, true, null);
+            return chain().onSessionWrite(this, msg, true, ackC);
         }
         catch (IgniteCheckedException e) {
             close();
 
-            return new GridNioFinishedFuture<Object>(e);
+            return new GridNioFinishedFuture<>(e);
         }
     }
 
     /** {@inheritDoc} */
-    @Override public void sendNoFuture(Object msg, IgniteInClosure<IgniteException> ackC)
-        throws IgniteCheckedException {
+    @Override public void sendNoFuture(Object msg,
+        @Nullable IgniteInClosure<IgniteException> ackC) throws IgniteCheckedException {
         try {
+            sndSchedTime = U.currentTimeMillis();
+
             chain().onSessionWrite(this, msg, false, ackC);
         }
         catch (IgniteCheckedException e) {
@@ -143,7 +145,7 @@ public class GridNioSessionImpl implements GridNioSession {
         catch (IgniteCheckedException e) {
             close();
 
-            return new GridNioFinishedFuture<Object>(e);
+            return new GridNioFinishedFuture<>(e);
         }
     }
 
@@ -155,17 +157,14 @@ public class GridNioSessionImpl implements GridNioSession {
         catch (IgniteCheckedException e) {
             close();
 
-            return new GridNioFinishedFuture<Object>(e);
+            return new GridNioFinishedFuture<>(e);
         }
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
-    @Override public GridNioFuture<Boolean> close() {
-        markedForClose = true;
-
+    @Override public GridNioFuture<Boolean> close(IgniteCheckedException cause) {
         try {
-            return filterChain.onSessionClose(this);
+            return chain().onSessionClose(this, cause);
         }
         catch (IgniteCheckedException e) {
             return new GridNioFinishedFuture<>(e);
@@ -180,6 +179,11 @@ public class GridNioSessionImpl implements GridNioSession {
     /** {@inheritDoc} */
     @Override @Nullable public InetSocketAddress remoteAddress() {
         return rmtAddr;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long idleTimeout() {
+        return idleTimeout;
     }
 
     /** {@inheritDoc} */
@@ -281,7 +285,7 @@ public class GridNioSessionImpl implements GridNioSession {
             try {
                 return meta.sslEngine().getSession().getPeerCertificates();
             }
-            catch (SSLPeerUnverifiedException e) {
+            catch (SSLPeerUnverifiedException ignored) {
                 // Nothing to do.
             }
         }
@@ -293,9 +297,8 @@ public class GridNioSessionImpl implements GridNioSession {
      * @param <T> Chain type.
      * @return Filter chain.
      */
-    @SuppressWarnings("unchecked")
     protected <T> GridNioFilterChain<T> chain() {
-        return filterChain;
+        return (GridNioFilterChain<T>)filterChain;
     }
 
     /**
@@ -306,8 +309,10 @@ public class GridNioSessionImpl implements GridNioSession {
      * @param cnt Number of bytes sent.
      */
     public void bytesSent(int cnt) {
-        bytesSent += cnt;
-        bytesSent0 += cnt;
+        long bytesSent = this.bytesSent;
+        long bytesSent0 = this.bytesSent0;
+        this.bytesSent = bytesSent + cnt;
+        this.bytesSent0 = bytesSent0 + cnt;
 
         lastSndTime = U.currentTimeMillis();
     }
@@ -320,17 +325,12 @@ public class GridNioSessionImpl implements GridNioSession {
      * @param cnt Number of bytes received.
      */
     public void bytesReceived(int cnt) {
-        bytesRcvd += cnt;
-        bytesRcvd0 += cnt;
+        long bytesRcvd = this.bytesRcvd;
+        long bytesRcvd0 = this.bytesRcvd0;
+        this.bytesRcvd = bytesRcvd + cnt;
+        this.bytesRcvd0 = bytesRcvd0 + cnt;
 
         lastRcvTime = U.currentTimeMillis();
-    }
-
-    /**
-     * Resets send schedule time to avoid multiple idle notifications.
-     */
-    public void resetSendScheduleTime() {
-        sndSchedTime = U.currentTimeMillis();
     }
 
     /**
@@ -348,20 +348,6 @@ public class GridNioSessionImpl implements GridNioSession {
      */
     public boolean closed() {
         return closeTime.get() != 0;
-    }
-
-    /**
-     * @param readsPaused New reads paused flag.
-     */
-    public void readsPaused(boolean readsPaused) {
-        this.readsPaused = readsPaused;
-    }
-
-    /**
-     * @return Reads paused flag.
-     */
-    @Override public boolean readsPaused() {
-        return readsPaused;
     }
 
     /** {@inheritDoc} */
@@ -382,11 +368,6 @@ public class GridNioSessionImpl implements GridNioSession {
     /** {@inheritDoc} */
     @Nullable @Override public GridNioRecoveryDescriptor inRecoveryDescriptor() {
         return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void systemMessage(Object msg) {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

@@ -22,10 +22,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.client.GridClientException;
 import org.apache.ignite.internal.client.GridClientFuture;
 import org.apache.ignite.internal.client.GridClientFutureListener;
@@ -108,11 +108,6 @@ public abstract class GridTcpRouterNioListenerAdapter implements GridNioServerLi
     protected abstract void init();
 
     /** {@inheritDoc} */
-    @Override public void onConnected(GridNioSession ses) {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
     @Override public void onDisconnected(GridNioSession ses, @Nullable Exception e) {
         if (e != null) {
             if (e instanceof RuntimeException)
@@ -120,11 +115,6 @@ public abstract class GridTcpRouterNioListenerAdapter implements GridNioServerLi
             else
                 U.warn(log, "Closed client session due to exception [ses=" + ses + ", err=" + e.getMessage() + ']');
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onMessageSent(GridNioSession ses, GridClientMessage msg) {
-        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -199,11 +189,6 @@ public abstract class GridTcpRouterNioListenerAdapter implements GridNioServerLi
             ses.send(GridClientPingPacket.PING_MESSAGE);
         else
             throw new IllegalArgumentException("Unsupported input message: " + msg);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onFailure(FailureType failureType, Throwable failure) {
-        // No-op.
     }
 
     /** {@inheritDoc} */

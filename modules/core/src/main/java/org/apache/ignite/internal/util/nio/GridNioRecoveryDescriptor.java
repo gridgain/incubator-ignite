@@ -19,10 +19,12 @@ package org.apache.ignite.internal.util.nio;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import org.apache.ignite.IgniteException;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.util.nio.operation.SessionWriteRequest;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -76,7 +78,7 @@ public class GridNioRecoveryDescriptor {
     private boolean connected;
 
     /** Number of outgoing connect attempts. */
-    private long connectCnt;
+    private final AtomicLong connectCnt = new AtomicLong();
 
     /** Maximum size of unacknowledged messages queue. */
     private final int queueLimit;
@@ -125,7 +127,7 @@ public class GridNioRecoveryDescriptor {
      * @return Connect count.
      */
     public long incrementConnectCount() {
-        return connectCnt++;
+        return connectCnt.getAndIncrement();
     }
 
     /**
@@ -188,7 +190,7 @@ public class GridNioRecoveryDescriptor {
     public boolean add(SessionWriteRequest req) {
         assert req != null;
 
-        if (!req.skipRecovery()) {
+        if (!req.system()) {
             if (resendCnt == 0) {
                 msgReqs.addLast(req);
 
@@ -217,9 +219,6 @@ public class GridNioRecoveryDescriptor {
             assert req != null : "Missed message [rcvCnt=" + rcvCnt +
                 ", acked=" + acked +
                 ", desc=" + this + ']';
-
-            if (req.ackClosure() != null)
-                req.ackClosure().apply(null);
 
             req.onAckReceived();
 
@@ -373,7 +372,7 @@ public class GridNioRecoveryDescriptor {
      *
      */
     public void release() {
-        SessionWriteRequest[] futs = null;
+        SessionWriteRequest[] reqs = null;
 
         synchronized (this) {
             ses = null;
@@ -396,14 +395,14 @@ public class GridNioRecoveryDescriptor {
             }
 
             if (nodeLeft && !msgReqs.isEmpty()) {
-                futs = msgReqs.toArray(new SessionWriteRequest[msgReqs.size()]);
+                reqs = msgReqs.toArray(new SessionWriteRequest[msgReqs.size()]);
 
                 msgReqs.clear();
             }
         }
 
-        if (futs != null)
-            notifyOnNodeLeft(futs);
+        if (reqs != null)
+            notifyOnNodeLeft(reqs);
     }
 
     /**
@@ -482,18 +481,9 @@ public class GridNioRecoveryDescriptor {
      */
     private void notifyOnNodeLeft(SessionWriteRequest[] reqs) {
         IOException e = new IOException("Failed to send message, node has left: " + node.id());
-        IgniteException cloErr = null;
 
-        for (SessionWriteRequest req : reqs) {
+        for (SessionWriteRequest req : reqs)
             req.onError(e);
-
-            if (req.ackClosure() != null) {
-                if (cloErr == null)
-                    cloErr = new IgniteException(e);
-
-                req.ackClosure().apply(cloErr);
-            }
-        }
     }
 
     /** {@inheritDoc} */

@@ -17,6 +17,7 @@
 package org.apache.ignite.spi.communication.tcp.internal;
 
 import java.util.UUID;
+
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.NotNull;
 
@@ -37,28 +38,29 @@ public class ConnectionKey {
     private final boolean dummy;
 
     /**
-     * Creates ConnectionKey with false value of dummy flag.
-     *
-     * @param nodeId Node ID. Should be not null.
-     * @param idx Connection index.
-     * @param connCnt Connection counter (set only for incoming connections).
-     */
-    public ConnectionKey(@NotNull UUID nodeId, int idx, long connCnt) {
-        this(nodeId, idx, connCnt, false);
-    }
-
-    /**
      * @param nodeId Node ID. Should be not null.
      * @param idx Connection index.
      * @param connCnt Connection counter (set only for incoming connections).
      * @param dummy Indicates that session with this ConnectionKey is temporary
      *              (for now dummy sessions are used only for Communication Failure Resolving process).
      */
-    public ConnectionKey(@NotNull UUID nodeId, int idx, long connCnt, boolean dummy) {
+    private ConnectionKey(@NotNull UUID nodeId, int idx, long connCnt, boolean dummy) {
         this.nodeId = nodeId;
         this.idx = idx;
         this.connCnt = connCnt;
         this.dummy = dummy;
+    }
+
+    public static ConnectionKey newDummyKey(@NotNull UUID nodeId) {
+        return new ConnectionKey(nodeId, -1, -1, true);
+    }
+
+    public static ConnectionKey newOutgoingKey(@NotNull UUID nodeId, int idx) {
+        return new ConnectionKey(nodeId, idx, -1, false);
+    }
+
+    public static ConnectionKey newIncomingKey(@NotNull UUID nodeId, int idx, long connCnt) {
+        return new ConnectionKey(nodeId, idx, connCnt, false);
     }
 
     /**

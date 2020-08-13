@@ -17,6 +17,7 @@
 package org.apache.ignite.spi.communication.tcp.messages;
 
 import java.nio.ByteBuffer;
+
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
@@ -28,7 +29,7 @@ import static org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi.HANDSH
 /**
  * Message requesting to wait until node's SPI context initialize.
  */
-public class HandshakeWaitMessage implements Message {
+public class HandshakeWaitMessage implements SystemMessage {
     /** */
     private static final long serialVersionUID = 0L;
 
