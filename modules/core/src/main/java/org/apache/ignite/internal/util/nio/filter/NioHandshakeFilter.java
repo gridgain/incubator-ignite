@@ -106,6 +106,7 @@ public class NioHandshakeFilter extends GridAbstractNioFilter {
     }
 
     private static class HandshakeContext {
+        private final long created = U.currentTimeMillis();
         private final UUID localNodeId;
         private final AtomicReference<State> state = new AtomicReference<>(State.NEW);
         private ConnectionKey connKey;
@@ -342,7 +343,8 @@ public class NioHandshakeFilter extends GridAbstractNioFilter {
                     assert !ses.accepted();
 
                     ses.sendNoFuture(IgniteHeaderMessage.INSTANCE);
-                    ses.sendNoFuture(new HandshakeMessage2(localNodeId, connCntr, recovery.received(), connIdx));
+                    ses.sendNoFuture(new HandshakeMessage2(discovery.localNodeId(),
+                        ctx.connectionCounter(), ctx.recovery().received(), ctx.connectionIndex()));
 
                     if (!ctx.moveState(State.WAIT_FOR_HANDSHAKE, State.HANDSHAKE_MSG_SENT))
                         unexpectedState(ctx, ses);
