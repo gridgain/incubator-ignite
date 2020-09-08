@@ -818,7 +818,7 @@ public class GridNioServerWrapper {
                         new GridNioTracerFilter(log, tracing),
                         new NioRecoveryFilter(),
                         new GridNioCodecFilter(parser, log, true),
-                        new NioHandshakeFilter(),
+                        new NioHandshakeFilter(discovery, clientRegistry, initLatch, gateway, client),
                         new GridConnectionBytesVerifyFilter(log),
                         sslFilter
                     };
@@ -828,7 +828,7 @@ public class GridNioServerWrapper {
                         new GridNioTracerFilter(log, tracing),
                         new NioRecoveryFilter(),
                         new GridNioCodecFilter(parser, log, true),
-                        new NioHandshakeFilter(),
+                        new NioHandshakeFilter(discovery, clientRegistry, initLatch, gateway, client),
                         new GridConnectionBytesVerifyFilter(log)
                     };
 

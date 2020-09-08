@@ -165,7 +165,7 @@ public class GridSelectorNioSessionImpl extends GridNioSessionImpl implements Gr
     /**
      * @return Worker.
      */
-    GridNioWorker worker() {
+    public GridNioWorker worker() {
         return worker;
     }
 

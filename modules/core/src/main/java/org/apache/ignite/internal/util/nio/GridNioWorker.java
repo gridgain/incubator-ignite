@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  *
  */
-interface GridNioWorker {
+public interface GridNioWorker {
     /**
      * @return Worker index.
      */

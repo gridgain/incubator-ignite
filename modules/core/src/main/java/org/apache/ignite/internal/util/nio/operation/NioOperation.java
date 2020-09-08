@@ -35,5 +35,8 @@ public enum NioOperation {
     DUMP_STATS,
 
     /** */
-    RECALCULATE_IDLE_TIMEOUT
+    RECALCULATE_IDLE_TIMEOUT,
+
+    /** */
+    SESSION_OPERATION
 }

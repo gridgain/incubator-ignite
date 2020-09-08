@@ -78,6 +78,7 @@ import org.apache.ignite.internal.util.nio.operation.RecalculateIdleTimeoutReque
 import org.apache.ignite.internal.util.nio.operation.SessionCloseFuture;
 import org.apache.ignite.internal.util.nio.operation.SessionFinishMoveRequest;
 import org.apache.ignite.internal.util.nio.operation.SessionMoveRequest;
+import org.apache.ignite.internal.util.nio.operation.SessionOperation;
 import org.apache.ignite.internal.util.nio.operation.SessionOperationFuture;
 import org.apache.ignite.internal.util.nio.operation.SessionOperationRequest;
 import org.apache.ignite.internal.util.nio.operation.SessionRegisterFuture;
@@ -1656,7 +1657,6 @@ public class GridNioServer<T> {
 
                                     SelectionKey key = ses.key();
 
-
                                     SocketChannel channel = (SocketChannel)key.channel();
 
                                     assert channel != null : key;
@@ -1767,6 +1767,16 @@ public class GridNioServer<T> {
                                 RecalculateIdleTimeoutRequest req = (RecalculateIdleTimeoutRequest)req0;
 
                                 recalculateIdleTimeout(req.session(), GridNioServer.this.idleTimeout);
+
+                                break;
+                            }
+
+                            case SESSION_OPERATION: {
+                                SessionOperation req = (SessionOperation)req0;
+
+                                req.run();
+
+                                break;
                             }
                         }
                     }
