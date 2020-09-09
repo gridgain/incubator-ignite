@@ -17,9 +17,8 @@ import org.apache.ignite.internal.util.nio.GridNioRecoveryDescriptor;
 import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
-import org.apache.ignite.internal.util.nio.GridNioWorker;
 import org.apache.ignite.internal.util.nio.GridSelectorNioSessionImpl;
-import org.apache.ignite.internal.util.nio.operation.ConnectOperationRequest;
+import org.apache.ignite.internal.util.nio.operation.ConnectOperation;
 import org.apache.ignite.internal.util.nio.operation.SessionOperation;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteInClosure;
@@ -164,6 +163,8 @@ public class NioHandshakeFilter extends GridAbstractNioFilter {
         private MessageHolder messageHolder;
 
         private HandshakeContext(UUID localNodeId, @Nullable ConnectionKey connKey, @Nullable GridCommunicationClient client) {
+            assert (connKey == null) == (client == null) : "connKey=" + connKey + ", client=" + client;
+
             this.localNodeId = localNodeId;
             this.connKey = connKey;
             this.client = client;
@@ -540,25 +541,10 @@ public class NioHandshakeFilter extends GridAbstractNioFilter {
     /** */
     @Override public GridNioFuture<Boolean> onSessionClose(GridNioSession ses,
         @Nullable IgniteCheckedException cause) throws IgniteCheckedException {
-        if (cause instanceof HandshakeException) {
-            // TODO do better
-            GridSelectorNioSessionImpl ses0 = (GridSelectorNioSessionImpl)ses;
-            GridNioWorker worker = ses0.worker();
-
-            assert worker != null;
-
-            new Thread(() -> {
-                try {
-                    Thread.sleep(200);
-
-                    worker.offer(new ConnectOperationRequest());
-                }
-                catch (InterruptedException e) {
-                    return;
-                }
-
-
-            }).start();
+        if (!ses.accepted() && cause instanceof HandshakeException) {
+            ConnectOperation op = ses.meta(ConnectOperation.CONNECT_OP_META);
+            if (op != null)
+                op.schedule(200);
         }
 
         return super.onSessionClose(ses, cause);
@@ -610,7 +596,8 @@ public class NioHandshakeFilter extends GridAbstractNioFilter {
 
     @NotNull private HandshakeContext createContext(GridNioSession ses) {
         ConnectionKey connKey = ses.meta(CONN_IDX_META);
-        HandshakeContext ctx = new HandshakeContext(discovery.localNodeId(), connKey, clientRegistry.client(connKey));
+        GridCommunicationClient client = ses.meta(GridCommunicationClient.CLIENT_META);
+        HandshakeContext ctx = new HandshakeContext(discovery.localNodeId(), connKey, client);
         Object prev = ses.addMeta(CONTEXT_META, ctx);
         assert prev == null;
         return ctx;

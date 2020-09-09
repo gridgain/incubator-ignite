@@ -31,6 +31,9 @@ import org.jetbrains.annotations.Nullable;
  *
  */
 public interface GridCommunicationClient {
+    /** */
+    public static final int CLIENT_META = GridNioSessionMetaKey.nextUniqueKey();
+
     /**
      * Executes the given handshake closure on opened client passing underlying IO streams.
      * This method pulled to client interface a handshake is only operation requiring access
