@@ -128,7 +128,7 @@ public class Fragment {
      *
      * @return Serialized form.
      */
-    public String rootSerialized() {
+    public String serializedRoot() {
         return rootSer != null ? rootSer : (rootSer = toJson(root()));
     }
 

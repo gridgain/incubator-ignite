@@ -25,6 +25,7 @@ import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.affinity.AffinityKeyMapped;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
@@ -36,6 +37,7 @@ import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -48,9 +50,7 @@ public class CalciteQueryProcessorTest extends GridCommonAbstractTest {
 
     @Before
     public void setup() throws Exception {
-        startGrids(5);
-
-        ignite = startClientGrid();
+        ignite = startGrids(1);
     }
 
     @After
@@ -406,6 +406,54 @@ public class CalciteQueryProcessorTest extends GridCommonAbstractTest {
         row = F.first(query.get(0).getAll());
 
         assertNull(row);
+    }
+
+    @Ignore
+    @Test
+    public void testThroughput() throws Exception {
+        IgniteCache<Integer, Developer> developer = ignite.getOrCreateCache(new CacheConfiguration<Integer, Developer>()
+            .setName("developer")
+            .setSqlSchema("PUBLIC")
+            .setIndexedTypes(Integer.class, Developer.class)
+            .setBackups(2)
+        );
+
+        int prId = -1;
+
+        for (int i = 0; i < 5000; i++) {
+            if (i % 1000 == 0)
+                prId++;
+
+            developer.put(i, new Developer("Name" + i, prId));
+        }
+
+        QueryEngine engine = Commons.lookupComponent(ignite.context(), QueryEngine.class);
+
+        // warmup
+        for (int i = 0; i < 1000; i++) {
+            List<FieldsQueryCursor<List<?>>> query = engine.query(null, "PUBLIC", "select * from DEVELOPER");
+            query.get(0).getAll();
+        }
+
+        long start = System.currentTimeMillis();
+        for (int i = 0; i < 1000; i++) {
+            List<FieldsQueryCursor<List<?>>> query = engine.query(null, "PUBLIC", "select * from DEVELOPER");
+            query.get(0).getAll();
+        }
+        System.out.println("Calcite duration = " + (System.currentTimeMillis() - start));
+
+        // warmup
+        for (int i = 0; i < 1000 ; i++) {
+            List<FieldsQueryCursor<List<?>>> query = ignite.context().query().querySqlFields(new SqlFieldsQuery("select * from DEVELOPER").setSchema("PUBLIC"), false, false);
+            query.get(0).getAll();
+        }
+
+        start = System.currentTimeMillis();
+        for (int i = 0; i < 1000 ; i++) {
+            List<FieldsQueryCursor<List<?>>> query = ignite.context().query().querySqlFields(new SqlFieldsQuery("select * from DEVELOPER").setSchema("PUBLIC"), false, false);
+            query.get(0).getAll();
+        }
+        System.out.println("H2 duration = " + (System.currentTimeMillis() - start));
     }
 
     /** */

@@ -741,7 +741,7 @@ public class ExecutionServiceImpl<Row> extends AbstractService implements Execut
                         QueryStartRequest req = new QueryStartRequest(
                             qryId,
                             pctx.schemaName(),
-                            fragment0.rootSerialized(),
+                            fragment0.serializedRoot(),
                             pctx.topologyVersion(),
                             fragmentDesc0,
                             pctx.parameters());
