@@ -412,6 +412,7 @@ public class CalciteQueryProcessorTest extends GridCommonAbstractTest {
     @Test
     public void testThroughput() throws Exception {
         IgniteCache<Integer, Developer> developer = ignite.getOrCreateCache(new CacheConfiguration<Integer, Developer>()
+            .setCacheMode(CacheMode.REPLICATED)
             .setName("developer")
             .setSqlSchema("PUBLIC")
             .setIndexedTypes(Integer.class, Developer.class)
