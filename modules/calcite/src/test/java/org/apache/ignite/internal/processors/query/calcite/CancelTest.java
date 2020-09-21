@@ -106,7 +106,8 @@ public class CancelTest extends GridCommonAbstractTest {
         cursors.forEach(QueryCursor::close);
 
         GridTestUtils.assertThrows(log, () -> {
-                it.next();
+                while (it.hasNext())
+                    it.next();
 
                 return null;
             },

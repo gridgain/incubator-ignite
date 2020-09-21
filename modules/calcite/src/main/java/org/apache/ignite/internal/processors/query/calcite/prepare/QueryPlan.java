@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 
 /**
  *
  */
 public interface QueryPlan {
     /** Query type */
-    enum Type { QUERY, DML, DDL, EXPLAIN }
+    enum Type { QUERY, QUERY_FRAGMENT, DML, DDL, EXPLAIN }
 
     /**
      * @return Query type.
@@ -35,5 +35,5 @@ public interface QueryPlan {
      * Clones this plan.
      * @param ctx Planner context.
      */
-    QueryPlan clone(@Nullable PlanningContext ctx);
+    QueryPlan clone(@NotNull PlanningContext ctx);
 }
