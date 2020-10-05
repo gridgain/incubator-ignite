@@ -77,10 +77,11 @@ public abstract class QueryChecker {
     }
 
     /**
-     * Ignite table scan with projects unmatcher.
+     * Ignite table scan with projects matcher.
      *
      * @param schema  Schema name.
      * @param tblName Table name.
+     * @param requiredColunms columns in projection.
      * @return Matcher.
      */
     public static Matcher<String> containsProject(String schema, String tblName, int... requiredColunms) {
@@ -92,10 +93,11 @@ public abstract class QueryChecker {
     }
 
     /**
-     * Ignite table scan with projects unmatcher.
+     * Ignite table scan with only one project matcher.
      *
      * @param schema  Schema name.
      * @param tblName Table name.
+     * @param requiredColunms columns in projection.
      * @return Matcher.
      */
     public static Matcher<String> containsOneProject(String schema, String tblName, int... requiredColunms) {
@@ -145,7 +147,7 @@ public abstract class QueryChecker {
         };
     }
 
-    /** */
+    /** Matches only one occurance. */
     public static Matcher<String> matchesOnce(final String substring) {
         return new SubstringMatcher(substring) {
             /** {@inheritDoc} */
