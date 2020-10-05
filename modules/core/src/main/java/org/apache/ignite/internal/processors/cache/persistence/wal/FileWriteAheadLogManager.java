@@ -1060,6 +1060,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 // Bump up the oldest archive segment index.
                 if (segmentAware.lastTruncatedArchiveIdx() < desc.idx)
                     segmentAware.lastTruncatedArchiveIdx(desc.idx);
+
+                cctx.kernalContext().encryption().onWalSegmentRemoved(desc.idx);
             }
         }
 
@@ -1083,6 +1085,11 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     @Override public void notchLastCheckpointPtr(WALPointer ptr) {
         if (compressor != null)
             segmentAware.keepUncompressedIdxFrom(ptr.index());
+    }
+
+    /** {@inheritDoc} */
+    @Override public long currentSegment() {
+        return segmentAware.curAbsWalIdx();
     }
 
     /** {@inheritDoc} */

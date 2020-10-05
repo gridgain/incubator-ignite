@@ -17,44 +17,36 @@
 
 package org.apache.ignite.internal.pagemem.wal.record;
 
+import java.util.Map;
+
 /**
- * Encrypted record from WAL.
- * That types of record returned from a {@code RecordDataSerializer} on offline WAL iteration.
+ * Logical record to restart reencryption with the latest encryption key.
  */
-public class EncryptedRecord extends WALRecord implements WalRecordCacheGroupAware {
-    /**
-     * Group id.
-     */
-    private int grpId;
+public class ReencryptionStartRecord extends WALRecord {
+    /** Map of reencrypted cache groups with encryption key identifiers. */
+    private final Map<Integer, Byte> grps;
 
     /**
-     * Type of plain record.
+     * @param grps Map of reencrypted cache groups with encryption key identifiers.
      */
-    private RecordType plainRecType;
+    public ReencryptionStartRecord(Map<Integer, Byte> grps) {
+        this.grps = grps;
+    }
 
     /**
-     * @param grpId Group id
-     * @param plainRecType Plain record type.
+     * @return Map of reencrypted cache groups with encryption key identifiers.
      */
-    public EncryptedRecord(int grpId, RecordType plainRecType) {
-        this.grpId = grpId;
-        this.plainRecType = plainRecType;
+    public Map<Integer, Byte> groups() {
+        return grps;
     }
 
     /** {@inheritDoc} */
     @Override public RecordType type() {
-        return RecordType.ENCRYPTED_RECORD_V2;
+        return RecordType.REENCRYPTION_START_RECORD;
     }
 
-    /** {@inheritDoc} */
-    @Override public int groupId() {
-        return grpId;
-    }
-
-    /**
-     * @return Type of plain record.
-     */
-    public RecordType plainRecordType() {
-        return plainRecType;
+    /** @return Record data size. */
+    public int dataSize() {
+        return 4 + ((/*grpId*/4 + /*keyId*/1) * grps.size());
     }
 }
