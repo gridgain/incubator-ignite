@@ -40,6 +40,8 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
@@ -53,21 +55,21 @@ import static org.apache.ignite.internal.processors.query.calcite.util.RexUtils.
  */
 public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableScan> extends RelOptRule {
     /** Instance. */
-    public static final FilterScanMergeRule<IgniteIndexScan> INDEX_SCAN =
-        new FilterScanMergeRule<IgniteIndexScan>(LogicalFilter.class, IgniteIndexScan.class, "FilterIndexScanMergeRule") {
+    public static final FilterScanMergeRule<IgniteLogicalIndexScan> INDEX_SCAN =
+        new FilterScanMergeRule<IgniteLogicalIndexScan>(LogicalFilter.class, IgniteLogicalIndexScan.class, "FilterIndexScanMergeRule") {
             /** {@inheritDoc} */
-            @Override protected IgniteIndexScan createNode(RelOptCluster cluster, IgniteIndexScan scan, RexNode cond) {
-                return new IgniteIndexScan(cluster, scan.getTraitSet(), scan.getTable(), scan.indexName(),
+            @Override protected IgniteLogicalIndexScan createNode(RelOptCluster cluster, IgniteLogicalIndexScan scan, RexNode cond) {
+                return new IgniteLogicalIndexScan(cluster, scan.getTraitSet(), scan.getTable(), scan.indexName(),
                     scan.projects(), cond, scan.requiredColunms());
             }
         };
 
     /** Instance. */
-    public static final FilterScanMergeRule<IgniteTableScan> TABLE_SCAN =
-        new FilterScanMergeRule<IgniteTableScan>(LogicalFilter.class, IgniteTableScan.class, "FilterTableScanMergeRule") {
+    public static final FilterScanMergeRule<IgniteLogicalTableScan> TABLE_SCAN =
+        new FilterScanMergeRule<IgniteLogicalTableScan>(LogicalFilter.class, IgniteLogicalTableScan.class, "FilterTableScanMergeRule") {
             /** {@inheritDoc} */
-            @Override protected IgniteTableScan createNode(RelOptCluster cluster, IgniteTableScan scan, RexNode cond) {
-                return new IgniteTableScan(cluster, scan.getTraitSet(), scan.getTable(), scan.projects(), cond, scan.requiredColunms());
+            @Override protected IgniteLogicalTableScan createNode(RelOptCluster cluster, IgniteLogicalTableScan scan, RexNode cond) {
+                return new IgniteLogicalTableScan(cluster, scan.getTraitSet(), scan.getTable(), scan.projects(), cond, scan.requiredColunms());
             }
         };
 

@@ -28,6 +28,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
 import org.apache.ignite.internal.util.typedef.F;
 
@@ -40,11 +41,11 @@ public class ExposeIndexRule extends RelOptRule {
 
     /** */
     public ExposeIndexRule() {
-        super(operandJ(IgniteTableScan.class, null, ExposeIndexRule::preMatch, any()));
+        super(operandJ(IgniteLogicalTableScan.class, null, ExposeIndexRule::preMatch, any()));
     }
 
     /** */
-    private static boolean preMatch(IgniteTableScan scan) {
+    private static boolean preMatch(IgniteLogicalTableScan scan) {
         return scan.simple() // was not modified by ProjectScanMergeRule or FilterScanMergeRule
             && scan.getTable().unwrap(IgniteTable.class).indexes().size() > 1; // has indexes to expose
     }

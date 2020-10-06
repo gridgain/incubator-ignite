@@ -29,6 +29,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
+/** */
 public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     /**
      * Constructor used for deserialization.

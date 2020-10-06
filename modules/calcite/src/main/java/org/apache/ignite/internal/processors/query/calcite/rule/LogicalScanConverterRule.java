@@ -21,20 +21,25 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
 /** */
-public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTableScan> extends AbstractIgniteConverterRule<IgniteTableScan> {
+public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTableScan>
+    extends AbstractIgniteConverterRule<ProjectableFilterableTableScan> {
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteIndexScan> LOGICAL_TO_INDEX_SCAN =
-        new LogicalScanConverterRule<IgniteIndexScan>(LogicalFilter.class, IgniteIndexScan.class,
+        new LogicalScanConverterRule<IgniteIndexScan>(IgniteLogicalIndexScan.class, IgniteIndexScan.class,
             "LogicalConverterIndexScanRule") {
             /** {@inheritDoc} */
             @Override protected IgniteIndexScan createNode(RelOptCluster cluster, IgniteIndexScan scan, RexNode cond) {
@@ -45,7 +50,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteTableScan> LOGICAL_TO_TABLE_SCAN =
-        new LogicalScanConverterRule<IgniteTableScan>(LogicalFilter.class, IgniteTableScan.class,
+        new LogicalScanConverterRule<IgniteTableScan>(IgniteLogicalTableScan.class, IgniteTableScan.class,
             "LogicalConverterTableScanRule") {
             /** {@inheritDoc} */
             @Override protected IgniteTableScan createNode(RelOptCluster cluster, IgniteTableScan scan, RexNode cond) {
@@ -60,24 +65,32 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
      * @param desc Description, or null to guess description
      */
     private LogicalScanConverterRule(Class<? extends RelNode> clazz, Class<T> tableClass, String desc) {
-        super(IgniteTableScan.class);
+        super(ProjectableFilterableTableScan.class);
     }
 
     /** */
     protected abstract T createNode(RelOptCluster cluster, T scan, RexNode cond);
 
     /** */
-    protected LogicalScanConverterRule(Class<IgniteTableScan> clazz) {
+    protected LogicalScanConverterRule(Class<IgniteLogicalIndexScan> clazz) {
         super(clazz);
     }
 
+
     /** */
-    @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, IgniteTableScan rel) {
+    @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, ProjectableFilterableTableScan rel) {
         RelOptCluster cluster = rel.getCluster();
-        RelTraitSet traitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
-            .replace(rel.distribution())
-            .replace(rel.rewindability())
-            .replace(rel.collation());
+
+        RelTraitSet traitSet = rel.getTraitSet();
+
+        RelDistribution distr = traitSet.getDistribution();
+
+        RelCollation coll = traitSet.getCollation();
+
+        RelTraitSet igniteTraitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
+            .replace(distr)
+            .replace(RewindabilityTrait.REWINDABLE)
+            .replace(coll);
 
         return createNode(traitSet);
     }
