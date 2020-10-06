@@ -89,8 +89,8 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     }
 
     /** {@inheritDoc} */
-    @Override public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet usedColumns) {
-        return desc.rowType((IgniteTypeFactory)typeFactory, usedColumns);
+    @Override public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns) {
+        return desc.rowType((IgniteTypeFactory)typeFactory, requiredColumns);
     }
 
     /** {@inheritDoc} */

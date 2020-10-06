@@ -33,8 +33,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
-import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
@@ -48,7 +46,7 @@ import static org.apache.ignite.internal.processors.query.calcite.util.RexUtils.
 /** */
 public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableScan> extends RelOptRule {
     /** Instance. */
-    public static final ProjectScanMergeRule<IgniteIndexScan> INDEX_SCAN =
+    public static final ProjectScanMergeRule<IgniteLogicalIndexScan> INDEX_SCAN =
         new ProjectScanMergeRule<IgniteLogicalIndexScan>(
             LogicalProject.class,
             IgniteLogicalIndexScan.class,

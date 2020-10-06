@@ -75,8 +75,15 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
         super(cluster, traits, ImmutableList.of(), tbl, proj, cond, requiredColunms);
     }
 
-    /** Creates a IgniteIndexScan. */
+    /** Creates a IgniteTableScan. */
     public static IgniteTableScan create(IgniteLogicalTableScan logicalTblScan, RelTraitSet traitSet) {
-        return new IgniteTableScan
+        RelOptCluster cluster = logicalTblScan.getCluster();
+        RelTraitSet traits = logicalTblScan.getTraitSet();
+        RelOptTable tbl = logicalTblScan.getTable();
+        List<RexNode> proj = logicalTblScan.projects();
+        RexNode cond = logicalTblScan.condition();
+        ImmutableBitSet reqColumns = logicalTblScan.requiredColunms();
+
+        return new IgniteTableScan(cluster, traits, tbl, proj, cond, reqColumns);
     }
 }

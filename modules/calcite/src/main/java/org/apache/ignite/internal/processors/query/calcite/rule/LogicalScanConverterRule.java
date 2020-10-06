@@ -25,7 +25,6 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
@@ -42,9 +41,9 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
         new LogicalScanConverterRule<IgniteIndexScan>(IgniteLogicalIndexScan.class, IgniteIndexScan.class,
             "LogicalConverterIndexScanRule") {
             /** {@inheritDoc} */
-            @Override protected IgniteIndexScan createNode(RelOptCluster cluster, IgniteIndexScan scan, RexNode cond) {
-                return new IgniteIndexScan(cluster, scan.getTraitSet(), scan.getTable(), scan.indexName(),
-                    scan.projects(), cond, scan.requiredColunms());
+            @Override protected IgniteIndexScan createNode(ProjectableFilterableTableScan rel, RelTraitSet traits) {
+                return new IgniteIndexScan(rel.getCluster(), traits, rel.getTable(), rel.indexName(),
+                    rel.projects(), rel.condition(), rel.requiredColunms());
             }
         };
 
@@ -53,8 +52,9 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
         new LogicalScanConverterRule<IgniteTableScan>(IgniteLogicalTableScan.class, IgniteTableScan.class,
             "LogicalConverterTableScanRule") {
             /** {@inheritDoc} */
-            @Override protected IgniteTableScan createNode(RelOptCluster cluster, IgniteTableScan scan, RexNode cond) {
-                return new IgniteTableScan(cluster, scan.getTraitSet(), scan.getTable(), scan.projects(), cond, scan.requiredColunms());
+            @Override protected IgniteTableScan createNode(ProjectableFilterableTableScan rel, RelTraitSet traits) {
+                return new IgniteTableScan(rel.getCluster(), traits, rel.getTable(), rel.projects(), rel.condition(),
+                    rel.requiredColunms());
             }
         };
 
@@ -69,13 +69,12 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
     }
 
     /** */
-    protected abstract T createNode(RelOptCluster cluster, T scan, RexNode cond);
+    protected abstract PhysicalNode createNode(ProjectableFilterableTableScan rel, RelTraitSet traits);
 
     /** */
-    protected LogicalScanConverterRule(Class<IgniteLogicalIndexScan> clazz) {
+    protected LogicalScanConverterRule(Class<ProjectableFilterableTableScan> clazz) {
         super(clazz);
     }
-
 
     /** */
     @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, ProjectableFilterableTableScan rel) {
@@ -92,6 +91,6 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
             .replace(RewindabilityTrait.REWINDABLE)
             .replace(coll);
 
-        return createNode(traitSet);
+        return createNode(rel, igniteTraitSet);
     }
 }

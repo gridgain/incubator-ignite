@@ -82,7 +82,21 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
 
     /** Creates a IgniteIndexScan. */
     public static IgniteIndexScan create(IgniteLogicalIndexScan logicalIdxScan, RelTraitSet traitSet) {
-        return new IgniteIndexScan
+        RelOptCluster cluster = logicalIdxScan.getCluster();
+        RelTraitSet traits = logicalIdxScan.getTraitSet();
+        RelOptTable tbl = logicalIdxScan.getTable();
+        List<RexNode> proj = logicalIdxScan.projects();
+        RexNode cond = logicalIdxScan.condition();
+        ImmutableBitSet reqColumns = logicalIdxScan.requiredColunms();
+        String indexName = logicalIdxScan.indexName();
+
+        IgniteIndexScan idxScan = new IgniteIndexScan(cluster, traits, tbl, indexName, proj, cond, reqColumns);
+
+        idxScan.lowerIndexCondition(logicalIdxScan.lowerIndexCondition());
+        idxScan.upperIndexCondition(logicalIdxScan.upperIndexCondition());
+        idxScan.indexSelectivity(logicalIdxScan.indexSelectivity());
+
+        return idxScan;
     }
 
     /**
@@ -133,8 +147,7 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
         @Nullable RexNode cond,
         @Nullable ImmutableBitSet requiredColunms
     ) {
-        super(cluster, traits, ImmutableList.of(), tbl, proj, cond,
-            requiredColunms);
+        super(cluster, traits, ImmutableList.of(), tbl, proj, cond, requiredColunms);
 
         this.idxName = idxName;
         RelCollation coll = TraitUtils.collation(traits);
@@ -325,5 +338,24 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
      */
     public double indexSelectivity() {
         return idxSelectivity;
+    }
+
+    /** */
+    public String indexName() {
+        return idxName;
+    }
+
+    /**
+     * @return Lower index condition.
+     */
+    public List<RexNode> lowerIndexCondition() {
+        return lowerIdxCond;
+    }
+
+    /**
+     * @return Upper index condition.
+     */
+    public List<RexNode> upperIndexCondition() {
+        return upperIdxCond;
     }
 }

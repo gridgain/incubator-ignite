@@ -151,6 +151,7 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
 
     /** Visitor for replacing input refs to local refs. We need it for proper plan serialization. */
     private static class InputRefReplacer extends RexShuttle {
+        /** {@inheritDoc} */
         @Override public RexNode visitInputRef(RexInputRef inputRef) {
             return new RexLocalRef(inputRef.getIndex(), inputRef.getType());
         }

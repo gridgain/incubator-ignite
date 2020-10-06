@@ -54,9 +54,9 @@ public interface IgniteTable extends TranslatableTable {
      * Returns new type according {@code usedClumns} param.
      *
      * @param typeFactory Factory.
-     * @param usedColumns Used columns enumeration.
+     * @param requiredColumns Used columns enumeration.
      */
-    RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet usedColumns);
+    RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
 
     /** {@inheritDoc} */
     @Override default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
