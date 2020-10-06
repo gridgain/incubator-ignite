@@ -55,7 +55,6 @@ public enum PlannerPhase {
         /** {@inheritDoc} */
         @Override public RuleSet getRules(PlanningContext ctx) {
             return RuleSets.ofList(
-                ValuesConverterRule.INSTANCE,
                 SubQueryRemoveRule.FILTER,
                 SubQueryRemoveRule.PROJECT,
                 SubQueryRemoveRule.JOIN);
@@ -72,6 +71,7 @@ public enum PlannerPhase {
         /** {@inheritDoc} */
         @Override public RuleSet getRules(PlanningContext ctx) {
             return RuleSets.ofList(
+                ValuesConverterRule.INSTANCE,
                 ExposeIndexRule.INSTANCE,
                 AggregateConverterRule.INSTANCE,
                 NestedLoopJoinConverterRule.INSTANCE,

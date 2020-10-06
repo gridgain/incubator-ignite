@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import com.google.common.collect.ImmutableList;
+import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
@@ -50,6 +51,8 @@ import org.apache.ignite.internal.processors.query.calcite.prepare.PlanningConte
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
@@ -102,22 +105,22 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {
-        RelTraitSet traitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
+    @Override public IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {
+        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
             .replace(distribution())
             .replace(RewindabilityTrait.REWINDABLE);
 
-        return new IgniteTableScan(cluster, traitSet, relOptTbl);
+        return new IgniteLogicalTableScan(cluster, traitSet, relOptTbl);
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        RelTraitSet traitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
+    @Override public IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
+        RelTraitSet traitSet = cluster.traitSetOf(IgniteConvention.Impl.NONE)
             .replace(distribution())
             .replace(RewindabilityTrait.REWINDABLE)
             .replace(getIndex(idxName).collation());
 
-        return new IgniteIndexScan(cluster, traitSet, relOptTbl, idxName);
+        return new IgniteLogicalIndexScan(cluster, traitSet, relOptTbl, idxName);
     }
 
     /** {@inheritDoc} */
