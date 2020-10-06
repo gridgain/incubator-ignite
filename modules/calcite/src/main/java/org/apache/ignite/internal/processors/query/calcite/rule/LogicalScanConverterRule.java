@@ -29,8 +29,6 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
-import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
-import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
 /** */
@@ -38,8 +36,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
     extends AbstractIgniteConverterRule<ProjectableFilterableTableScan> {
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteIndexScan> LOGICAL_TO_INDEX_SCAN =
-        new LogicalScanConverterRule<IgniteIndexScan>(IgniteLogicalIndexScan.class, IgniteIndexScan.class,
-            "LogicalConverterIndexScanRule") {
+        new LogicalScanConverterRule<IgniteIndexScan>(ProjectableFilterableTableScan.class) {
             /** {@inheritDoc} */
             @Override protected IgniteIndexScan createNode(ProjectableFilterableTableScan rel, RelTraitSet traits) {
                 return new IgniteIndexScan(rel.getCluster(), traits, rel.getTable(), rel.indexName(),
@@ -49,24 +46,13 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteTableScan> LOGICAL_TO_TABLE_SCAN =
-        new LogicalScanConverterRule<IgniteTableScan>(IgniteLogicalTableScan.class, IgniteTableScan.class,
-            "LogicalConverterTableScanRule") {
+        new LogicalScanConverterRule<IgniteTableScan>(ProjectableFilterableTableScan.class) {
             /** {@inheritDoc} */
             @Override protected IgniteTableScan createNode(ProjectableFilterableTableScan rel, RelTraitSet traits) {
                 return new IgniteTableScan(rel.getCluster(), traits, rel.getTable(), rel.projects(), rel.condition(),
                     rel.requiredColunms());
             }
         };
-
-    /**
-     * Constructor.
-     *
-     * @param clazz Class of relational expression to match.
-     * @param desc Description, or null to guess description
-     */
-    private LogicalScanConverterRule(Class<? extends RelNode> clazz, Class<T> tableClass, String desc) {
-        super(ProjectableFilterableTableScan.class);
-    }
 
     /** */
     protected abstract PhysicalNode createNode(ProjectableFilterableTableScan rel, RelTraitSet traits);
