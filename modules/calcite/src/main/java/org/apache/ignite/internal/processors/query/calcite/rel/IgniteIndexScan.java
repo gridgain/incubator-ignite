@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
+import java.util.ArrayList;
 import java.util.List;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollationTraitDef;
@@ -30,6 +32,11 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
@@ -37,7 +44,10 @@ import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.util.typedef.F;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.calcite.rex.RexUtil.removeCast;
 import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
+import static org.apache.ignite.internal.processors.query.calcite.util.RexUtils.idxOpSupports;
+import static org.apache.ignite.internal.processors.query.calcite.util.RexUtils.makeCast;
 
 /**
  * Relational operator that returns the contents of a table.
@@ -161,12 +171,52 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
 
     /** */
     public List<RexNode> lowerIndexCondition() {
-        return lowerIdxCond;
+        if (F.isEmpty(lowerIdxCond))
+            return null;
+
+        return buildIndexCondition(lowerIdxCond);
     }
 
     /** */
     public List<RexNode> upperIndexCondition() {
-        return upperIdxCond;
+        if (F.isEmpty(upperIdxCond))
+            return null;
+
+        return buildIndexCondition(upperIdxCond);
+    }
+
+    /** */
+    public List<RexNode> buildIndexCondition(Iterable<RexNode> idxCond) {
+        List<RexNode> res = makeListOfNullLiterals(rowType);
+        List<RelDataType> fieldTypes = RelOptUtil.getFieldTypeList(rowType);
+        RexBuilder rexBuilder = getCluster().getRexBuilder();
+
+        for (RexNode pred : idxCond) {
+            assert pred instanceof RexCall;
+
+            RexCall call = (RexCall)pred;
+            RexLocalRef ref = (RexLocalRef)removeCast(call.operands.get(0));
+            RexNode cond = removeCast(call.operands.get(1));
+
+            assert idxOpSupports(cond) : cond;
+
+            res.set(ref.getIndex(), makeCast(rexBuilder, fieldTypes.get(ref.getIndex()), cond));
+        }
+
+        return res;
+    }
+
+    /** */
+    private List<RexNode> makeListOfNullLiterals(RelDataType rowType) {
+        assert rowType.isStruct();
+
+        RexBuilder builder = getCluster().getRexBuilder();
+
+        List<RexNode> list = new ArrayList<>(rowType.getFieldCount());
+        for (RelDataTypeField field : rowType.getFieldList())
+            list.add(builder.makeNullLiteral(field.getType()));
+
+        return list;
     }
 
     /** */

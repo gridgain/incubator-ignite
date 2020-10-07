@@ -317,7 +317,7 @@ public class RexUtils {
     }
 
     /** */
-    private static boolean idxOpSupports(RexNode op) {
+    public static boolean idxOpSupports(RexNode op) {
         return op instanceof RexLiteral
             || op instanceof RexDynamicParam
             || op instanceof RexFieldAccess;
