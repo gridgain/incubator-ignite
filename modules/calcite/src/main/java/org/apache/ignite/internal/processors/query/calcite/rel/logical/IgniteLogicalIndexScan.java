@@ -50,14 +50,13 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
     /** Creates a IgniteIndexScan. */
     public static IgniteIndexScan create(IgniteLogicalIndexScan logicalIdxScan, RelTraitSet traitSet) {
         RelOptCluster cluster = logicalIdxScan.getCluster();
-        RelTraitSet traits = logicalIdxScan.getTraitSet();
         RelOptTable tbl = logicalIdxScan.getTable();
         List<RexNode> proj = logicalIdxScan.projects();
         RexNode cond = logicalIdxScan.condition();
         ImmutableBitSet reqColumns = logicalIdxScan.requiredColunms();
         String indexName = logicalIdxScan.indexName();
 
-        RelCollation coll = TraitUtils.collation(traits);
+        RelCollation coll = TraitUtils.collation(traitSet);
         RelCollation collation = coll == null ? RelCollationTraitDef.INSTANCE.getDefault() : coll;
 
         List<RexNode> lowerIdxCond = new ArrayList<>(tbl.getRowType().getFieldCount());
