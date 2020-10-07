@@ -151,14 +151,14 @@ public class RexUtils {
      */
     public static double buildIndexConditions(RexNode condition, RelCollation collation, RelOptCluster cluster,
                                             List<RexNode> lowerIdxCond, List<RexNode> upperIdxCond) {
+        double selectivity = 1.0;
+
         if (!boundsArePossible(condition, collation, cluster))
-            return 0;
+            return selectivity;
 
         assert condition != null;
 
         Map<Integer, List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
-
-        double selectivity = 1.0;
 
         for (int i = 0; i < collation.getFieldCollations().size(); i++) {
             RelFieldCollation fc = collation.getFieldCollations().get(i);
