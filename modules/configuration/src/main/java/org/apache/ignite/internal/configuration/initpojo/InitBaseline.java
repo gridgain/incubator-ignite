@@ -1,7 +1,7 @@
 package org.apache.ignite.internal.configuration.initpojo;
 
-import java.util.List;
 import org.apache.ignite.internal.configuration.setpojo.Builder;
+import org.apache.ignite.internal.configuration.setpojo.NList;
 
 import static org.apache.ignite.internal.configuration.Keys.AUTO_ADJUST;
 import static org.apache.ignite.internal.configuration.Keys.NODE;
@@ -19,7 +19,7 @@ public class InitBaseline extends Builder {
         return this;
     }
 
-    public InitBaseline with(List<InitNode> nodes){
+    public InitBaseline with(NList<InitNode> nodes){
         changes.put(NODE, nodes);
 
         return this;

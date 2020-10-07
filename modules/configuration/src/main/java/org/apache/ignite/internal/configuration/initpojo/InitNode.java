@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.configuration.initpojo;
 
-import org.apache.ignite.internal.configuration.setpojo.NamedBuilder;
+import org.apache.ignite.internal.configuration.setpojo.Builder;
+import org.apache.ignite.internal.configuration.setpojo.NList;
 
 import static org.apache.ignite.internal.configuration.Keys.CONSISTENT_ID;
 import static org.apache.ignite.internal.configuration.Keys.PORT;
@@ -11,11 +12,7 @@ import static org.apache.ignite.internal.configuration.Keys.PORT;
  * @author @java.author
  * @version @java.version
  */
-public class InitNode extends NamedBuilder {
-
-    public InitNode(String name) {
-        super(name);
-    }
+public class InitNode extends Builder {
 
     public InitNode port(int port){
         changes.put(PORT, port);
@@ -29,7 +26,11 @@ public class InitNode extends NamedBuilder {
         return this;
     }
 
-    public static InitNode initNode(String name){
-        return new InitNode(name);
+    public static InitNode initNode(){
+        return new InitNode();
+    }
+
+    public static NList<InitNode> initNodes() {
+        return new NList<>();
     }
 }

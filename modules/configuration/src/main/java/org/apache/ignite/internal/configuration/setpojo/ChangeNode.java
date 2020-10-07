@@ -8,11 +8,7 @@ import static org.apache.ignite.internal.configuration.Keys.PORT;
  * @author @java.author
  * @version @java.version
  */
-public class ChangeNode extends NamedBuilder {
-
-    public ChangeNode(String name) {
-        super(name);
-    }
+public class ChangeNode extends Builder {
 
     public ChangeNode port(int port){
         changes.put(PORT, port);
@@ -20,7 +16,11 @@ public class ChangeNode extends NamedBuilder {
         return this;
     }
 
-    public static ChangeNode changeNode(String name){
-        return new ChangeNode(name);
+    public static ChangeNode changeNode(){
+        return new ChangeNode();
+    }
+
+    public static NList<ChangeNode> changeNodes() {
+        return new NList<>();
     }
 }

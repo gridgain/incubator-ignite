@@ -1,7 +1,5 @@
 package org.apache.ignite.internal.configuration.setpojo;
 
-import java.util.List;
-
 import static org.apache.ignite.internal.configuration.Keys.AUTO_ADJUST;
 import static org.apache.ignite.internal.configuration.Keys.NODE;
 
@@ -18,7 +16,7 @@ public class ChangeBaseline extends Builder {
         return this;
     }
 
-    public ChangeBaseline with(List<ChangeNode> nodes){
+    public ChangeBaseline with(NList<ChangeNode> nodes){
         changes.put(NODE, nodes);
 
         return this;

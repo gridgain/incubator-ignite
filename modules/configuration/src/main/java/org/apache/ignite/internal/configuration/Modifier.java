@@ -8,7 +8,11 @@ package org.apache.ignite.internal.configuration;
  */
 public interface Modifier<T> {
 
+    String key();
+
     T toView();
 
-    void updateValue(Object newValue);
+    Modifier<T> find(String key);
+
+    void updateValue(String key, Object newValue);
 }

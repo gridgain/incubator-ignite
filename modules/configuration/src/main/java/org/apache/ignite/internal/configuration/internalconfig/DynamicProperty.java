@@ -1,6 +1,5 @@
 package org.apache.ignite.internal.configuration.internalconfig;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import com.sun.istack.internal.NotNull;
 import org.apache.ignite.internal.configuration.ConfigTreeVisitor;
@@ -37,16 +36,18 @@ public class DynamicProperty<T> implements Modifier<T> {
         return val;
     }
 
-    @Override public void updateValue(Object object) {
-        if (object instanceof Map) {
-            Map<String, Object> values = (Map<String, Object>) object;
-            if(values.containsKey(name))
-                val = (T)values.get(name);
-        } else {
-            if(object != null)
-                val = (T)object;
-        }
+    @Override public Modifier<T> find(String key) {
+        if(key.equals(name))
+            return this;
 
+        return null;
+    }
+
+    @Override public void updateValue(String key, Object object) {
+        if(!name.equals(key))
+            throw new IllegalArgumentException();
+
+        val = (T)object;
     }
 
     public String key() {

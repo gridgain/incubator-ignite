@@ -1,9 +1,8 @@
 package org.apache.ignite.internal.configuration;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.internal.configuration.internalconfig.LocalConfiguration;
 import org.apache.ignite.internal.configuration.selector.Selector;
+import org.apache.ignite.internal.configuration.setpojo.Builder;
 
 /**
  * TODO: Add class description.
@@ -13,38 +12,38 @@ import org.apache.ignite.internal.configuration.selector.Selector;
  */
 public class Configurator {
 
-    Map<String, Modifier> map = new HashMap<>();
+    LocalConfiguration local = new LocalConfiguration();
 
     public Configurator() {
         LocalConfiguration local = new LocalConfiguration();
 
-        ConfigTreeVisitor visitor = new ConfigTreeVisitor();
-
-        local.accept("", visitor);
-
-        this.map = visitor.result();
+//        ConfigTreeVisitor visitor = new ConfigTreeVisitor();
+//
+//        local.accept("", visitor);
+//
+//        this.map = visitor.result();
     }
 
     public <O, C, I, In> O getPublic(Selector<O, C, I, In> selector) {
-        return (O)(map.get(selector.key()).toView());
+        return (O)(local.find(selector.key()).toView());
     }
 
     public <O, C, I, In> void set(Selector<O, C, I, In> selector, C newValue) {
-        Map<String, Object> wrap = new HashMap<>();
-        wrap.put(selector.key(), newValue);
-
-        map.get(selector.key()).updateValue(wrap);
+        if(newValue instanceof Builder)
+            ((Builder)newValue).patch().forEach((key, value) -> local.updateValue(Keys.concat(selector.key(), key), value));
+        else
+            local.updateValue(selector.key(), newValue);
     }
 
     public <O, C, I, In> void init(Selector<O, C, I, In> selector, I newValue) {
-        Map<String, Object> wrap = new HashMap<>();
-        wrap.put(selector.key(), newValue);
-
-        map.get(selector.key()).updateValue(wrap);
+        if(newValue instanceof Builder)
+            ((Builder)newValue).patch().forEach((key, value) -> local.updateValue(Keys.concat(selector.key(), key), value));
+        else
+            local.updateValue(selector.key(), newValue);
     }
 
     public <O, C, I, In> In getInternal(Selector<O, C, I, In> selector) {
-        return (In)(map.get(selector.key()));
+        return (In)(local.find(selector.key()));
     }
 
 }
