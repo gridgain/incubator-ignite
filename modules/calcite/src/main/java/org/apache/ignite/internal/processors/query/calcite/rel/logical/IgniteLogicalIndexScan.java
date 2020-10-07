@@ -156,6 +156,7 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
         collation = coll == null ? RelCollationTraitDef.INSTANCE.getDefault() : coll;
         lowerIdxCond = new ArrayList<>(getRowType().getFieldCount());
         upperIdxCond = new ArrayList<>(getRowType().getFieldCount());
+
         buildIndexConditions();
     }
 

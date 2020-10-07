@@ -37,8 +37,7 @@ public abstract class LogicalIndexScanConverterRule<T extends IgniteLogicalIndex
         new LogicalIndexScanConverterRule<IgniteLogicalIndexScan>(IgniteLogicalIndexScan.class) {
             /** {@inheritDoc} */
             @Override protected IgniteIndexScan createNode(IgniteLogicalIndexScan rel, RelTraitSet traits) {
-                return new IgniteIndexScan(rel.getCluster(), traits, rel.getTable(), rel.indexName(),
-                    rel.projects(), rel.condition(), rel.requiredColunms(), rel.lowerIndexCondition(), rel.upperIndexCondition());
+                return IgniteLogicalIndexScan.create(rel, traits);
             }
         };
 
