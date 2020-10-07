@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
 import static org.apache.ignite.internal.processors.query.calcite.util.RexUtils.buildIndexConditions;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
@@ -35,6 +36,7 @@ import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
@@ -63,7 +65,7 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
 
         double idxSelectivity = buildIndexConditions(cond, collation, cluster, lowerIdxCond, upperIdxCond);
 
-        IgniteIndexScan idxScan = new IgniteIndexScan(cluster, traits, tbl, indexName, proj, cond, reqColumns,
+        IgniteIndexScan idxScan = new IgniteIndexScan(cluster, traitSet, tbl, indexName, proj, cond, reqColumns,
             lowerIdxCond, upperIdxCond, idxSelectivity);
 
         return idxScan;

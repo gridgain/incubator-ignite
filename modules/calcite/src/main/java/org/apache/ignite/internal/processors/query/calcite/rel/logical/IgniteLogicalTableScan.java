@@ -18,13 +18,16 @@
 package org.apache.ignite.internal.processors.query.calcite.rel.logical;
 
 import java.util.List;
+import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
 import com.google.common.collect.ImmutableList;
+import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +41,7 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
      */
     public IgniteLogicalTableScan(RelInput input) {
         //super(changeTraits(input, IgniteConvention.INSTANCE));
+        //super(changeTraits(input, Convention.NONE));
         super(input);
     }
 
@@ -78,12 +82,11 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     /** Creates a IgniteTableScan. */
     public static IgniteTableScan create(IgniteLogicalTableScan logicalTblScan, RelTraitSet traitSet) {
         RelOptCluster cluster = logicalTblScan.getCluster();
-        RelTraitSet traits = logicalTblScan.getTraitSet();
         RelOptTable tbl = logicalTblScan.getTable();
         List<RexNode> proj = logicalTblScan.projects();
         RexNode cond = logicalTblScan.condition();
         ImmutableBitSet reqColumns = logicalTblScan.requiredColunms();
 
-        return new IgniteTableScan(cluster, traits, tbl, proj, cond, reqColumns);
+        return new IgniteTableScan(cluster, traitSet, tbl, proj, cond, reqColumns);
     }
 }

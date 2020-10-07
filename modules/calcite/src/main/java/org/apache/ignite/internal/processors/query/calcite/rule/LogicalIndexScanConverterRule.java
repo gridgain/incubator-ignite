@@ -36,13 +36,13 @@ public abstract class LogicalIndexScanConverterRule<T extends IgniteLogicalIndex
     public static final LogicalIndexScanConverterRule<IgniteLogicalIndexScan> LOGICAL_TO_INDEX_SCAN =
         new LogicalIndexScanConverterRule<IgniteLogicalIndexScan>(IgniteLogicalIndexScan.class) {
             /** {@inheritDoc} */
-            @Override protected IgniteIndexScan createNode(IgniteLogicalIndexScan rel, RelTraitSet traits) {
-                return IgniteLogicalIndexScan.create(rel, traits);
+            @Override protected IgniteIndexScan createNode(IgniteLogicalIndexScan rel) {
+                return IgniteLogicalIndexScan.create(rel, rel.getTraitSet().replace(IgniteConvention.INSTANCE));
             }
         };
 
     /** */
-    protected abstract PhysicalNode createNode(IgniteLogicalIndexScan rel, RelTraitSet traits);
+    protected abstract PhysicalNode createNode(IgniteLogicalIndexScan rel);
 
     /** */
     protected LogicalIndexScanConverterRule(Class<IgniteLogicalIndexScan> clazz) {
@@ -51,19 +51,6 @@ public abstract class LogicalIndexScanConverterRule<T extends IgniteLogicalIndex
 
     /** */
     @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, IgniteLogicalIndexScan rel) {
-        RelOptCluster cluster = rel.getCluster();
-
-        RelTraitSet traitSet = rel.getTraitSet();
-
-        RelDistribution distr = traitSet.getDistribution();
-
-        RelCollation coll = traitSet.getCollation();
-
-        RelTraitSet igniteTraitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
-            .replace(distr)
-            .replace(RewindabilityTrait.REWINDABLE)
-            .replace(coll);
-
-        return createNode(rel, igniteTraitSet);
+        return createNode(rel);
     }
 }

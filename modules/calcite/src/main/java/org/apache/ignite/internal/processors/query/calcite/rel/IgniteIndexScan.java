@@ -155,4 +155,26 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
 
         return rows;
     }
+
+    /** */
+    public List<RexNode> lowerIndexCondition() {
+        return lowerIdxCond;
+    }
+
+    /** */
+    public List<RexNode> upperIndexCondition() {
+        return upperIdxCond;
+    }
+
+    /** */
+    public String indexName() {
+        return idxName;
+    }
+
+    /**
+     * @return Index selectivity.
+     */
+    public double indexSelectivity() {
+        return idxSelectivity;
+    }
 }

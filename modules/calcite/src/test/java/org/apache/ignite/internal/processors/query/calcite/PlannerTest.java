@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.plan.Contexts;
+import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -87,6 +88,8 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteFilter;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteIndex;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteSchema;
 import org.apache.ignite.internal.processors.query.calcite.schema.IgniteTable;
@@ -2616,9 +2619,9 @@ public class PlannerTest extends GridCommonAbstractTest {
                     "LogicalFilter(condition=[=(CAST(+($0, $1)):INTEGER, 2)])\n" +
                     "  LogicalJoin(condition=[true], joinType=[inner])\n" +
                     "    LogicalProject(DEPTNO=[$0])\n" +
-                    "      IgniteTableScan(table=[[PUBLIC, DEPT]])\n" +
+                    "      IgniteLogicalTableScan(table=[[PUBLIC, DEPT]])\n" +
                     "    LogicalProject(DEPTNO=[$2])\n" +
-                    "      IgniteTableScan(table=[[PUBLIC, EMP]])\n",
+                    "      IgniteLogicalTableScan(table=[[PUBLIC, EMP]])\n",
                 RelOptUtil.toString(rel));
 
             // Transformation chain
@@ -2632,8 +2635,7 @@ public class PlannerTest extends GridCommonAbstractTest {
             assertNotNull(phys);
             assertEquals("IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($0, $1)):INTEGER, 2)], joinType=[inner])\n" +
                     "  IgniteTableScan(table=[[PUBLIC, DEPT]], requiredColunms=[{0}])\n" +
-                    "  IgniteProject(DEPTNO=[$2])\n" +
-                    "    IgniteTableScan(table=[[PUBLIC, EMP]], filters=[=(CAST(+($cor1.DEPTNO, $t2)):INTEGER, 2)])\n",
+                    "  IgniteTableScan(table=[[PUBLIC, EMP]], filters=[=(CAST(+($cor1.DEPTNO, $t0)):INTEGER, 2)], requiredColunms=[{2}])\n",
                 RelOptUtil.toString(phys));
         }
     }
@@ -2688,20 +2690,20 @@ public class PlannerTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public IgniteTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {
-            RelTraitSet traitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
+        @Override public IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl) {
+            RelTraitSet traitSet = cluster.traitSetOf(Convention.NONE)
                 .replaceIf(RewindabilityTraitDef.INSTANCE, () -> RewindabilityTrait.REWINDABLE)
                 .replaceIf(DistributionTraitDef.INSTANCE, this::distribution);
 
-            return new IgniteTableScan(cluster, traitSet, relOptTbl);
+            return new IgniteLogicalTableScan(cluster, traitSet, relOptTbl);
         }
 
         /** {@inheritDoc} */
-        @Override public IgniteIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-            RelTraitSet traitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
+        @Override public IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
+            RelTraitSet traitSet = cluster.traitSetOf(Convention.NONE)
                 .replaceIf(DistributionTraitDef.INSTANCE, this::distribution);
 
-            return new IgniteIndexScan(cluster, traitSet, relOptTbl, idxName);
+            return new IgniteLogicalIndexScan(cluster, traitSet, relOptTbl, idxName);
         }
 
         /** {@inheritDoc} */

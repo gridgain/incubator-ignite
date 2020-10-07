@@ -23,6 +23,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelDistributionTraitDef;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
@@ -36,13 +37,13 @@ public abstract class LogicalTableScanConverterRule<T extends IgniteLogicalTable
     public static final LogicalTableScanConverterRule<IgniteLogicalTableScan> LOGICAL_TO_TABLE_SCAN =
         new LogicalTableScanConverterRule<IgniteLogicalTableScan>(IgniteLogicalTableScan.class) {
             /** {@inheritDoc} */
-            @Override protected IgniteTableScan createNode(IgniteLogicalTableScan rel, RelTraitSet traits) {
-                return IgniteLogicalTableScan.create(rel, traits);
+            @Override protected IgniteTableScan createNode(IgniteLogicalTableScan rel) {
+                return IgniteLogicalTableScan.create(rel, rel.getTraitSet().replace(IgniteConvention.INSTANCE));
             }
         };
 
     /** */
-    protected abstract IgniteTableScan createNode(IgniteLogicalTableScan rel, RelTraitSet traits);
+    protected abstract IgniteTableScan createNode(IgniteLogicalTableScan rel);
 
     /** */
     protected LogicalTableScanConverterRule(Class<IgniteLogicalTableScan> clazz) {
@@ -51,19 +52,6 @@ public abstract class LogicalTableScanConverterRule<T extends IgniteLogicalTable
 
     /** */
     @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, IgniteLogicalTableScan rel) {
-        RelOptCluster cluster = rel.getCluster();
-
-        RelTraitSet traitSet = rel.getTraitSet();
-
-        RelDistribution distr = traitSet.getDistribution();
-
-        RelCollation coll = traitSet.getCollation();
-
-        RelTraitSet igniteTraitSet = cluster.traitSetOf(IgniteConvention.INSTANCE)
-            .replace(distr)
-            .replace(RewindabilityTrait.REWINDABLE)
-            .replace(coll);
-
-        return createNode(rel, igniteTraitSet);
+        return createNode(rel);
     }
 }

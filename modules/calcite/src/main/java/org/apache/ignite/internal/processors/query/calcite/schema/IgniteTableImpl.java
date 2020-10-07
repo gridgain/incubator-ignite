@@ -115,7 +115,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
     /** {@inheritDoc} */
     @Override public IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        RelTraitSet traitSet = cluster.traitSetOf(IgniteConvention.Impl.NONE)
+        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
             .replace(distribution())
             .replace(RewindabilityTrait.REWINDABLE)
             .replace(getIndex(idxName).collation());
