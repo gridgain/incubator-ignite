@@ -92,7 +92,7 @@ public class OrToUnionRuleTest extends GridCommonAbstractTest {
         final CacheConfiguration<Integer, Product> cfg = new CacheConfiguration<>(qryEnt.getTableName());
 
         cfg.setCacheMode(CacheMode.PARTITIONED)
-            .setBackups(1)
+            .setBackups(0)
             .setQueryEntities(singletonList(qryEnt))
             .setSqlSchema("PUBLIC");
 
@@ -122,7 +122,7 @@ public class OrToUnionRuleTest extends GridCommonAbstractTest {
             "FROM products " +
             "WHERE category = 'Video' " +
             "OR subcategory ='Camera Lens'")
-             .matches(containsUnion(true))
+            .matches(containsUnion(true))
             .matches(containsScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
             .matches(containsScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
             .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
