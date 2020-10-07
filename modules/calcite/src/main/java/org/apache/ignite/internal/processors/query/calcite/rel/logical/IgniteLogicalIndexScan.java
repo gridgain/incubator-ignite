@@ -42,6 +42,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** */
 public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
+    /** */
+    private String idxName;
+
     /** Creates a IgniteIndexScan. */
     public static IgniteIndexScan create(IgniteLogicalIndexScan logicalIdxScan, RelTraitSet traitSet) {
         RelOptCluster cluster = logicalIdxScan.getCluster();
@@ -113,80 +116,10 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
         super(cluster, traits, ImmutableList.of(), tbl, proj, cond, requiredColunms);
 
         this.idxName = idxName;
-        RelCollation coll = TraitUtils.collation(traits);
-        collation = coll == null ? RelCollationTraitDef.INSTANCE.getDefault() : coll;
-        lowerIdxCond = new ArrayList<>(getRowType().getFieldCount());
-        upperIdxCond = new ArrayList<>(getRowType().getFieldCount());
-
-        buildIndexConditions();
-    }
-
-    /** */
-    private Map<Integer, List<RexCall>> mapPredicatesToFields() {
-        List<RexNode> predicatesConjunction = RelOptUtil.conjunctions(condition());
-
-        Map<Integer, List<RexCall>> fieldsToPredicates = new HashMap<>(predicatesConjunction.size());
-
-        for (RexNode rexNode : predicatesConjunction) {
-            if (!isBinaryComparison(rexNode))
-                continue;
-
-            RexCall predCall = (RexCall)rexNode;
-            RexLocalRef ref = (RexLocalRef)extractRef(predCall);
-
-            if (ref == null)
-                continue;
-
-            int constraintFldIdx = ref.getIndex();
-
-            List<RexCall> fldPreds = fieldsToPredicates
-                .computeIfAbsent(constraintFldIdx, k -> new ArrayList<>(predicatesConjunction.size()));
-
-            // Let RexLocalRef be on the left side.
-            if (refOnTheRight(predCall))
-                predCall = (RexCall)RexUtil.invert(getCluster().getRexBuilder(), predCall);
-
-            fldPreds.add(predCall);
-        }
-        return fieldsToPredicates;
-    }
-
-    /** */
-    private boolean boundsArePossible() {
-        if (condition() == null)
-            return false;
-
-        RexCall dnf = (RexCall) RexUtil.toDnf(getCluster().getRexBuilder(), condition());
-
-        if (dnf.isA(OR) && dnf.getOperands().size() > 1) // OR conditions are not supported yet.
-            return false;
-
-        return !collation.getFieldCollations().isEmpty();
-    }
-
-    /**
-     * @return Index selectivity.
-     */
-    public double indexSelectivity() {
-        return idxSelectivity;
     }
 
     /** */
     public String indexName() {
         return idxName;
     }
-
-    /**
-     * @return Lower index condition.
-     */
-/*    public List<RexNode> lowerIndexCondition() {
-        return lowerIdxCond;
-    }*/
-
-    /**
-     * @return Upper index condition.
-     */
-/*    public List<RexNode> upperIndexCondition() {
-        return upperIdxCond;
-    }*/
 }

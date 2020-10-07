@@ -83,7 +83,7 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
         RelTraitSet traits,
         RelOptTable tbl,
         String idxName) {
-        this(cluster, traits, tbl, idxName, null, null, null, null, null);
+        this(cluster, traits, tbl, idxName, null, null, null, null, null, 0);
     }
 
     /**
@@ -113,6 +113,7 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
         this.idxName = idxName;
         RelCollation coll = TraitUtils.collation(traits);
         collation = coll == null ? RelCollationTraitDef.INSTANCE.getDefault() : coll;
+        this.idxSelectivity = idxSelectivity;
     }
 
     /** {@inheritDoc} */
@@ -153,12 +154,5 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
             rows *= mq.getSelectivity(this, condition());
 
         return rows;
-    }
-
-    /**
-     * @param idxSelectivity Index selectivity.
-     */
-    public void indexSelectivity(double idxSelectivity) {
-        this.idxSelectivity = idxSelectivity;
     }
 }
