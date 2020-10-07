@@ -29,7 +29,8 @@ import org.apache.ignite.internal.processors.query.calcite.rule.CorrelatedNested
 import org.apache.ignite.internal.processors.query.calcite.rule.ExposeIndexRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.FilterConverterRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.FilterScanMergeRule;
-import org.apache.ignite.internal.processors.query.calcite.rule.LogicalScanConverterRule;
+import org.apache.ignite.internal.processors.query.calcite.rule.LogicalIndexScanConverterRule;
+import org.apache.ignite.internal.processors.query.calcite.rule.LogicalTableScanConverterRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.NestedLoopJoinConverterRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.ProjectConverterRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.ProjectScanMergeRule;
@@ -73,8 +74,8 @@ public enum PlannerPhase {
         @Override public RuleSet getRules(PlanningContext ctx) {
             return RuleSets.ofList(
                 ValuesConverterRule.INSTANCE,
-                LogicalScanConverterRule.LOGICAL_TO_INDEX_SCAN,
-                LogicalScanConverterRule.LOGICAL_TO_TABLE_SCAN,
+                LogicalIndexScanConverterRule.LOGICAL_TO_INDEX_SCAN,
+                LogicalTableScanConverterRule.LOGICAL_TO_TABLE_SCAN,
                 ExposeIndexRule.INSTANCE,
                 AggregateConverterRule.INSTANCE,
                 NestedLoopJoinConverterRule.INSTANCE,

@@ -83,7 +83,7 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
         RelTraitSet traits,
         RelOptTable tbl,
         String idxName) {
-        this(cluster, traits, tbl, idxName, null, null, null);
+        this(cluster, traits, tbl, idxName, null, null, null, null, null);
     }
 
     /**
@@ -103,7 +103,9 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
         String idxName,
         @Nullable List<RexNode> proj,
         @Nullable RexNode cond,
-        @Nullable ImmutableBitSet requiredColunms
+        @Nullable ImmutableBitSet requiredColunms,
+        @Nullable List<RexNode> lowerIdxCond,
+        @Nullable List<RexNode> upperIdxCond
     ) {
         super(cluster, traits, ImmutableList.of(), tbl, proj, cond, requiredColunms);
 
@@ -150,20 +152,6 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
             rows *= mq.getSelectivity(this, condition());
 
         return rows;
-    }
-
-    /**
-     * @param lowerIdxCond Lower index condition.
-     */
-    public void lowerIndexCondition(List<RexNode> lowerIdxCond) {
-        this.lowerIdxCond = lowerIdxCond;
-    }
-
-    /**
-     * @param upperIdxCond Upper index condition.
-     */
-    public void upperIndexCondition(List<RexNode> upperIdxCond) {
-        this.upperIdxCond = upperIdxCond;
     }
 
     /**

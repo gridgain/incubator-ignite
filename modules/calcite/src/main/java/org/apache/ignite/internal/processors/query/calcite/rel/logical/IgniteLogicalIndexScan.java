@@ -90,10 +90,12 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
         ImmutableBitSet reqColumns = logicalIdxScan.requiredColunms();
         String indexName = logicalIdxScan.indexName();
 
-        IgniteIndexScan idxScan = new IgniteIndexScan(cluster, traits, tbl, indexName, proj, cond, reqColumns);
+        List<RexNode> lowerBound = logicalIdxScan.lowerIndexCondition();
+        List<RexNode> upperBound = logicalIdxScan.upperIndexCondition();
 
-        idxScan.lowerIndexCondition(logicalIdxScan.lowerIndexCondition());
-        idxScan.upperIndexCondition(logicalIdxScan.upperIndexCondition());
+        IgniteIndexScan idxScan = new IgniteIndexScan(cluster, traits, tbl, indexName, proj, cond, reqColumns,
+            lowerBound, upperBound);
+
         idxScan.indexSelectivity(logicalIdxScan.indexSelectivity());
 
         return idxScan;

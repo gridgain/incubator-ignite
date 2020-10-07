@@ -23,47 +23,35 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
-import org.apache.ignite.internal.processors.query.calcite.rel.IgniteTableScan;
-import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
+import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
 /** */
-public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTableScan>
-    extends AbstractIgniteConverterRule<ProjectableFilterableTableScan> {
+public abstract class LogicalIndexScanConverterRule<T extends IgniteLogicalIndexScan>
+    extends AbstractIgniteConverterRule<IgniteLogicalIndexScan> {
     /** Instance. */
-    public static final LogicalScanConverterRule<IgniteIndexScan> LOGICAL_TO_INDEX_SCAN =
-        new LogicalScanConverterRule<IgniteIndexScan>(ProjectableFilterableTableScan.class) {
+    public static final LogicalIndexScanConverterRule<IgniteLogicalIndexScan> LOGICAL_TO_INDEX_SCAN =
+        new LogicalIndexScanConverterRule<IgniteLogicalIndexScan>(IgniteLogicalIndexScan.class) {
             /** {@inheritDoc} */
-            @Override protected IgniteIndexScan createNode(ProjectableFilterableTableScan rel, RelTraitSet traits) {
+            @Override protected IgniteIndexScan createNode(IgniteLogicalIndexScan rel, RelTraitSet traits) {
                 return new IgniteIndexScan(rel.getCluster(), traits, rel.getTable(), rel.indexName(),
-                    rel.projects(), rel.condition(), rel.requiredColunms());
-            }
-        };
-
-    /** Instance. */
-    public static final LogicalScanConverterRule<IgniteTableScan> LOGICAL_TO_TABLE_SCAN =
-        new LogicalScanConverterRule<IgniteTableScan>(ProjectableFilterableTableScan.class) {
-            /** {@inheritDoc} */
-            @Override protected IgniteTableScan createNode(ProjectableFilterableTableScan rel, RelTraitSet traits) {
-                return new IgniteTableScan(rel.getCluster(), traits, rel.getTable(), rel.projects(), rel.condition(),
-                    rel.requiredColunms());
+                    rel.projects(), rel.condition(), rel.requiredColunms(), rel.lowerIndexCondition(), rel.upperIndexCondition());
             }
         };
 
     /** */
-    protected abstract PhysicalNode createNode(ProjectableFilterableTableScan rel, RelTraitSet traits);
+    protected abstract PhysicalNode createNode(IgniteLogicalIndexScan rel, RelTraitSet traits);
 
     /** */
-    protected LogicalScanConverterRule(Class<ProjectableFilterableTableScan> clazz) {
+    protected LogicalIndexScanConverterRule(Class<IgniteLogicalIndexScan> clazz) {
         super(clazz);
     }
 
     /** */
-    @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, ProjectableFilterableTableScan rel) {
+    @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, IgniteLogicalIndexScan rel) {
         RelOptCluster cluster = rel.getCluster();
 
         RelTraitSet traitSet = rel.getTraitSet();
