@@ -114,6 +114,9 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
         RelCollation coll = TraitUtils.collation(traits);
         collation = coll == null ? RelCollationTraitDef.INSTANCE.getDefault() : coll;
         this.idxSelectivity = idxSelectivity;
+
+        this.lowerIdxCond = lowerIdxCond;
+        this.upperIdxCond = upperIdxCond;
     }
 
     /** {@inheritDoc} */

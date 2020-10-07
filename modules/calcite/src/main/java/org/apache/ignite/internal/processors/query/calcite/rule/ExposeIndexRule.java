@@ -52,7 +52,7 @@ public class ExposeIndexRule extends RelOptRule {
 
     /** {@inheritDoc} */
     @Override public void onMatch(RelOptRuleCall call) {
-        IgniteTableScan scan = call.rel(0);
+        IgniteLogicalTableScan scan = call.rel(0);
         RelOptCluster cluster = scan.getCluster();
 
         RelOptTable optTable = scan.getTable();

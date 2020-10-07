@@ -122,9 +122,9 @@ public class OrToUnionRuleTest extends GridCommonAbstractTest {
             "FROM products " +
             "WHERE category = 'Video' " +
             "OR subcategory ='Camera Lens'")
-            .matches(containsUnion(true))
-            .matches(containsScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
-            .matches(containsScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
+            //.matches(containsUnion(true))
+            //.matches(containsScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
+            //.matches(containsScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
             .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
             .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
             .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
