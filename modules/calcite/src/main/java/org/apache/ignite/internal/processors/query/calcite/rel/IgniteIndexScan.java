@@ -105,7 +105,8 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
         @Nullable RexNode cond,
         @Nullable ImmutableBitSet requiredColunms,
         @Nullable List<RexNode> lowerIdxCond,
-        @Nullable List<RexNode> upperIdxCond
+        @Nullable List<RexNode> upperIdxCond,
+        double idxSelectivity
     ) {
         super(cluster, traits, ImmutableList.of(), tbl, proj, cond, requiredColunms);
 

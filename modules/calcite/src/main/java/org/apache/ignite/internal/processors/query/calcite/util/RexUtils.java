@@ -17,27 +17,49 @@
 
 package org.apache.ignite.internal.processors.query.calcite.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import static org.apache.calcite.rex.RexUtil.removeCast;
+import static org.apache.calcite.sql.SqlKind.EQUALS;
+import static org.apache.calcite.sql.SqlKind.GREATER_THAN;
+import static org.apache.calcite.sql.SqlKind.GREATER_THAN_OR_EQUAL;
+import static org.apache.calcite.sql.SqlKind.LESS_THAN;
+import static org.apache.calcite.sql.SqlKind.LESS_THAN_OR_EQUAL;
+import static org.apache.calcite.sql.SqlKind.OR;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPredicateList;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexExecutor;
+import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexSimplify;
 import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
 /** */
 public class RexUtils {
@@ -115,5 +137,189 @@ public class RexUtils {
         }
 
         return true;
+    }
+
+    /** Supported index operations. */
+    private static final Set<SqlKind> TREE_INDEX_COMPARISON =
+        EnumSet.of(
+            EQUALS,
+            LESS_THAN, GREATER_THAN,
+            GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
+
+    /**
+     * Builds index conditions.
+     */
+    public static double buildIndexConditions(RexNode condition, RelCollation collation, RelOptCluster cluster,
+                                            List<RexNode> lowerIdxCond, List<RexNode> upperIdxCond) {
+        if (!boundsArePossible(condition, collation, cluster))
+            return 0;
+
+        assert condition != null;
+
+        Map<Integer, List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
+
+        double selectivity = 1.0;
+
+        for (int i = 0; i < collation.getFieldCollations().size(); i++) {
+            RelFieldCollation fc = collation.getFieldCollations().get(i);
+
+            int collFldIdx = fc.getFieldIndex();
+
+            List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
+
+            if (F.isEmpty(collFldPreds))
+                break;
+
+            boolean lowerBoundBelow = !fc.getDirection().isDescending();
+
+            RexNode bestUpper = null;
+            RexNode bestLower = null;
+
+            for (RexCall pred : collFldPreds) {
+                RexNode cond = removeCast(pred.operands.get(1));
+
+                assert idxOpSupports(cond) : cond;
+
+                SqlOperator op = pred.getOperator();
+                switch (op.kind) {
+                    case EQUALS:
+                        bestUpper = pred;
+                        bestLower = pred;
+                        break;
+
+                    case LESS_THAN:
+                    case LESS_THAN_OR_EQUAL:
+                        lowerBoundBelow = !lowerBoundBelow;
+                        // Fall through.
+
+                    case GREATER_THAN:
+                    case GREATER_THAN_OR_EQUAL:
+                        if (lowerBoundBelow)
+                            bestLower = pred;
+                        else
+                            bestUpper = pred;
+                        break;
+
+                    default:
+                        throw new AssertionError("Unknown condition: " + cond);
+                }
+
+                if (bestUpper != null && bestLower != null)
+                    break; // We've found either "=" condition or both lower and upper.
+            }
+
+            if (bestLower == null && bestUpper == null)
+                break; // No bounds, so break the loop.
+
+            if (i > 0 && bestLower != bestUpper)
+                break; // Go behind the first index field only in the case of multiple "=" conditions on index fields.
+
+            if (bestLower == bestUpper) { // "x=10"
+                upperIdxCond.add(bestUpper);
+                lowerIdxCond.add(bestLower);
+                selectivity *= 0.1;
+            }
+            else if (bestLower != null && bestUpper != null) { // "x>5 AND x<10"
+                upperIdxCond.add(bestUpper);
+                lowerIdxCond.add(bestLower);
+                selectivity *= 0.25;
+                break;
+            }
+            else if (bestLower != null) { // "x>5"
+                lowerIdxCond.add(bestLower);
+                selectivity *= 0.35;
+                break;
+            }
+            else { // "x<10"
+                upperIdxCond.add(bestUpper);
+                selectivity *= 0.35;
+                break;
+            }
+        }
+        return selectivity;
+    }
+
+    /** */
+    private static boolean boundsArePossible(@Nullable RexNode cond, RelCollation collation, RelOptCluster cluster) {
+        if (cond == null)
+            return false;
+
+        RexCall dnf = (RexCall) RexUtil.toDnf(builder(cluster), cond);
+
+        if (dnf.isA(OR) && dnf.getOperands().size() > 1) // OR conditions are not supported yet.
+            return false;
+
+        return !collation.getFieldCollations().isEmpty();
+    }
+
+    /** */
+    private static Map<Integer, List<RexCall>> mapPredicatesToFields(RexNode condition, RelOptCluster cluster) {
+        List<RexNode> predicatesConjunction = RelOptUtil.conjunctions(condition);
+
+        Map<Integer, List<RexCall>> fieldsToPredicates = new HashMap<>(predicatesConjunction.size());
+
+        for (RexNode rexNode : predicatesConjunction) {
+            if (!isBinaryComparison(rexNode))
+                continue;
+
+            RexCall predCall = (RexCall)rexNode;
+            RexLocalRef ref = (RexLocalRef)extractRef(predCall);
+
+            if (ref == null)
+                continue;
+
+            int constraintFldIdx = ref.getIndex();
+
+            List<RexCall> fldPreds = fieldsToPredicates
+                .computeIfAbsent(constraintFldIdx, k -> new ArrayList<>(predicatesConjunction.size()));
+
+            // Let RexLocalRef be on the left side.
+            if (refOnTheRight(predCall))
+                predCall = (RexCall)RexUtil.invert(builder(cluster), predCall);
+
+            fldPreds.add(predCall);
+        }
+        return fieldsToPredicates;
+    }
+
+    /** */
+    private static RexNode extractRef(RexCall call) {
+        assert isBinaryComparison(call);
+
+        RexNode leftOp = call.getOperands().get(0);
+        RexNode rightOp = call.getOperands().get(1);
+
+        leftOp = removeCast(leftOp);
+        rightOp = removeCast(rightOp);
+
+        if (leftOp instanceof RexLocalRef && idxOpSupports(rightOp))
+            return leftOp;
+        else if (idxOpSupports(leftOp) && rightOp instanceof RexLocalRef)
+            return rightOp;
+
+        return null;
+    }
+
+    /** */
+    private static boolean refOnTheRight(RexCall predCall) {
+        RexNode rightOp = predCall.getOperands().get(1);
+
+        rightOp = removeCast(rightOp);
+
+        return rightOp.isA(SqlKind.LOCAL_REF);
+    }
+
+    /** */
+    private static boolean isBinaryComparison(RexNode exp) {
+        return TREE_INDEX_COMPARISON.contains(exp.getKind()) &&
+            (exp instanceof RexCall) &&
+            ((RexCall)exp).getOperands().size() == 2;
+    }
+
+    /** */
+    private static boolean idxOpSupports(RexNode op) {
+        return op instanceof RexLiteral
+            || op instanceof RexDynamicParam
+            || op instanceof RexFieldAccess;
     }
 }
