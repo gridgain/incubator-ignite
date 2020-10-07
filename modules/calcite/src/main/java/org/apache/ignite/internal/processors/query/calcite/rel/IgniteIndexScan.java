@@ -147,6 +147,8 @@ public class IgniteIndexScan extends ProjectableFilterableTableScan implements I
 
     /** {@inheritDoc} */
     @Override public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
+        assert Double.compare(idxSelectivity, -1) != 0;
+
         double tableRows = table.getRowCount() * idxSelectivity;
 
         if (projects() != null)
