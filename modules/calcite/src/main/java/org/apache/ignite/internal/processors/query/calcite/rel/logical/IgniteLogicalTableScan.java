@@ -39,7 +39,7 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
      *
      * @param input Serialized representation.
      */
-    public IgniteLogicalTableScan(RelInput input) {
+    private IgniteLogicalTableScan(RelInput input) {
         //super(changeTraits(input, IgniteConvention.INSTANCE));
         //super(changeTraits(input, Convention.NONE));
         super(input);
@@ -51,7 +51,7 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
      * @param traits Traits of this relational expression
      * @param tbl Table definition.
      */
-    public IgniteLogicalTableScan(
+    private IgniteLogicalTableScan(
         RelOptCluster cluster,
         RelTraitSet traits,
         RelOptTable tbl
@@ -68,7 +68,7 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
      * @param cond Filters.
      * @param requiredColunms Participating colunms.
      */
-    public IgniteLogicalTableScan(
+    private IgniteLogicalTableScan(
         RelOptCluster cluster,
         RelTraitSet traits,
         RelOptTable tbl,
@@ -80,13 +80,14 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     }
 
     /** Creates a IgniteTableScan. */
-    public static IgniteTableScan create(IgniteLogicalTableScan logicalTblScan, RelTraitSet traitSet) {
-        RelOptCluster cluster = logicalTblScan.getCluster();
-        RelOptTable tbl = logicalTblScan.getTable();
-        List<RexNode> proj = logicalTblScan.projects();
-        RexNode cond = logicalTblScan.condition();
-        ImmutableBitSet reqColumns = logicalTblScan.requiredColunms();
-
-        return new IgniteTableScan(cluster, traitSet, tbl, proj, cond, reqColumns);
+    public static IgniteLogicalTableScan create(
+        RelOptCluster cluster,
+        RelTraitSet traits,
+        RelOptTable tbl,
+        @Nullable List<RexNode> proj,
+        @Nullable RexNode cond,
+        @Nullable ImmutableBitSet requiredColunms
+    ) {
+        return new IgniteLogicalTableScan(cluster, traits, tbl, proj, cond, requiredColunms);
     }
 }

@@ -38,7 +38,9 @@ public abstract class LogicalTableScanConverterRule<T extends IgniteLogicalTable
         new LogicalTableScanConverterRule<IgniteLogicalTableScan>(IgniteLogicalTableScan.class) {
             /** {@inheritDoc} */
             @Override protected IgniteTableScan createNode(IgniteLogicalTableScan rel) {
-                return IgniteLogicalTableScan.create(rel, rel.getTraitSet().replace(IgniteConvention.INSTANCE));
+                return new IgniteTableScan(rel.getCluster(),
+                    rel.getTraitSet().replace(IgniteConvention.INSTANCE), rel.getTable(), rel.projects(),
+                    rel.condition(), rel.requiredColunms());
             }
         };
 

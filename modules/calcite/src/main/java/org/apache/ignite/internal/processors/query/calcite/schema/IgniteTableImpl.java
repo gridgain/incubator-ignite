@@ -110,7 +110,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
             .replace(distribution())
             .replace(RewindabilityTrait.REWINDABLE);
 
-        return new IgniteLogicalTableScan(cluster, traitSet, relOptTbl);
+        return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, null, null, null);
     }
 
     /** {@inheritDoc} */

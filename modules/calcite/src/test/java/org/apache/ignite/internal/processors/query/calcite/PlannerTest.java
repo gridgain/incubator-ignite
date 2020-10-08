@@ -2695,7 +2695,7 @@ public class PlannerTest extends GridCommonAbstractTest {
                 .replaceIf(RewindabilityTraitDef.INSTANCE, () -> RewindabilityTrait.REWINDABLE)
                 .replaceIf(DistributionTraitDef.INSTANCE, this::distribution);
 
-            return new IgniteLogicalTableScan(cluster, traitSet, relOptTbl);
+            return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, null, null, null);
         }
 
         /** {@inheritDoc} */
