@@ -322,4 +322,42 @@ public class RexUtils {
             || op instanceof RexDynamicParam
             || op instanceof RexFieldAccess;
     }
+
+    /** */
+    public static List<RexNode> buildIndexCondition(Iterable<RexNode> idxCond, RelDataType rowType,
+                                                 RelOptCluster cluster) {
+        if (F.isEmpty(idxCond))
+            return null;
+
+        List<RexNode> res = makeListOfNullLiterals(rowType, cluster);
+        List<RelDataType> fieldTypes = RelOptUtil.getFieldTypeList(rowType);
+        RexBuilder rexBuilder = cluster.getRexBuilder();
+
+        for (RexNode pred : idxCond) {
+            assert pred instanceof RexCall;
+
+            RexCall call = (RexCall)pred;
+            RexLocalRef ref = (RexLocalRef)removeCast(call.operands.get(0));
+            RexNode cond = removeCast(call.operands.get(1));
+
+            assert idxOpSupports(cond) : cond;
+
+            res.set(ref.getIndex(), makeCast(rexBuilder, fieldTypes.get(ref.getIndex()), cond));
+        }
+
+        return res;
+    }
+
+    /** */
+    private static List<RexNode> makeListOfNullLiterals(RelDataType rowType, RelOptCluster cluster) {
+        assert rowType.isStruct();
+
+        RexBuilder builder = cluster.getRexBuilder();
+
+        List<RexNode> list = new ArrayList<>(rowType.getFieldCount());
+        for (RelDataTypeField field : rowType.getFieldList())
+            list.add(builder.makeNullLiteral(field.getType()));
+
+        return list;
+    }
 }

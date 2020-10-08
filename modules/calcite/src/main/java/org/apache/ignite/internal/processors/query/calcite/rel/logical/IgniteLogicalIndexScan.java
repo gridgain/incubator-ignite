@@ -18,25 +18,19 @@
 package org.apache.ignite.internal.processors.query.calcite.rel.logical;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
+import static org.apache.ignite.internal.processors.query.calcite.util.RexUtils.buildIndexCondition;
 import static org.apache.ignite.internal.processors.query.calcite.util.RexUtils.buildIndexConditions;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelInput;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexLocalRef;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
@@ -55,6 +49,7 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
         RexNode cond = logicalIdxScan.condition();
         ImmutableBitSet reqColumns = logicalIdxScan.requiredColunms();
         String indexName = logicalIdxScan.indexName();
+        RelDataType rowType = logicalIdxScan.getRowType();
 
         RelCollation coll = TraitUtils.collation(traitSet);
         RelCollation collation = coll == null ? RelCollationTraitDef.INSTANCE.getDefault() : coll;
@@ -63,6 +58,9 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
         List<RexNode> upperIdxCond = new ArrayList<>(tbl.getRowType().getFieldCount());
 
         double idxSelectivity = buildIndexConditions(cond, collation, cluster, lowerIdxCond, upperIdxCond);
+
+        lowerIdxCond = buildIndexCondition(lowerIdxCond, rowType, cluster);
+        upperIdxCond = buildIndexCondition(upperIdxCond, rowType, cluster);
 
         IgniteIndexScan idxScan = new IgniteIndexScan(cluster, traitSet, tbl, indexName, proj, cond, reqColumns,
             lowerIdxCond, upperIdxCond, idxSelectivity);
