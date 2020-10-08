@@ -55,7 +55,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             /** {@inheritDoc} */
             @Override protected IgniteLogicalIndexScan createNode(RelOptCluster cluster, IgniteLogicalIndexScan scan,
                 RelTraitSet traits, List<RexNode> projections, RexNode cond, ImmutableBitSet requiredColunms) {
-                return new IgniteLogicalIndexScan(cluster, traits, scan.getTable(), scan.indexName(), projections,
+                return IgniteLogicalIndexScan.create(cluster, traits, scan.getTable(), scan.indexName(), projections,
                     cond, requiredColunms);
             }
         };

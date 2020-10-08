@@ -2703,7 +2703,7 @@ public class PlannerTest extends GridCommonAbstractTest {
             RelTraitSet traitSet = cluster.traitSetOf(Convention.NONE)
                 .replaceIf(DistributionTraitDef.INSTANCE, this::distribution);
 
-            return new IgniteLogicalIndexScan(cluster, traitSet, relOptTbl, idxName);
+            return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTbl, idxName, null, null, null);
         }
 
         /** {@inheritDoc} */

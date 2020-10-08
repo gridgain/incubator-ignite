@@ -59,7 +59,7 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         new FilterScanMergeRule<IgniteLogicalIndexScan>(LogicalFilter.class, IgniteLogicalIndexScan.class, "FilterIndexScanMergeRule") {
             /** {@inheritDoc} */
             @Override protected IgniteLogicalIndexScan createNode(RelOptCluster cluster, IgniteLogicalIndexScan scan, RexNode cond) {
-                return new IgniteLogicalIndexScan(cluster, scan.getTraitSet(), scan.getTable(), scan.indexName(),
+                return IgniteLogicalIndexScan.create(cluster, scan.getTraitSet(), scan.getTable(), scan.indexName(),
                     scan.projects(), cond, scan.requiredColunms());
             }
         };

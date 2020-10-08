@@ -41,17 +41,30 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
     /** */
     private String idxName;
 
-    /** Creates a IgniteIndexScan. */
-    public static IgniteIndexScan create(IgniteLogicalIndexScan logicalIdxScan, RelTraitSet traitSet) {
-        RelOptCluster cluster = logicalIdxScan.getCluster();
-        RelOptTable tbl = logicalIdxScan.getTable();
-        List<RexNode> proj = logicalIdxScan.projects();
-        RexNode cond = logicalIdxScan.condition();
-        ImmutableBitSet reqColumns = logicalIdxScan.requiredColunms();
-        String indexName = logicalIdxScan.indexName();
+    /** */
+    private List<RexNode> lowerIdxCond;
+
+    /** */
+    private List<RexNode> upperIdxCond;
+
+    /** */
+    private double idxSelectivity;
+
+    /** Creates a IgniteLogicalIndexScan. */
+    public static IgniteLogicalIndexScan create(
+        RelOptCluster cluster,
+        RelTraitSet traits,
+        RelOptTable tbl,
+        String idxName,
+        @Nullable List<RexNode> proj,
+        @Nullable RexNode cond,
+        @Nullable ImmutableBitSet requiredColunms
+    ) {
+        IgniteLogicalIndexScan logicalIdxScan = new IgniteLogicalIndexScan(cluster, traits, tbl, idxName, proj, cond, requiredColunms);
+
         RelDataType rowType = logicalIdxScan.getRowType();
 
-        RelCollation coll = TraitUtils.collation(traitSet);
+        RelCollation coll = TraitUtils.collation(traits);
         RelCollation collation = coll == null ? RelCollationTraitDef.INSTANCE.getDefault() : coll;
 
         List<RexNode> lowerIdxCond = new ArrayList<>(tbl.getRowType().getFieldCount());
@@ -62,10 +75,11 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
         lowerIdxCond = buildIndexCondition(lowerIdxCond, rowType, cluster);
         upperIdxCond = buildIndexCondition(upperIdxCond, rowType, cluster);
 
-        IgniteIndexScan idxScan = new IgniteIndexScan(cluster, traitSet, tbl, indexName, proj, cond, reqColumns,
-            lowerIdxCond, upperIdxCond, idxSelectivity);
+        logicalIdxScan.lowerIndexCondition(lowerIdxCond);
+        logicalIdxScan.upperIndexCondition(upperIdxCond);
+        logicalIdxScan.indexSelectivity(idxSelectivity);
 
-        return idxScan;
+        return logicalIdxScan;
     }
 
     /**
@@ -73,7 +87,7 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
      *
      * @param input Serialized representation.
      */
-    public IgniteLogicalIndexScan(RelInput input) {
+    private IgniteLogicalIndexScan(RelInput input) {
         //super(changeTraits(input, IgniteConvention.INSTANCE));
         super(input);
     }
@@ -85,7 +99,7 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
      * @param tbl Table definition.
      * @param idxName Index name.
      */
-    public IgniteLogicalIndexScan(
+    private IgniteLogicalIndexScan(
         RelOptCluster cluster,
         RelTraitSet traits,
         RelOptTable tbl,
@@ -103,7 +117,7 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
      * @param cond Filters.
      * @param requiredColunms Participating colunms.
      */
-    public IgniteLogicalIndexScan(
+    private IgniteLogicalIndexScan(
         RelOptCluster cluster,
         RelTraitSet traits,
         RelOptTable tbl,
@@ -120,5 +134,47 @@ public class IgniteLogicalIndexScan extends ProjectableFilterableTableScan {
     /** */
     public String indexName() {
         return idxName;
+    }
+
+    /**
+     * @param lowerIdxCond New lower index condition.
+     */
+    public void lowerIndexCondition(List<RexNode> lowerIdxCond) {
+        this.lowerIdxCond = lowerIdxCond;
+    }
+
+    /**
+     * @param upperIdxCond New upper index condition.
+     */
+    public void upperIndexCondition(List<RexNode> upperIdxCond) {
+        this.upperIdxCond = upperIdxCond;
+    }
+
+    /**
+     * @return Index selectivity.
+     */
+    public double indexSelectivity() {
+        return idxSelectivity;
+    }
+
+    /**
+     * @param idxSelectivity New index selectivity.
+     */
+    public void indexSelectivity(double idxSelectivity) {
+        this.idxSelectivity = idxSelectivity;
+    }
+
+    /**
+     * @return Lower index condition.
+     */
+    public List<RexNode> lowerIndexCondition() {
+        return lowerIdxCond;
+    }
+
+    /**
+     * @return Upper index condition.
+     */
+    public List<RexNode> upperIndexCondition() {
+        return upperIdxCond;
     }
 }

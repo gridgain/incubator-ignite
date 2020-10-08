@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rule;
 
-import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexScan;
 import org.apache.ignite.internal.processors.query.calcite.rel.logical.IgniteLogicalIndexScan;
-import org.apache.ignite.internal.processors.query.calcite.trait.RewindabilityTrait;
 
 /** */
 public abstract class LogicalIndexScanConverterRule<T extends IgniteLogicalIndexScan>
@@ -37,7 +32,9 @@ public abstract class LogicalIndexScanConverterRule<T extends IgniteLogicalIndex
         new LogicalIndexScanConverterRule<IgniteLogicalIndexScan>(IgniteLogicalIndexScan.class) {
             /** {@inheritDoc} */
             @Override protected IgniteIndexScan createNode(IgniteLogicalIndexScan rel) {
-                return IgniteLogicalIndexScan.create(rel, rel.getTraitSet().replace(IgniteConvention.INSTANCE));
+                return new IgniteIndexScan(rel.getCluster(), rel.getTraitSet().replace(IgniteConvention.INSTANCE), rel.getTable(), rel.indexName(),
+                    rel.projects(), rel.condition(), rel.requiredColunms(), rel.lowerIndexCondition(),
+                    rel.upperIndexCondition(), rel.indexSelectivity());
             }
         };
 
