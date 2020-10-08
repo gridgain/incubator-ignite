@@ -21,6 +21,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.QueryEntity;
+import org.apache.ignite.cache.QueryIndex;
+import org.apache.ignite.cache.QueryIndexType;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.processors.query.QueryEngine;
 import org.apache.ignite.internal.processors.query.calcite.QueryChecker;
@@ -28,6 +30,7 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsOneProject;
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsScan;
@@ -42,6 +45,9 @@ import static org.apache.ignite.internal.processors.query.calcite.rules.OrToUnio
  * need to eleminate all unused coluns and take into account only: f11, f21 and f22 cols.
  */
 public class ProjectScanMergeRuleTest extends GridCommonAbstractTest {
+    /** */
+    public static final String IDX_CAT_ID = "IDX_CAT_ID";
+
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
         Ignite grid = startGridsMultiThreaded(2);
@@ -58,6 +64,9 @@ public class ProjectScanMergeRuleTest extends GridCommonAbstractTest {
         qryEnt.addQueryField("SUBCAT_ID", Integer.class.getName(), null);
         qryEnt.addQueryField("NAME", String.class.getName(), null);
 
+        qryEnt.setIndexes(asList(
+            new QueryIndex("CAT_ID", QueryIndexType.SORTED).setName(IDX_CAT_ID)
+        ));
         qryEnt.setTableName("products");
 
         final CacheConfiguration<Integer, Product> cfg = new CacheConfiguration<>(qryEnt.getTableName());
