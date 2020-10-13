@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * Represents request to handle maintenance situation stored on disk.
  *
  * Maintenance request can be created programmatically
- * with {@link MaintenanceRegistry#registerMaintenanceRecord(MaintenanceTask)} public API call.
+ * with {@link MaintenanceRegistry#registerMaintenanceTask(MaintenanceTask)} public API call.
  *
  * Record contains unique ID of maintenance situation (e.g. situation of PDS corruption or defragmentation),
  * description of task and optional parameters.
