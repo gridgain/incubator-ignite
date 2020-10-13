@@ -53,6 +53,9 @@ public class Processor extends AbstractProcessor {
     private ViewClassGenerator viewClassGenerator;
 
     /** */
+    private ChangeClassGenerator changeClassGenerator;
+
+    /** */
     private Filer filer;
 
     @Override public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -60,6 +63,7 @@ public class Processor extends AbstractProcessor {
         super.init(processingEnv);
         this.filer = processingEnv.getFiler();
         viewClassGenerator = new ViewClassGenerator(processingEnv);
+        changeClassGenerator = new ChangeClassGenerator(processingEnv);
     }
 
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
@@ -183,11 +187,13 @@ public class Processor extends AbstractProcessor {
 
             props.put(configClass, configDesc);
 
+            final ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
+            final ClassName initClassName = Utils.getInitName(schemaClassName);
+            final ClassName changeClassName = Utils.getChangeName(schemaClassName);
             try {
-                final ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
                 viewClassGenerator.generate(packageName, viewClassTypeName, fields);
                 ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
-                TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName);
+                TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, changeClassName);
                 configurationClassBuilder.superclass(dynConfViewClassType);
                 final MethodSpec toViewMethod = createToViewMethod(viewClassTypeName, fields);
                 configurationClassBuilder.addMethod(toViewMethod);
@@ -196,7 +202,6 @@ public class Processor extends AbstractProcessor {
             }
 
             try {
-                final ClassName initClassName = Utils.getInitName(schemaClassName);
                 JavaFile initClassFile = JavaFile.builder(
                     initClassName.packageName(),
                     TypeSpec.classBuilder(initClassName.simpleName()).addModifiers(PUBLIC, FINAL).build()
@@ -207,12 +212,9 @@ public class Processor extends AbstractProcessor {
             }
 
             try {
-                final ClassName changeClassName = Utils.getChangeName(schemaClassName);
-                JavaFile changeClassFile = JavaFile.builder(
-                    changeClassName.packageName(),
-                    TypeSpec.classBuilder(changeClassName.simpleName()).addModifiers(PUBLIC, FINAL).build()
-                ).build();
-                changeClassFile.writeTo(filer);
+                changeClassGenerator.generate(packageName, changeClassName, fields);
+                final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
+                configurationClassBuilder.addMethod(changeMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -339,13 +341,26 @@ public class Processor extends AbstractProcessor {
             .build();
     }
 
-    @Override
-    public Set<String> getSupportedAnnotationTypes() {
+    public MethodSpec createChangeMethod(TypeName type, List<VariableElement> variables) {
+        final CodeBlock.Builder builder = CodeBlock.builder();
+        variables.forEach(variable -> {
+            final String name = variable.getSimpleName().toString();
+            builder.addStatement("$L.change(changes.$L())", name, name.replace("Configuration", ""));
+        });
+
+        return MethodSpec.methodBuilder("change")
+                .addModifiers(PUBLIC)
+                .addAnnotation(Override.class)
+                .addParameter(type, "changes")
+                .addCode(builder.build())
+                .build();
+    }
+
+    @Override public Set<String> getSupportedAnnotationTypes() {
         return Collections.singleton(Config.class.getCanonicalName());
     }
 
-    @Override
-    public SourceVersion getSupportedSourceVersion() {
+    @Override public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.RELEASE_8;
     }
 }

@@ -13,7 +13,7 @@ import org.apache.ignite.configuration.internal.property.NamedList;
  * @author @java.author
  * @version @java.version
  */
-public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicConfiguration<NamedList<U>> {
+public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicConfiguration<NamedList<U>, Object> {
     private final BiFunction<String, String, T> creator;
 
     Map<String, T> values = new HashMap<>();
@@ -21,6 +21,11 @@ public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicCon
     public NamedListConfiguration(String prefix, String key, BiFunction<String, String, T> creator) {
         super(prefix, key);
         this.creator = creator;
+    }
+
+    @Override
+    public void change(Object o) {
+
     }
 
     @Override public void updateValue(String key, Object newValue) {

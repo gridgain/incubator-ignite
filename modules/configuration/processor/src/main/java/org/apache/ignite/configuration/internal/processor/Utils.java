@@ -34,6 +34,15 @@ public class Utils {
         }).collect(Collectors.toList());
     }
 
+    public static List<MethodSpec> createBuildSetters(List<FieldSpec> fieldSpecs) {
+        return fieldSpecs.stream().map(field -> {
+            return MethodSpec.methodBuilder("with" + field.name)
+                    .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                    .addStatement("this.$L = $L", field.name, field.name)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
     public static CodeBlock newObject(TypeName type, List<VariableElement> fieldSpecs) {
         String args = fieldSpecs.stream().map(f -> f.getSimpleName().toString()).collect(Collectors.joining(", "));
         return CodeBlock.builder()
