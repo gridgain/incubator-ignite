@@ -56,6 +56,9 @@ public class Processor extends AbstractProcessor {
     private ChangeClassGenerator changeClassGenerator;
 
     /** */
+    private InitClassGenerator initClassGenerator;
+
+    /** */
     private Filer filer;
 
     @Override public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -64,6 +67,7 @@ public class Processor extends AbstractProcessor {
         this.filer = processingEnv.getFiler();
         viewClassGenerator = new ViewClassGenerator(processingEnv);
         changeClassGenerator = new ChangeClassGenerator(processingEnv);
+        initClassGenerator = new InitClassGenerator(processingEnv);
     }
 
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
@@ -183,6 +187,16 @@ public class Processor extends AbstractProcessor {
                         .addStatement("return $L", fieldName)
                         .build();
                 configurationClassBuilder.addMethod(getMethod);
+
+                if (valueAnnotation != null) {
+                    MethodSpec setMethod = MethodSpec
+                            .methodBuilder(fieldName)
+                            .addModifiers(PUBLIC, FINAL)
+                            .addParameter(unwrappedType, fieldName)
+                            .addStatement("this.$L.change($L)", fieldName, fieldName)
+                            .build();
+                    configurationClassBuilder.addMethod(setMethod);
+                }
             }
 
             props.put(configClass, configDesc);
@@ -193,7 +207,7 @@ public class Processor extends AbstractProcessor {
             try {
                 viewClassGenerator.generate(packageName, viewClassTypeName, fields);
                 ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
-                TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, changeClassName);
+                TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, changeClassName, initClassName);
                 configurationClassBuilder.superclass(dynConfViewClassType);
                 final MethodSpec toViewMethod = createToViewMethod(viewClassTypeName, fields);
                 configurationClassBuilder.addMethod(toViewMethod);
@@ -202,19 +216,17 @@ public class Processor extends AbstractProcessor {
             }
 
             try {
-                JavaFile initClassFile = JavaFile.builder(
-                    initClassName.packageName(),
-                    TypeSpec.classBuilder(initClassName.simpleName()).addModifiers(PUBLIC, FINAL).build()
-                ).build();
-                initClassFile.writeTo(filer);
+                changeClassGenerator.generate(packageName, changeClassName, fields);
+                final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
+                configurationClassBuilder.addMethod(changeMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             }
 
             try {
-                changeClassGenerator.generate(packageName, changeClassName, fields);
-                final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
-                configurationClassBuilder.addMethod(changeMethod);
+                initClassGenerator.generate(packageName, initClassName, fields);
+                final MethodSpec initMethod = createInitMethod(initClassName, fields);
+                configurationClassBuilder.addMethod(initMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -352,6 +364,21 @@ public class Processor extends AbstractProcessor {
                 .addModifiers(PUBLIC)
                 .addAnnotation(Override.class)
                 .addParameter(type, "changes")
+                .addCode(builder.build())
+                .build();
+    }
+
+    public MethodSpec createInitMethod(TypeName type, List<VariableElement> variables) {
+        final CodeBlock.Builder builder = CodeBlock.builder();
+        variables.forEach(variable -> {
+            final String name = variable.getSimpleName().toString();
+            builder.addStatement("$L.init(initial.$L())", name, name.replace("Configuration", ""));
+        });
+
+        return MethodSpec.methodBuilder("init")
+                .addModifiers(PUBLIC)
+                .addAnnotation(Override.class)
+                .addParameter(type, "initial")
                 .addCode(builder.build())
                 .build();
     }

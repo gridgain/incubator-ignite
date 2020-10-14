@@ -10,7 +10,7 @@ import org.apache.ignite.configuration.internal.property.Modifier;
  * @author @java.author
  * @version @java.version
  */
-public abstract class DynamicConfiguration<T, CHANGE> implements Modifier<T> {
+public abstract class DynamicConfiguration<T, CHANGE, INIT> implements Modifier<T> {
 
     protected final String qualifiedName;
 
@@ -30,6 +30,8 @@ public abstract class DynamicConfiguration<T, CHANGE> implements Modifier<T> {
     }
 
     public abstract void change(CHANGE change);
+
+    public abstract void init(INIT init);
 
     @Override public void updateValue(String key, Object newValue) {
         key = nextPostfix(key);

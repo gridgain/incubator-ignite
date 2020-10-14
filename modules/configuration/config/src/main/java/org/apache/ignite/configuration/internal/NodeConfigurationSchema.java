@@ -12,7 +12,7 @@ import org.apache.ignite.configuration.internal.annotation.Value;
 @Config
 public class NodeConfigurationSchema {
 
-    @Value
+    @Value(initOnly = true)
     private String consistentId;
 
     @Value

@@ -50,6 +50,10 @@ public class DynamicProperty<T> implements Modifier<T> {
         this.val = object;
     }
 
+    public void init(T object) {
+        this.val = object;
+    }
+
     @Override public void updateValue(String key, Object object) {
         if (!name.equals(key))
             throw new IllegalArgumentException();

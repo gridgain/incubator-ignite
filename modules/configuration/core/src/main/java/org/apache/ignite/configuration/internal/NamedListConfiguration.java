@@ -13,7 +13,7 @@ import org.apache.ignite.configuration.internal.property.NamedList;
  * @author @java.author
  * @version @java.version
  */
-public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicConfiguration<NamedList<U>, Object> {
+public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicConfiguration<NamedList<U>, Object, Object> {
     private final BiFunction<String, String, T> creator;
 
     Map<String, T> values = new HashMap<>();
@@ -23,21 +23,24 @@ public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicCon
         this.creator = creator;
     }
 
-    @Override
-    public void change(Object o) {
+    @Override public void change(Object o) {
+
+    }
+
+    @Override public void init(Object o) {
 
     }
 
     @Override public void updateValue(String key, Object newValue) {
         String name = key.split("\\.")[1];
-        if(!values.containsKey(name))
+        if (!values.containsKey(name))
             values.put(name, add(creator.apply(qualifiedName, name)));
 
         super.updateValue(key, newValue);
     }
 
     @Override public NamedList<U> toView() {
-        return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it-> it.getValue().toView())));
+        return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it -> it.getValue().toView())));
     }
 
 //    public void accept(String path, ConfigTreeVisitor visitor) {
