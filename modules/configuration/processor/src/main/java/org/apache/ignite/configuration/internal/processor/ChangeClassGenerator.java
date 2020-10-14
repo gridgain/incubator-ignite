@@ -28,6 +28,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
+import org.apache.ignite.configuration.internal.annotation.Value;
 import org.apache.ignite.configuration.internal.property.NamedList;
 
 public class ChangeClassGenerator extends ClassGenerator {
@@ -39,6 +40,10 @@ public class ChangeClassGenerator extends ClassGenerator {
     @Override protected FieldSpec mapField(VariableElement field) {
         final Config configAnnotation = field.getAnnotation(Config.class);
         final NamedConfig namedConfigAnnotation = field.getAnnotation(NamedConfig.class);
+        final Value valueAnnotation = field.getAnnotation(Value.class);
+
+        if (valueAnnotation != null && valueAnnotation.initOnly())
+            return null;
 
         final TypeMirror type = field.asType();
         String name = field.getSimpleName().toString();
@@ -50,7 +55,6 @@ public class ChangeClassGenerator extends ClassGenerator {
             if (namedConfigAnnotation != null) {
                 fieldType = ParameterizedTypeName.get(ClassName.get(NamedList.class), fieldType);
             }
-            name = name.replace("Configuration", "");
         }
 
         return FieldSpec.builder(fieldType, name, Modifier.PRIVATE).build();

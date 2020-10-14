@@ -25,10 +25,10 @@ import org.apache.ignite.configuration.internal.annotation.Config;
  * @author @java.author
  * @version @java.version
  */
-@Config("local")
+@Config(value = "local", root = true)
 public class LocalConfigurationSchema {
 
     @Config
-    private BaselineConfigurationSchema baselineConfiguration;
+    private BaselineConfigurationSchema baseline;
 
 }

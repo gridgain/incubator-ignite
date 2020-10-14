@@ -54,10 +54,12 @@ public abstract class ClassGenerator {
         viewClassBuilder.addFields(fieldSpecs);
         viewClassBuilder.addMethods(methodSpecs);
 
-        final MethodSpec constructor = Utils.createConstructor(fieldSpecs);
+        final MethodSpec constructor = createConstructor(fieldSpecs);
+        if (constructor != null)
+            viewClassBuilder.addMethod(constructor);
+
         final List<MethodSpec> getters = Utils.createGetters(fieldSpecs);
 
-        viewClassBuilder.addMethod(constructor);
         viewClassBuilder.addMethods(getters);
 
         final TypeSpec viewClass = viewClassBuilder.build();
@@ -68,5 +70,9 @@ public abstract class ClassGenerator {
 
     protected abstract FieldSpec mapField(VariableElement field);
     protected abstract MethodSpec mapMethod(FieldSpec field);
+
+    protected MethodSpec createConstructor(List<FieldSpec> fields) {
+        return null;
+    }
 
 }

@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.internal.annotation.Value;
 public class AutoAdjustConfigurationSchema {
     @Value
     private long timeout;
+
     @Value
     private boolean enabled;
 }

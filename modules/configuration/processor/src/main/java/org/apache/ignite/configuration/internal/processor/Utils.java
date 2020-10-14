@@ -29,6 +29,8 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.internal.NamedListConfiguration;
 
 public class Utils {
 
@@ -54,17 +56,17 @@ public class Utils {
     public static List<MethodSpec> createBuildSetters(List<FieldSpec> fieldSpecs) {
         return fieldSpecs.stream().map(field -> {
             return MethodSpec.methodBuilder("with" + field.name)
-                    .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                    .addStatement("this.$L = $L", field.name, field.name)
-                    .build();
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                .addStatement("this.$L = $L", field.name, field.name)
+                .build();
         }).collect(Collectors.toList());
     }
 
     public static CodeBlock newObject(TypeName type, List<VariableElement> fieldSpecs) {
         String args = fieldSpecs.stream().map(f -> f.getSimpleName().toString()).collect(Collectors.joining(", "));
         return CodeBlock.builder()
-                .add("new $T($L)", type, args)
-                .build();
+            .add("new $T($L)", type, args)
+            .build();
     }
 
     public static ParameterizedTypeName getParameterized(ClassName clz, TypeName... types) {
@@ -78,15 +80,15 @@ public class Utils {
 
     public static ClassName getConfigurationName(ClassName clz) {
         return ClassName.get(
-                clz.packageName(),
-                clz.simpleName().replace("Schema", "")
+            clz.packageName(),
+            clz.simpleName().replace("Schema", "")
         );
     }
 
     public static ClassName getViewName(ClassName clz) {
         return ClassName.get(
-                clz.packageName(),
-                clz.simpleName().replace("ConfigurationSchema", "")
+            clz.packageName(),
+            clz.simpleName().replace("ConfigurationSchema", "")
         );
     }
 
@@ -99,9 +101,32 @@ public class Utils {
 
     public static ClassName getChangeName(ClassName clz) {
         return ClassName.get(
-                clz.packageName(),
-                "Change" + clz.simpleName().replace("ConfigurationSchema", "")
+            clz.packageName(),
+            "Change" + clz.simpleName().replace("ConfigurationSchema", "")
         );
+    }
+
+    public static boolean isNamedConfiguration(TypeName type) {
+        if (type instanceof ParameterizedTypeName) {
+            ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) type;
+
+            if (parameterizedTypeName.rawType.equals(ClassName.get(NamedListConfiguration.class)))
+                return true;
+        }
+        return false;
+    }
+
+    public static TypeName unwrapConfigurationClass(TypeName type) {
+        if (type instanceof ParameterizedTypeName) {
+            ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) type;
+
+            if (parameterizedTypeName.rawType.equals(ClassName.get(NamedListConfiguration.class)))
+                return parameterizedTypeName.typeArguments.get(1);
+
+            if (parameterizedTypeName.rawType.equals(ClassName.get(DynamicConfiguration.class)))
+                return parameterizedTypeName.typeArguments.get(0);
+        }
+        return type;
     }
 
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.internal.processor;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -53,6 +54,7 @@ import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
 import org.apache.ignite.configuration.internal.annotation.Value;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
+import org.apache.ignite.configuration.internal.selector.RecursiveSelector;
 import org.apache.ignite.configuration.internal.selector.Selector;
 
 import static javax.lang.model.element.Modifier.FINAL;
@@ -92,6 +94,8 @@ public class Processor extends AbstractProcessor {
 
         Map<TypeName, ConfigDesc> props = new HashMap<>();
 
+        List<ConfigDesc> roots = new ArrayList<>();
+
         for (Element element : roundEnvironment.getElementsAnnotatedWith(Config.class)) {
             if (element.getKind() != ElementKind.CLASS) {
                 continue;
@@ -110,10 +114,14 @@ public class Processor extends AbstractProcessor {
             final Config clazzConfigAnnotation = clazz.getAnnotation(Config.class);
 
             final String configName = clazzConfigAnnotation.value();
+            final boolean isRoot = clazzConfigAnnotation.root();
             final ClassName schemaClassName = ClassName.get(packageName, clazz.getSimpleName().toString());
             final ClassName configClass = Utils.getConfigurationName(schemaClassName);
 
             ConfigDesc configDesc = new ConfigDesc(configClass, configName, Utils.getViewName(schemaClassName), Utils.getInitName(schemaClassName), Utils.getChangeName(schemaClassName));
+
+            if (isRoot)
+                roots.add(configDesc);
 
             TypeSpec.Builder configurationClassBuilder = TypeSpec
                     .classBuilder(configClass)
@@ -195,7 +203,7 @@ public class Processor extends AbstractProcessor {
                     initMethodBuilder.addStatement("add($L = new $T(qualifiedName, $S))", fieldName, getMethodType, fieldName);
                 }
 
-                configDesc.fields.add(new ConfigField(unwrappedType, fieldName, viewClassType, initClassType, changeClassType));
+                configDesc.fields.add(new ConfigField(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
 
                 MethodSpec getMethod = MethodSpec
                         .methodBuilder(fieldName)
@@ -267,7 +275,7 @@ public class Processor extends AbstractProcessor {
 
         final TypeSpec.Builder keysClass = TypeSpec.classBuilder("Keys").addModifiers(PUBLIC, FINAL);
 
-        final List<ConfigField> flattenConfig = props.values().stream().map((ConfigDesc cfg) -> traverseConfigTree(cfg, props)).flatMap(Set::stream).collect(Collectors.toList());
+        final List<ConfigChain> flattenConfig = roots.stream().map((ConfigDesc cfg) -> traverseConfigTree(cfg, props)).flatMap(Set::stream).collect(Collectors.toList());
 
         flattenConfig.forEach(s -> {
             final String varName = s.name.toUpperCase().replace(".", "_");
@@ -291,12 +299,9 @@ public class Processor extends AbstractProcessor {
         flattenConfig.forEach(s -> {
             final String varName = s.name.toUpperCase().replace(".", "_");
 
-            TypeName t;
-            if (s.type instanceof ClassName) {
-                t = Utils.getConfigurationName((ClassName) s.type);
-            } else {
-                t = s.type;
-            }
+            TypeName t = s.type;
+            if (Utils.isNamedConfiguration(t))
+                t = Utils.unwrapConfigurationClass(t);
 
             TypeName selector = Utils.getParameterized(ClassName.get(Selector.class), s.view, s.change, s.init, t);
 
@@ -306,6 +311,51 @@ public class Processor extends AbstractProcessor {
                     .initializer("new $T(Keys.$L)", selector, varName)
                     .build()
             );
+
+            String methodCall = "";
+
+            ConfigChain current = s;
+            ConfigChain root = null;
+            int namedCount = 0;
+            while (current != null) {
+                boolean isNamed = false;
+                if (Utils.isNamedConfiguration(current.type)) {
+                    namedCount++;
+                    isNamed = true;
+                }
+
+                if (current.parent == null)
+                    root = current;
+                else
+                    methodCall = "." + current.originalName + "()" + (isNamed ? (".get(name" + (namedCount - 1) + ")") : "") + methodCall;
+
+                current = current.parent;
+            }
+
+            TypeName selectorRec = Utils.getParameterized(ClassName.get(RecursiveSelector.class), root.type, t);
+
+            if (namedCount > 0) {
+                final MethodSpec.Builder builder = MethodSpec.methodBuilder(varName + "_FN");
+
+                for (int i = 0; i < namedCount; i++) {
+                    builder.addParameter(String.class, "name" + i);
+                }
+
+                selectorsClass.addMethod(
+                    builder
+                        .returns(selectorRec)
+                        .addModifiers(PUBLIC, STATIC, FINAL)
+                        .addStatement("return (root) -> root$L", methodCall)
+                        .build()
+                );
+            } else {
+                selectorsClass.addField(
+                    FieldSpec.builder(selectorRec, varName + "_REC")
+                        .addModifiers(PUBLIC, STATIC, FINAL)
+                        .initializer("(root) -> root$L", methodCall)
+                        .build()
+                );
+            }
         });
 
         JavaFile selectorsClassFile = JavaFile.builder("org.apache.ignite", selectorsClass.build()).build();
@@ -318,17 +368,23 @@ public class Processor extends AbstractProcessor {
         return true;
     }
 
-    private Set<ConfigField> traverseConfigTree(ConfigDesc cfg, Map<TypeName, ConfigDesc> props) {
-        Set<ConfigField> res = new HashSet<>();
-        Deque<ConfigField> propsStack = new LinkedList<>();
-        propsStack.addFirst(cfg);
+    private Set<ConfigChain> traverseConfigTree(ConfigDesc root, Map<TypeName, ConfigDesc> props) {
+        Set<ConfigChain> res = new HashSet<>();
+        Deque<ConfigChain> propsStack = new LinkedList<>();
+
+        ConfigChain rootChain = new ConfigChain(root.type, root.name, root.name, root.view, root.init, root.change, null);
+
+        propsStack.addFirst(rootChain);
         while (!propsStack.isEmpty()) {
-            final ConfigField a = propsStack.pollFirst();
-            final ConfigDesc configDesc = props.get(a.type);
+            final ConfigChain a = propsStack.pollFirst();
+
+            TypeName type = Utils.unwrapConfigurationClass(a.type);
+
+            final ConfigDesc configDesc = props.get(type);
             final List<ConfigField> propertiesList = configDesc.fields;
 
             if (a.name != null && !a.name.isEmpty()) {
-                res.add(new ConfigField(a.type, a.name, a.view, a.init, a.change));
+                res.add(a);
             }
 
             for (ConfigField property : propertiesList) {
@@ -339,15 +395,24 @@ public class Processor extends AbstractProcessor {
                         .replaceAll(regex, replacement)
                         .toLowerCase();
 
-                if (a.name != null && !a.name.isEmpty()) {
+                if (a.name != null && !a.name.isEmpty())
                     qualifiedName = a.name + "." + qualifiedName;
+
+                final ConfigChain newChainElement = new ConfigChain(property.type, qualifiedName, property.name, property.view, property.init, property.change, a);
+
+                boolean z = false;
+                if (property.type instanceof ParameterizedTypeName) {
+                    final ParameterizedTypeName zzz = (ParameterizedTypeName) property.type;
+                    if (zzz.rawType.equals(ClassName.get(NamedListConfiguration.class))) {
+                        z = true;
+                    }
                 }
 
-                if (props.containsKey(property.type)) {
-                    propsStack.add(new ConfigField(property.type, qualifiedName, property.view, property.init, property.change));
-                } else {
-                    res.add(new ConfigField(property.type, qualifiedName, property.view, property.init, property.change));
-                }
+                if (props.containsKey(property.type) || z)
+                    propsStack.add(newChainElement);
+                else
+                    res.add(newChainElement);
+
             }
         }
         return res;
@@ -373,8 +438,12 @@ public class Processor extends AbstractProcessor {
     public MethodSpec createChangeMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
         variables.forEach(variable -> {
+            final Value valueAnnotation = variable.getAnnotation(Value.class);
+            if (valueAnnotation != null && valueAnnotation.initOnly())
+                return;
+
             final String name = variable.getSimpleName().toString();
-            builder.addStatement("$L.change(changes.$L())", name, name.replace("Configuration", ""));
+            builder.addStatement("$L.change(changes.$L())", name, name);
         });
 
         return MethodSpec.methodBuilder("change")
@@ -389,7 +458,7 @@ public class Processor extends AbstractProcessor {
         final CodeBlock.Builder builder = CodeBlock.builder();
         variables.forEach(variable -> {
             final String name = variable.getSimpleName().toString();
-            builder.addStatement("$L.init(initial.$L())", name, name.replace("Configuration", ""));
+            builder.addStatement("$L.init(initial.$L())", name, name);
         });
 
         return MethodSpec.methodBuilder("init")

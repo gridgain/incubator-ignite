@@ -21,6 +21,6 @@ public @interface Config {
 
     String value() default "";
 
-
+    boolean root() default false;
 
 }

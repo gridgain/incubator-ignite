@@ -31,13 +31,13 @@ public class ConfigTreeVisitor {
     Map<String, Modifier> map = new HashMap<>();
 
     public void visit(String path, DynamicProperty dynamicProperty) {
-        map.put(Keys.concat(path, dynamicProperty.key()), dynamicProperty);
+//        map.put(Keys.concat(path, dynamicProperty.key()), dynamicProperty);
     }
 
     public void visit(String path, DynamicConfiguration dynamicConfiguration) {
-        String concat = Keys.concat(path, dynamicConfiguration.key());
+//        String concat = Keys.concat(path, dynamicConfiguration.key());
 
-        map.put(concat, dynamicConfiguration);
+//        map.put(concat, dynamicConfiguration);
 
 //        dynamicConfiguration.accept(concat, this);
     }

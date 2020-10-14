@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.internal.processor;
 
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.NamedConfig;
+import com.squareup.javapoet.TypeName;
 
-/**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
- */
-@Config
-public class BaselineConfigurationSchema {
-    @Config
-    private AutoAdjustConfigurationSchema autoAdjust;
+public class ConfigChain extends ConfigField {
 
-    @NamedConfig
-    private NodeConfigurationSchema nodes;
+    public final ConfigChain parent;
 
+    public final String originalName;
+
+    public ConfigChain(TypeName type, String name, String originalName, TypeName view, TypeName init, TypeName change, ConfigChain parent) {
+        super(type, name, view, init, change);
+        this.originalName = originalName;
+        this.parent = parent;
+    }
 }

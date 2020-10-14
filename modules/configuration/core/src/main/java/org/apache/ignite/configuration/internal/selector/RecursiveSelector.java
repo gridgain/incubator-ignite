@@ -15,23 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.internal.selector;
 
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.NamedConfig;
+public interface RecursiveSelector<ROOT, THIS> {
 
-/**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
- */
-@Config
-public class BaselineConfigurationSchema {
-    @Config
-    private AutoAdjustConfigurationSchema autoAdjust;
-
-    @NamedConfig
-    private NodeConfigurationSchema nodes;
+    THIS select(ROOT root);
 
 }

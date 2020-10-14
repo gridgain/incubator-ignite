@@ -50,7 +50,6 @@ public class InitClassGenerator extends ClassGenerator {
             if (namedConfigAnnotation != null) {
                 fieldType = ParameterizedTypeName.get(ClassName.get(NamedList.class), fieldType);
             }
-            name = name.replace("Configuration", "");
         }
 
         return FieldSpec.builder(fieldType, name, Modifier.PRIVATE).build();

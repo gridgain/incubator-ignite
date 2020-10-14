@@ -48,6 +48,10 @@ public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicCon
 
     }
 
+    public T get(String name) {
+        return values.get(name);
+    }
+
     @Override public void updateValue(String key, Object newValue) {
         String name = key.split("\\.")[1];
         if (!values.containsKey(name))

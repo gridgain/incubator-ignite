@@ -17,11 +17,29 @@
 
 package org.apache.ignite.configuration.internal;
 
+import java.util.Collections;
+import org.apache.ignite.Selectors;
+import org.apache.ignite.configuration.internal.property.DynamicProperty;
+import org.apache.ignite.configuration.internal.property.NamedList;
+
 public class Test {
 
+    @org.junit.Test
     public void test() {
+        final InitNode node = new InitNode();
+        node.withPort(1000);
+        node.withConsistentId("1000");
+        final NamedList<InitNode> namedListInitNode = new NamedList<>(Collections.singletonMap("node1", node));
         LocalConfiguration localConfiguration = new LocalConfiguration();
-        localConfiguration.baselineConfiguration().autoAdjustConfiguration().enabled(false);
+        final InitBaseline baseline = new InitBaseline();
+        baseline.withNodes(namedListInitNode);
+        final InitLocal local = new InitLocal();
+        local.withBaseline(baseline);
+        localConfiguration.init(local);
+        localConfiguration.baseline().autoAdjust().enabled(false);
+        final DynamicProperty<String> node1ViaFn = Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1").select(localConfiguration);
+        final DynamicProperty<String> node1ViaFluentAPI = localConfiguration.baseline().nodes().get("node1").consistentId();
+
     }
 
 }

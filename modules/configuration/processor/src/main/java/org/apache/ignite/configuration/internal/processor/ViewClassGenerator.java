@@ -23,6 +23,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import java.util.Collections;
+import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
@@ -51,7 +52,6 @@ public class ViewClassGenerator extends ClassGenerator {
             if (namedConfigAnnotation != null) {
                 fieldType = ParameterizedTypeName.get(ClassName.get(NamedList.class), fieldType);
             }
-            name = name.replace("Configuration", "");
         }
 
         return FieldSpec.builder(fieldType, name, Modifier.PRIVATE, Modifier.FINAL).build();
@@ -59,5 +59,9 @@ public class ViewClassGenerator extends ClassGenerator {
 
     @Override protected MethodSpec mapMethod(FieldSpec field) {
         return null;
+    }
+
+    @Override protected MethodSpec createConstructor(List<FieldSpec> fields) {
+        return Utils.createConstructor(fields);
     }
 }
