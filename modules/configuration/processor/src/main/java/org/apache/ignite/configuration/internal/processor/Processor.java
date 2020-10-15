@@ -54,7 +54,7 @@ import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
 import org.apache.ignite.configuration.internal.annotation.Value;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
-import org.apache.ignite.configuration.internal.selector.RecursiveSelector;
+import org.apache.ignite.configuration.internal.selector.AnotherSelector;
 import org.apache.ignite.configuration.internal.selector.Selector;
 
 import static javax.lang.model.element.Modifier.FINAL;
@@ -332,7 +332,7 @@ public class Processor extends AbstractProcessor {
                 current = current.parent;
             }
 
-            TypeName selectorRec = Utils.getParameterized(ClassName.get(RecursiveSelector.class), root.type, t);
+            TypeName selectorRec = Utils.getParameterized(ClassName.get(AnotherSelector.class), root.type, t);
 
             if (namedCount > 0) {
                 final MethodSpec.Builder builder = MethodSpec.methodBuilder(varName + "_FN");
@@ -443,7 +443,9 @@ public class Processor extends AbstractProcessor {
                 return;
 
             final String name = variable.getSimpleName().toString();
+            builder.beginControlFlow("if (changes.$L() != null)", name);
             builder.addStatement("$L.change(changes.$L())", name, name);
+            builder.endControlFlow();
         });
 
         return MethodSpec.methodBuilder("change")
@@ -458,7 +460,9 @@ public class Processor extends AbstractProcessor {
         final CodeBlock.Builder builder = CodeBlock.builder();
         variables.forEach(variable -> {
             final String name = variable.getSimpleName().toString();
+            builder.beginControlFlow("if (initial.$L() != null)", name);
             builder.addStatement("$L.init(initial.$L())", name, name);
+            builder.endControlFlow();
         });
 
         return MethodSpec.methodBuilder("init")

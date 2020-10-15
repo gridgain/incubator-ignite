@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration.internal.selector;
 
-public interface RecursiveSelector<ROOT, THIS> {
+public interface AnotherSelector<ROOT, THIS> {
 
     THIS select(ROOT root);
 

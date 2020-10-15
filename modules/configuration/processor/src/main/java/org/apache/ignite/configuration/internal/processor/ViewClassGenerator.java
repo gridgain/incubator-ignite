@@ -17,17 +17,16 @@
 
 package org.apache.ignite.configuration.internal.processor;
 
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
-import java.util.Collections;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
 import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
 import org.apache.ignite.configuration.internal.property.NamedList;
@@ -46,12 +45,16 @@ public class ViewClassGenerator extends ClassGenerator {
         String name = field.getSimpleName().toString();
 
         TypeName fieldType = TypeName.get(type);
+
+        if (fieldType.isPrimitive())
+            fieldType = fieldType.box();
+
         if (namedConfigAnnotation != null || configAnnotation != null) {
             ClassName confClass = (ClassName) fieldType;
             fieldType = Utils.getViewName(confClass);
-            if (namedConfigAnnotation != null) {
+
+            if (namedConfigAnnotation != null)
                 fieldType = ParameterizedTypeName.get(ClassName.get(NamedList.class), fieldType);
-            }
         }
 
         return FieldSpec.builder(fieldType, name, Modifier.PRIVATE, Modifier.FINAL).build();

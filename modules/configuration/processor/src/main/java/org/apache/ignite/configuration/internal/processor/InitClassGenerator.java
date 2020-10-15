@@ -44,12 +44,17 @@ public class InitClassGenerator extends ClassGenerator {
         String name = field.getSimpleName().toString();
 
         TypeName fieldType = TypeName.get(type);
+
+        if (fieldType.isPrimitive())
+            fieldType = fieldType.box();
+
         if (namedConfigAnnotation != null || configAnnotation != null) {
             ClassName confClass = (ClassName) fieldType;
             fieldType = Utils.getInitName(confClass);
-            if (namedConfigAnnotation != null) {
+            
+            if (namedConfigAnnotation != null)
                 fieldType = ParameterizedTypeName.get(ClassName.get(NamedList.class), fieldType);
-            }
+
         }
 
         return FieldSpec.builder(fieldType, name, Modifier.PRIVATE).build();

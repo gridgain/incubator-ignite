@@ -21,10 +21,11 @@ import java.util.Collections;
 import org.apache.ignite.Selectors;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.NamedList;
+import org.junit.Test;
 
-public class Test {
+public class UsageTest {
 
-    @org.junit.Test
+    @Test
     public void test() {
         final InitNode node = new InitNode();
         node.withPort(1000);
@@ -39,7 +40,6 @@ public class Test {
         localConfiguration.baseline().autoAdjust().enabled(false);
         final DynamicProperty<String> node1ViaFn = Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1").select(localConfiguration);
         final DynamicProperty<String> node1ViaFluentAPI = localConfiguration.baseline().nodes().get("node1").consistentId();
-
     }
 
 }
