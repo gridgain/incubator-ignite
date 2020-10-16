@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
@@ -30,7 +29,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.jetbrains.annotations.NotNull;
 
@@ -118,10 +116,5 @@ public class TypeUtils {
             .collect(Collectors.toList());
 
         return typeFactory.createStructType(fields, names);
-    }
-
-    /** */
-    public static <Row> Function<Row, Row> convertInternalTypes(ExecutionContext<Row> ctx, RelDataType rowType) {
-        return Function.identity();
     }
 }

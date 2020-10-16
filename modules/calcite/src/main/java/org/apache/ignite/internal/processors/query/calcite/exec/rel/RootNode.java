@@ -25,13 +25,11 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.IgniteInterruptedException;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
-import org.apache.ignite.internal.processors.query.calcite.util.TypeUtils;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
@@ -54,9 +52,6 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     private final AtomicReference<Throwable> ex = new AtomicReference<>();
 
     /** */
-    private final Function<Row, Row> internalTypesTranslator;
-
-    /** */
     private int waiting;
 
     /** */
@@ -75,7 +70,6 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
         super(ctx, rowType);
 
         onClose = this::closeInternal;
-        internalTypesTranslator = TypeUtils.convertInternalTypes(ctx, rowType);
     }
 
     /**
@@ -85,7 +79,6 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
         super(ctx, rowType);
 
         this.onClose = onClose;
-        internalTypesTranslator = TypeUtils.convertInternalTypes(ctx, rowType);
     }
 
     /** */
@@ -195,7 +188,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
         if (!hasNext())
             throw new NoSuchElementException();
 
-        return internalTypesTranslator.apply(outBuff.remove());
+        return outBuff.remove();
     }
 
     /** {@inheritDoc} */
