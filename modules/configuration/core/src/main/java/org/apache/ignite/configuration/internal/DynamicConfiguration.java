@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.internal.property.Modifier;
  * @author @java.author
  * @version @java.version
  */
-public abstract class DynamicConfiguration<T, CHANGE, INIT> implements Modifier<T> {
+public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<T, INIT, CHANGE> {
 
     protected final String qualifiedName;
 
@@ -45,10 +45,6 @@ public abstract class DynamicConfiguration<T, CHANGE, INIT> implements Modifier<
 
         return member;
     }
-
-    public abstract void change(CHANGE change);
-
-    public abstract void init(INIT init);
 
     @Override public void updateValue(String key, Object newValue) {
         key = nextPostfix(key);
@@ -74,7 +70,7 @@ public abstract class DynamicConfiguration<T, CHANGE, INIT> implements Modifier<
         return key;
     }
 
-    @Override public Modifier<T> find(String key) {
+    @Override public Modifier<T, INIT, CHANGE> find(String key) {
         if (key.equals(this.key))
             return this;
 

@@ -30,7 +30,7 @@ import org.apache.ignite.configuration.internal.property.NamedList;
  * @author @java.author
  * @version @java.version
  */
-public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicConfiguration<NamedList<U>, Object, Object> {
+public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT, CHANGE> extends DynamicConfiguration<NamedList<U>, NamedList<INIT>, NamedList<CHANGE>> {
     private final BiFunction<String, String, T> creator;
 
     Map<String, T> values = new HashMap<>();
@@ -40,12 +40,22 @@ public class NamedListConfiguration<U, T extends Modifier<U>> extends DynamicCon
         this.creator = creator;
     }
 
-    @Override public void change(Object o) {
+    @Override public void change(NamedList<CHANGE> o) {
+        o.getValues().forEach((key, change) -> {
+            if (!values.containsKey(key))
+                values.put(key, add(creator.apply(qualifiedName, key)));
 
+            values.get(key).change(change);
+        });
     }
 
-    @Override public void init(Object o) {
+    @Override public void init(NamedList<INIT> o) {
+        o.getValues().forEach((key, init) -> {
+            if (!values.containsKey(key))
+                values.put(key, add(creator.apply(qualifiedName, key)));
 
+            values.get(key).init(init);
+        });
     }
 
     public T get(String name) {

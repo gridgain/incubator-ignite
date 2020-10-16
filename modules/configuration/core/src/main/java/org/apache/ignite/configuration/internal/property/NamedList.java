@@ -26,15 +26,19 @@ import java.util.Map;
  * @version @java.version
  */
 public class NamedList<T> {
-    private final Map<String, T> list;
+    private final Map<String, T> values;
 
-    public NamedList(Map<String, T> list) {
-        this.list = list;
+    public NamedList(Map<String, T> values) {
+        this.values = values;
+    }
+
+    public Map<String, T> getValues() {
+        return values;
     }
 
     @Override public String toString() {
         return "NamedList{" +
-            "list=" + list +
+            "values=" + values +
             '}';
     }
 }

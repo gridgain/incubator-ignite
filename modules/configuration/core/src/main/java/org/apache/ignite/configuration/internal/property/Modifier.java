@@ -23,13 +23,17 @@ package org.apache.ignite.configuration.internal.property;
  * @author @java.author
  * @version @java.version
  */
-public interface Modifier<T> {
+public interface Modifier<T, INIT, CHANGE> {
 
     String key();
 
     T toView();
 
-    Modifier<T> find(String key);
+    Modifier<T, INIT, CHANGE> find(String key);
+
+    void change(CHANGE change);
+
+    void init(INIT init);
 
     void updateValue(String key, Object newValue);
 }

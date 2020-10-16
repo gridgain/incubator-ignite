@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * @author @java.author
  * @version @java.version
  */
-public class DynamicProperty<T> implements Modifier<T> {
+public class DynamicProperty<T> implements Modifier<T, T, T> {
     /** Name of property. */
     private final String name;
 
@@ -56,18 +56,18 @@ public class DynamicProperty<T> implements Modifier<T> {
         return val;
     }
 
-    @Override public Modifier<T> find(String key) {
+    @Override public Modifier<T, T, T> find(String key) {
         if (key.equals(name))
             return this;
 
         return null;
     }
 
-    public void change(T object) {
+    @Override public void change(T object) {
         this.val = object;
     }
 
-    public void init(T object) {
+    @Override public void init(T object) {
         this.val = object;
     }
 

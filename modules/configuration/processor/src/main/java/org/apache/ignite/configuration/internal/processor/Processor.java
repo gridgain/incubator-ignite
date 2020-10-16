@@ -18,6 +18,9 @@
 package org.apache.ignite.configuration.internal.processor;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -55,6 +59,7 @@ import org.apache.ignite.configuration.internal.annotation.NamedConfig;
 import org.apache.ignite.configuration.internal.annotation.Value;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.selector.AnotherSelector;
+import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 import org.apache.ignite.configuration.internal.selector.Selector;
 
 import static javax.lang.model.element.Modifier.FINAL;
@@ -170,14 +175,16 @@ public class Processor extends AbstractProcessor {
                 if (namedConfigAnnotation != null) {
                     ClassName fieldType = Utils.getConfigurationName((ClassName) baseType);
 
-                    ClassName viewType = Utils.getViewName((ClassName) baseType);
+                    viewClassType = Utils.getViewName((ClassName) baseType);
+                    initClassType = Utils.getInitName((ClassName) baseType);
+                    changeClassType = Utils.getChangeName((ClassName) baseType);
 
-                    getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewType, fieldType);
+                    getMethodType = ParameterizedTypeName.get(ClassName.get(NamedListConfiguration.class), viewClassType, fieldType, initClassType, changeClassType);
 
                     final FieldSpec nestedConfigField =
-                            FieldSpec
-                                .builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL)
-                                .build();
+                        FieldSpec
+                            .builder(getMethodType, fieldName, Modifier.PRIVATE, FINAL)
+                            .build();
 
                     configurationClassBuilder.addField(nestedConfigField);
 
@@ -232,7 +239,7 @@ public class Processor extends AbstractProcessor {
             try {
                 viewClassGenerator.generate(packageName, viewClassTypeName, fields);
                 ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
-                TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, changeClassName, initClassName);
+                TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, initClassName, changeClassName);
                 configurationClassBuilder.superclass(dynConfViewClassType);
                 final MethodSpec toViewMethod = createToViewMethod(viewClassTypeName, fields);
                 configurationClassBuilder.addMethod(toViewMethod);
@@ -294,7 +301,15 @@ public class Processor extends AbstractProcessor {
             e.printStackTrace();
         }
 
-        final TypeSpec.Builder selectorsClass = TypeSpec.classBuilder("Selectors").addModifiers(PUBLIC, FINAL);
+        ClassName selectorsClassName = ClassName.get("org.apache.ignite", "Selectors");
+
+        final TypeSpec.Builder selectorsClass = TypeSpec.classBuilder(selectorsClassName).superclass(BaseSelectors.class).addModifiers(PUBLIC, FINAL);
+
+        final CodeBlock.Builder selectorsStaticBlockBuilder = CodeBlock.builder();
+        selectorsStaticBlockBuilder.addStatement("$T publicLookup = $T.publicLookup()", MethodHandles.Lookup.class, MethodHandles.class);
+
+        selectorsStaticBlockBuilder
+            .beginControlFlow("try");
 
         flattenConfig.forEach(s -> {
             final String varName = s.name.toUpperCase().replace(".", "_");
@@ -335,7 +350,9 @@ public class Processor extends AbstractProcessor {
             TypeName selectorRec = Utils.getParameterized(ClassName.get(AnotherSelector.class), root.type, t);
 
             if (namedCount > 0) {
-                final MethodSpec.Builder builder = MethodSpec.methodBuilder(varName + "_FN");
+                final String methodName = varName + "_FN";
+
+                final MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName);
 
                 for (int i = 0; i < namedCount; i++) {
                     builder.addParameter(String.class, "name" + i);
@@ -348,17 +365,38 @@ public class Processor extends AbstractProcessor {
                         .addStatement("return (root) -> root$L", methodCall)
                         .build()
                 );
+                final String collect = IntStream.range(0, namedCount).mapToObj(i -> "$T.class").collect(Collectors.joining(","));
+                List<Object> params = new ArrayList<>();
+                params.add(MethodHandle.class);
+                params.add(methodName);
+                params.add(selectorsClassName);
+                params.add(methodName);
+                params.add(MethodType.class);
+                params.add(AnotherSelector.class);
+                for (int i = 0; i < namedCount; i++) {
+                    params.add(String.class);
+                }
+                selectorsStaticBlockBuilder.addStatement("$T $L = publicLookup.findStatic($T.class, $S, $T.methodType($T.class, " + collect + "))", params.toArray());
+                selectorsStaticBlockBuilder.addStatement("put($S, $L)", s.name, methodName);
             } else {
+                final String fieldName = varName + "_REC";
                 selectorsClass.addField(
-                    FieldSpec.builder(selectorRec, varName + "_REC")
+                    FieldSpec.builder(selectorRec, fieldName)
                         .addModifiers(PUBLIC, STATIC, FINAL)
                         .initializer("(root) -> root$L", methodCall)
                         .build()
                 );
+                selectorsStaticBlockBuilder.addStatement("put($S, $L)", s.name, fieldName);
             }
         });
 
-        JavaFile selectorsClassFile = JavaFile.builder("org.apache.ignite", selectorsClass.build()).build();
+        selectorsStaticBlockBuilder
+            .nextControlFlow("catch ($T e)", Exception.class)
+            .endControlFlow();
+
+        selectorsClass.addStaticBlock(selectorsStaticBlockBuilder.build());
+
+        JavaFile selectorsClassFile = JavaFile.builder(selectorsClassName.packageName(), selectorsClass.build()).build();
         try {
             selectorsClassFile.writeTo(filer);
         } catch (IOException e) {
@@ -376,15 +414,15 @@ public class Processor extends AbstractProcessor {
 
         propsStack.addFirst(rootChain);
         while (!propsStack.isEmpty()) {
-            final ConfigChain a = propsStack.pollFirst();
+            final ConfigChain current = propsStack.pollFirst();
 
-            TypeName type = Utils.unwrapConfigurationClass(a.type);
+            TypeName type = Utils.unwrapConfigurationClass(current.type);
 
             final ConfigDesc configDesc = props.get(type);
             final List<ConfigField> propertiesList = configDesc.fields;
 
-            if (a.name != null && !a.name.isEmpty()) {
-                res.add(a);
+            if (current.name != null && !current.name.isEmpty()) {
+                res.add(current);
             }
 
             for (ConfigField property : propertiesList) {
@@ -392,23 +430,23 @@ public class Processor extends AbstractProcessor {
                 String replacement = "$1_$2";
 
                 String qualifiedName = property.name
-                        .replaceAll(regex, replacement)
-                        .toLowerCase();
+                    .replaceAll(regex, replacement)
+                    .toLowerCase();
 
-                if (a.name != null && !a.name.isEmpty())
-                    qualifiedName = a.name + "." + qualifiedName;
+                if (current.name != null && !current.name.isEmpty())
+                    qualifiedName = current.name + "." + qualifiedName;
 
-                final ConfigChain newChainElement = new ConfigChain(property.type, qualifiedName, property.name, property.view, property.init, property.change, a);
+                final ConfigChain newChainElement = new ConfigChain(property.type, qualifiedName, property.name, property.view, property.init, property.change, current);
 
-                boolean z = false;
+                boolean isNamedConfig = false;
                 if (property.type instanceof ParameterizedTypeName) {
-                    final ParameterizedTypeName zzz = (ParameterizedTypeName) property.type;
-                    if (zzz.rawType.equals(ClassName.get(NamedListConfiguration.class))) {
-                        z = true;
+                    final ParameterizedTypeName parameterized = (ParameterizedTypeName) property.type;
+                    if (parameterized.rawType.equals(ClassName.get(NamedListConfiguration.class))) {
+                        isNamedConfig = true;
                     }
                 }
 
-                if (props.containsKey(property.type) || z)
+                if (props.containsKey(property.type) || isNamedConfig)
                     propsStack.add(newChainElement);
                 else
                     res.add(newChainElement);
