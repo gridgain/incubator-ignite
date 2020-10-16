@@ -32,8 +32,6 @@ import org.junit.Test;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsIndexScan;
-import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsOneProject;
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.notContainsProject;
 import static org.apache.ignite.internal.processors.query.calcite.rules.OrToUnionRuleTest.Product;
@@ -100,26 +98,32 @@ public class ProjectScanMergeRuleTest extends GridCommonAbstractTest {
      */
     @Test
     public void testProjects() {
-        checkQuery("SELECT NAME FROM products d;")
-            .matches(containsTableScan("PUBLIC", "PRODUCTS"))
-            .matches(containsOneProject("PUBLIC", "PRODUCTS", 7))
-            .returns("noname1")
-            .returns("noname2")
-            .returns("noname3")
-            .check();
+//        checkQuery("SELECT NAME FROM products d;")
+//            .matches(containsTableScan("PUBLIC", "PRODUCTS"))
+//            .matches(containsOneProject("PUBLIC", "PRODUCTS", 7))
+//            .returns("noname1")
+//            .returns("noname2")
+//            .returns("noname3")
+//            .check();
+//
+//        checkQuery("SELECT SUBCAT_ID, NAME FROM products d;")
+//            .matches(containsTableScan("PUBLIC", "PRODUCTS"))
+//            .matches(containsOneProject("PUBLIC", "PRODUCTS", 6, 7))
+//            .returns(11, "noname1")
+//            .returns(11, "noname2")
+//            .returns(12, "noname3")
+//            .check();
+//
+//        checkQuery("SELECT NAME FROM products d WHERE CAT_ID > 1;")
+//            .matches(containsIndexScan("PUBLIC", "PRODUCTS"))
+//            .matches(notContainsProject("PUBLIC", "PRODUCTS"))
+//            .returns("noname2")
+//            .returns("noname3")
+//            .check();
 
-        checkQuery("SELECT SUBCAT_ID, NAME FROM products d;")
+        checkQuery("SELECT NAME FROM products WHERE CAT_ID IN (SELECT CAT_ID FROM products WHERE CAT_ID > 1) and ID > 2;")
             .matches(containsTableScan("PUBLIC", "PRODUCTS"))
-            .matches(containsOneProject("PUBLIC", "PRODUCTS", 6, 7))
-            .returns(11, "noname1")
-            .returns(11, "noname2")
-            .returns(12, "noname3")
-            .check();
-
-        checkQuery("SELECT NAME FROM products d WHERE CAT_ID > 1;")
-            .matches(containsIndexScan("PUBLIC", "PRODUCTS"))
             .matches(notContainsProject("PUBLIC", "PRODUCTS"))
-            .returns("noname2")
             .returns("noname3")
             .check();
     }

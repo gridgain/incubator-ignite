@@ -25,10 +25,13 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.IgniteInterruptedException;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
+import org.apache.ignite.internal.processors.query.calcite.util.TypeUtils;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
@@ -51,6 +54,9 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     private final AtomicReference<Throwable> ex = new AtomicReference<>();
 
     /** */
+    private final Function<Row, Row> internalTypesTranslator;
+
+    /** */
     private int waiting;
 
     /** */
@@ -65,19 +71,21 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
     /**
      * @param ctx Execution context.
      */
-    public RootNode(ExecutionContext<Row> ctx) {
-        super(ctx);
+    public RootNode(ExecutionContext<Row> ctx, RelDataType rowType) {
+        super(ctx, rowType);
 
         onClose = this::closeInternal;
+        internalTypesTranslator = TypeUtils.convertInternalTypes(ctx, rowType);
     }
 
     /**
      * @param ctx Execution context.
      */
-    public RootNode(ExecutionContext<Row> ctx, Runnable onClose) {
-        super(ctx);
+    public RootNode(ExecutionContext<Row> ctx, RelDataType rowType, Runnable onClose) {
+        super(ctx, rowType);
 
         this.onClose = onClose;
+        internalTypesTranslator = TypeUtils.convertInternalTypes(ctx, rowType);
     }
 
     /** */
@@ -187,7 +195,7 @@ public class RootNode<Row> extends AbstractNode<Row> implements SingleNode<Row>,
         if (!hasNext())
             throw new NoSuchElementException();
 
-        return outBuff.remove();
+        return internalTypesTranslator.apply(outBuff.remove());
     }
 
     /** {@inheritDoc} */
