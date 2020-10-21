@@ -20,12 +20,13 @@ package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.internal.property.PropertyListener;
 
 /**
  * Storage interface for configuration.
  */
 public interface ConfigurationStorage {
-
+    /** ID of the {@link PropertyListener} for storage actions. */
     public static final String STORAGE_LISTENER_ID = "STORAGE";
 
     /**
@@ -48,11 +49,11 @@ public interface ConfigurationStorage {
     <T extends Serializable> T get(String propertyName);
 
     /**
+     * Listen for the property change in the storage.
      *
-     *
-     * @param key
-     * @param listener
-     * @param <T>
+     * @param key Key to listen on.
+     * @param listener Listener function.
+     * @param <T> Type of the property.
      */
     <T extends Serializable> void listen(String key, Consumer<T> listener);
 

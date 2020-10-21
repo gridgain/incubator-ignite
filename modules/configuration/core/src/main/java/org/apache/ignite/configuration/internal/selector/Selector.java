@@ -17,22 +17,25 @@
 
 package org.apache.ignite.configuration.internal.selector;
 
+import org.apache.ignite.configuration.internal.property.Modifier;
+
 /**
- * TODO: Add class description.
+ * Interface for objects helping select configuration elements.
  *
- * @author @java.author
- * @version @java.version
+ * @param <ROOT> Root configuration class.
+ * @param <TARGET> Target configuration class.
+ * @param <VIEW> View class of target.
+ * @param <INIT> Init class of target.
+ * @param <CHANGE> Change class of target.
  */
-public class Selector<OutputT, ChangeT, InitT, InnerT> {
-    private final String key;
-//    private final Class<T> type;
+public interface Selector<ROOT, TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> {
 
-    public Selector(String key) {
-        this.key = key;
-//        this.type = type;
-    }
+    /**
+     * Select configuration element.
+     *
+     * @param root Configuration root object.
+     * @return Configuration element.
+     */
+    TARGET select(ROOT root);
 
-    public String key() {
-        return key;
-    }
 }

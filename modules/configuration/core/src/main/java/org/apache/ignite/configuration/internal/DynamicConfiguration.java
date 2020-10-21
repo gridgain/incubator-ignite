@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.internal.property.Modifier;
  * @version @java.version
  */
 public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<T, INIT, CHANGE> {
-
+    /** Fully qualified name of the configuration. */
     protected final String qualifiedName;
 
     protected final String key;

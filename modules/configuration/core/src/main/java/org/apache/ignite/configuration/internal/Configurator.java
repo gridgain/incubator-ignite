@@ -26,7 +26,7 @@ import java.util.Queue;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.Modifier;
 import org.apache.ignite.configuration.internal.property.PropertyListener;
-import org.apache.ignite.configuration.internal.selector.AnotherSelector;
+import org.apache.ignite.configuration.internal.selector.Selector;
 
 public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
 
@@ -72,22 +72,21 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
         });
     }
 
-
-    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> VIEW getPublic(AnotherSelector<T, TARGET, VIEW, INIT, CHANGE> selector) {
+    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> VIEW getPublic(Selector<T, TARGET, VIEW, INIT, CHANGE> selector) {
         return selector.select(root).toView();
     }
 
-    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void set(AnotherSelector<T, TARGET, VIEW, INIT, CHANGE> selector, CHANGE newValue) {
+    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void set(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, CHANGE newValue) {
         final TARGET select = selector.select(root);
         select.change(newValue);
     }
 
-    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void init(AnotherSelector<T, TARGET, VIEW, INIT, CHANGE> selector, INIT initValue) {
+    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void init(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, INIT initValue) {
         final TARGET select = selector.select(root);
         select.init(initValue);
     }
 
-    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> TARGET getInternal(AnotherSelector<T, TARGET, VIEW, INIT, CHANGE> selector) {
+    public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> TARGET getInternal(Selector<T, TARGET, VIEW, INIT, CHANGE> selector) {
         return selector.select(root);
     }
 

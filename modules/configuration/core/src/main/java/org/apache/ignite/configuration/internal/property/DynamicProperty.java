@@ -96,10 +96,6 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         return qualifiedName;
     }
 
-    public void accept(String path, ConfigTreeVisitor visitor) {
-        visitor.visit(path, this);
-    }
-
     public void setSilently(T serializable) {
         val = serializable;
         updateListeners.forEach(listener -> {

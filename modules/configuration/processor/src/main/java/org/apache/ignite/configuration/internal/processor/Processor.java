@@ -58,9 +58,8 @@ import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
 import org.apache.ignite.configuration.internal.annotation.Value;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
-import org.apache.ignite.configuration.internal.selector.AnotherSelector;
-import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -344,7 +343,7 @@ public class Processor extends AbstractProcessor {
                 current = current.parent;
             }
 
-            TypeName selectorRec = Utils.getParameterized(ClassName.get(AnotherSelector.class), root.type, t, s.view, s.init, s.change);
+            TypeName selectorRec = Utils.getParameterized(ClassName.get(Selector.class), root.type, t, s.view, s.init, s.change);
 
             if (namedCount > 0) {
                 final String methodName = varName + "_FN";
@@ -370,7 +369,7 @@ public class Processor extends AbstractProcessor {
                 params.add(selectorsClassName);
                 params.add(methodName);
                 params.add(MethodType.class);
-                params.add(AnotherSelector.class);
+                params.add(Selector.class);
                 for (int i = 0; i < namedCount; i++) {
                     params.add(String.class);
                 }

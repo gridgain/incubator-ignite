@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.NamedList;
-import org.apache.ignite.configuration.internal.selector.AnotherSelector;
+import org.apache.ignite.configuration.internal.selector.Selector;
 import org.junit.Test;
 
 public class UsageTest {
@@ -69,7 +69,7 @@ public class UsageTest {
         final DynamicProperty<String> node1ViaFn = Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1").select(localConfiguration);
         final DynamicProperty<String> node1ViaFluentAPI = localConfiguration.baseline().nodes().get("node1").consistentId();
 
-        final AnotherSelector selector = Selectors.find("local.baseline.nodes[node1].port");
+        final Selector selector = Selectors.find("local.baseline.nodes[node1].port");
         final DynamicProperty<Integer> portViaSel = (DynamicProperty<Integer>) selector.select(localConfiguration);
     }
 

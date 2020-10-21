@@ -25,9 +25,9 @@ import java.util.Map;
 
 public class BaseSelectors {
 
-    private static Map<String, SelectorHolder> selectors = new HashMap<>();
+    private final static Map<String, SelectorHolder> selectors = new HashMap<>();
 
-    public static AnotherSelector find(String name) {
+    public static Selector<?, ?, ?, ?, ?> find(String name) {
         String[] splitten = name.split("\\.");
         List<String> arguments = new ArrayList<>();
         StringBuilder keyBuilder = new StringBuilder();
@@ -59,7 +59,7 @@ public class BaseSelectors {
         return null;
     }
 
-    public static void put(String key, AnotherSelector<?, ?, ?, ?, ?> selector) {
+    public static void put(String key, Selector<?, ?, ?, ?, ?> selector) {
         selectors.put(key, new SelectorHolder(selector));
     }
 
@@ -69,11 +69,11 @@ public class BaseSelectors {
 
     private static final class SelectorHolder {
 
-        AnotherSelector<?, ?, ?, ?, ?> selector;
+        Selector<?, ?, ?, ?, ?> selector;
 
         MethodHandle selectorFn;
 
-        public SelectorHolder(AnotherSelector<?, ?, ?, ?, ?> selector) {
+        public SelectorHolder(Selector<?, ?, ?, ?, ?> selector) {
             this.selector = selector;
         }
 
@@ -81,11 +81,11 @@ public class BaseSelectors {
             this.selectorFn = selectorFn;
         }
 
-        AnotherSelector<?, ?, ?, ?, ?> get(List<String> arguments) throws Throwable {
+        Selector<?, ?, ?, ?, ?> get(List<String> arguments) throws Throwable {
             if (selector != null)
                 return selector;
 
-            return (AnotherSelector<?, ?, ?, ?, ?>) selectorFn.invokeWithArguments(arguments);
+            return (Selector<?, ?, ?, ?, ?>) selectorFn.invokeWithArguments(arguments);
         }
 
     }
