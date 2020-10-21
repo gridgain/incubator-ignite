@@ -15,27 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.processor;
+package org.apache.ignite.configuration.internal;
 
-import com.squareup.javapoet.TypeName;
+import org.apache.ignite.configuration.internal.annotation.Config;
+import org.apache.ignite.configuration.internal.annotation.Value;
 
-public class ConfigField {
+@Config
+public class CacheConfigurationSchema {
 
-    public final String name;
+    @Value
+    private int size;
 
-    public final TypeName type;
-
-    public final TypeName view;
-
-    public final TypeName init;
-
-    public final TypeName change;
-
-    public ConfigField(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
-        this.type = type;
-        this.name = name;
-        this.view = view;
-        this.init = init;
-        this.change = change;
-    }
 }

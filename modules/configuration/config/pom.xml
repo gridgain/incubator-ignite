@@ -60,11 +60,6 @@
             <artifactId>ignite-configuration-core</artifactId>
             <version>2.10.0-SNAPSHOT</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-configuration-processor</artifactId>
-            <version>2.10.0-SNAPSHOT</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -77,6 +72,13 @@
                     <annotationProcessors>
                         <annotationProcessor>org.apache.ignite.configuration.internal.processor.Processor</annotationProcessor>
                     </annotationProcessors>
+                    <annotationProcessorPaths>
+                        <annotationProcessorPath>
+                            <groupId>org.apache.ignite</groupId>
+                            <artifactId>ignite-configuration-processor</artifactId>
+                            <version>2.10.0-SNAPSHOT</version>
+                        </annotationProcessorPath>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
         </plugins>

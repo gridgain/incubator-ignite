@@ -17,9 +17,9 @@
 
 package org.apache.ignite.configuration.internal;
 
+import java.io.Serializable;
 import java.util.Collections;
-import org.apache.ignite.Keys;
-import org.apache.ignite.Selectors;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.NamedList;
 import org.apache.ignite.configuration.internal.selector.AnotherSelector;
@@ -29,19 +29,46 @@ public class UsageTest {
 
     @Test
     public void test() {
-        final InitNode node = new InitNode();
-        node.withPort(1000);
-        node.withConsistentId("1000");
-        final NamedList<InitNode> namedListInitNode = new NamedList<>(Collections.singletonMap("node1", node));
         LocalConfiguration localConfiguration = new LocalConfiguration();
-        final InitBaseline baseline = new InitBaseline();
-        baseline.withNodes(namedListInitNode);
-        final InitLocal local = new InitLocal();
-        local.withBaseline(baseline);
-        localConfiguration.init(local);
+        final ConfigurationStorage storage = new ConfigurationStorage() {
+
+            @Override
+            public <T extends Serializable> void save(String propertyName, T object) {
+
+            }
+
+            @Override
+            public <T extends Serializable> T get(String propertyName) {
+                return null;
+            }
+
+            @Override
+            public <T extends Serializable> void listen(String key, Consumer<T> listener) {
+
+            }
+        };
+
+        final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, localConfiguration);
+
+        InitLocal initLocal = new InitLocal().withBaseline(
+            new InitBaseline()
+                .withNodes(
+                    new NamedList<>(
+                        Collections.singletonMap("node1", new InitNode().withConsistentId("test").withPort(1000))
+                    )
+                )
+        );
+
+        configurator.set(Selectors.LOCAL_BASELINE_NODES_FN("node1"), new ChangeNode().withPort(1000));
+
+        localConfiguration.init(initLocal);
+
+        final DynamicProperty<String> node1 = configurator.getInternal(Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1"));
+
         localConfiguration.baseline().autoAdjust().enabled(false);
         final DynamicProperty<String> node1ViaFn = Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1").select(localConfiguration);
         final DynamicProperty<String> node1ViaFluentAPI = localConfiguration.baseline().nodes().get("node1").consistentId();
+
         final AnotherSelector selector = Selectors.find("local.baseline.nodes[node1].port");
         final DynamicProperty<Integer> portViaSel = (DynamicProperty<Integer>) selector.select(localConfiguration);
     }

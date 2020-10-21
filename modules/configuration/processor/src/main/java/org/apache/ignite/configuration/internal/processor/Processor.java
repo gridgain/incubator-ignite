@@ -67,31 +67,27 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
 /**
- *
+ * Annotation processor that produces configuration classes.
  */
 public class Processor extends AbstractProcessor {
-    /** */
-    private ProcessingEnvironment processingEnv;
-
-    /** */
+    /** Generator of VIEW classes. */
     private ViewClassGenerator viewClassGenerator;
 
-    /** */
-    private ChangeClassGenerator changeClassGenerator;
-
-    /** */
+    /** Generator of INIT classes. */
     private InitClassGenerator initClassGenerator;
 
-    /** */
+    /** Generator of CHANGE classes. */
+    private ChangeClassGenerator changeClassGenerator;
+
+    /** Class file writer. */
     private Filer filer;
 
     @Override public synchronized void init(ProcessingEnvironment processingEnv) {
-        this.processingEnv = processingEnv;
         super.init(processingEnv);
-        this.filer = processingEnv.getFiler();
+        filer = processingEnv.getFiler();
         viewClassGenerator = new ViewClassGenerator(processingEnv);
-        changeClassGenerator = new ChangeClassGenerator(processingEnv);
         initClassGenerator = new InitClassGenerator(processingEnv);
+        changeClassGenerator = new ChangeClassGenerator(processingEnv);
     }
 
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
@@ -101,7 +97,14 @@ public class Processor extends AbstractProcessor {
 
         List<ConfigDesc> roots = new ArrayList<>();
 
-        for (Element element : roundEnvironment.getElementsAnnotatedWith(Config.class)) {
+        String packageForUtil = "";
+
+        final Set<? extends Element> annotatedConfigs = roundEnvironment.getElementsAnnotatedWith(Config.class);
+
+        if (annotatedConfigs.isEmpty())
+            return false;
+
+        for (Element element : annotatedConfigs) {
             if (element.getKind() != ElementKind.CLASS) {
                 continue;
             }
@@ -125,17 +128,19 @@ public class Processor extends AbstractProcessor {
 
             ConfigDesc configDesc = new ConfigDesc(configClass, configName, Utils.getViewName(schemaClassName), Utils.getInitName(schemaClassName), Utils.getChangeName(schemaClassName));
 
-            if (isRoot)
+            if (isRoot) {
                 roots.add(configDesc);
+                packageForUtil = packageName;
+            }
 
             TypeSpec.Builder configurationClassBuilder = TypeSpec
-                    .classBuilder(configClass)
-                    .addModifiers(PUBLIC, FINAL);
+                .classBuilder(configClass)
+                .addModifiers(PUBLIC, FINAL);
 
             final MethodSpec emptyConstructor = MethodSpec.constructorBuilder()
-                    .addModifiers(PUBLIC)
-                    .addStatement("this($S, $S)", "", configName)
-                    .build();
+                .addModifiers(PUBLIC)
+                .addStatement("this($S, $S)", "", configName)
+                .build();
 
             configurationClassBuilder.addMethod(emptyConstructor);
 
@@ -222,11 +227,11 @@ public class Processor extends AbstractProcessor {
 
                 if (valueAnnotation != null) {
                     MethodSpec setMethod = MethodSpec
-                            .methodBuilder(fieldName)
-                            .addModifiers(PUBLIC, FINAL)
-                            .addParameter(unwrappedType, fieldName)
-                            .addStatement("this.$L.change($L)", fieldName, fieldName)
-                            .build();
+                        .methodBuilder(fieldName)
+                        .addModifiers(PUBLIC, FINAL)
+                        .addParameter(unwrappedType, fieldName)
+                        .addStatement("this.$L.change($L)", fieldName, fieldName)
+                        .build();
                     configurationClassBuilder.addMethod(setMethod);
                 }
             }
@@ -294,14 +299,14 @@ public class Processor extends AbstractProcessor {
             );
         });
 
-        JavaFile keysClassFile = JavaFile.builder("org.apache.ignite", keysClass.build()).build();
+        JavaFile keysClassFile = JavaFile.builder(packageForUtil, keysClass.build()).build();
         try {
             keysClassFile.writeTo(filer);
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to write class: " + e.getMessage(), e);
         }
 
-        ClassName selectorsClassName = ClassName.get("org.apache.ignite", "Selectors");
+        ClassName selectorsClassName = ClassName.get(packageForUtil, "Selectors");
 
         final TypeSpec.Builder selectorsClass = TypeSpec.classBuilder(selectorsClassName).superclass(BaseSelectors.class).addModifiers(PUBLIC, FINAL);
 
@@ -316,22 +321,14 @@ public class Processor extends AbstractProcessor {
 
             TypeName t = s.type;
             if (Utils.isNamedConfiguration(t))
-                t = Utils.unwrapConfigurationClass(t);
-
-            TypeName selector = Utils.getParameterized(ClassName.get(Selector.class), s.view, s.change, s.init, t);
-
-            selectorsClass.addField(
-                FieldSpec.builder(selector, varName)
-                    .addModifiers(PUBLIC, STATIC, FINAL)
-                    .initializer("new $T(Keys.$L)", selector, varName)
-                    .build()
-            );
+                t = Utils.unwrapNamedListConfigurationClass(t);
 
             String methodCall = "";
 
             ConfigChain current = s;
             ConfigChain root = null;
             int namedCount = 0;
+
             while (current != null) {
                 boolean isNamed = false;
                 if (Utils.isNamedConfiguration(current.type)) {
@@ -347,7 +344,7 @@ public class Processor extends AbstractProcessor {
                 current = current.parent;
             }
 
-            TypeName selectorRec = Utils.getParameterized(ClassName.get(AnotherSelector.class), root.type, t);
+            TypeName selectorRec = Utils.getParameterized(ClassName.get(AnotherSelector.class), root.type, t, s.view, s.init, s.change);
 
             if (namedCount > 0) {
                 final String methodName = varName + "_FN";
@@ -365,6 +362,7 @@ public class Processor extends AbstractProcessor {
                         .addStatement("return (root) -> root$L", methodCall)
                         .build()
                 );
+
                 final String collect = IntStream.range(0, namedCount).mapToObj(i -> "$T.class").collect(Collectors.joining(","));
                 List<Object> params = new ArrayList<>();
                 params.add(MethodHandle.class);
@@ -376,7 +374,9 @@ public class Processor extends AbstractProcessor {
                 for (int i = 0; i < namedCount; i++) {
                     params.add(String.class);
                 }
+
                 selectorsStaticBlockBuilder.addStatement("$T $L = publicLookup.findStatic($T.class, $S, $T.methodType($T.class, " + collect + "))", params.toArray());
+
                 selectorsStaticBlockBuilder.addStatement("put($S, $L)", s.name, methodName);
             } else {
                 final String fieldName = varName + "_REC";
@@ -400,7 +400,7 @@ public class Processor extends AbstractProcessor {
         try {
             selectorsClassFile.writeTo(filer);
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to write class: " + e.getMessage(), e);
         }
 
         return true;
@@ -416,7 +416,10 @@ public class Processor extends AbstractProcessor {
         while (!propsStack.isEmpty()) {
             final ConfigChain current = propsStack.pollFirst();
 
-            TypeName type = Utils.unwrapConfigurationClass(current.type);
+            TypeName type = current.type;
+
+            if (Utils.isNamedConfiguration(type))
+                type = Utils.unwrapNamedListConfigurationClass(current.type);
 
             final ConfigDesc configDesc = props.get(type);
             final List<ConfigField> propertiesList = configDesc.fields;
@@ -473,8 +476,40 @@ public class Processor extends AbstractProcessor {
             .build();
     }
 
+    /**
+     * Create init method (accepts INIT object) for configuration class.
+     *
+     * @param type INIT method type.
+     * @param variables List of INIT object's fields.
+     * @return Init method.
+     */
+    public MethodSpec createInitMethod(TypeName type, List<VariableElement> variables) {
+        final CodeBlock.Builder builder = CodeBlock.builder();
+        variables.forEach(variable -> {
+            final String name = variable.getSimpleName().toString();
+            builder.beginControlFlow("if (initial.$L() != null)", name);
+            builder.addStatement("$L.init(initial.$L())", name, name);
+            builder.endControlFlow();
+        });
+
+        return MethodSpec.methodBuilder("init")
+            .addModifiers(PUBLIC)
+            .addAnnotation(Override.class)
+            .addParameter(type, "initial")
+            .addCode(builder.build())
+            .build();
+    }
+
+    /**
+     * Create change method (accepts CHANGE object) for configuration class.
+     *
+     * @param type CHANGE method type.
+     * @param variables List of CHANGE object's fields.
+     * @return Change method.
+     */
     public MethodSpec createChangeMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
+
         variables.forEach(variable -> {
             final Value valueAnnotation = variable.getAnnotation(Value.class);
             if (valueAnnotation != null && valueAnnotation.initOnly())
@@ -487,34 +522,19 @@ public class Processor extends AbstractProcessor {
         });
 
         return MethodSpec.methodBuilder("change")
-                .addModifiers(PUBLIC)
-                .addAnnotation(Override.class)
-                .addParameter(type, "changes")
-                .addCode(builder.build())
-                .build();
+            .addModifiers(PUBLIC)
+            .addAnnotation(Override.class)
+            .addParameter(type, "changes")
+            .addCode(builder.build())
+            .build();
     }
 
-    public MethodSpec createInitMethod(TypeName type, List<VariableElement> variables) {
-        final CodeBlock.Builder builder = CodeBlock.builder();
-        variables.forEach(variable -> {
-            final String name = variable.getSimpleName().toString();
-            builder.beginControlFlow("if (initial.$L() != null)", name);
-            builder.addStatement("$L.init(initial.$L())", name, name);
-            builder.endControlFlow();
-        });
-
-        return MethodSpec.methodBuilder("init")
-                .addModifiers(PUBLIC)
-                .addAnnotation(Override.class)
-                .addParameter(type, "initial")
-                .addCode(builder.build())
-                .build();
-    }
-
+    /** {@inheritDoc} */
     @Override public Set<String> getSupportedAnnotationTypes() {
         return Collections.singleton(Config.class.getCanonicalName());
     }
 
+    /** {@inheritDoc} */
     @Override public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.RELEASE_8;
     }

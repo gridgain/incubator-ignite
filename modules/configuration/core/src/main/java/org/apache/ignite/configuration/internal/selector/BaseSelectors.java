@@ -59,7 +59,7 @@ public class BaseSelectors {
         return null;
     }
 
-    public static void put(String key, AnotherSelector<?, ?> selector) {
+    public static void put(String key, AnotherSelector<?, ?, ?, ?, ?> selector) {
         selectors.put(key, new SelectorHolder(selector));
     }
 
@@ -69,10 +69,11 @@ public class BaseSelectors {
 
     private static final class SelectorHolder {
 
-        AnotherSelector<?, ?> selector;
+        AnotherSelector<?, ?, ?, ?, ?> selector;
+
         MethodHandle selectorFn;
 
-        public SelectorHolder(AnotherSelector<?, ?> selector) {
+        public SelectorHolder(AnotherSelector<?, ?, ?, ?, ?> selector) {
             this.selector = selector;
         }
 
@@ -80,11 +81,11 @@ public class BaseSelectors {
             this.selectorFn = selectorFn;
         }
 
-        AnotherSelector<?, ?> get(List<String> arguments) throws Throwable {
+        AnotherSelector<?, ?, ?, ?, ?> get(List<String> arguments) throws Throwable {
             if (selector != null)
                 return selector;
 
-            return (AnotherSelector<?, ?>) selectorFn.invokeWithArguments(arguments);
+            return (AnotherSelector<?, ?, ?, ?, ?>) selectorFn.invokeWithArguments(arguments);
         }
 
     }

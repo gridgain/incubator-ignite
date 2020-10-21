@@ -49,7 +49,7 @@ public abstract class ClassGenerator {
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
         List<FieldSpec> fieldSpecs = fields.stream().map(this::mapField).filter(Objects::nonNull).collect(Collectors.toList());
-        List<MethodSpec> methodSpecs = fieldSpecs.stream().map(this::mapMethod).filter(Objects::nonNull).collect(Collectors.toList());
+        List<MethodSpec> methodSpecs = fieldSpecs.stream().map(field -> mapMethod(className, field)).filter(Objects::nonNull).collect(Collectors.toList());
 
         viewClassBuilder.addFields(fieldSpecs);
         viewClassBuilder.addMethods(methodSpecs);
@@ -69,7 +69,7 @@ public abstract class ClassGenerator {
     }
 
     protected abstract FieldSpec mapField(VariableElement field);
-    protected abstract MethodSpec mapMethod(FieldSpec field);
+    protected abstract MethodSpec mapMethod(ClassName clazz, FieldSpec field);
 
     protected MethodSpec createConstructor(List<FieldSpec> fields) {
         return null;

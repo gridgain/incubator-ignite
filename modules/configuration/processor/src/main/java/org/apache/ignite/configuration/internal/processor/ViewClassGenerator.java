@@ -31,12 +31,16 @@ import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
 import org.apache.ignite.configuration.internal.property.NamedList;
 
+/**
+ * VIEW object class generator.
+ */
 public class ViewClassGenerator extends ClassGenerator {
 
     public ViewClassGenerator(ProcessingEnvironment env) {
         super(env);
     }
 
+    /** {@inheritDoc} */
     @Override protected FieldSpec mapField(VariableElement field) {
         final Config configAnnotation = field.getAnnotation(Config.class);
         final NamedConfig namedConfigAnnotation = field.getAnnotation(NamedConfig.class);
@@ -60,10 +64,12 @@ public class ViewClassGenerator extends ClassGenerator {
         return FieldSpec.builder(fieldType, name, Modifier.PRIVATE, Modifier.FINAL).build();
     }
 
-    @Override protected MethodSpec mapMethod(FieldSpec field) {
+    /** {@inheritDoc} */
+    @Override protected MethodSpec mapMethod(ClassName clazz, FieldSpec field) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override protected MethodSpec createConstructor(List<FieldSpec> fields) {
         return Utils.createConstructor(fields);
     }

@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.processor;
 
-import com.squareup.javapoet.TypeName;
+package org.apache.ignite.configuration.internal.property;
 
-public class ConfigField {
+import java.io.Serializable;
 
-    public final String name;
+public interface PropertyListener<VIEW extends Serializable, INIT extends Serializable, CHANGE extends Serializable> {
 
-    public final TypeName type;
-
-    public final TypeName view;
-
-    public final TypeName init;
-
-    public final TypeName change;
-
-    public ConfigField(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
-        this.type = type;
-        this.name = name;
-        this.view = view;
-        this.init = init;
-        this.change = change;
+    default boolean beforeUpdate(VIEW oldValue, VIEW newValue, Modifier<VIEW, INIT, CHANGE> modifier) {
+        return true;
     }
+
+    default void update(VIEW newValue, Modifier<VIEW, INIT, CHANGE> modifier) {
+
+    }
+
+    default void afterUpdate(VIEW newValue, Modifier<VIEW, INIT, CHANGE> modifier) {
+
+    }
+
+    String id();
+
 }

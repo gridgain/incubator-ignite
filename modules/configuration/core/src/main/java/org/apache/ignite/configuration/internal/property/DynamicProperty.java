@@ -17,7 +17,10 @@
 
 package org.apache.ignite.configuration.internal.property;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.configuration.internal.ConfigurationStorage;
 
 /**
  * TODO: Add class description.
@@ -25,7 +28,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * @author @java.author
  * @version @java.version
  */
-public class DynamicProperty<T> implements Modifier<T, T, T> {
+public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T> {
     /** Name of property. */
     private final String name;
 
@@ -36,7 +39,7 @@ public class DynamicProperty<T> implements Modifier<T, T, T> {
     protected volatile T val;
 
     /** Listeners of property update. */
-    private final ConcurrentLinkedQueue<DynamicProperty<? super T>> updateListeners = new ConcurrentLinkedQueue<>();
+    private final List<PropertyListener<T, T, T>> updateListeners = new ArrayList<>();
 
     public DynamicProperty(String prefix, String name) {
         this(prefix, name, null);
@@ -46,6 +49,10 @@ public class DynamicProperty<T> implements Modifier<T, T, T> {
         this.name = name;
         this.qualifiedName = String.format("%s.%s", prefix, name);
         this.val = defaultValue;
+    }
+
+    public boolean addListener(PropertyListener<T, T, T> listener) {
+        return updateListeners.add(listener);
     }
 
     public T value() {
@@ -65,6 +72,9 @@ public class DynamicProperty<T> implements Modifier<T, T, T> {
 
     @Override public void change(T object) {
         this.val = object;
+        updateListeners.forEach(listener -> {
+            listener.update(object, this);
+        });
     }
 
     @Override public void init(T object) {
@@ -89,4 +99,13 @@ public class DynamicProperty<T> implements Modifier<T, T, T> {
     public void accept(String path, ConfigTreeVisitor visitor) {
         visitor.visit(path, this);
     }
+
+    public void setSilently(T serializable) {
+        val = serializable;
+        updateListeners.forEach(listener -> {
+            if (!listener.id().equals(ConfigurationStorage.STORAGE_LISTENER_ID))
+                listener.update(val, this);
+        });
+    }
+
 }

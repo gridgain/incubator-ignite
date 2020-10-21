@@ -34,6 +34,12 @@ import org.apache.ignite.configuration.internal.NamedListConfiguration;
 
 public class Utils {
 
+    /**
+     * Create constructor for
+     *
+     * @param fieldSpecs List of fields.
+     * @return Constructor method.
+     */
     public static MethodSpec createConstructor(List<FieldSpec> fieldSpecs) {
         final MethodSpec.Builder builder = MethodSpec.constructorBuilder();
         fieldSpecs.forEach(field -> {
@@ -43,16 +49,28 @@ public class Utils {
         return builder.build();
     }
 
+    /**
+     * Create getters for fields.
+     *
+     * @param fieldSpecs List of fields.
+     * @return List of getter methods.
+     */
     public static List<MethodSpec> createGetters(List<FieldSpec> fieldSpecs) {
-        return fieldSpecs.stream().map(field -> {
-           return MethodSpec.methodBuilder(field.name)
-            .returns(field.type)
-            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addStatement("return $L", field.name)
-            .build();
-        }).collect(Collectors.toList());
+        return fieldSpecs.stream().map(field ->
+            MethodSpec.methodBuilder(field.name)
+             .returns(field.type)
+             .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+             .addStatement("return $L", field.name)
+             .build()).collect(Collectors.toList()
+        );
     }
 
+    /**
+     * Create builder-style setters.
+     *
+     * @param fieldSpecs List of fields.
+     * @return List of setter methods.
+     */
     public static List<MethodSpec> createBuildSetters(List<FieldSpec> fieldSpecs) {
         return fieldSpecs.stream().map(field -> {
             return MethodSpec.methodBuilder("with" + field.name)
@@ -62,6 +80,13 @@ public class Utils {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * Create '{@code new SomeObject(arg1, arg2, ..., argN)}' code block.
+     *
+     * @param type Type of the new object.
+     * @param fieldSpecs List of arguments.
+     * @return New object code block.
+     */
     public static CodeBlock newObject(TypeName type, List<VariableElement> fieldSpecs) {
         String args = fieldSpecs.stream().map(f -> f.getSimpleName().toString()).collect(Collectors.joining(", "));
         return CodeBlock.builder()
@@ -69,6 +94,13 @@ public class Utils {
             .build();
     }
 
+    /**
+     * Get class with parameters, boxing them if necessary.
+     *
+     * @param clz Generic class.
+     * @param types Generic parameters.
+     * @return Parameterized type.
+     */
     public static ParameterizedTypeName getParameterized(ClassName clz, TypeName... types) {
         types = Arrays.stream(types).map(t -> {
             if (t.isPrimitive())
@@ -78,34 +110,64 @@ public class Utils {
         return ParameterizedTypeName.get(clz, types);
     }
 
-    public static ClassName getConfigurationName(ClassName clz) {
+    /**
+     * Get {@link ClassName} for configuration class.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     * @return Configuration ClassName.
+     */
+    public static ClassName getConfigurationName(ClassName schemaClassName) {
         return ClassName.get(
-            clz.packageName(),
-            clz.simpleName().replace("Schema", "")
+            schemaClassName.packageName(),
+            schemaClassName.simpleName().replace("Schema", "")
         );
     }
 
-    public static ClassName getViewName(ClassName clz) {
+    /**
+     * Get {@link ClassName} for configuration VIEW object class.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     * @return Configuration VIEW object ClassName.
+     */
+    public static ClassName getViewName(ClassName schemaClassName) {
         return ClassName.get(
-            clz.packageName(),
-            clz.simpleName().replace("ConfigurationSchema", "")
+            schemaClassName.packageName(),
+            schemaClassName.simpleName().replace("ConfigurationSchema", "")
         );
     }
 
-    public static ClassName getInitName(ClassName clz) {
+    /**
+     * Get {@link ClassName} for configuration INIT object class.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     * @return Configuration INIT object ClassName.
+     */
+    public static ClassName getInitName(ClassName schemaClassName) {
         return ClassName.get(
-            clz.packageName(),
-            "Init" + clz.simpleName().replace("ConfigurationSchema", "")
+            schemaClassName.packageName(),
+            "Init" + schemaClassName.simpleName().replace("ConfigurationSchema", "")
         );
     }
 
-    public static ClassName getChangeName(ClassName clz) {
+    /**
+     * Get {@link ClassName} for configuration CHANGE object class.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     * @return Configuration CHANGE object ClassName.
+     */
+    public static ClassName getChangeName(ClassName schemaClassName) {
         return ClassName.get(
-            clz.packageName(),
-            "Change" + clz.simpleName().replace("ConfigurationSchema", "")
+            schemaClassName.packageName(),
+            "Change" + schemaClassName.simpleName().replace("ConfigurationSchema", "")
         );
     }
 
+    /**
+     * Check whether type is {@link NamedListConfiguration}.
+     *
+     * @param type Type.
+     * @return {@code true} if type is {@link NamedListConfiguration}.
+     */
     public static boolean isNamedConfiguration(TypeName type) {
         if (type instanceof ParameterizedTypeName) {
             ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) type;
@@ -116,17 +178,21 @@ public class Utils {
         return false;
     }
 
-    public static TypeName unwrapConfigurationClass(TypeName type) {
+    /**
+     * Get {@code DynamicConfiguration} inside of the named configuration.
+     *
+     * @param type Type name.
+     * @return {@link DynamicConfiguration} class name.
+     */
+    public static TypeName unwrapNamedListConfigurationClass(TypeName type) {
         if (type instanceof ParameterizedTypeName) {
             ParameterizedTypeName parameterizedTypeName = (ParameterizedTypeName) type;
 
             if (parameterizedTypeName.rawType.equals(ClassName.get(NamedListConfiguration.class)))
                 return parameterizedTypeName.typeArguments.get(1);
-
-            if (parameterizedTypeName.rawType.equals(ClassName.get(DynamicConfiguration.class)))
-                return parameterizedTypeName.typeArguments.get(0);
         }
-        return type;
+
+        throw new RuntimeException(type + " is not a NamedListConfiguration class");
     }
 
 }

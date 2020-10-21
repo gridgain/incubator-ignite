@@ -17,7 +17,9 @@
 
 package org.apache.ignite.configuration.internal.selector;
 
-public interface AnotherSelector<ROOT, THIS> {
+import org.apache.ignite.configuration.internal.property.Modifier;
+
+public interface AnotherSelector<ROOT, THIS extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> {
 
     THIS select(ROOT root);
 
