@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.internal.validation;
 
-import javax.validation.constraints.NotNull;
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.Value;
+public class MaxValidator implements Validator<Number> {
 
-/**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
- */
-@Config
-public class NodeConfigurationSchema {
+    private final long maxValue;
 
-    @Value(initOnly = true)
-    @NotNull(message = "Consistent id must not be null")
-    private String consistentId;
+    private final String message;
 
-    @Value
-    private int port;
+    public MaxValidator(long maxValue, String message) {
+        this.maxValue = maxValue;
+        this.message = message;
+    }
 
+    @Override public void validate(Number value) {
+        if (value.longValue() > maxValue)
+            throw new ConfigurationValidationException(message);
+    }
 }

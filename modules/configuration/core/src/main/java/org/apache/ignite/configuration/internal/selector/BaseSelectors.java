@@ -22,11 +22,24 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class BaseSelectors {
 
-    private final static Map<String, SelectorHolder> selectors = new HashMap<>();
+    private static final Map<String, SelectorHolder> selectors = new HashMap<>();
 
+    /**
+     * Get selector from selectors map by key.
+     *
+     * Valid formats for selector key:
+     * <ul>
+     *     <li>root.inner.option.field in case of static config field</li>
+     *     <li>root.inner.named[name].field in case of dynamic (named) config field</li>
+     * </ul>
+     *
+     * @param name Selector name.
+     * @return Selector.
+     */
     public static Selector<?, ?, ?, ?, ?> find(String name) {
         String[] splitten = name.split("\\.");
         List<String> arguments = new ArrayList<>();
@@ -50,13 +63,27 @@ public class BaseSelectors {
             if (i != splitten.length - 1)
                 keyBuilder.append('.');
         }
-        final SelectorHolder selector = selectors.get(keyBuilder.toString());
+        final String key = keyBuilder.toString();
+
+        final SelectorHolder selector = selectors.get(key);
+
+        if (selector == null) {
+            final int lastDot = key.lastIndexOf('.');
+            if (lastDot != -1) {
+                String partialKey = key.substring(0, lastDot);
+                final SelectorHolder partialSelector = selectors.get(partialKey);
+                if (partialSelector != null) {
+                    final String availableOptions = selectors.keySet().stream().filter(s -> s.startsWith(partialKey)).collect(Collectors.joining(", "));
+                    throw new SelectorNotFoundException("Selector " + key + " was not found, available options are: " + availableOptions);
+                }
+            }
+        }
+
         try {
             return selector.get(arguments);
         } catch (Throwable throwable) {
-            throwable.printStackTrace();
+            throw new SelectorNotFoundException("Failed to get selector: " + throwable.getMessage(), throwable);
         }
-        return null;
     }
 
     public static void put(String key, Selector<?, ?, ?, ?, ?> selector) {

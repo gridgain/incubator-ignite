@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.configuration.internal.ConfigurationStorage;
+import org.apache.ignite.configuration.internal.validation.Validator;
 
 /**
  * TODO: Add class description.
@@ -38,15 +39,18 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     /** Property value. */
     protected volatile T val;
 
+    private final List<Validator<? super T>> validators;
+
     /** Listeners of property update. */
     private final List<PropertyListener<T, T, T>> updateListeners = new ArrayList<>();
 
-    public DynamicProperty(String prefix, String name) {
-        this(prefix, name, null);
+    public DynamicProperty(String prefix, String name, List<Validator<? super T>> validators) {
+        this(prefix, name, null, validators);
     }
 
-    public DynamicProperty(String prefix, String name, T defaultValue) {
+    public DynamicProperty(String prefix, String name, T defaultValue, List<Validator<? super T>> validators) {
         this.name = name;
+        this.validators = validators;
         this.qualifiedName = String.format("%s.%s", prefix, name);
         this.val = defaultValue;
     }
@@ -71,6 +75,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     @Override public void change(T object) {
+        validators.forEach(v -> v.validate(object));
         this.val = object;
         updateListeners.forEach(listener -> {
             listener.update(object, this);
@@ -78,6 +83,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     @Override public void init(T object) {
+        validators.forEach(v -> v.validate(object));
         this.val = object;
     }
 

@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.internal.validation;
 
-import javax.validation.constraints.NotNull;
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.Value;
+public class MinValidator implements Validator<Number> {
 
-/**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
- */
-@Config
-public class NodeConfigurationSchema {
+    private final long minValue;
 
-    @Value(initOnly = true)
-    @NotNull(message = "Consistent id must not be null")
-    private String consistentId;
+    private final String message;
 
-    @Value
-    private int port;
+    public MinValidator(long minValue, String message) {
+        this.minValue = minValue;
+        this.message = message;
+    }
 
+    @Override public void validate(Number value) {
+        if (value.longValue() < minValue)
+            throw new ConfigurationValidationException(message);
+    }
 }

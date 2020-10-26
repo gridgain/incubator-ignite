@@ -57,6 +57,10 @@ import org.apache.ignite.configuration.internal.NamedListConfiguration;
 import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
 import org.apache.ignite.configuration.internal.annotation.Value;
+import org.apache.ignite.configuration.internal.processor.pojo.ChangeClassGenerator;
+import org.apache.ignite.configuration.internal.processor.pojo.InitClassGenerator;
+import org.apache.ignite.configuration.internal.processor.pojo.ViewClassGenerator;
+import org.apache.ignite.configuration.internal.processor.validation.ValidationGenerator;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
@@ -84,9 +88,10 @@ public class Processor extends AbstractProcessor {
     @Override public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
         filer = processingEnv.getFiler();
-        viewClassGenerator = new ViewClassGenerator(processingEnv);
-        initClassGenerator = new InitClassGenerator(processingEnv);
-        changeClassGenerator = new ChangeClassGenerator(processingEnv);
+        final ValidationGenerator validationGenerator = new ValidationGenerator();
+        viewClassGenerator = new ViewClassGenerator(processingEnv, validationGenerator);
+        initClassGenerator = new InitClassGenerator(processingEnv, validationGenerator);
+        changeClassGenerator = new ChangeClassGenerator(processingEnv, validationGenerator);
     }
 
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
@@ -211,7 +216,9 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(generatedField);
 
-                    initMethodBuilder.addStatement("add($L = new $T(qualifiedName, $S))", fieldName, getMethodType, fieldName);
+                    final CodeBlock block = new ValidationGenerator().generateValidators(field);
+
+                    initMethodBuilder.addStatement("add($L = new $T(qualifiedName, $S, $L))", fieldName, getMethodType, fieldName, block);
                 }
 
                 configDesc.fields.add(new ConfigField(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
@@ -240,6 +247,7 @@ public class Processor extends AbstractProcessor {
             final ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
             final ClassName initClassName = Utils.getInitName(schemaClassName);
             final ClassName changeClassName = Utils.getChangeName(schemaClassName);
+
             try {
                 viewClassGenerator.generate(packageName, viewClassTypeName, fields);
                 ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
@@ -252,17 +260,19 @@ public class Processor extends AbstractProcessor {
             }
 
             try {
-                changeClassGenerator.generate(packageName, changeClassName, fields);
+                MethodSpec validateChangeMethod = changeClassGenerator.generate(packageName, changeClassName, fields);
                 final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
                 configurationClassBuilder.addMethod(changeMethod);
+                configurationClassBuilder.addMethod(validateChangeMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             }
 
             try {
-                initClassGenerator.generate(packageName, initClassName, fields);
+                MethodSpec validateInitMethod = initClassGenerator.generate(packageName, initClassName, fields);
                 final MethodSpec initMethod = createInitMethod(initClassName, fields);
                 configurationClassBuilder.addMethod(initMethod);
+                configurationClassBuilder.addMethod(validateInitMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -484,6 +494,9 @@ public class Processor extends AbstractProcessor {
      */
     public MethodSpec createInitMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
+
+        builder.addStatement("validate(initial)");
+
         variables.forEach(variable -> {
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (initial.$L() != null)", name);
@@ -508,6 +521,8 @@ public class Processor extends AbstractProcessor {
      */
     public MethodSpec createChangeMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
+
+        builder.addStatement("validate(changes)");
 
         variables.forEach(variable -> {
             final Value valueAnnotation = variable.getAnnotation(Value.class);

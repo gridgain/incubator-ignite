@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.internal;
 
+import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.Value;
 
@@ -29,6 +30,7 @@ import org.apache.ignite.configuration.internal.annotation.Value;
 @Config
 public class AutoAdjustConfigurationSchema {
     @Value
+    @Min(value = 1000, message = "Minimal is 1000")
     private long timeout;
 
     @Value

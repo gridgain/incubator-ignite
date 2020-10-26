@@ -23,6 +23,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.internal.ClusterWideConfiguration;
+import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.internal.cluster.IgniteClusterEx;
 import org.apache.ignite.internal.processors.cache.GridCacheUtilityKey;
 import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
@@ -105,6 +107,8 @@ public interface IgniteEx extends Ignite {
      * @throws IllegalArgumentException If {@code types} contains user event type.
      */
     public boolean allEventsUserRecordable(int[] types);
+
+    Configurator<ClusterWideConfiguration> clusterWideConfiguration();
 
     /**
      * Whether or not remote JMX management is enabled for this node.

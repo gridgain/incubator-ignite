@@ -1,4 +1,20 @@
 /*
+ * Copyright 2020 GridGain Systems, Inc. and Contributors.
+ *
+ * Licensed under the GridGain Community Edition License (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.gridgain.com/products/software/community-edition/gridgain-community-edition-license
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,7 +31,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.processor;
+package org.apache.ignite.configuration.internal.processor.pojo;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
@@ -28,26 +44,23 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.NamedConfig;
-import org.apache.ignite.configuration.internal.annotation.Value;
+import org.apache.ignite.configuration.internal.processor.Utils;
+import org.apache.ignite.configuration.internal.processor.validation.ValidationGenerator;
 import org.apache.ignite.configuration.internal.property.NamedList;
 
 /**
- * CHANGE object class generator.
+ * INIT object class generator.
  */
-public class ChangeClassGenerator extends ClassGenerator {
+public class InitClassGenerator extends ClassGenerator {
 
-    public ChangeClassGenerator(ProcessingEnvironment env) {
-        super(env);
+    public InitClassGenerator(ProcessingEnvironment env, ValidationGenerator validationGenerator) {
+        super(env, validationGenerator);
     }
 
     /** {@inheritDoc} */
-    @Override protected FieldSpec mapField(VariableElement field) {
+    @Override protected FieldMapping mapField(VariableElement field) {
         final Config configAnnotation = field.getAnnotation(Config.class);
         final NamedConfig namedConfigAnnotation = field.getAnnotation(NamedConfig.class);
-        final Value valueAnnotation = field.getAnnotation(Value.class);
-
-        if (valueAnnotation != null && valueAnnotation.initOnly())
-            return null;
 
         final TypeMirror type = field.asType();
         String name = field.getSimpleName().toString();
@@ -59,13 +72,16 @@ public class ChangeClassGenerator extends ClassGenerator {
 
         if (namedConfigAnnotation != null || configAnnotation != null) {
             ClassName confClass = (ClassName) fieldType;
-            fieldType = Utils.getChangeName(confClass);
-
+            fieldType = Utils.getInitName(confClass);
+            
             if (namedConfigAnnotation != null)
                 fieldType = ParameterizedTypeName.get(ClassName.get(NamedList.class), fieldType);
+
         }
 
-        return FieldSpec.builder(fieldType, name, Modifier.PRIVATE).build();
+        final FieldSpec fieldSpec = FieldSpec.builder(fieldType, name, Modifier.PRIVATE).build();
+
+        return new FieldMapping(field, fieldSpec);
     }
 
     /** {@inheritDoc} */

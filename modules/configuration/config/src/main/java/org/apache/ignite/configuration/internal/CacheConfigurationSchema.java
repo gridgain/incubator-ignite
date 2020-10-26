@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.internal;
 
+import javax.validation.constraints.Min;
 import org.apache.ignite.configuration.internal.annotation.Config;
 import org.apache.ignite.configuration.internal.annotation.Value;
 
@@ -24,6 +25,7 @@ import org.apache.ignite.configuration.internal.annotation.Value;
 public class CacheConfigurationSchema {
 
     @Value
+    @Min(value = 1, message = "Minimal cache size is 1")
     private int size;
 
 }

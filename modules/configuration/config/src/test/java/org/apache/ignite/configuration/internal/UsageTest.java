@@ -59,7 +59,7 @@ public class UsageTest {
                 )
         );
 
-        configurator.set(Selectors.LOCAL_BASELINE_NODES_FN("node1"), new ChangeNode().withPort(1000));
+        configurator.init(Selectors.LOCAL_BASELINE_NODES_FN("node1"), new InitNode().withPort(1000));
 
         localConfiguration.init(initLocal);
 

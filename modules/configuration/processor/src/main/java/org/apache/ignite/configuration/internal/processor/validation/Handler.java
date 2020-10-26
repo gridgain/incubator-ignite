@@ -15,26 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.internal.processor.validation;
 
-import javax.validation.constraints.NotNull;
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.Value;
+import javax.lang.model.element.VariableElement;
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
 
-/**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
- */
-@Config
-public class NodeConfigurationSchema {
+interface Handler {
 
-    @Value(initOnly = true)
-    @NotNull(message = "Consistent id must not be null")
-    private String consistentId;
+    CodeBlock generate(VariableElement variableElement, FieldSpec field);
 
-    @Value
-    private int port;
+    boolean supports(VariableElement variableElement, FieldSpec field);
 
 }

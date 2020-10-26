@@ -15,26 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal;
+package org.apache.ignite.configuration.internal.validation;
 
-import javax.validation.constraints.NotNull;
-import org.apache.ignite.configuration.internal.annotation.Config;
-import org.apache.ignite.configuration.internal.annotation.Value;
+import java.io.Serializable;
 
-/**
- * TODO: Add class description.
- *
- * @author @java.author
- * @version @java.version
- */
-@Config
-public class NodeConfigurationSchema {
+public interface Validator<T extends Serializable> {
 
-    @Value(initOnly = true)
-    @NotNull(message = "Consistent id must not be null")
-    private String consistentId;
-
-    @Value
-    private int port;
+    void validate(T value);
 
 }

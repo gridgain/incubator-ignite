@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.processor;
+package org.apache.ignite.configuration.internal.processor.pojo;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -31,24 +31,32 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
+import org.apache.ignite.configuration.internal.processor.Utils;
+import org.apache.ignite.configuration.internal.processor.validation.ValidationGenerator;
 
 public abstract class ClassGenerator {
     protected final ProcessingEnvironment env;
 
     private final Filer filer;
 
-    public ClassGenerator(ProcessingEnvironment env) {
+    private final ValidationGenerator validationGenerator;
+
+    public ClassGenerator(ProcessingEnvironment env, ValidationGenerator validationGenerator) {
         this.env = env;
+        this.validationGenerator = validationGenerator;
         this.filer = env.getFiler();
     }
 
-    public TypeSpec generate(String packageName, ClassName className, List<VariableElement> fields) throws IOException {
+    public final MethodSpec generate(String packageName, ClassName className, List<VariableElement> fields) throws IOException {
         TypeSpec.Builder viewClassBuilder = TypeSpec
-                .classBuilder(className)
-                .addSuperinterface(Serializable.class)
-                .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
+            .classBuilder(className)
+            .addSuperinterface(Serializable.class)
+            .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
-        List<FieldSpec> fieldSpecs = fields.stream().map(this::mapField).filter(Objects::nonNull).collect(Collectors.toList());
+        List<FieldMapping> fieldMappings = fields.stream().map(this::mapField).filter(Objects::nonNull).collect(Collectors.toList());
+
+        List<FieldSpec> fieldSpecs = fieldMappings.stream().map(f -> f.getFieldSpec()).collect(Collectors.toList());
+
         List<MethodSpec> methodSpecs = fieldSpecs.stream().map(field -> mapMethod(className, field)).filter(Objects::nonNull).collect(Collectors.toList());
 
         viewClassBuilder.addFields(fieldSpecs);
@@ -65,10 +73,11 @@ public abstract class ClassGenerator {
         final TypeSpec viewClass = viewClassBuilder.build();
         JavaFile classF = JavaFile.builder(packageName, viewClass).build();
         classF.writeTo(filer);
-        return viewClass;
+        return validationGenerator.generateValidateMethod(className, fieldMappings);
     }
 
-    protected abstract FieldSpec mapField(VariableElement field);
+    protected abstract FieldMapping mapField(VariableElement field);
+
     protected abstract MethodSpec mapMethod(ClassName clazz, FieldSpec field);
 
     protected MethodSpec createConstructor(List<FieldSpec> fields) {
