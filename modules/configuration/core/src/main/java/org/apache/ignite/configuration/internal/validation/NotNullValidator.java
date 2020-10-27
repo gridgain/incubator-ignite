@@ -18,8 +18,10 @@
 package org.apache.ignite.configuration.internal.validation;
 
 import java.io.Serializable;
+import org.apache.ignite.configuration.internal.Configurator;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class NotNullValidator implements Validator<Serializable> {
+public class NotNullValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Serializable, C> {
 
     private final String message;
 
@@ -27,7 +29,7 @@ public class NotNullValidator implements Validator<Serializable> {
         this.message = message;
     }
 
-    @Override public void validate(Serializable value) {
+    @Override public void validate(Serializable value, Configurator<C> configurator) {
         if (value == null)
             throw new ConfigurationValidationException("");
     }

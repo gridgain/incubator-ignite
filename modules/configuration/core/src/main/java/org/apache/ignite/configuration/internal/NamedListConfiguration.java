@@ -31,8 +31,10 @@ import org.apache.ignite.configuration.internal.property.NamedList;
  * @version @java.version
  */
 public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT, CHANGE> extends DynamicConfiguration<NamedList<U>, NamedList<INIT>, NamedList<CHANGE>> {
+    /** Creator of named configuration. */
     private final BiFunction<String, String, T> creator;
 
+    /** Named configurations. */
     Map<String, T> values = new HashMap<>();
 
     public NamedListConfiguration(String prefix, String key, BiFunction<String, String, T> creator) {
@@ -40,6 +42,7 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
         this.creator = creator;
     }
 
+    /** {@inheritDoc} */
     @Override public void change(NamedList<CHANGE> o) {
         o.getValues().forEach((key, change) -> {
             if (!values.containsKey(key))
@@ -49,6 +52,7 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
         });
     }
 
+    /** {@inheritDoc} */
     @Override public void init(NamedList<INIT> o) {
         o.getValues().forEach((key, init) -> {
             if (!values.containsKey(key))
@@ -62,21 +66,8 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
         return values.get(name);
     }
 
-    @Override public void updateValue(String key, Object newValue) {
-        String name = key.split("\\.")[1];
-        if (!values.containsKey(name))
-            values.put(name, add(creator.apply(qualifiedName, name)));
-
-        super.updateValue(key, newValue);
-    }
-
+    /** {@inheritDoc} */
     @Override public NamedList<U> toView() {
         return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it -> it.getValue().toView())));
     }
-
-//    public void accept(String path, ConfigTreeVisitor visitor) {
-//        visitor.visit(path, this);
-////        timeout.accept(path, visitor);
-////        enabled.accept(path, visitor);
-//    }
 }

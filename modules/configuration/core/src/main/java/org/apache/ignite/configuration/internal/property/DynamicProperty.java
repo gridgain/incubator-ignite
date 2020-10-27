@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.configuration.internal.ConfigurationStorage;
+import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.validation.Validator;
 
 /**
@@ -39,20 +40,26 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     /** Property value. */
     protected volatile T val;
 
-    private final List<Validator<? super T>> validators;
+    private final List<Validator<? super T, ?>> validators;
 
     /** Listeners of property update. */
     private final List<PropertyListener<T, T, T>> updateListeners = new ArrayList<>();
 
-    public DynamicProperty(String prefix, String name, List<Validator<? super T>> validators) {
+    protected Configurator<?> configurator;
+
+    public DynamicProperty(String prefix, String name, List<Validator<? super T, ?>> validators) {
         this(prefix, name, null, validators);
     }
 
-    public DynamicProperty(String prefix, String name, T defaultValue, List<Validator<? super T>> validators) {
+    public DynamicProperty(String prefix, String name, T defaultValue, List<Validator<? super T, ?>> validators) {
         this.name = name;
         this.validators = validators;
         this.qualifiedName = String.format("%s.%s", prefix, name);
         this.val = defaultValue;
+    }
+
+    public void setConfigurator(Configurator<?> configurator) {
+        this.configurator = configurator;
     }
 
     public boolean addListener(PropertyListener<T, T, T> listener) {
@@ -75,7 +82,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     @Override public void change(T object) {
-        validators.forEach(v -> v.validate(object));
+        validators.forEach(v -> ((Validator) v).validate(object, configurator));
         this.val = object;
         updateListeners.forEach(listener -> {
             listener.update(object, this);
@@ -83,15 +90,8 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     @Override public void init(T object) {
-        validators.forEach(v -> v.validate(object));
+        validators.forEach(v -> ((Validator) v).validate(object, configurator));
         this.val = object;
-    }
-
-    @Override public void updateValue(String key, Object object) {
-        if (!name.equals(key))
-            throw new IllegalArgumentException();
-
-        val = (T)object;
     }
 
     @Override public String key() {

@@ -17,21 +17,14 @@
 
 package org.apache.ignite.configuration.internal.validation;
 
-import org.apache.ignite.configuration.internal.Configurator;
+import java.io.Serializable;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Number, C> {
-    private final long minValue;
+public abstract class BaseValidator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> implements Validator<T, C> {
 
-    private final String message;
+    protected String message;
 
-    public MinValidator(long minValue, String message) {
-        this.minValue = minValue;
+    public BaseValidator(String message) {
         this.message = message;
-    }
-
-    @Override public void validate(Number value, Configurator<C> configurator) {
-        if (value.longValue() < minValue)
-            throw new ConfigurationValidationException(message);
     }
 }

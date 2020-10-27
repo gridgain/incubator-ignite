@@ -18,19 +18,20 @@ package org.apache.ignite.configuration.internal;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.Serializable;
 import java.io.StringReader;
+import java.util.Scanner;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.selector.Selector;
 
 public class CLIExample {
 
-    public static void main(String[] args) {
-        final String arg = args[0];
-
-        final Config config = ConfigFactory.parseReader(new StringReader(arg));
-        config.resolve();
-
+    //{local:{baseline:{auto_adjust:{enabled:false}}}}
+    //{local:{baseline:{auto_adjust:{timeout:10000}}}}
+    public static void main(String[] args) throws FileNotFoundException {
+        // Remove selectors map
         LocalConfiguration localConfiguration = new LocalConfiguration();
         final ConfigurationStorage storage = new ConfigurationStorage() {
 
@@ -54,6 +55,40 @@ public class CLIExample {
 
         final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, localConfiguration);
 
+        final String filePath = args[0];
+        FileReader reader = new FileReader(filePath);
+
+        final Config config = ConfigFactory.parseReader(reader);
+        config.resolve();
+
+        applyConfig(configurator, config);
+
+        System.out.print("$ ");
+        Scanner scanner = new Scanner(System.in);
+        while (scanner.hasNext()) {
+            String line = scanner.nextLine();
+            try {
+                if (line.startsWith("set ")) {
+                    line = line.substring(4);
+
+                    final Config setConfig = ConfigFactory.parseReader(new StringReader(line));
+                    setConfig.resolve();
+
+                    applyConfig(configurator, setConfig);
+                } else if (line.startsWith("get ")) {
+                    line = line.substring(4);
+                    final Selector selector = Selectors.find(line);
+                    final Object view = configurator.getPublic(selector);
+                    System.out.println(view);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            System.out.print("$ ");
+        }
+    }
+
+    public static void applyConfig(Configurator<LocalConfiguration> configurator, Config config) {
         config.entrySet().forEach(entry -> {
             final String key = entry.getKey();
             final Object value = entry.getValue().unwrapped();

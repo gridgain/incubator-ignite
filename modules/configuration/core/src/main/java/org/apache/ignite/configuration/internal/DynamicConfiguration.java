@@ -35,23 +35,21 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
 
     protected final Map<String, Modifier> members = new HashMap<>();
 
+    protected Configurator<?> configurator;
+
     protected DynamicConfiguration(String prefix, String key) {
         this.qualifiedName = String.format("%s.%s", prefix, key);
         this.key = key;
+    }
+
+    public void setConfigurator(Configurator<?> configurator) {
+        this.configurator = configurator;
     }
 
     protected <M extends Modifier> M add(M member) {
         members.put(member.key(), member);
 
         return member;
-    }
-
-    @Override public void updateValue(String key, Object newValue) {
-        key = nextPostfix(key);
-
-        String key1 = nextKey(key);
-
-        members.get(key1).updateValue(key, newValue);
     }
 
     private String nextKey(String key) {

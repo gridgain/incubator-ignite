@@ -42,15 +42,18 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
 
     private void init() {
         List<DynamicProperty> props = new ArrayList<>();
-        Queue<DynamicConfiguration> confs = new LinkedList<>();
+        Queue<DynamicConfiguration<?, ?, ?>> confs = new LinkedList<>();
         confs.add(root);
+
         while (!confs.isEmpty()) {
-            final DynamicConfiguration conf = confs.poll();
+            final DynamicConfiguration<?, ?, ?> conf = confs.poll();
             conf.members.values().forEach(modifier -> {
                 if (modifier instanceof DynamicConfiguration) {
-                    confs.add((DynamicConfiguration) modifier);
+                    confs.add((DynamicConfiguration<?, ?, ?>) modifier);
+                    ((DynamicConfiguration<?, ?, ?>) modifier).setConfigurator(this);
                 } else {
-                    props.add((DynamicProperty) modifier);
+                    props.add((DynamicProperty<?>) modifier);
+                    ((DynamicProperty<?>) modifier).setConfigurator(this);
                 }
             });
         }

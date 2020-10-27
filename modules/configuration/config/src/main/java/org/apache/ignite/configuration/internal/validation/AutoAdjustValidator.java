@@ -18,20 +18,19 @@
 package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.Configurator;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.internal.LocalConfiguration;
+import org.apache.ignite.configuration.internal.Selectors;
 
-public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Number, C> {
-    private final long minValue;
+public class AutoAdjustValidator extends BaseValidator<Number, LocalConfiguration> {
 
-    private final String message;
-
-    public MinValidator(long minValue, String message) {
-        this.minValue = minValue;
-        this.message = message;
+    public AutoAdjustValidator(String message) {
+        super(message);
     }
 
-    @Override public void validate(Number value, Configurator<C> configurator) {
-        if (value.longValue() < minValue)
+    @Override public void validate(Number value, Configurator<LocalConfiguration> configurator) {
+        final Boolean isEnabled = configurator.getPublic(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED_REC);
+
+        if (value.longValue() > 0 && !isEnabled)
             throw new ConfigurationValidationException(message);
     }
 }

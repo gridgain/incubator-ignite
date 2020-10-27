@@ -52,6 +52,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
 import org.apache.ignite.configuration.internal.annotation.Config;

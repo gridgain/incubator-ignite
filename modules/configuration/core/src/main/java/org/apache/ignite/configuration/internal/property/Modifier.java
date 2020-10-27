@@ -34,6 +34,4 @@ public interface Modifier<T, INIT, CHANGE> {
     void change(CHANGE change);
 
     void init(INIT init);
-
-    void updateValue(String key, Object newValue);
 }

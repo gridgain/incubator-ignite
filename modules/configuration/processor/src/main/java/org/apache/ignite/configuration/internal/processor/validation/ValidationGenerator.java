@@ -43,11 +43,17 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
+import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.TypeMirror;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+import org.apache.ignite.configuration.internal.annotation.Validate;
 import org.apache.ignite.configuration.internal.processor.pojo.FieldMapping;
+import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.internal.validation.NotNullValidator;
+import org.apache.ignite.configuration.internal.validation.Validator;
 
 public class ValidationGenerator {
 
@@ -85,10 +91,31 @@ public class ValidationGenerator {
             validators.add(build);
         }
 
+        final Max maxAnnotation = variableElement.getAnnotation(Max.class);
+        if (maxAnnotation != null) {
+            final long maxValue = maxAnnotation.value();
+            final String message = maxAnnotation.message();
+            final CodeBlock build = CodeBlock.builder().add("new $T($L, $S)", MaxValidator.class, maxValue, message).build();
+            validators.add(build);
+        }
+
         final NotNull notNull = variableElement.getAnnotation(NotNull.class);
         if (notNull != null) {
             final String message = notNull.message();
             final CodeBlock build = CodeBlock.builder().add("new $T($S)", NotNullValidator.class, message).build();
+            validators.add(build);
+        }
+
+        final Validate validate = variableElement.getAnnotation(Validate.class);
+        if (validate != null) {
+            TypeMirror value = null;
+            try {
+                validate.value();
+            } catch (MirroredTypeException e) {
+                value = e.getTypeMirror();
+            }
+            final String message = validate.message();
+            final CodeBlock build = CodeBlock.builder().add("new $T($S)", value, message).build();
             validators.add(build);
         }
 

@@ -15,23 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.validation;
+package org.apache.ignite.configuration.internal.annotation;
 
-import org.apache.ignite.configuration.internal.Configurator;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.internal.validation.Validator;
 
-public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Number, C> {
-    private final long minValue;
+public @interface Validate {
 
-    private final String message;
+    Class<? extends Validator> value();
 
-    public MinValidator(long minValue, String message) {
-        this.minValue = minValue;
-        this.message = message;
-    }
+    String message() default "";
 
-    @Override public void validate(Number value, Configurator<C> configurator) {
-        if (value.longValue() < minValue)
-            throw new ConfigurationValidationException(message);
-    }
 }
