@@ -67,6 +67,7 @@ import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 
 import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
@@ -144,12 +145,13 @@ public class Processor extends AbstractProcessor {
 
             final MethodSpec emptyConstructor = MethodSpec.constructorBuilder()
                 .addModifiers(PUBLIC)
-                .addStatement("this($S, $S)", "", configName)
+                .addStatement("this($S, $S, null)", "", configName)
                 .build();
 
             configurationClassBuilder.addMethod(emptyConstructor);
 
-            CodeBlock.Builder initMethodBuilder = CodeBlock.builder();
+            CodeBlock.Builder constructorBodyBuilder = CodeBlock.builder();
+            CodeBlock.Builder copyConstructorBodyBuilder = CodeBlock.builder();
 
             for (VariableElement field : fields) {
                 TypeName getMethodType = null;
@@ -173,7 +175,8 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(nestedConfigField);
 
-                    initMethodBuilder.addStatement("add($L = new $T(qualifiedName, $S))", fieldName, getMethodType, fieldName);
+                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, this.root))", fieldName, getMethodType, fieldName);
+                    copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
 
                     unwrappedType = getMethodType;
                     viewClassType = Utils.getViewName((ClassName) baseType);
@@ -198,7 +201,8 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(nestedConfigField);
 
-                    initMethodBuilder.addStatement("add($L = new $T(qualifiedName, $S, $T::new))", fieldName, getMethodType, fieldName, fieldType);
+                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, this.root, (p, k) -> new $T(p, k, this.root)))", fieldName, getMethodType, fieldName, fieldType);
+                    copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
                 }
 
                 final Value valueAnnotation = field.getAnnotation(Value.class);
@@ -217,9 +221,10 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(generatedField);
 
-                    final CodeBlock block = new ValidationGenerator().generateValidators(field);
+                    final CodeBlock validatorsBlock = new ValidationGenerator().generateValidators(field);
 
-                    initMethodBuilder.addStatement("add($L = new $T(qualifiedName, $S, $L))", fieldName, getMethodType, fieldName, block);
+                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, $L, this.root))", fieldName, getMethodType, fieldName, validatorsBlock);
+                    copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
                 }
 
                 configDesc.fields.add(new ConfigField(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
@@ -250,7 +255,7 @@ public class Processor extends AbstractProcessor {
             final ClassName changeClassName = Utils.getChangeName(schemaClassName);
 
             try {
-                viewClassGenerator.generate(packageName, viewClassTypeName, fields);
+                viewClassGenerator.create(packageName, viewClassTypeName, fields);
                 ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
                 TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, initClassName, changeClassName);
                 configurationClassBuilder.superclass(dynConfViewClassType);
@@ -261,19 +266,17 @@ public class Processor extends AbstractProcessor {
             }
 
             try {
-                MethodSpec validateChangeMethod = changeClassGenerator.generate(packageName, changeClassName, fields);
+                changeClassGenerator.create(packageName, changeClassName, fields);
                 final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
                 configurationClassBuilder.addMethod(changeMethod);
-                configurationClassBuilder.addMethod(validateChangeMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             }
 
             try {
-                MethodSpec validateInitMethod = initClassGenerator.generate(packageName, initClassName, fields);
+                initClassGenerator.create(packageName, initClassName, fields);
                 final MethodSpec initMethod = createInitMethod(initClassName, fields);
                 configurationClassBuilder.addMethod(initMethod);
-                configurationClassBuilder.addMethod(validateInitMethod);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -281,11 +284,31 @@ public class Processor extends AbstractProcessor {
             final MethodSpec constructorWithName = MethodSpec.constructorBuilder()
                     .addModifiers(PUBLIC)
                     .addParameter(String.class, "prefix")
-                    .addParameter(String.class, "name")
-                    .addStatement("super(prefix, name)")
-                    .addCode(initMethodBuilder.build())
+                    .addParameter(String.class, "key")
+                    .addParameter(DynamicConfiguration.class, "root")
+                    .addStatement("super(prefix, key, root)")
+                    .addCode(constructorBodyBuilder.build())
                     .build();
             configurationClassBuilder.addMethod(constructorWithName);
+
+            final MethodSpec copyConstructor = MethodSpec.constructorBuilder()
+                    .addModifiers(PRIVATE)
+                    .addParameter(configClass, "base")
+                    .addParameter(DynamicConfiguration.class, "root")
+                    .addStatement("super(base.prefix, base.key, root)")
+                    .addCode(copyConstructorBodyBuilder.build())
+                    .build();
+            configurationClassBuilder.addMethod(copyConstructor);
+
+            MethodSpec copyMethod = MethodSpec.methodBuilder("copy")
+                .addAnnotation(Override.class)
+                .addModifiers(PUBLIC)
+                .addParameter(DynamicConfiguration.class, "root")
+                .returns(configClass)
+                .addStatement("return new $T(this, root)", configClass)
+                .build();
+
+            configurationClassBuilder.addMethod(copyMethod);
 
             JavaFile classF = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
             try {
@@ -496,12 +519,10 @@ public class Processor extends AbstractProcessor {
     public MethodSpec createInitMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
 
-        builder.addStatement("validate(initial)");
-
         variables.forEach(variable -> {
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (initial.$L() != null)", name);
-            builder.addStatement("$L.init(initial.$L())", name, name);
+            builder.addStatement("$L.init(initial.$L(), validate)", name, name);
             builder.endControlFlow();
         });
 
@@ -509,6 +530,7 @@ public class Processor extends AbstractProcessor {
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(type, "initial")
+            .addParameter(boolean.class, "validate")
             .addCode(builder.build())
             .build();
     }
@@ -523,8 +545,6 @@ public class Processor extends AbstractProcessor {
     public MethodSpec createChangeMethod(TypeName type, List<VariableElement> variables) {
         final CodeBlock.Builder builder = CodeBlock.builder();
 
-        builder.addStatement("validate(changes)");
-
         variables.forEach(variable -> {
             final Value valueAnnotation = variable.getAnnotation(Value.class);
             if (valueAnnotation != null && valueAnnotation.initOnly())
@@ -532,7 +552,7 @@ public class Processor extends AbstractProcessor {
 
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (changes.$L() != null)", name);
-            builder.addStatement("$L.change(changes.$L())", name, name);
+            builder.addStatement("$L.change(changes.$L(), validate)", name, name);
             builder.endControlFlow();
         });
 
@@ -540,6 +560,7 @@ public class Processor extends AbstractProcessor {
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(type, "changes")
+            .addParameter(boolean.class, "validate")
             .addCode(builder.build())
             .build();
     }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.internal.validation;
 
-import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.LocalConfiguration;
 import org.apache.ignite.configuration.internal.Selectors;
 
@@ -27,8 +26,8 @@ public class AutoAdjustValidator extends BaseValidator<Number, LocalConfiguratio
         super(message);
     }
 
-    @Override public void validate(Number value, Configurator<LocalConfiguration> configurator) {
-        final Boolean isEnabled = configurator.getPublic(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED_REC);
+    @Override public void validate(Number value, LocalConfiguration root) {
+        final Boolean isEnabled = Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED_REC.select(root).toView();
 
         if (value.longValue() > 0 && !isEnabled)
             throw new ConfigurationValidationException(message);

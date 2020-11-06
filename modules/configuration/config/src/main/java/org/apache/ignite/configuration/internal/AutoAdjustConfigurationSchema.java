@@ -32,7 +32,7 @@ import org.apache.ignite.configuration.internal.validation.AutoAdjustValidator;
 @Config
 public class AutoAdjustConfigurationSchema {
     @Value
-    @Min(value = 1000, message = "Minimal is 1000")
+    @Min(value = 0, message = "Minimal is 0")
     @Validate(AutoAdjustValidator.class)
     private long timeout;
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.configuration.internal.validation;
 
-import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 public class MaxValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Number, C> {
@@ -31,7 +30,7 @@ public class MaxValidator<C extends DynamicConfiguration<?, ?, ?>> implements Va
         this.message = message;
     }
 
-    @Override public void validate(Number value, Configurator<C> configurator) {
+    @Override public void validate(Number value, C root) {
         if (value.longValue() > maxValue)
             throw new ConfigurationValidationException(message);
     }

@@ -42,21 +42,6 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
 
     private void init() {
         List<DynamicProperty> props = new ArrayList<>();
-        Queue<DynamicConfiguration<?, ?, ?>> confs = new LinkedList<>();
-        confs.add(root);
-
-        while (!confs.isEmpty()) {
-            final DynamicConfiguration<?, ?, ?> conf = confs.poll();
-            conf.members.values().forEach(modifier -> {
-                if (modifier instanceof DynamicConfiguration) {
-                    confs.add((DynamicConfiguration<?, ?, ?>) modifier);
-                    ((DynamicConfiguration<?, ?, ?>) modifier).setConfigurator(this);
-                } else {
-                    props.add((DynamicProperty<?>) modifier);
-                    ((DynamicProperty<?>) modifier).setConfigurator(this);
-                }
-            });
-        }
 
         props.forEach(property -> {
             final String key = property.key();
@@ -80,13 +65,20 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     }
 
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void set(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, CHANGE newValue) {
-        final TARGET select = selector.select(root);
-        select.change(newValue);
+        // atomic start
+        final T copy = (T) root.copy();
+
+        final TARGET select = selector.select(copy);
+        select.change(newValue, false);
+        copy.validate();
+        selector.select(root).change(newValue, false);
+        // atomic end
     }
 
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void init(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, INIT initValue) {
         final TARGET select = selector.select(root);
-        select.init(initValue);
+        select.init(initValue, false);
+        root.validate();
     }
 
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> TARGET getInternal(Selector<T, TARGET, VIEW, INIT, CHANGE> selector) {

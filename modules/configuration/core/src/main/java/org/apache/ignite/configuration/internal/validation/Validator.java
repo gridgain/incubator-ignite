@@ -18,11 +18,10 @@
 package org.apache.ignite.configuration.internal.validation;
 
 import java.io.Serializable;
-import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
 public interface Validator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> {
 
-    void validate(T value, Configurator<C> configurator);
+    void validate(T value, C root);
 
 }

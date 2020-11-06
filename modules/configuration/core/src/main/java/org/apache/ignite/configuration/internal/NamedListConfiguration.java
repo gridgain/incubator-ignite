@@ -37,24 +37,25 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     /** Named configurations. */
     Map<String, T> values = new HashMap<>();
 
-    public NamedListConfiguration(String prefix, String key, BiFunction<String, String, T> creator) {
-        super(prefix, key);
+    public NamedListConfiguration(String prefix, String key, DynamicConfiguration<?, ?, ?> root, BiFunction<String, String, T> creator) {
+        super(prefix, key, root);
         this.creator = creator;
     }
 
-    /** {@inheritDoc} */
-    @Override public void change(NamedList<CHANGE> o) {
-        o.getValues().forEach((key, change) -> {
-            if (!values.containsKey(key))
-                values.put(key, add(creator.apply(qualifiedName, key)));
-
-            values.get(key).change(change);
+    public NamedListConfiguration(NamedListConfiguration<U, T, INIT, CHANGE> base, DynamicConfiguration<?, ?, ?> root) {
+        super(base.prefix, base.key, root);
+        this.creator = base.creator;
+        base.values.forEach((key, value) -> {
+            this.values.put(key, (T) ((DynamicConfiguration<U, INIT, CHANGE>) value).copy());
         });
     }
 
     /** {@inheritDoc} */
-    @Override public void init(NamedList<INIT> o) {
-        o.getValues().forEach((key, init) -> {
+    @Override public void init(NamedList<INIT> list, boolean validate) {
+        if (validate)
+            validate();
+
+        list.getValues().forEach((key, init) -> {
             if (!values.containsKey(key))
                 values.put(key, add(creator.apply(qualifiedName, key)));
 
@@ -69,5 +70,22 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     /** {@inheritDoc} */
     @Override public NamedList<U> toView() {
         return new NamedList<>(values.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, it -> it.getValue().toView())));
+    }
+
+    /** {@inheritDoc} */
+    @Override public void change(NamedList<CHANGE> list, boolean validate) {
+        if (validate)
+            validate();
+
+        list.getValues().forEach((key, change) -> {
+            if (!values.containsKey(key))
+                values.put(key, add(creator.apply(qualifiedName, key)));
+
+            values.get(key).change(change);
+        });
+    }
+
+    @Override protected NamedListConfiguration<U, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
+        return new NamedListConfiguration<>(this, root);
     }
 }

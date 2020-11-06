@@ -21,7 +21,7 @@ import org.apache.ignite.configuration.internal.validation.Validator;
 
 public @interface Validate {
 
-    Class<? extends Validator> value();
+    Class<? extends Validator>[] value();
 
     String message() default "";
 

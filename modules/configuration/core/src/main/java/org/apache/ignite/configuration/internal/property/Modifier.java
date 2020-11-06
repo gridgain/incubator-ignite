@@ -31,7 +31,17 @@ public interface Modifier<T, INIT, CHANGE> {
 
     Modifier<T, INIT, CHANGE> find(String key);
 
-    void change(CHANGE change);
+    void change(CHANGE change, boolean validate);
 
-    void init(INIT init);
+    default void change(CHANGE change) {
+        change(change, true);
+    }
+
+    void init(INIT init, boolean validate);
+
+    default void init(INIT init) {
+        init(init, true);
+    }
+
+    void validate();
 }

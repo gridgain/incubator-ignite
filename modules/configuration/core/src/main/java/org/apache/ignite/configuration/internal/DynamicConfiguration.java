@@ -33,17 +33,17 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
 
     protected final String key;
 
+    protected final String prefix;
+
     protected final Map<String, Modifier> members = new HashMap<>();
 
-    protected Configurator<?> configurator;
+    protected final DynamicConfiguration<?, ?, ?> root;
 
-    protected DynamicConfiguration(String prefix, String key) {
+    protected DynamicConfiguration(String prefix, String key, DynamicConfiguration<?, ?, ?> root) {
+        this.prefix = prefix;
         this.qualifiedName = String.format("%s.%s", prefix, key);
         this.key = key;
-    }
-
-    public void setConfigurator(Configurator<?> configurator) {
-        this.configurator = configurator;
+        this.root = root != null ? root : this;
     }
 
     protected <M extends Modifier> M add(M member) {
@@ -79,5 +79,15 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
 
     @Override public String key() {
         return key;
+    }
+
+    protected abstract DynamicConfiguration<T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root);
+
+    protected final DynamicConfiguration<T, INIT, CHANGE> copy() {
+        return copy(null);
+    }
+
+    @Override public void validate() {
+        members.values().forEach(Modifier::validate);
     }
 }

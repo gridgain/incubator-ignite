@@ -23,6 +23,8 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.NamedList;
 import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class UsageTest {
@@ -57,20 +59,28 @@ public class UsageTest {
                         Collections.singletonMap("node1", new InitNode().withConsistentId("test").withPort(1000))
                     )
                 )
+                .withAutoAdjust(new InitAutoAdjust().withEnabled(true).withTimeout(100000L))
         );
+
+        configurator.init(Selectors.LOCAL_REC, initLocal);
 
         configurator.init(Selectors.LOCAL_BASELINE_NODES_FN("node1"), new InitNode().withPort(1000));
 
-        localConfiguration.init(initLocal);
+//
+//        final DynamicProperty<String> node1 = configurator.getInternal(Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1"));
+//
+//        localConfiguration.baseline().autoAdjust().enabled(false);
+//        final DynamicProperty<String> node1ViaFn = Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1").select(localConfiguration);
+//        final DynamicProperty<String> node1ViaFluentAPI = localConfiguration.baseline().nodes().get("node1").consistentId();
+//
+//        final Selector selector = Selectors.find("local.baseline.nodes[node1].port");
+//        final DynamicProperty<Integer> portViaSel = (DynamicProperty<Integer>) selector.select(localConfiguration);
 
-        final DynamicProperty<String> node1 = configurator.getInternal(Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1"));
-
-        localConfiguration.baseline().autoAdjust().enabled(false);
-        final DynamicProperty<String> node1ViaFn = Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1").select(localConfiguration);
-        final DynamicProperty<String> node1ViaFluentAPI = localConfiguration.baseline().nodes().get("node1").consistentId();
-
-        final Selector selector = Selectors.find("local.baseline.nodes[node1].port");
-        final DynamicProperty<Integer> portViaSel = (DynamicProperty<Integer>) selector.select(localConfiguration);
+        try {
+            configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED_REC, false);
+            Assert.fail();
+        } catch (ConfigurationValidationException e) {}
+        configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_REC, new ChangeAutoAdjust().withEnabled(false).withTimeout(0L));
     }
 
 }

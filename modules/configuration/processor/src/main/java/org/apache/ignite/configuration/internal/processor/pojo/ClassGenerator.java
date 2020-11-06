@@ -47,33 +47,37 @@ public abstract class ClassGenerator {
         this.filer = env.getFiler();
     }
 
-    public final MethodSpec generate(String packageName, ClassName className, List<VariableElement> fields) throws IOException {
-        TypeSpec.Builder viewClassBuilder = TypeSpec
+    public final MethodSpec create(String packageName, ClassName className, List<VariableElement> fields) throws IOException {
+        TypeSpec.Builder classBuilder = TypeSpec
             .classBuilder(className)
             .addSuperinterface(Serializable.class)
             .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
         List<FieldMapping> fieldMappings = fields.stream().map(this::mapField).filter(Objects::nonNull).collect(Collectors.toList());
 
-        List<FieldSpec> fieldSpecs = fieldMappings.stream().map(f -> f.getFieldSpec()).collect(Collectors.toList());
+        generate(classBuilder, packageName, className, fieldMappings);
 
-        List<MethodSpec> methodSpecs = fieldSpecs.stream().map(field -> mapMethod(className, field)).filter(Objects::nonNull).collect(Collectors.toList());
-
-        viewClassBuilder.addFields(fieldSpecs);
-        viewClassBuilder.addMethods(methodSpecs);
-
-        final MethodSpec constructor = createConstructor(fieldSpecs);
-        if (constructor != null)
-            viewClassBuilder.addMethod(constructor);
-
-        final List<MethodSpec> getters = Utils.createGetters(fieldSpecs);
-
-        viewClassBuilder.addMethods(getters);
-
-        final TypeSpec viewClass = viewClassBuilder.build();
+        final TypeSpec viewClass = classBuilder.build();
         JavaFile classF = JavaFile.builder(packageName, viewClass).build();
         classF.writeTo(filer);
         return validationGenerator.generateValidateMethod(className, fieldMappings);
+    }
+
+    protected void generate(TypeSpec.Builder classBuilder, String packageName, ClassName className, List<FieldMapping> fieldMappings) {
+        List<FieldSpec> fieldSpecs = fieldMappings.stream().map(FieldMapping::getFieldSpec).collect(Collectors.toList());
+
+        List<MethodSpec> methodSpecs = fieldSpecs.stream().map(field -> mapMethod(className, field)).filter(Objects::nonNull).collect(Collectors.toList());
+
+        classBuilder.addFields(fieldSpecs);
+        classBuilder.addMethods(methodSpecs);
+
+        final MethodSpec constructor = createConstructor(fieldSpecs);
+        if (constructor != null)
+            classBuilder.addMethod(constructor);
+
+        final List<MethodSpec> getters = Utils.createGetters(fieldSpecs);
+
+        classBuilder.addMethods(getters);
     }
 
     protected abstract FieldMapping mapField(VariableElement field);

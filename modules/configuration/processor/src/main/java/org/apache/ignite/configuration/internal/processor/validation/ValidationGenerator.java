@@ -44,10 +44,12 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeMirror;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.annotation.Validate;
 import org.apache.ignite.configuration.internal.processor.pojo.FieldMapping;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
@@ -87,7 +89,7 @@ public class ValidationGenerator {
         if (minAnnotation != null) {
             final long minValue = minAnnotation.value();
             final String message = minAnnotation.message();
-            final CodeBlock build = CodeBlock.builder().add("new $T($L, $S)", MinValidator.class, minValue, message).build();
+            final CodeBlock build = CodeBlock.builder().add("new $T<$T<?, ?, ?>>($L, $S)", MinValidator.class, DynamicConfiguration.class, minValue, message).build();
             validators.add(build);
         }
 
@@ -95,28 +97,30 @@ public class ValidationGenerator {
         if (maxAnnotation != null) {
             final long maxValue = maxAnnotation.value();
             final String message = maxAnnotation.message();
-            final CodeBlock build = CodeBlock.builder().add("new $T($L, $S)", MaxValidator.class, maxValue, message).build();
+            final CodeBlock build = CodeBlock.builder().add("new $T<$T<?, ?, ?>>($L, $S)", MaxValidator.class, DynamicConfiguration.class, maxValue, message).build();
             validators.add(build);
         }
 
         final NotNull notNull = variableElement.getAnnotation(NotNull.class);
         if (notNull != null) {
             final String message = notNull.message();
-            final CodeBlock build = CodeBlock.builder().add("new $T($S)", NotNullValidator.class, message).build();
+            final CodeBlock build = CodeBlock.builder().add("new $T<$T<?, ?, ?>>($S)", NotNullValidator.class, DynamicConfiguration.class, message).build();
             validators.add(build);
         }
 
         final Validate validate = variableElement.getAnnotation(Validate.class);
         if (validate != null) {
-            TypeMirror value = null;
+            List<? extends TypeMirror> values = null;
             try {
                 validate.value();
-            } catch (MirroredTypeException e) {
-                value = e.getTypeMirror();
+            } catch (MirroredTypesException e) {
+                values = e.getTypeMirrors();
             }
-            final String message = validate.message();
-            final CodeBlock build = CodeBlock.builder().add("new $T($S)", value, message).build();
-            validators.add(build);
+            values.forEach(value -> {
+                final String message = validate.message();
+                final CodeBlock build = CodeBlock.builder().add("new $T($S)", value, message).build();
+                validators.add(build);
+            });
         }
 
         String text = validators.stream().map(v -> "$L").collect(Collectors.joining(","));
