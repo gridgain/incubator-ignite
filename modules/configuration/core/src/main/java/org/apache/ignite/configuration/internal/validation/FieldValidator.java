@@ -20,11 +20,8 @@ package org.apache.ignite.configuration.internal.validation;
 import java.io.Serializable;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public abstract class BaseValidator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> implements Validator<T, C> {
+public interface FieldValidator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> {
 
-    protected String message;
+    void validate(T value, C newRoot, C oldRoot);
 
-    public BaseValidator(String message) {
-        this.message = message;
-    }
 }

@@ -19,7 +19,7 @@ package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class MaxValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Number, C> {
+public class MaxValidator<C extends DynamicConfiguration<?, ?, ?>> implements FieldValidator<Number, C> {
 
     private final long maxValue;
 

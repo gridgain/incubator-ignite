@@ -19,12 +19,11 @@ package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Number, C> {
+public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> extends BaseFieldValidator<Number, C> {
     private final long minValue;
 
-    private final String message;
-
     public MinValidator(long minValue, String message) {
+        super(message);
         this.minValue = minValue;
         this.message = message;
     }

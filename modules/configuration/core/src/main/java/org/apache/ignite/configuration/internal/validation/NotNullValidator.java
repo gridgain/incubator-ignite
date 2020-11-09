@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.internal.validation;
 import java.io.Serializable;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class NotNullValidator<C extends DynamicConfiguration<?, ?, ?>> implements Validator<Serializable, C> {
+public class NotNullValidator<C extends DynamicConfiguration<?, ?, ?>> implements FieldValidator<Serializable, C> {
 
     private final String message;
 

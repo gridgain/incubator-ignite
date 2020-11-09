@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.configuration.internal.ConfigurationStorage;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
-import org.apache.ignite.configuration.internal.validation.Validator;
+import org.apache.ignite.configuration.internal.validation.FieldValidator;
 
 /**
  * TODO: Add class description.
@@ -40,7 +40,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     /** Property value. */
     protected volatile T val;
 
-    private final List<Validator<? super T, ?>> validators;
+    private final List<FieldValidator<? super T, ?>> validators;
 
     /** Listeners of property update. */
     private final List<PropertyListener<T, T, T>> updateListeners = new ArrayList<>();
@@ -50,7 +50,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     public DynamicProperty(
         String prefix,
         String name,
-        List<Validator<? super T, ?>> validators,
+        List<FieldValidator<? super T, ?>> validators,
         DynamicConfiguration<?, ?, ?> root
     ) {
         this(prefix, name, null, validators, root);
@@ -60,7 +60,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         String prefix,
         String name,
         T defaultValue,
-        List<Validator<? super T, ?>> validators,
+        List<FieldValidator<? super T, ?>> validators,
         DynamicConfiguration<?, ?, ?> root
     ) {
         this(defaultValue, name, String.format("%s.%s", prefix, name), validators, root);
@@ -74,7 +74,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         T value,
         String name,
         String qualifiedName,
-        List<Validator<? super T, ?>> validators,
+        List<FieldValidator<? super T, ?>> validators,
         DynamicConfiguration<?, ?, ?> root
     ) {
         this.name = name;
@@ -121,11 +121,11 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     @Override public void validate() {
-        validators.forEach(v -> ((Validator) v).validate(val, root));
+        validators.forEach(v -> ((FieldValidator) v).validate(val, root));
     }
 
     private void validate0(T val) {
-        validators.forEach(v -> ((Validator) v).validate(val, root));
+        validators.forEach(v -> ((FieldValidator) v).validate(val, root));
     }
 
     @Override public String key() {

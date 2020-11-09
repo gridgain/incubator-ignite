@@ -43,7 +43,6 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
-import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeMirror;
 import javax.validation.constraints.Max;
@@ -55,7 +54,6 @@ import org.apache.ignite.configuration.internal.processor.pojo.FieldMapping;
 import org.apache.ignite.configuration.internal.validation.MaxValidator;
 import org.apache.ignite.configuration.internal.validation.MinValidator;
 import org.apache.ignite.configuration.internal.validation.NotNullValidator;
-import org.apache.ignite.configuration.internal.validation.Validator;
 
 public class ValidationGenerator {
 

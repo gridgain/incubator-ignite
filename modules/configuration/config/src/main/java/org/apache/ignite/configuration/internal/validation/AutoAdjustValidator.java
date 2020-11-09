@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.internal.validation;
 import org.apache.ignite.configuration.internal.LocalConfiguration;
 import org.apache.ignite.configuration.internal.Selectors;
 
-public class AutoAdjustValidator extends BaseValidator<Number, LocalConfiguration> {
+public class AutoAdjustValidator extends BaseFieldValidator<Number, LocalConfiguration> {
 
     public AutoAdjustValidator(String message) {
         super(message);

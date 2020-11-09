@@ -17,11 +17,11 @@
 
 package org.apache.ignite.configuration.internal.annotation;
 
-import org.apache.ignite.configuration.internal.validation.Validator;
+import org.apache.ignite.configuration.internal.validation.FieldValidator;
 
 public @interface Validate {
 
-    Class<? extends Validator>[] value();
+    Class<? extends FieldValidator>[] value();
 
     String message() default "";
 
