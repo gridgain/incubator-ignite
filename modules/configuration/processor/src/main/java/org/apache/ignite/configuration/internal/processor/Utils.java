@@ -32,7 +32,13 @@ import com.squareup.javapoet.TypeName;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
 
+/**
+ * Annotation processing utilities.
+ */
 public class Utils {
+    /** Private constructor. */
+    private Utils() {
+    }
 
     /**
      * Create constructor for

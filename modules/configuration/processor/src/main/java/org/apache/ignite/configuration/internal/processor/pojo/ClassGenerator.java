@@ -34,20 +34,31 @@ import com.squareup.javapoet.TypeSpec;
 import org.apache.ignite.configuration.internal.processor.Utils;
 import org.apache.ignite.configuration.internal.processor.validation.ValidationGenerator;
 
+/**
+ * Base POJO generator
+ */
 public abstract class ClassGenerator {
+    /** Processing environment. */
     protected final ProcessingEnvironment env;
 
+    /** Annotation processing filer. */
     private final Filer filer;
 
-    private final ValidationGenerator validationGenerator;
-
-    public ClassGenerator(ProcessingEnvironment env, ValidationGenerator validationGenerator) {
+    /** Constructor. */
+    public ClassGenerator(ProcessingEnvironment env) {
         this.env = env;
-        this.validationGenerator = validationGenerator;
         this.filer = env.getFiler();
     }
 
-    public final MethodSpec create(String packageName, ClassName className, List<VariableElement> fields) throws IOException {
+    /**
+     * Create class.
+     *
+     * @param packageName Package name for class.
+     * @param className Class name.
+     * @param fields List of fields.
+     * @throws IOException If failed to write class file.
+     */
+    public final void create(String packageName, ClassName className, List<VariableElement> fields) throws IOException {
         TypeSpec.Builder classBuilder = TypeSpec
             .classBuilder(className)
             .addSuperinterface(Serializable.class)
@@ -60,9 +71,16 @@ public abstract class ClassGenerator {
         final TypeSpec viewClass = classBuilder.build();
         JavaFile classFile = JavaFile.builder(packageName, viewClass).build();
         classFile.writeTo(filer);
-        return validationGenerator.generateValidateMethod(className, fieldMappings);
     }
 
+    /**
+     * Generate class fields, methods and constructor.
+     *
+     * @param classBuilder Class builder.
+     * @param packageName Package name.
+     * @param className Class name.
+     * @param fieldMappings Fields' mappings.
+     */
     protected void generate(TypeSpec.Builder classBuilder, String packageName, ClassName className, List<FieldMapping> fieldMappings) {
         List<FieldSpec> fieldSpecs = fieldMappings.stream().map(FieldMapping::getFieldSpec).collect(Collectors.toList());
 
@@ -80,10 +98,29 @@ public abstract class ClassGenerator {
         classBuilder.addMethods(getters);
     }
 
+    /**
+     * Create {@link FieldSpec} from {@link VariableElement}.
+     *
+     * @param field Configuration class field.
+     * @return Mapping.
+     */
     protected abstract FieldMapping mapField(VariableElement field);
 
+    /**
+     * Create access methods for field.
+     *
+     * @param clazz Method return type.
+     * @param field Configuration class field.
+     * @return Method specs.
+     */
     protected abstract MethodSpec mapMethod(ClassName clazz, FieldSpec field);
 
+    /**
+     * Create constructor from fields.
+     *
+     * @param fields Configuration fields.
+     * @return If null, constructor won't be created.
+     */
     protected MethodSpec createConstructor(List<FieldSpec> fields) {
         return null;
     }

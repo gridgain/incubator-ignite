@@ -19,18 +19,26 @@ package org.apache.ignite.configuration.internal.processor;
 
 import com.squareup.javapoet.TypeName;
 
+/**
+ * Element of configuration.
+ */
 public class ConfigurationElement {
-
+    /** Name of configuration element. */
     public final String name;
 
+    /** Configuration type. */
     public final TypeName type;
 
+    /** Configuration VIEW type. */
     public final TypeName view;
 
+    /** Configuration INIT type. */
     public final TypeName init;
 
+    /** Configuration CHANGE type. */
     public final TypeName change;
 
+    /** Constructor. */
     public ConfigurationElement(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
         this.type = type;
         this.name = name;

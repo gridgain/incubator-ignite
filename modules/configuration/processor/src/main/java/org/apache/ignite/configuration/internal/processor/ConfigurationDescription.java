@@ -21,14 +21,21 @@ import java.util.ArrayList;
 import java.util.List;
 import com.squareup.javapoet.TypeName;
 
+/**
+ * Configuration and all it's inner fields.
+ */
 public class ConfigurationDescription extends ConfigurationElement {
-
+    /** Inner configuration fields. */
     private List<ConfigurationElement> fields = new ArrayList<>();
 
+    /** Constructor. */
     public ConfigurationDescription(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
         super(type, name, view, init, change);
     }
 
+    /**
+     * Get configuration fields.
+     */
     public List<ConfigurationElement> getFields() {
         return fields;
     }

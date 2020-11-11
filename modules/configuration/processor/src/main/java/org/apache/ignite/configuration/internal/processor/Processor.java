@@ -89,15 +89,16 @@ public class Processor extends AbstractProcessor {
     /** Class file writer. */
     private Filer filer;
 
+    /** {@inheritDoc} */
     @Override public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
         filer = processingEnv.getFiler();
-        final ValidationGenerator validationGenerator = new ValidationGenerator();
-        viewClassGenerator = new ViewClassGenerator(processingEnv, validationGenerator);
-        initClassGenerator = new InitClassGenerator(processingEnv, validationGenerator);
-        changeClassGenerator = new ChangeClassGenerator(processingEnv, validationGenerator);
+        viewClassGenerator = new ViewClassGenerator(processingEnv);
+        initClassGenerator = new InitClassGenerator(processingEnv);
+        changeClassGenerator = new ChangeClassGenerator(processingEnv);
     }
 
+    /** {@inheritDoc} */
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
         final Elements elementUtils = processingEnv.getElementUtils();
 
@@ -224,7 +225,7 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(generatedField);
 
-                    final CodeBlock validatorsBlock = new ValidationGenerator().generateValidators(field);
+                    final CodeBlock validatorsBlock = ValidationGenerator.generateValidators(field);
 
                     constructorBodyBuilder.addStatement(
                         "add($L = new $T(qualifiedName, $S, new $T($T.class, $S), this.configurator, this.root), $L)",
@@ -261,15 +262,7 @@ public class Processor extends AbstractProcessor {
 
             createConstructors(configClass, configName, configurationClassBuilder, configuratorClassName, constructorBodyBuilder, copyConstructorBodyBuilder);
 
-            MethodSpec copyMethod = MethodSpec.methodBuilder("copy")
-                .addAnnotation(Override.class)
-                .addModifiers(PUBLIC)
-                .addParameter(DynamicConfiguration.class, "root")
-                .returns(configClass)
-                .addStatement("return new $T(this, root)", configClass)
-                .build();
-
-            configurationClassBuilder.addMethod(copyMethod);
+            createCopyMethod(configClass, configurationClassBuilder);
 
             JavaFile classFile = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
             try {
@@ -285,6 +278,24 @@ public class Processor extends AbstractProcessor {
         createSelectorsClass(packageForUtil, flattenConfig);
 
         return true;
+    }
+
+    /**
+     * Create copy-method for configuration class.
+     *
+     * @param configClass Configuration class name.
+     * @param configurationClassBuilder Configuration class builder.
+     */
+    private void createCopyMethod(ClassName configClass, TypeSpec.Builder configurationClassBuilder) {
+        MethodSpec copyMethod = MethodSpec.methodBuilder("copy")
+            .addAnnotation(Override.class)
+            .addModifiers(PUBLIC)
+            .addParameter(DynamicConfiguration.class, "root")
+            .returns(configClass)
+            .addStatement("return new $T(this, root)", configClass)
+            .build();
+
+        configurationClassBuilder.addMethod(copyMethod);
     }
 
     /**

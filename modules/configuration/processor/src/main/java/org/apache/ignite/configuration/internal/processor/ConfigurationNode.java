@@ -19,22 +19,33 @@ package org.apache.ignite.configuration.internal.processor;
 
 import com.squareup.javapoet.TypeName;
 
+/**
+ * Configuration element with a reference to it's parent and with an original name.
+ */
 public class ConfigurationNode extends ConfigurationElement {
-
+    /** Configuration parent. */
     private final ConfigurationNode parent;
 
+    /** Original name of configuration element. */
     private final String originalName;
 
+    /** Constructor. */
     public ConfigurationNode(TypeName type, String name, String originalName, TypeName view, TypeName init, TypeName change, ConfigurationNode parent) {
         super(type, name, view, init, change);
         this.originalName = originalName;
         this.parent = parent;
     }
 
+    /**
+     * Get configuration parent.
+     */
     public ConfigurationNode getParent() {
         return parent;
     }
 
+    /**
+     * Get original name of configuration element.
+     */
     public String getOriginalName() {
         return originalName;
     }
