@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.internal.validation;
+package org.apache.ignite.configuration.internal.processor;
 
-import org.apache.ignite.configuration.internal.LocalConfiguration;
-import org.apache.ignite.configuration.internal.Selectors;
+import java.util.ArrayList;
+import java.util.List;
+import com.squareup.javapoet.TypeName;
 
-public class AutoAdjustValidator extends FieldValidator<Number, LocalConfiguration> {
+public class ConfigurationDescription extends ConfigurationElement {
 
-    public AutoAdjustValidator(String message) {
-        super(message);
+    private List<ConfigurationElement> fields = new ArrayList<>();
+
+    public ConfigurationDescription(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
+        super(type, name, view, init, change);
     }
 
-    @Override public void validate(Number value, LocalConfiguration newRoot, LocalConfiguration oldRoot) {
-        final Boolean isEnabled = Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED.select(newRoot).toView();
-
-        if (value.longValue() > 0 && !isEnabled)
-            throw new ConfigurationValidationException(message);
+    public List<ConfigurationElement> getFields() {
+        return fields;
     }
-
 }

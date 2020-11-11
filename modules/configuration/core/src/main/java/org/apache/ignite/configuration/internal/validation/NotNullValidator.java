@@ -20,15 +20,19 @@ package org.apache.ignite.configuration.internal.validation;
 import java.io.Serializable;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class NotNullValidator<C extends DynamicConfiguration<?, ?, ?>> implements FieldValidator<Serializable, C> {
-
-    private final String message;
-
+/**
+ * Validate that field value is not null.
+ *
+ * @param <C> Root configuration type.
+ */
+public class NotNullValidator<C extends DynamicConfiguration<?, ?, ?>> extends FieldValidator<Serializable, C> {
+    /** Constructor. */
     public NotNullValidator(String message) {
-        this.message = message;
+        super(message);
     }
 
-    @Override public void validate(Serializable value, C root) {
+    /** {@inheritDoc} */
+    @Override public void validate(Serializable value, C newRoot, C oldRoot) {
         if (value == null)
             throw new ConfigurationValidationException("");
     }

@@ -20,8 +20,27 @@ package org.apache.ignite.configuration.internal.validation;
 import java.io.Serializable;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public interface FieldValidator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> {
+/**
+ * Base class for field validator. Contains exception message.
+ * @param <T> Field type.
+ * @param <C> Root configuration type.
+ */
+public abstract class FieldValidator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> {
+    /** Validation error message. */
+    protected final String message;
 
-    void validate(T value, C newRoot, C oldRoot);
+    /** Constructor. */
+    protected FieldValidator(String message) {
+        this.message = message;
+    }
+
+    /**
+     * Validate field.
+     *
+     * @param value New value.
+     * @param newRoot New configuration root.
+     * @param oldRoot Old configuration root.
+     */
+    public abstract void validate(T value, C newRoot, C oldRoot);
 
 }

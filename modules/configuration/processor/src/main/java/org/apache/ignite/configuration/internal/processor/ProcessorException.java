@@ -14,18 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.configuration.internal.processor;
 
-import java.util.ArrayList;
-import java.util.List;
-import com.squareup.javapoet.TypeName;
+public class ProcessorException extends RuntimeException {
 
-public class ConfigDesc extends ConfigField {
+    public ProcessorException(String message) {
+        super(message);
+    }
 
-    public List<ConfigField> fields = new ArrayList<>();
-
-    public ConfigDesc(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
-        super(type, name, view, init, change);
+    public ProcessorException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

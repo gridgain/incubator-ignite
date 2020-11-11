@@ -58,8 +58,8 @@ public abstract class ClassGenerator {
         generate(classBuilder, packageName, className, fieldMappings);
 
         final TypeSpec viewClass = classBuilder.build();
-        JavaFile classF = JavaFile.builder(packageName, viewClass).build();
-        classF.writeTo(filer);
+        JavaFile classFile = JavaFile.builder(packageName, viewClass).build();
+        classFile.writeTo(filer);
         return validationGenerator.generateValidateMethod(className, fieldMappings);
     }
 

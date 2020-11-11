@@ -52,6 +52,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.WildcardTypeName;
 import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.NamedListConfiguration;
@@ -63,8 +64,9 @@ import org.apache.ignite.configuration.internal.processor.pojo.InitClassGenerato
 import org.apache.ignite.configuration.internal.processor.pojo.ViewClassGenerator;
 import org.apache.ignite.configuration.internal.processor.validation.ValidationGenerator;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
-import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.validation.MemberKey;
 
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -99,9 +101,9 @@ public class Processor extends AbstractProcessor {
     @Override public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
         final Elements elementUtils = processingEnv.getElementUtils();
 
-        Map<TypeName, ConfigDesc> props = new HashMap<>();
+        Map<TypeName, ConfigurationDescription> props = new HashMap<>();
 
-        List<ConfigDesc> roots = new ArrayList<>();
+        List<ConfigurationDescription> roots = new ArrayList<>();
 
         String packageForUtil = "";
 
@@ -132,7 +134,7 @@ public class Processor extends AbstractProcessor {
             final ClassName schemaClassName = ClassName.get(packageName, clazz.getSimpleName().toString());
             final ClassName configClass = Utils.getConfigurationName(schemaClassName);
 
-            ConfigDesc configDesc = new ConfigDesc(configClass, configName, Utils.getViewName(schemaClassName), Utils.getInitName(schemaClassName), Utils.getChangeName(schemaClassName));
+            ConfigurationDescription configDesc = new ConfigurationDescription(configClass, configName, Utils.getViewName(schemaClassName), Utils.getInitName(schemaClassName), Utils.getChangeName(schemaClassName));
 
             if (isRoot) {
                 roots.add(configDesc);
@@ -142,13 +144,12 @@ public class Processor extends AbstractProcessor {
             TypeSpec.Builder configurationClassBuilder = TypeSpec
                 .classBuilder(configClass)
                 .addModifiers(PUBLIC, FINAL);
+            TypeName wildcard = WildcardTypeName.subtypeOf(Object.class);
 
-            final MethodSpec emptyConstructor = MethodSpec.constructorBuilder()
-                .addModifiers(PUBLIC)
-                .addStatement("this($S, $S, null)", "", configName)
-                .build();
-
-            configurationClassBuilder.addMethod(emptyConstructor);
+            final ParameterizedTypeName configuratorClassName = ParameterizedTypeName.get(
+                ClassName.get(Configurator.class),
+                WildcardTypeName.subtypeOf(ParameterizedTypeName.get(ClassName.get(DynamicConfiguration.class), wildcard, wildcard, wildcard))
+            );
 
             CodeBlock.Builder constructorBodyBuilder = CodeBlock.builder();
             CodeBlock.Builder copyConstructorBodyBuilder = CodeBlock.builder();
@@ -164,6 +165,8 @@ public class Processor extends AbstractProcessor {
                 TypeName initClassType = baseType;
                 TypeName changeClassType = baseType;
 
+                String key = propertyName(fieldName);
+
                 final Config confAnnotation = field.getAnnotation(Config.class);
                 if (confAnnotation != null) {
                     getMethodType = Utils.getConfigurationName((ClassName) baseType);
@@ -175,7 +178,7 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(nestedConfigField);
 
-                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, this.root))", fieldName, getMethodType, fieldName);
+                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, false, configurator, this.root))", fieldName, getMethodType, key);
                     copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
 
                     unwrappedType = getMethodType;
@@ -201,7 +204,7 @@ public class Processor extends AbstractProcessor {
 
                     configurationClassBuilder.addField(nestedConfigField);
 
-                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, this.root, (p, k) -> new $T(p, k, this.root)))", fieldName, getMethodType, fieldName, fieldType);
+                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, configurator, this.root, (p, k) -> new $T(p, k, true, configurator, this.root)))", fieldName, getMethodType, key, fieldType);
                     copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
                 }
 
@@ -223,18 +226,22 @@ public class Processor extends AbstractProcessor {
 
                     final CodeBlock validatorsBlock = new ValidationGenerator().generateValidators(field);
 
-                    constructorBodyBuilder.addStatement("add($L = new $T(qualifiedName, $S, $L, this.root))", fieldName, getMethodType, fieldName, validatorsBlock);
+                    constructorBodyBuilder.addStatement(
+                        "add($L = new $T(qualifiedName, $S, new $T($T.class, $S), this.configurator, this.root), $L)",
+                        fieldName, getMethodType, key, MemberKey.class, configClass, key, validatorsBlock
+                    );
+
                     copyConstructorBodyBuilder.addStatement("add($L = base.$L.copy(this.root))", fieldName, fieldName);
                 }
 
-                configDesc.fields.add(new ConfigField(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
+                configDesc.getFields().add(new ConfigurationElement(getMethodType, fieldName, viewClassType, initClassType, changeClassType));
 
                 MethodSpec getMethod = MethodSpec
-                        .methodBuilder(fieldName)
-                        .addModifiers(PUBLIC, FINAL)
-                        .returns(getMethodType)
-                        .addStatement("return $L", fieldName)
-                        .build();
+                    .methodBuilder(fieldName)
+                    .addModifiers(PUBLIC, FINAL)
+                    .returns(getMethodType)
+                    .addStatement("return $L", fieldName)
+                    .build();
                 configurationClassBuilder.addMethod(getMethod);
 
                 if (valueAnnotation != null) {
@@ -250,55 +257,9 @@ public class Processor extends AbstractProcessor {
 
             props.put(configClass, configDesc);
 
-            final ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
-            final ClassName initClassName = Utils.getInitName(schemaClassName);
-            final ClassName changeClassName = Utils.getChangeName(schemaClassName);
+            createPojoBindings(packageName, fields, schemaClassName, configurationClassBuilder);
 
-            try {
-                viewClassGenerator.create(packageName, viewClassTypeName, fields);
-                ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
-                TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, initClassName, changeClassName);
-                configurationClassBuilder.superclass(dynConfViewClassType);
-                final MethodSpec toViewMethod = createToViewMethod(viewClassTypeName, fields);
-                configurationClassBuilder.addMethod(toViewMethod);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            try {
-                changeClassGenerator.create(packageName, changeClassName, fields);
-                final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
-                configurationClassBuilder.addMethod(changeMethod);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            try {
-                initClassGenerator.create(packageName, initClassName, fields);
-                final MethodSpec initMethod = createInitMethod(initClassName, fields);
-                configurationClassBuilder.addMethod(initMethod);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            final MethodSpec constructorWithName = MethodSpec.constructorBuilder()
-                    .addModifiers(PUBLIC)
-                    .addParameter(String.class, "prefix")
-                    .addParameter(String.class, "key")
-                    .addParameter(DynamicConfiguration.class, "root")
-                    .addStatement("super(prefix, key, root)")
-                    .addCode(constructorBodyBuilder.build())
-                    .build();
-            configurationClassBuilder.addMethod(constructorWithName);
-
-            final MethodSpec copyConstructor = MethodSpec.constructorBuilder()
-                    .addModifiers(PRIVATE)
-                    .addParameter(configClass, "base")
-                    .addParameter(DynamicConfiguration.class, "root")
-                    .addStatement("super(base.prefix, base.key, root)")
-                    .addCode(copyConstructorBodyBuilder.build())
-                    .build();
-            configurationClassBuilder.addMethod(copyConstructor);
+            createConstructors(configClass, configName, configurationClassBuilder, configuratorClassName, constructorBodyBuilder, copyConstructorBodyBuilder);
 
             MethodSpec copyMethod = MethodSpec.methodBuilder("copy")
                 .addAnnotation(Override.class)
@@ -310,35 +271,77 @@ public class Processor extends AbstractProcessor {
 
             configurationClassBuilder.addMethod(copyMethod);
 
-            JavaFile classF = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
+            JavaFile classFile = JavaFile.builder(packageName, configurationClassBuilder.build()).build();
             try {
-                classF.writeTo(filer);
+                classFile.writeTo(filer);
             } catch (IOException e) {
-                e.printStackTrace();
+                throw new ProcessorException("Failed to create configuration class " + configClass.toString(), e);
             }
         }
+        final List<ConfigurationNode> flattenConfig = roots.stream().map((ConfigurationDescription cfg) -> buildConfigForest(cfg, props)).flatMap(Set::stream).collect(Collectors.toList());
 
-        final TypeSpec.Builder keysClass = TypeSpec.classBuilder("Keys").addModifiers(PUBLIC, FINAL);
+        createKeysClass(packageForUtil, flattenConfig);
 
-        final List<ConfigChain> flattenConfig = roots.stream().map((ConfigDesc cfg) -> traverseConfigTree(cfg, props)).flatMap(Set::stream).collect(Collectors.toList());
+        createSelectorsClass(packageForUtil, flattenConfig);
 
-        flattenConfig.forEach(s -> {
-            final String varName = s.name.toUpperCase().replace(".", "_");
-            keysClass.addField(
-                FieldSpec.builder(String.class, varName)
-                    .addModifiers(PUBLIC, STATIC, FINAL)
-                    .initializer("$S", s.name)
-                    .build()
-            );
-        });
+        return true;
+    }
 
-        JavaFile keysClassFile = JavaFile.builder(packageForUtil, keysClass.build()).build();
-        try {
-            keysClassFile.writeTo(filer);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to write class: " + e.getMessage(), e);
-        }
+    /**
+     * Create configuration class constructors.
+     *
+     * @param configClass Configuration class name.
+     * @param configName Configuration name.
+     * @param configurationClassBuilder Configuration class builder.
+     * @param configuratorClassName Configurator (configuration wrapper) class name.
+     * @param constructorBodyBuilder Constructor body.
+     * @param copyConstructorBodyBuilder Copy constructor body.
+     */
+    private void createConstructors(
+        ClassName configClass,
+        String configName,
+        TypeSpec.Builder configurationClassBuilder,
+        ParameterizedTypeName configuratorClassName,
+        CodeBlock.Builder constructorBodyBuilder,
+        CodeBlock.Builder copyConstructorBodyBuilder
+    ) {
+        final MethodSpec constructorWithName = MethodSpec.constructorBuilder()
+            .addModifiers(PUBLIC)
+            .addParameter(String.class, "prefix")
+            .addParameter(String.class, "key")
+            .addParameter(boolean.class, "isNamed")
+            .addParameter(configuratorClassName, "configurator")
+            .addParameter(DynamicConfiguration.class, "root")
+            .addStatement("super(prefix, key, isNamed, configurator, root)")
+            .addCode(constructorBodyBuilder.build())
+            .build();
+        configurationClassBuilder.addMethod(constructorWithName);
 
+        final MethodSpec copyConstructor = MethodSpec.constructorBuilder()
+            .addModifiers(PRIVATE)
+            .addParameter(configClass, "base")
+            .addParameter(DynamicConfiguration.class, "root")
+            .addStatement("super(base.prefix, base.key, base.isNamed, base.configurator, root)")
+            .addCode(copyConstructorBodyBuilder.build())
+            .build();
+        configurationClassBuilder.addMethod(copyConstructor);
+
+        final MethodSpec emptyConstructor = MethodSpec.constructorBuilder()
+                .addModifiers(PUBLIC)
+                .addParameter(configuratorClassName, "configurator")
+                .addStatement("this($S, $S, false, configurator, null)", "", configName)
+                .build();
+
+        configurationClassBuilder.addMethod(emptyConstructor);
+    }
+
+    /**
+     * Create selectors.
+     *
+     * @param packageForUtil Package to place selectors class to.
+     * @param flattenConfig List of configuration nodes.
+     */
+    private void createSelectorsClass(String packageForUtil, List<ConfigurationNode> flattenConfig) {
         ClassName selectorsClassName = ClassName.get(packageForUtil, "Selectors");
 
         final TypeSpec.Builder selectorsClass = TypeSpec.classBuilder(selectorsClassName).superclass(BaseSelectors.class).addModifiers(PUBLIC, FINAL);
@@ -358,8 +361,8 @@ public class Processor extends AbstractProcessor {
 
             String methodCall = "";
 
-            ConfigChain current = s;
-            ConfigChain root = null;
+            ConfigurationNode current = s;
+            ConfigurationNode root = null;
             int namedCount = 0;
 
             while (current != null) {
@@ -369,20 +372,18 @@ public class Processor extends AbstractProcessor {
                     isNamed = true;
                 }
 
-                if (current.parent == null)
+                if (current.getParent() == null)
                     root = current;
                 else
-                    methodCall = "." + current.originalName + "()" + (isNamed ? (".get(name" + (namedCount - 1) + ")") : "") + methodCall;
+                    methodCall = "." + current.getOriginalName() + "()" + (isNamed ? (".get(name" + (namedCount - 1) + ")") : "") + methodCall;
 
-                current = current.parent;
+                current = current.getParent();
             }
 
             TypeName selectorRec = Utils.getParameterized(ClassName.get(Selector.class), root.type, t, s.view, s.init, s.change);
 
             if (namedCount > 0) {
-                final String methodName = varName + "_FN";
-
-                final MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName);
+                final MethodSpec.Builder builder = MethodSpec.methodBuilder(varName);
 
                 for (int i = 0; i < namedCount; i++) {
                     builder.addParameter(String.class, "name" + i);
@@ -399,9 +400,9 @@ public class Processor extends AbstractProcessor {
                 final String collect = IntStream.range(0, namedCount).mapToObj(i -> "$T.class").collect(Collectors.joining(","));
                 List<Object> params = new ArrayList<>();
                 params.add(MethodHandle.class);
-                params.add(methodName);
+                params.add(varName);
                 params.add(selectorsClassName);
-                params.add(methodName);
+                params.add(varName);
                 params.add(MethodType.class);
                 params.add(Selector.class);
                 for (int i = 0; i < namedCount; i++) {
@@ -410,16 +411,15 @@ public class Processor extends AbstractProcessor {
 
                 selectorsStaticBlockBuilder.addStatement("$T $L = publicLookup.findStatic($T.class, $S, $T.methodType($T.class, " + collect + "))", params.toArray());
 
-                selectorsStaticBlockBuilder.addStatement("put($S, $L)", s.name, methodName);
+                selectorsStaticBlockBuilder.addStatement("put($S, $L)", s.name, varName);
             } else {
-                final String fieldName = varName + "_REC";
                 selectorsClass.addField(
-                    FieldSpec.builder(selectorRec, fieldName)
+                    FieldSpec.builder(selectorRec, varName)
                         .addModifiers(PUBLIC, STATIC, FINAL)
                         .initializer("(root) -> root$L", methodCall)
                         .build()
                 );
-                selectorsStaticBlockBuilder.addStatement("put($S, $L)", s.name, fieldName);
+                selectorsStaticBlockBuilder.addStatement("put($S, $L)", s.name, varName);
             }
         });
 
@@ -433,46 +433,122 @@ public class Processor extends AbstractProcessor {
         try {
             selectorsClassFile.writeTo(filer);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to write class: " + e.getMessage(), e);
+            throw new ProcessorException("Failed to write class: " + e.getMessage(), e);
         }
-
-        return true;
     }
 
-    private Set<ConfigChain> traverseConfigTree(ConfigDesc root, Map<TypeName, ConfigDesc> props) {
-        Set<ConfigChain> res = new HashSet<>();
-        Deque<ConfigChain> propsStack = new LinkedList<>();
+    /**
+     * Create keys class.
+     *
+     * @param packageForUtil Package to place keys class to.
+     * @param flattenConfig List of configuration nodes.
+     */
+    private void createKeysClass(String packageForUtil, List<ConfigurationNode> flattenConfig) {
+        final TypeSpec.Builder keysClass = TypeSpec.classBuilder("Keys").addModifiers(PUBLIC, FINAL);
 
-        ConfigChain rootChain = new ConfigChain(root.type, root.name, root.name, root.view, root.init, root.change, null);
+        flattenConfig.forEach(s -> {
+            final String varName = s.name.toUpperCase().replace(".", "_");
+            keysClass.addField(
+                FieldSpec.builder(String.class, varName)
+                    .addModifiers(PUBLIC, STATIC, FINAL)
+                    .initializer("$S", s.name)
+                    .build()
+            );
+        });
 
-        propsStack.addFirst(rootChain);
+        JavaFile keysClassFile = JavaFile.builder(packageForUtil, keysClass.build()).build();
+        try {
+            keysClassFile.writeTo(filer);
+        } catch (IOException e) {
+            throw new ProcessorException("Failed to write class: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Create VIEW, INIT and CHANGE classes and methods.
+     *
+     * @param packageName Configuration package name.
+     * @param fields List of configuration fields.
+     * @param schemaClassName Class name of schema.
+     * @param configurationClassBuilder Configuration class builder.
+     */
+    private void createPojoBindings(String packageName, List<VariableElement> fields, ClassName schemaClassName, TypeSpec.Builder configurationClassBuilder) {
+        final ClassName viewClassTypeName = Utils.getViewName(schemaClassName);
+        final ClassName initClassName = Utils.getInitName(schemaClassName);
+        final ClassName changeClassName = Utils.getChangeName(schemaClassName);
+
+        try {
+            viewClassGenerator.create(packageName, viewClassTypeName, fields);
+            ClassName dynConfClass = ClassName.get(DynamicConfiguration.class);
+            TypeName dynConfViewClassType = ParameterizedTypeName.get(dynConfClass, viewClassTypeName, initClassName, changeClassName);
+            configurationClassBuilder.superclass(dynConfViewClassType);
+            final MethodSpec toViewMethod = createToViewMethod(viewClassTypeName, fields);
+            configurationClassBuilder.addMethod(toViewMethod);
+        } catch (IOException e) {
+            throw new ProcessorException("Failed to write class " + viewClassTypeName.toString(), e);
+        }
+
+        try {
+            changeClassGenerator.create(packageName, changeClassName, fields);
+            final MethodSpec changeMethod = createChangeMethod(changeClassName, fields);
+            configurationClassBuilder.addMethod(changeMethod);
+        } catch (IOException e) {
+            throw new ProcessorException("Failed to write class " + changeClassName.toString(), e);
+        }
+
+        try {
+            initClassGenerator.create(packageName, initClassName, fields);
+            final MethodSpec initMethod = createInitMethod(initClassName, fields);
+            configurationClassBuilder.addMethod(initMethod);
+        } catch (IOException e) {
+            throw new ProcessorException("Failed to write class " + initClassName.toString(), e);
+        }
+    }
+
+    /**
+     * Build configuration forest base on root configuration description and all processed configurations.
+     *
+     * @param root Root configuration description.
+     * @param props All configurations.
+     * @return All possible config trees.
+     */
+    private Set<ConfigurationNode> buildConfigForest(ConfigurationDescription root, Map<TypeName, ConfigurationDescription> props) {
+        Set<ConfigurationNode> res = new HashSet<>();
+        Deque<ConfigurationNode> propsStack = new LinkedList<>();
+
+        ConfigurationNode rootNode = new ConfigurationNode(root.type, root.name, root.name, root.view, root.init, root.change, null);
+
+        propsStack.addFirst(rootNode);
         while (!propsStack.isEmpty()) {
-            final ConfigChain current = propsStack.pollFirst();
+            final ConfigurationNode current = propsStack.pollFirst();
 
             TypeName type = current.type;
 
             if (Utils.isNamedConfiguration(type))
                 type = Utils.unwrapNamedListConfigurationClass(current.type);
 
-            final ConfigDesc configDesc = props.get(type);
-            final List<ConfigField> propertiesList = configDesc.fields;
+            final ConfigurationDescription configDesc = props.get(type);
+            final List<ConfigurationElement> propertiesList = configDesc.getFields();
 
             if (current.name != null && !current.name.isEmpty()) {
                 res.add(current);
             }
 
-            for (ConfigField property : propertiesList) {
-                String regex = "([a-z])([A-Z]+)";
-                String replacement = "$1_$2";
-
-                String qualifiedName = property.name
-                    .replaceAll(regex, replacement)
-                    .toLowerCase();
+            for (ConfigurationElement property : propertiesList) {
+                String qualifiedName = propertyName(property.name);
 
                 if (current.name != null && !current.name.isEmpty())
                     qualifiedName = current.name + "." + qualifiedName;
 
-                final ConfigChain newChainElement = new ConfigChain(property.type, qualifiedName, property.name, property.view, property.init, property.change, current);
+                final ConfigurationNode newChainElement = new ConfigurationNode(
+                    property.type,
+                    qualifiedName,
+                    property.name,
+                    property.view,
+                    property.init,
+                    property.change,
+                    current
+                );
 
                 boolean isNamedConfig = false;
                 if (property.type instanceof ParameterizedTypeName) {
@@ -492,6 +568,13 @@ public class Processor extends AbstractProcessor {
         return res;
     }
 
+    /**
+     * Create {@link org.apache.ignite.configuration.internal.property.Modifier#toView()} method for configuration class.
+     *
+     * @param type VIEW method type.
+     * @param variables List of VIEW object's fields.
+     * @return toView() method.
+     */
     public MethodSpec createToViewMethod(TypeName type, List<VariableElement> variables) {
         String args = variables.stream()
             .map(v -> v.getSimpleName().toString() + ".toView()")
@@ -510,7 +593,7 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Create init method (accepts INIT object) for configuration class.
+     * Create {@link org.apache.ignite.configuration.internal.property.Modifier#init(Object)} method (accepts INIT object) for configuration class.
      *
      * @param type INIT method type.
      * @param variables List of INIT object's fields.
@@ -536,7 +619,7 @@ public class Processor extends AbstractProcessor {
     }
 
     /**
-     * Create change method (accepts CHANGE object) for configuration class.
+     * Create {@link org.apache.ignite.configuration.internal.property.Modifier#change(Object)} method (accepts CHANGE object) for configuration class.
      *
      * @param type CHANGE method type.
      * @param variables List of CHANGE object's fields.
@@ -563,6 +646,21 @@ public class Processor extends AbstractProcessor {
             .addParameter(boolean.class, "validate")
             .addCode(builder.build())
             .build();
+    }
+
+    /**
+     * Generate property name (underscored, lowercase) from camel-case name.
+     *
+     * @param name Camel-case name.
+     * @return Property name.
+     */
+    private String propertyName(String name) {
+        String regex = "([a-z])([A-Z]+)";
+        String replacement = "$1_$2";
+
+        return name
+            .replaceAll(regex, replacement)
+            .toLowerCase();
     }
 
     /** {@inheritDoc} */

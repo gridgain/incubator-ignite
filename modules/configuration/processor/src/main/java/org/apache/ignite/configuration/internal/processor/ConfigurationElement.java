@@ -19,7 +19,7 @@ package org.apache.ignite.configuration.internal.processor;
 
 import com.squareup.javapoet.TypeName;
 
-public class ConfigField {
+public class ConfigurationElement {
 
     public final String name;
 
@@ -31,7 +31,7 @@ public class ConfigField {
 
     public final TypeName change;
 
-    public ConfigField(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
+    public ConfigurationElement(TypeName type, String name, TypeName view, TypeName init, TypeName change) {
         this.type = type;
         this.name = name;
         this.view = view;

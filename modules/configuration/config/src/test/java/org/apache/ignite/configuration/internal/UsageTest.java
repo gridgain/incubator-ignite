@@ -20,9 +20,7 @@ package org.apache.ignite.configuration.internal;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.NamedList;
-import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
 import org.junit.Assert;
 import org.junit.Test;
@@ -31,7 +29,6 @@ public class UsageTest {
 
     @Test
     public void test() {
-        LocalConfiguration localConfiguration = new LocalConfiguration();
         final ConfigurationStorage storage = new ConfigurationStorage() {
 
             @Override
@@ -50,7 +47,7 @@ public class UsageTest {
             }
         };
 
-        final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, localConfiguration);
+        final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
 
         InitLocal initLocal = new InitLocal().withBaseline(
             new InitBaseline()
@@ -62,9 +59,9 @@ public class UsageTest {
                 .withAutoAdjust(new InitAutoAdjust().withEnabled(true).withTimeout(100000L))
         );
 
-        configurator.init(Selectors.LOCAL_REC, initLocal);
+        configurator.init(Selectors.LOCAL, initLocal);
 
-        configurator.init(Selectors.LOCAL_BASELINE_NODES_FN("node1"), new InitNode().withPort(1000));
+        configurator.init(Selectors.LOCAL_BASELINE_NODES("node1"), new InitNode().withPort(1000));
 
 //
 //        final DynamicProperty<String> node1 = configurator.getInternal(Selectors.LOCAL_BASELINE_NODES_CONSISTENT_ID_FN("node1"));
@@ -77,10 +74,14 @@ public class UsageTest {
 //        final DynamicProperty<Integer> portViaSel = (DynamicProperty<Integer>) selector.select(localConfiguration);
 
         try {
-            configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED_REC, false);
+            configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_ENABLED, false);
             Assert.fail();
         } catch (ConfigurationValidationException e) {}
-        configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST_REC, new ChangeAutoAdjust().withEnabled(false).withTimeout(0L));
+        configurator.set(Selectors.LOCAL_BASELINE_AUTO_ADJUST, new ChangeAutoAdjust().withEnabled(false).withTimeout(0L));
+        configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(false);
+        configurator.getRoot().baseline().autoAdjust().enabled(true);
+        configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(true);
+        configurator.getRoot().baseline().autoAdjust().enabled(false);
     }
 
 }

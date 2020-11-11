@@ -32,7 +32,6 @@ public class CLIExample {
     //{local:{baseline:{auto_adjust:{timeout:10000}}}}
     public static void main(String[] args) throws FileNotFoundException {
         // Remove selectors map
-        LocalConfiguration localConfiguration = new LocalConfiguration();
         final ConfigurationStorage storage = new ConfigurationStorage() {
 
             @Override
@@ -51,9 +50,9 @@ public class CLIExample {
             }
         };
 
-        Selectors.CLUSTER_BASELINE_NODES_CONSISTENT_ID_FN("");
+        Selectors.CLUSTER_BASELINE_NODES_CONSISTENT_ID("");
 
-        final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, localConfiguration);
+        final Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
 
         final String filePath = args[0];
         FileReader reader = new FileReader(filePath);

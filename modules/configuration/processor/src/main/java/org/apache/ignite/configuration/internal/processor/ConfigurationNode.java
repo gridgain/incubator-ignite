@@ -19,15 +19,24 @@ package org.apache.ignite.configuration.internal.processor;
 
 import com.squareup.javapoet.TypeName;
 
-public class ConfigChain extends ConfigField {
+public class ConfigurationNode extends ConfigurationElement {
 
-    public final ConfigChain parent;
+    private final ConfigurationNode parent;
 
-    public final String originalName;
+    private final String originalName;
 
-    public ConfigChain(TypeName type, String name, String originalName, TypeName view, TypeName init, TypeName change, ConfigChain parent) {
+    public ConfigurationNode(TypeName type, String name, String originalName, TypeName view, TypeName init, TypeName change, ConfigurationNode parent) {
         super(type, name, view, init, change);
         this.originalName = originalName;
         this.parent = parent;
     }
+
+    public ConfigurationNode getParent() {
+        return parent;
+    }
+
+    public String getOriginalName() {
+        return originalName;
+    }
+
 }

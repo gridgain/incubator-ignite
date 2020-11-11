@@ -19,7 +19,9 @@ package org.apache.ignite.configuration.internal;
 
 import javax.validation.constraints.NotNull;
 import org.apache.ignite.configuration.internal.annotation.Config;
+import org.apache.ignite.configuration.internal.annotation.Validate;
 import org.apache.ignite.configuration.internal.annotation.Value;
+import org.apache.ignite.configuration.internal.validation.NodeValidator;
 
 /**
  * TODO: Add class description.
@@ -36,5 +38,9 @@ public class NodeConfigurationSchema {
 
     @Value
     private int port;
+
+    @Value
+    @Validate(NodeValidator.class)
+    private boolean autoAdjustEnabled;
 
 }

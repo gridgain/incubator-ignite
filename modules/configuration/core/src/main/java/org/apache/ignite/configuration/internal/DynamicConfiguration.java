@@ -17,9 +17,13 @@
 
 package org.apache.ignite.configuration.internal;
 
+import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.Modifier;
+import org.apache.ignite.configuration.internal.validation.FieldValidator;
 
 /**
  * TODO: Add class description.
@@ -35,19 +39,48 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
 
     protected final String prefix;
 
-    protected final Map<String, Modifier> members = new HashMap<>();
+    protected final Map<String, Modifier<?, ?, ?>> members = new HashMap<>();
 
     protected final DynamicConfiguration<?, ?, ?> root;
 
-    protected DynamicConfiguration(String prefix, String key, DynamicConfiguration<?, ?, ?> root) {
+    protected final boolean isNamed;
+
+    protected final Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator;
+
+    protected DynamicConfiguration(
+        String prefix,
+        String key,
+        boolean isNamed,
+        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
+        DynamicConfiguration<?, ?, ?> root
+    ) {
         this.prefix = prefix;
-        this.qualifiedName = String.format("%s.%s", prefix, key);
+        this.isNamed = isNamed;
+        this.configurator = configurator;
+
         this.key = key;
+        if (root == null)
+            this.qualifiedName = key;
+        else {
+            if (isNamed)
+                qualifiedName = String.format("%s[%s]", prefix, key);
+            else
+                qualifiedName = String.format("%s.%s", prefix, key);
+        }
+
         this.root = root != null ? root : this;
     }
 
-    protected <M extends Modifier> M add(M member) {
+    protected <M extends Modifier<?, ?, ?>> M add(M member) {
         members.put(member.key(), member);
+
+        return member;
+    }
+
+    protected <PROP extends Serializable, M extends DynamicProperty<PROP>> M add(M member, List<FieldValidator<? super PROP, ? extends DynamicConfiguration<?, ?, ?>>> validators) {
+        members.put(member.key(), member);
+
+        configurator.addValidations((Class<? extends DynamicConfiguration<?, ?, ?>>) getClass(), member.key(), validators);
 
         return member;
     }
@@ -74,7 +107,15 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
 
         key = nextPostfix(key);
 
-        return members.get(nextKey(key)).find(key);
+        return (Modifier<T, INIT, CHANGE>) members.get(nextKey(key)).find(key);
+    }
+
+    @Override public void init(INIT init) {
+        init(init, true);
+    }
+
+    @Override public void change(CHANGE change) {
+        change(change, true);
     }
 
     @Override public String key() {
@@ -87,7 +128,8 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
         return copy(null);
     }
 
-    @Override public void validate() {
-        members.values().forEach(Modifier::validate);
+    @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) {
+        members.values().forEach(member -> member.validate(oldRoot));
     }
+
 }

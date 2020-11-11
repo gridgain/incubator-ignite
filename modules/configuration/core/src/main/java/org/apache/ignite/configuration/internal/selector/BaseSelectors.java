@@ -23,6 +23,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.internal.property.Modifier;
 
 public class BaseSelectors {
 
@@ -40,7 +42,7 @@ public class BaseSelectors {
      * @param name Selector name.
      * @return Selector.
      */
-    public static Selector<?, ?, ?, ?, ?> find(String name) {
+    public static <A extends DynamicConfiguration<?, ?, ?>, B extends Modifier<C, D, E>, C, D, E> Selector<A, B, C, D, E> find(String name) {
         String[] splitten = name.split("\\.");
         List<String> arguments = new ArrayList<>();
         StringBuilder keyBuilder = new StringBuilder();
@@ -80,7 +82,7 @@ public class BaseSelectors {
         }
 
         try {
-            return selector.get(arguments);
+            return (Selector<A, B, C, D, E>) selector.get(arguments);
         } catch (Throwable throwable) {
             throw new SelectorNotFoundException("Failed to get selector: " + throwable.getMessage(), throwable);
         }

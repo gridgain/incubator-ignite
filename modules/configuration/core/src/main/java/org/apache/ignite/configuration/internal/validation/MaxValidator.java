@@ -19,18 +19,23 @@ package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class MaxValidator<C extends DynamicConfiguration<?, ?, ?>> implements FieldValidator<Number, C> {
-
+/**
+ * Validate that field value is not greater than some maximum value.
+ *
+ * @param <C> Root configuration type.
+ */
+public class MaxValidator<C extends DynamicConfiguration<?, ?, ?>> extends FieldValidator<Number, C> {
+    /** Maximum value. */
     private final long maxValue;
 
-    private final String message;
-
+    /** Constructor. */
     public MaxValidator(long maxValue, String message) {
+        super(message);
         this.maxValue = maxValue;
-        this.message = message;
     }
 
-    @Override public void validate(Number value, C root) {
+    /** {@inheritDoc} */
+    @Override public void validate(Number value, C newRoot, C oldRoot) {
         if (value.longValue() > maxValue)
             throw new ConfigurationValidationException(message);
     }

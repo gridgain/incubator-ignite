@@ -70,8 +70,6 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.CollectionConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
-import org.apache.ignite.configuration.internal.ClusterWideConfiguration;
-import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
@@ -492,11 +490,6 @@ public class IgniteProcessProxy implements IgniteEx {
     /** {@inheritDoc} */
     @Override public boolean allEventsUserRecordable(int[] types) {
         throw new UnsupportedOperationException("Operation isn't supported yet.");
-    }
-
-    @Override
-    public Configurator<ClusterWideConfiguration> clusterWideConfiguration() {
-        return null;
     }
 
     /** {@inheritDoc} */

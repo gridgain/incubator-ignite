@@ -17,20 +17,35 @@
 
 package org.apache.ignite.configuration.internal.validation;
 
-import java.io.Serializable;
-import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import java.util.Objects;
 
 /**
- * Base class for field validator. Contains exception message.
- * @param <T> Field type.
- * @param <C> Root configuration type.
+ * Configuration member key.
  */
-public abstract class BaseFieldValidator<T extends Serializable, C extends DynamicConfiguration<?, ?, ?>> implements FieldValidator<T, C> {
-    /** Validation error message. */
-    protected final String message;
+public class MemberKey {
+    /** Class of the field holder. */
+    private final Class<?> clazz;
+
+    /** Name of the field. */
+    private final String fieldName;
 
     /** Constructor. */
-    protected BaseFieldValidator(String message) {
-        this.message = message;
+    public MemberKey(Class<?> clazz, String fieldName) {
+        this.clazz = clazz;
+        this.fieldName = fieldName;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MemberKey key = (MemberKey) o;
+        return clazz.equals(key.clazz) &&
+                fieldName.equals(key.fieldName);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Objects.hash(clazz, fieldName);
     }
 }

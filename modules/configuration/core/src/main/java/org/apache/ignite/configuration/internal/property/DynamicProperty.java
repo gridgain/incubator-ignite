@@ -21,8 +21,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.configuration.internal.ConfigurationStorage;
+import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
+import org.apache.ignite.configuration.internal.selector.BaseSelectors;
+import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.validation.FieldValidator;
+import org.apache.ignite.configuration.internal.validation.MemberKey;
 
 /**
  * TODO: Add class description.
@@ -34,53 +38,63 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     /** Name of property. */
     private final String name;
 
+    /** Member key. */
+    private final MemberKey memberKey;
+
     /** Full name with prefix. */
     private final String qualifiedName;
 
     /** Property value. */
     protected volatile T val;
 
-    private final List<FieldValidator<? super T, ?>> validators;
-
     /** Listeners of property update. */
     private final List<PropertyListener<T, T, T>> updateListeners = new ArrayList<>();
 
-    protected DynamicConfiguration<?, ?, ?> root;
+    protected final Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator;
+
+    protected final DynamicConfiguration<?, ?, ?> root;
 
     public DynamicProperty(
         String prefix,
         String name,
-        List<FieldValidator<? super T, ?>> validators,
+        MemberKey memberKey,
+        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
         DynamicConfiguration<?, ?, ?> root
     ) {
-        this(prefix, name, null, validators, root);
+        this(prefix, name, memberKey, null, configurator, root);
     }
 
     public DynamicProperty(
         String prefix,
         String name,
+        MemberKey memberKey,
         T defaultValue,
-        List<FieldValidator<? super T, ?>> validators,
+        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
         DynamicConfiguration<?, ?, ?> root
     ) {
-        this(defaultValue, name, String.format("%s.%s", prefix, name), validators, root);
+        this(defaultValue, name, memberKey, String.format("%s.%s", prefix, name), configurator, root);
     }
 
-    private DynamicProperty(DynamicProperty<T> base, DynamicConfiguration<?, ?, ?> root) {
-        this(base.name, base.qualifiedName, base.val, base.validators, root);
+    private DynamicProperty(
+        DynamicProperty<T> base,
+        DynamicConfiguration<?, ?, ?> root
+    ) {
+        this(base.val, base.name, base.memberKey, base.qualifiedName, base.configurator, root);
     }
 
     private DynamicProperty(
         T value,
         String name,
+        MemberKey memberKey,
         String qualifiedName,
-        List<FieldValidator<? super T, ?>> validators,
+        Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator,
         DynamicConfiguration<?, ?, ?> root
     ) {
         this.name = name;
+        this.memberKey = memberKey;
         this.qualifiedName = qualifiedName;
         this.val = value;
-        this.validators = validators;
+        this.configurator = configurator;
         this.root = root;
     }
 
@@ -103,10 +117,15 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
         return null;
     }
 
-    @Override public void change(T object, boolean validate) {
-        if (validate)
-            validate0(object);
+    @Override public void change(T object) {
+        configurator.set(BaseSelectors.find(qualifiedName), object);
+    }
 
+    @Override public void init(T object) {
+        init(object, true);
+    }
+
+    @Override public void change(T object, boolean validate) {
         this.val = object;
         updateListeners.forEach(listener -> {
             listener.update(object, this);
@@ -114,18 +133,12 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     @Override public void init(T object, boolean validate) {
-        if (validate)
-            validate0(object);
-
         this.val = object;
     }
 
-    @Override public void validate() {
-        validators.forEach(v -> ((FieldValidator) v).validate(val, root));
-    }
-
-    private void validate0(T val) {
-        validators.forEach(v -> ((FieldValidator) v).validate(val, root));
+    @Override public void validate(DynamicConfiguration<?, ?, ?> oldRoot) {
+        final List<FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>> validators = configurator.validators(memberKey);
+        validators.forEach(v -> ((FieldValidator) v).validate(val, root, oldRoot));
     }
 
     @Override public String key() {

@@ -54,7 +54,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import javax.cache.CacheException;
 import javax.management.JMException;
 import org.apache.ignite.DataRegionMetrics;
@@ -106,15 +105,6 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.MemoryConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
-import org.apache.ignite.configuration.internal.ClusterWideConfiguration;
-import org.apache.ignite.configuration.internal.ConfigurationStorage;
-import org.apache.ignite.configuration.internal.Configurator;
-import org.apache.ignite.configuration.internal.InitCache;
-import org.apache.ignite.configuration.internal.InitClusterWide;
-import org.apache.ignite.configuration.internal.Selectors;
-import org.apache.ignite.configuration.internal.property.Modifier;
-import org.apache.ignite.configuration.internal.property.NamedList;
-import org.apache.ignite.configuration.internal.property.PropertyListener;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.binary.BinaryEnumCache;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
@@ -170,7 +160,6 @@ import org.apache.ignite.internal.processors.job.GridJobProcessor;
 import org.apache.ignite.internal.processors.jobmetrics.GridJobMetricsProcessor;
 import org.apache.ignite.internal.processors.localtask.DurableBackgroundTasksProcessor;
 import org.apache.ignite.internal.processors.marshaller.GridMarshallerMappingProcessor;
-import org.apache.ignite.internal.processors.metastorage.DistributedMetaStorage;
 import org.apache.ignite.internal.processors.metastorage.persistence.DistributedMetaStorageImpl;
 import org.apache.ignite.internal.processors.metric.GridMetricManager;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
@@ -447,9 +436,6 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /** The state object is used when reconnection occurs. See {@link IgniteKernal#onReconnected(boolean)}. */
     private final ReconnectState reconnectState = new ReconnectState();
-
-    /** */
-    private Configurator<ClusterWideConfiguration> clusterWideConfig;
 
     /**
      * No-arg constructor is required by externalization.
@@ -1533,55 +1519,6 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 EventType.EVT_NODE_JOINED, localNode());
 
         startTimer.finishGlobalStage("Await exchange");
-
-        final DistributedMetaStorage meta = context().distributedMetastorage();
-
-        final ConfigurationStorage storage = new ConfigurationStorage() {
-
-            @Override public <T extends Serializable> void save(String propertyName, T object) {
-                try {
-                    meta.write(propertyName, object);
-                    System.out.println("");
-                } catch (IgniteCheckedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            @Override public <T extends Serializable> T get(String propertyName) {
-                try {
-                    return meta.read(propertyName);
-                } catch (IgniteCheckedException e) {
-                    e.printStackTrace();
-                }
-                return null;
-            }
-
-            @Override public <T extends Serializable> void listen(String key, Consumer<T> listener) {
-                meta.listen(key::equals, (key1, oldVal, newVal) -> {
-                    final String name = ctx.config().getIgniteInstanceName();
-                    listener.accept((T) newVal);
-                });
-            }
-        };
-
-        final ClusterWideConfiguration clusterWide = new ClusterWideConfiguration();
-        final Configurator<ClusterWideConfiguration> clusterConfigurator = new Configurator<>(storage, clusterWide);
-        this.clusterWideConfig = clusterConfigurator;
-        clusterWide.init(new InitClusterWide().withCacheConfig(new NamedList<>(Collections.singletonMap("test", new InitCache().withSize(10_000)))));
-
-        clusterConfigurator.getInternal(Selectors.CLUSTER_BASELINE_AUTO_ADJUST_ENABLED_REC).addListener(new PropertyListener<Boolean, Boolean, Boolean>() {
-            @Override public void update(Boolean newValue, Modifier<Boolean, Boolean, Boolean> modifier) {
-                try {
-                    ctx.state().baselineConfiguration().updateBaselineAutoAdjustEnabledAsync(newValue);
-                } catch (IgniteCheckedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            @Override public String id() {
-                return "";
-            }
-        });
     }
 
     /** */
@@ -2780,10 +2717,6 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      */
     @Override public GridKernalContext context() {
         return ctx;
-    }
-
-    @Override public Configurator<ClusterWideConfiguration> clusterWideConfiguration() {
-        return clusterWideConfig;
     }
 
     /**

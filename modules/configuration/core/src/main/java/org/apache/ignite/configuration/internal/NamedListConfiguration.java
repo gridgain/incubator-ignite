@@ -37,23 +37,23 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     /** Named configurations. */
     Map<String, T> values = new HashMap<>();
 
-    public NamedListConfiguration(String prefix, String key, DynamicConfiguration<?, ?, ?> root, BiFunction<String, String, T> creator) {
-        super(prefix, key, root);
+    public NamedListConfiguration(String prefix, String key, Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator, DynamicConfiguration<?, ?, ?> root, BiFunction<String, String, T> creator) {
+        super(prefix, key, false, configurator, root);
         this.creator = creator;
     }
 
-    public NamedListConfiguration(NamedListConfiguration<U, T, INIT, CHANGE> base, DynamicConfiguration<?, ?, ?> root) {
-        super(base.prefix, base.key, root);
+    private NamedListConfiguration(NamedListConfiguration<U, T, INIT, CHANGE> base, Configurator<? extends DynamicConfiguration<?, ?, ?>> configurator, DynamicConfiguration<?, ?, ?> root) {
+        super(base.prefix, base.key, false, configurator, root);
         this.creator = base.creator;
         base.values.forEach((key, value) -> {
-            this.values.put(key, (T) ((DynamicConfiguration<U, INIT, CHANGE>) value).copy());
+            this.values.put(key, add((T) ((DynamicConfiguration<U, INIT, CHANGE>) value).copy(root)));
         });
     }
 
     /** {@inheritDoc} */
     @Override public void init(NamedList<INIT> list, boolean validate) {
         if (validate)
-            validate();
+            validate(root);
 
         list.getValues().forEach((key, init) -> {
             if (!values.containsKey(key))
@@ -75,7 +75,7 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     /** {@inheritDoc} */
     @Override public void change(NamedList<CHANGE> list, boolean validate) {
         if (validate)
-            validate();
+            validate(root);
 
         list.getValues().forEach((key, change) -> {
             if (!values.containsKey(key))
@@ -86,6 +86,6 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     }
 
     @Override protected NamedListConfiguration<U, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
-        return new NamedListConfiguration<>(this, root);
+        return new NamedListConfiguration<U, T, INIT, CHANGE>(this, configurator, root);
     }
 }

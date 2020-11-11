@@ -19,16 +19,23 @@ package org.apache.ignite.configuration.internal.validation;
 
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 
-public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> extends BaseFieldValidator<Number, C> {
+/**
+ * Validate that field value is not less than some minimal value.
+ *
+ * @param <C> Root configuration type.
+ */
+public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> extends FieldValidator<Number, C> {
+    /** Minimal value. */
     private final long minValue;
 
+    /** Constructor. */
     public MinValidator(long minValue, String message) {
         super(message);
         this.minValue = minValue;
-        this.message = message;
     }
 
-    @Override public void validate(Number value, C root) {
+    /** {@inheritDoc} */
+    @Override public void validate(Number value, C newRoot, C oldRoot) {
         if (value.longValue() < minValue)
             throw new ConfigurationValidationException(message);
     }

@@ -20,13 +20,17 @@ package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.LinkedList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Queue;
+import java.util.Map;
+import java.util.function.Function;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.Modifier;
 import org.apache.ignite.configuration.internal.property.PropertyListener;
 import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.validation.FieldValidator;
+import org.apache.ignite.configuration.internal.validation.MemberKey;
 
 public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
 
@@ -34,9 +38,11 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
 
     private final T root;
 
-    public Configurator(ConfigurationStorage storage, T root) {
+    private final Map<MemberKey, List<FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>>> fieldValidators = new HashMap<>();
+
+    public Configurator(ConfigurationStorage storage, Function<Configurator<T>, T> rootBuilder) {
         this.storage = storage;
-        this.root = root;
+        this.root = rootBuilder.apply(this);
         this.init();
     }
 
@@ -70,7 +76,7 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
 
         final TARGET select = selector.select(copy);
         select.change(newValue, false);
-        copy.validate();
+        copy.validate(root);
         selector.select(root).change(newValue, false);
         // atomic end
     }
@@ -78,11 +84,27 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void init(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, INIT initValue) {
         final TARGET select = selector.select(root);
         select.init(initValue, false);
-        root.validate();
+        root.validate(root);
     }
 
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> TARGET getInternal(Selector<T, TARGET, VIEW, INIT, CHANGE> selector) {
         return selector.select(root);
+    }
+
+    public <PROP extends Serializable> void addValidations(
+        Class<? extends DynamicConfiguration<?, ?, ?>> aClass,
+        String key,
+        List<FieldValidator<? super PROP, ? extends DynamicConfiguration<?, ?, ?>>> validators
+    ) {
+        fieldValidators.put(new MemberKey(aClass, key), (List) validators);
+    }
+
+    public List<FieldValidator<? extends Serializable, ? extends DynamicConfiguration<?, ?, ?>>> validators(MemberKey key) {
+        return fieldValidators.getOrDefault(key, Collections.emptyList());
+    }
+
+    public T getRoot() {
+        return root;
     }
 
 }
