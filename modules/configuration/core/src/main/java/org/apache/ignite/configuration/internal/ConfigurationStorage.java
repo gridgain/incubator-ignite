@@ -20,15 +20,11 @@ package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.internal.property.PropertyListener;
 
 /**
  * Storage interface for configuration.
  */
 public interface ConfigurationStorage {
-    /** ID of the {@link PropertyListener} for storage actions. */
-    public static final String STORAGE_LISTENER_ID = "STORAGE";
-
     /**
      *
      * Save configuration property.

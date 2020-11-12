@@ -20,11 +20,9 @@ package org.apache.ignite.configuration.internal.property;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.configuration.internal.ConfigurationStorage;
 import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.selector.BaseSelectors;
-import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.validation.FieldValidator;
 import org.apache.ignite.configuration.internal.validation.MemberKey;
 
@@ -122,17 +120,17 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     }
 
     @Override public void init(T object) {
-        init(object, true);
+        configurator.init(BaseSelectors.find(qualifiedName), object);
     }
 
-    @Override public void change(T object, boolean validate) {
+    @Override public void changeWithoutValidation(T object) {
         this.val = object;
         updateListeners.forEach(listener -> {
             listener.update(object, this);
         });
     }
 
-    @Override public void init(T object, boolean validate) {
+    @Override public void initWithoutValidation(T object) {
         this.val = object;
     }
 
@@ -152,8 +150,7 @@ public class DynamicProperty<T extends Serializable> implements Modifier<T, T, T
     public void setSilently(T serializable) {
         val = serializable;
         updateListeners.forEach(listener -> {
-            if (!listener.id().equals(ConfigurationStorage.STORAGE_LISTENER_ID))
-                listener.update(val, this);
+            listener.update(val, this);
         });
     }
 

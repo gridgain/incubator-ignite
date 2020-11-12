@@ -35,11 +35,11 @@ public interface Modifier<T, INIT, CHANGE> {
 
     void change(CHANGE change);
 
-    void change(CHANGE change, boolean validate);
+    void changeWithoutValidation(CHANGE change);
 
     void init(INIT init);
 
-    void init(INIT init, boolean validate);
+    void initWithoutValidation(INIT init);
 
     void validate(DynamicConfiguration<?, ?, ?> oldRoot);
 }

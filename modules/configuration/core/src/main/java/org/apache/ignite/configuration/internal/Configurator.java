@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.configuration.internal;
 
 import java.io.Serializable;
@@ -55,10 +54,6 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
                 @Override public void update(Serializable newValue, Modifier modifier) {
                     storage.save(key, newValue);
                 }
-
-                @Override public String id() {
-                    return ConfigurationStorage.STORAGE_LISTENER_ID;
-                }
             });
             storage.listen(key, serializable -> {
                 property.setSilently(serializable);
@@ -71,19 +66,19 @@ public class Configurator<T extends DynamicConfiguration<?, ?, ?>> {
     }
 
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void set(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, CHANGE newValue) {
-        // atomic start
+        // TODO: atomic change start
         final T copy = (T) root.copy();
 
         final TARGET select = selector.select(copy);
-        select.change(newValue, false);
+        select.changeWithoutValidation(newValue);
         copy.validate(root);
-        selector.select(root).change(newValue, false);
-        // atomic end
+        selector.select(root).changeWithoutValidation(newValue);
+        // TODO: atomic change end
     }
 
     public <TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> void init(Selector<T, TARGET, VIEW, INIT, CHANGE> selector, INIT initValue) {
         final TARGET select = selector.select(root);
-        select.init(initValue, false);
+        select.initWithoutValidation(initValue);
         root.validate(root);
     }
 

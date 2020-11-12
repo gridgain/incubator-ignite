@@ -29,7 +29,6 @@ import org.apache.ignite.configuration.internal.property.Modifier;
  * @param <CHANGE> Change class of target.
  */
 public interface Selector<ROOT, TARGET extends Modifier<VIEW, INIT, CHANGE>, VIEW, INIT, CHANGE> {
-
     /**
      * Select configuration element.
      *

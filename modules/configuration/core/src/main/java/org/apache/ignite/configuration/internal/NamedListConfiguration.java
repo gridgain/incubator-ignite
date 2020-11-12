@@ -51,15 +51,12 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     }
 
     /** {@inheritDoc} */
-    @Override public void init(NamedList<INIT> list, boolean validate) {
-        if (validate)
-            validate(root);
-
+    @Override public void initWithoutValidation(NamedList<INIT> list) {
         list.getValues().forEach((key, init) -> {
             if (!values.containsKey(key))
                 values.put(key, add(creator.apply(qualifiedName, key)));
 
-            values.get(key).init(init);
+            values.get(key).initWithoutValidation(init);
         });
     }
 
@@ -73,19 +70,16 @@ public class NamedListConfiguration<U, T extends Modifier<U, INIT, CHANGE>, INIT
     }
 
     /** {@inheritDoc} */
-    @Override public void change(NamedList<CHANGE> list, boolean validate) {
-        if (validate)
-            validate(root);
-
+    @Override public void changeWithoutValidation(NamedList<CHANGE> list) {
         list.getValues().forEach((key, change) -> {
             if (!values.containsKey(key))
                 values.put(key, add(creator.apply(qualifiedName, key)));
 
-            values.get(key).change(change);
+            values.get(key).changeWithoutValidation(change);
         });
     }
 
     @Override protected NamedListConfiguration<U, T, INIT, CHANGE> copy(DynamicConfiguration<?, ?, ?> root) {
-        return new NamedListConfiguration<U, T, INIT, CHANGE>(this, configurator, root);
+        return new NamedListConfiguration<>(this, configurator, root);
     }
 }

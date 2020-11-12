@@ -616,15 +616,14 @@ public class Processor extends AbstractProcessor {
         variables.forEach(variable -> {
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (initial.$L() != null)", name);
-            builder.addStatement("$L.init(initial.$L(), validate)", name, name);
+            builder.addStatement("$L.initWithoutValidation(initial.$L())", name, name);
             builder.endControlFlow();
         });
 
-        return MethodSpec.methodBuilder("init")
+        return MethodSpec.methodBuilder("initWithoutValidation")
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(type, "initial")
-            .addParameter(boolean.class, "validate")
             .addCode(builder.build())
             .build();
     }
@@ -646,15 +645,14 @@ public class Processor extends AbstractProcessor {
 
             final String name = variable.getSimpleName().toString();
             builder.beginControlFlow("if (changes.$L() != null)", name);
-            builder.addStatement("$L.change(changes.$L(), validate)", name, name);
+            builder.addStatement("$L.changeWithoutValidation(changes.$L())", name, name);
             builder.endControlFlow();
         });
 
-        return MethodSpec.methodBuilder("change")
+        return MethodSpec.methodBuilder("changeWithoutValidation")
             .addModifiers(PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(type, "changes")
-            .addParameter(boolean.class, "validate")
             .addCode(builder.build())
             .build();
     }

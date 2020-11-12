@@ -81,7 +81,11 @@ public class UsageTest {
         configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(false);
         configurator.getRoot().baseline().autoAdjust().enabled(true);
         configurator.getRoot().baseline().nodes().get("node1").autoAdjustEnabled(true);
-        configurator.getRoot().baseline().autoAdjust().enabled(false);
+
+        try{
+            configurator.getRoot().baseline().autoAdjust().enabled(false);
+            Assert.fail();
+        } catch (ConfigurationValidationException e) {}
     }
 
 }

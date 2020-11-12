@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.configuration.internal.property.DynamicProperty;
 import org.apache.ignite.configuration.internal.property.Modifier;
+import org.apache.ignite.configuration.internal.selector.BaseSelectors;
 import org.apache.ignite.configuration.internal.validation.FieldValidator;
 
 /**
@@ -111,11 +112,11 @@ public abstract class DynamicConfiguration<T, INIT, CHANGE> implements Modifier<
     }
 
     @Override public void init(INIT init) {
-        init(init, true);
+        configurator.init(BaseSelectors.find(qualifiedName), init);
     }
 
     @Override public void change(CHANGE change) {
-        change(change, true);
+        configurator.set(BaseSelectors.find(qualifiedName), change);
     }
 
     @Override public String key() {

@@ -15,25 +15,48 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.configuration.internal.property;
 
 import java.io.Serializable;
 
+/**
+ * Configuration property change listener.
+ *
+ * @param <VIEW> VIEW type of property.
+ * @param <INIT> INIT type of property.
+ * @param <CHANGE> CHANGE type of property.
+ */
 public interface PropertyListener<VIEW extends Serializable, INIT extends Serializable, CHANGE extends Serializable> {
-
+    /**
+     * Called before property value is updated.
+     *
+     * @param oldValue Previous value.
+     * @param newValue New value.
+     * @param modifier Property itself.
+     * @return {@code true} if changes are approved and {@code false} then property update must be aborted.
+     */
     default boolean beforeUpdate(VIEW oldValue, VIEW newValue, Modifier<VIEW, INIT, CHANGE> modifier) {
         return true;
     }
 
+    /**
+     * Called on property value update.
+     *
+     * @param newValue New value of the property.
+     * @param modifier Property itself.
+     */
     default void update(VIEW newValue, Modifier<VIEW, INIT, CHANGE> modifier) {
-
+        /* No-op */
     }
 
+    /**
+     * Called after property value update.
+     *
+     * @param newValue New value of the property.
+     * @param modifier Property itself.
+     */
     default void afterUpdate(VIEW newValue, Modifier<VIEW, INIT, CHANGE> modifier) {
-
+        /* No-op */
     }
-
-    String id();
 
 }

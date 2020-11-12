@@ -17,12 +17,16 @@
 
 package org.apache.ignite.configuration.internal.selector;
 
+/**
+ * Exception for absence of selector.
+ */
 public class SelectorNotFoundException extends RuntimeException {
-
+    /** Constructor. */
     public SelectorNotFoundException(String message) {
         super(message);
     }
 
+    /** Constructor. */
     public SelectorNotFoundException(String message, Throwable cause) {
         super(message, cause);
     }

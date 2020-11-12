@@ -26,8 +26,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.internal.DynamicConfiguration;
 import org.apache.ignite.configuration.internal.property.Modifier;
 
+/**
+ * Base selector holder.
+ */
 public class BaseSelectors {
-
+    /** Map from string representation of selector to {@link SelectorHolder}. */
     private static final Map<String, SelectorHolder> selectors = new HashMap<>();
 
     /**
