@@ -41,6 +41,7 @@
         <module>processor</module>
         <module>core</module>
         <module>config</module>
+        <module>sample-application</module>
     </modules>
 
     <dependencies>
