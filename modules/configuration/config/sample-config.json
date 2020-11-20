@@ -1,1 +1,10 @@
-{local:{baseline:{auto_adjust:{enabled:true,timeout:10000}}}}
+{
+  "local": {
+    "baseline": {
+      "auto_adjust": {
+        "timeout": 10000,
+        "enabled": true
+      }
+    }
+  }
+}

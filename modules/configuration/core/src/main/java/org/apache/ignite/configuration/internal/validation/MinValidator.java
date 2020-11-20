@@ -36,6 +36,9 @@ public class MinValidator<C extends DynamicConfiguration<?, ?, ?>> extends Field
 
     /** {@inheritDoc} */
     @Override public void validate(Number value, C newRoot, C oldRoot) {
+        if (value == null)
+            throw new ConfigurationValidationException(message);
+
         if (value.longValue() < minValue)
             throw new ConfigurationValidationException(message);
     }

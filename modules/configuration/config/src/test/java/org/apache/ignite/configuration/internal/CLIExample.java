@@ -94,7 +94,7 @@ public class CLIExample {
             final Object value = entry.getValue().unwrapped();
             final Selector selector = Selectors.find(key);
             if (selector != null)
-                configurator.set(selector, value);
+                selector.select(configurator.getRoot()).changeWithoutValidation(value);
         });
     }
 
