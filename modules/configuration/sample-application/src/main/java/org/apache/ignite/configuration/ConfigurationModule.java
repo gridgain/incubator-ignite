@@ -66,8 +66,6 @@ public class ConfigurationModule {
         try {
             Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
 
-            Gson gson = new Gson();
-
             FileReader reader = new FileReader(confFileName);
 
             final Config config = ConfigFactory.parseReader(reader);

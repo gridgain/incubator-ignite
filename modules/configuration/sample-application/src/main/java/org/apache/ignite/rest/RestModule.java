@@ -17,13 +17,20 @@
 
 package org.apache.ignite.rest;
 
+import java.io.StringReader;
+
 import com.google.gson.Gson;
+import com.google.gson.annotations.SerializedName;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import io.javalin.Javalin;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.extended.Local;
 import org.apache.ignite.configuration.extended.LocalConfiguration;
 import org.apache.ignite.configuration.extended.Selectors;
 import org.apache.ignite.configuration.internal.Configurator;
+import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.internal.selector.SelectorNotFoundException;
 
 /** */
 public class RestModule {
@@ -56,15 +63,53 @@ public class RestModule {
         });
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
-            String selector = ctx.pathParam(PATH_PARAM);
+            try {
+                String selector = ctx.pathParam(PATH_PARAM);
 
-            Object subTree = configurator.getPublic(Selectors.find(selector));
+                Object subTree = configurator.getPublic(Selectors.find(selector));
 
-            String res = gson.toJson(subTree);
+                String res = gson.toJson(subTree);
 
-            ctx.result(res);
+                ctx.result(res);
+            }
+            catch (SelectorNotFoundException selectorE) {
+                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
+
+                ctx.status(500).result(gson.toJson(new ResponseWrapper(eRes)));
+            }
         });
 
-        app.post()
+        app.post(CONF_URL, ctx -> {
+            StringReader strReader = new StringReader(ctx.body());
+
+            Config config = ConfigFactory.parseReader(strReader);
+            config.resolve();
+
+            applyConfig(configurator, config);
+        });
+    }
+
+    /** */
+    private void applyConfig(Configurator<?> configurator, Config config) {
+        config.entrySet().forEach(entry -> {
+            final String key = entry.getKey();
+            final Object value = entry.getValue().unwrapped();
+            final Selector selector = Selectors.find(key);
+
+            if (selector != null)
+                selector.select(configurator.getRoot()).changeWithoutValidation(value);
+        });
+    }
+
+    /** */
+    private static class ResponseWrapper {
+        /** */
+        @SerializedName("error")
+        private final ErrorResult res;
+
+        /** */
+        private ResponseWrapper(ErrorResult res) {
+            this.res = res;
+        }
     }
 }
