@@ -15,35 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.sample.app;
+package org.apache.ignite.app;
 
-import io.javalin.Javalin;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.rest.RestModule;
 
 /**
  *
  */
-public class ConfigurableApp {
-    private static final String CONF_URL = "/management/v1/configuration";
+public class SimplisticIgnite {
+
 
     /**
      *
      * @param args
      */
-    public static void main(String[] args) {
-        Javalin app = Javalin.create().start(8080);
+    public static void main(String[] args) throws Exception {
+        ConfigurationModule confModule = new ConfigurationModule();
 
-        app.get(CONF_URL, ctx -> ctx.result("{\n" +
-            "  \"local\": {\n" +
-            "    \"baseline\": {\n" +
-            "      \"auto_adjust\": {\n" +
-            "        \"enabled\": true,\n" +
-            "        \"timeout\": 10000\n" +
-            "      }\n" +
-            "    }}"));
+        confModule.bootstrap(args[0]);
 
-        app.post(CONF_URL, ctx -> {
-            System.out.println("-->>-->> [" + Thread.currentThread().getName() + "] contentType " + ctx.contentType());
-            System.out.println("-->>-->> [" + Thread.currentThread().getName() + "] content " + ctx.body());
-        });
+        RestModule rest = new RestModule(confModule);
+
+        rest.start();
+
+        while(true) {
+            try {
+                Thread.sleep(1_000);
+            }
+            catch (InterruptedException ignored) {
+                // No-op.
+            }
+        }
     }
 }
