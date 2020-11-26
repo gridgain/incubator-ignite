@@ -75,17 +75,24 @@ public class RestModule {
             catch (SelectorNotFoundException selectorE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
 
-                ctx.status(500).result(gson.toJson(new ResponseWrapper(eRes)));
+                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
             }
         });
 
         app.post(CONF_URL, ctx -> {
-            StringReader strReader = new StringReader(ctx.body());
+            try {
+                StringReader strReader = new StringReader(ctx.body());
 
-            Config config = ConfigFactory.parseReader(strReader);
-            config.resolve();
+                Config config = ConfigFactory.parseReader(strReader);
+                config.resolve();
 
-            applyConfig(configurator, config);
+                applyConfig(configurator, config);
+            }
+            catch (SelectorNotFoundException selectorE) {
+                ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
+
+                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
+            }
         });
     }
 
@@ -97,7 +104,7 @@ public class RestModule {
             final Selector selector = Selectors.find(key);
 
             if (selector != null)
-                selector.select(configurator.getRoot()).changeWithoutValidation(value);
+                selector.select(configurator.getRoot()).change(value);
         });
     }
 
