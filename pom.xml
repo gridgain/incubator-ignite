@@ -90,7 +90,6 @@
         <module>modules/opencensus</module>
         <module>modules/control-utility</module>
         <module>modules/configuration</module>
-        <module>sample-application</module>
     </modules>
 
     <profiles>

@@ -30,7 +30,7 @@ public class SimplisticIgnite {
      *
      * @param args
      */
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         ConfigurationModule confModule = new ConfigurationModule();
 
         confModule.bootstrap(args[0]);
@@ -38,14 +38,5 @@ public class SimplisticIgnite {
         RestModule rest = new RestModule(confModule);
 
         rest.start();
-
-        while(true) {
-            try {
-                Thread.sleep(1_000);
-            }
-            catch (InterruptedException ignored) {
-                // No-op.
-            }
-        }
     }
 }

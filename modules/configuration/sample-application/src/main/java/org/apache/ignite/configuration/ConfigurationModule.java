@@ -19,11 +19,16 @@ package org.apache.ignite.configuration;
 
 import java.io.FileReader;
 import java.io.Serializable;
+import java.io.StringReader;
 import java.util.function.Consumer;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.google.gson.stream.JsonReader;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.ignite.configuration.extended.InitLocal;
 import org.apache.ignite.configuration.extended.LocalConfiguration;
 import org.apache.ignite.configuration.extended.Selectors;
 import org.apache.ignite.configuration.internal.ConfigurationStorage;
@@ -66,16 +71,25 @@ public class ConfigurationModule {
         try {
             Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
 
+            Gson gson = new Gson();
+
             FileReader reader = new FileReader(confFileName);
 
-            final Config config = ConfigFactory.parseReader(reader);
-            config.resolve();
+            InitLocal local = gson.fromJson(reader, InitLocal.class);
 
-            applyConfig(configurator, config);
+            JsonElement jsonEl = JsonParser.parseReader(reader);
+
+            configurator.init(Selectors.LOCAL, local);
+
+//            final Config config = ConfigFactory.parseReader(reader);
+//            config.resolve();
+//
+//            applyConfig(configurator, config);
 
             localConfigurator = configurator;
         }
-        catch (Exception ignored) {
+        catch (Throwable ignored) {
+            System.out.println("-->>-->> [" + Thread.currentThread().getName() + "] shit happened: " + ignored.getMessage());
             // No-op.
         }
     }
