@@ -15,7 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.extended;
+package org.apache.ignite.configuration.presentation;
 
-public enum WALMode {
+import java.io.Reader;
+
+/** */
+public interface FormatConverter {
+    /** */
+    String convertTo(Object obj);
+
+    /** */
+    <T> T convertFrom(String source, Class<T> clazz);
+
+    /** */
+    <T> T convertFrom(Reader source, Class<T> clazz);
 }

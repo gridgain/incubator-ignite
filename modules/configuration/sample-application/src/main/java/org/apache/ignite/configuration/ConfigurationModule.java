@@ -21,15 +21,14 @@ import java.io.FileReader;
 import java.io.Serializable;
 import java.util.function.Consumer;
 
-import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
-import com.typesafe.config.Config;
 import org.apache.ignite.configuration.extended.InitLocal;
 import org.apache.ignite.configuration.extended.LocalConfiguration;
 import org.apache.ignite.configuration.extended.Selectors;
 import org.apache.ignite.configuration.internal.ConfigurationStorage;
 import org.apache.ignite.configuration.internal.Configurator;
-import org.apache.ignite.configuration.internal.selector.Selector;
+import org.apache.ignite.configuration.presentation.FormatConverter;
+import org.apache.ignite.configuration.presentation.json.JsonConverter;
 
 /** */
 public class ConfigurationModule {
@@ -65,14 +64,12 @@ public class ConfigurationModule {
 
     /** */
     public void bootstrap(String confFileName) {
-        try {
+        try(FileReader reader = new FileReader(confFileName)) {
             Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
 
-            FileReader reader = new FileReader(confFileName);
+            FormatConverter converter = new JsonConverter();
 
-            Gson gson = new Gson();
-
-            ConfigWrapper wrapper = gson.fromJson(reader, ConfigWrapper.class);
+            ConfigWrapper wrapper = converter.convertFrom(reader, ConfigWrapper.class);
 
             configurator.init(Selectors.LOCAL, wrapper.local);
 
@@ -86,18 +83,6 @@ public class ConfigurationModule {
     /** */
     public Configurator<LocalConfiguration> localConfigurator() {
         return localConfigurator;
-    }
-
-    /** */
-    private void applyConfig(Configurator<?> configurator, Config config) {
-        config.entrySet().forEach(entry -> {
-            final String key = entry.getKey();
-            final Object value = entry.getValue().unwrapped();
-            final Selector selector = Selectors.find(key);
-
-            if (selector != null)
-                selector.select(configurator.getRoot()).changeWithoutValidation(value);
-        });
     }
 
     /** */

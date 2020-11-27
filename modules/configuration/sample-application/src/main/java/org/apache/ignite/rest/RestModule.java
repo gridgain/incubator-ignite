@@ -17,10 +17,6 @@
 
 package org.apache.ignite.rest;
 
-import java.io.StringReader;
-
-import com.google.gson.Gson;
-import com.google.gson.annotations.SerializedName;
 import io.javalin.Javalin;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.extended.ChangeLocal;
@@ -30,6 +26,8 @@ import org.apache.ignite.configuration.extended.Selectors;
 import org.apache.ignite.configuration.internal.Configurator;
 import org.apache.ignite.configuration.internal.selector.SelectorNotFoundException;
 import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.presentation.FormatConverter;
+import org.apache.ignite.configuration.presentation.json.JsonConverter;
 
 /** */
 public class RestModule {
@@ -53,12 +51,12 @@ public class RestModule {
 
         Javalin app = Javalin.create().start(8080);
 
-        Gson gson = new Gson();
+        FormatConverter converter = new JsonConverter();
 
         app.get(CONF_URL, ctx -> {
             Local local = configurator.getRoot().toView();
 
-            ctx.result(gson.toJson(local));
+            ctx.result(converter.convertTo(local));
         });
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
@@ -67,39 +65,37 @@ public class RestModule {
 
                 Object subTree = configurator.getPublic(Selectors.find(selector));
 
-                String res = gson.toJson(subTree);
+                String res = converter.convertTo(subTree);
 
                 ctx.result(res);
             }
             catch (SelectorNotFoundException selectorE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
 
-                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
         });
 
         app.post(CONF_URL, ctx -> {
             try {
-                StringReader strReader = new StringReader(ctx.body());
-
-                ChangeLocalWrapper local = gson.fromJson(strReader, ChangeLocalWrapper.class);
+                ChangeLocalWrapper local = converter.convertFrom(ctx.body(), ChangeLocalWrapper.class);
 
                 configurator.set(Selectors.LOCAL, local.local);
             }
             catch (SelectorNotFoundException selectorE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
 
-                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
             catch (ConfigurationValidationException validationE) {
                 ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", validationE.getMessage());
 
-                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
             catch (Exception e) {
                 ErrorResult eRes = new ErrorResult("GENERAL_ERROR", e.getMessage());
 
-                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
+                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
         });
     }
@@ -107,12 +103,11 @@ public class RestModule {
     /** */
     private static class ResponseWrapper {
         /** */
-        @SerializedName("error")
-        private final ErrorResult res;
+        private final ErrorResult error;
 
         /** */
-        private ResponseWrapper(ErrorResult res) {
-            this.res = res;
+        private ResponseWrapper(ErrorResult error) {
+            this.error = error;
         }
     }
 
