@@ -1,1 +1,1 @@
-{"local":{"baseline":{"auto_adjust":{"timeout":10000,"enabled":true}},"data_storage": {"page_size":4096,"storage_path":"db/data","wal_path":"db/wal"}}}
+{"local":{"baseline":{"autoAdjust":{"timeout":10000,"enabled":true}},"dataStorage": {"pageSize":4096,"storagePath":"db/data","walPath":"db/wal"}}}

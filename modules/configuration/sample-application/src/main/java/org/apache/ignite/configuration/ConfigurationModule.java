@@ -21,8 +21,10 @@ import java.io.FileReader;
 import java.io.Serializable;
 import java.util.function.Consumer;
 
+import com.google.gson.Gson;
+import com.google.gson.annotations.SerializedName;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import org.apache.ignite.configuration.extended.InitLocal;
 import org.apache.ignite.configuration.extended.LocalConfiguration;
 import org.apache.ignite.configuration.extended.Selectors;
 import org.apache.ignite.configuration.internal.ConfigurationStorage;
@@ -61,16 +63,18 @@ public class ConfigurationModule {
     /** */
     private Configurator<LocalConfiguration> localConfigurator;
 
+    /** */
     public void bootstrap(String confFileName) {
         try {
             Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
 
             FileReader reader = new FileReader(confFileName);
 
-            final Config config = ConfigFactory.parseReader(reader);
-            config.resolve();
+            Gson gson = new Gson();
 
-            applyConfig(configurator, config);
+            ConfigWrapper wrapper = gson.fromJson(reader, ConfigWrapper.class);
+
+            configurator.init(Selectors.LOCAL, wrapper.local);
 
             localConfigurator = configurator;
         }
@@ -84,6 +88,7 @@ public class ConfigurationModule {
         return localConfigurator;
     }
 
+    /** */
     private void applyConfig(Configurator<?> configurator, Config config) {
         config.entrySet().forEach(entry -> {
             final String key = entry.getKey();
@@ -93,5 +98,12 @@ public class ConfigurationModule {
             if (selector != null)
                 selector.select(configurator.getRoot()).changeWithoutValidation(value);
         });
+    }
+
+    /** */
+    private static class ConfigWrapper {
+        /** */
+        @SerializedName("local")
+        InitLocal local;
     }
 }

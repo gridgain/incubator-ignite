@@ -21,16 +21,15 @@ import java.io.StringReader;
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import io.javalin.Javalin;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.extended.ChangeLocal;
 import org.apache.ignite.configuration.extended.Local;
 import org.apache.ignite.configuration.extended.LocalConfiguration;
 import org.apache.ignite.configuration.extended.Selectors;
 import org.apache.ignite.configuration.internal.Configurator;
-import org.apache.ignite.configuration.internal.selector.Selector;
 import org.apache.ignite.configuration.internal.selector.SelectorNotFoundException;
+import org.apache.ignite.configuration.internal.validation.ConfigurationValidationException;
 
 /** */
 public class RestModule {
@@ -83,28 +82,25 @@ public class RestModule {
             try {
                 StringReader strReader = new StringReader(ctx.body());
 
-                Config config = ConfigFactory.parseReader(strReader);
-                config.resolve();
+                ChangeLocalWrapper local = gson.fromJson(strReader, ChangeLocalWrapper.class);
 
-                applyConfig(configurator, config);
+                configurator.set(Selectors.LOCAL, local.local);
             }
             catch (SelectorNotFoundException selectorE) {
                 ErrorResult eRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", selectorE.getMessage());
 
                 ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
             }
-        });
-    }
+            catch (ConfigurationValidationException validationE) {
+                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", validationE.getMessage());
 
-    /** */
-    private void applyConfig(Configurator<?> configurator, Config config) {
-        config.entrySet().forEach(entry -> {
-            final String key = entry.getKey();
-            final Object value = entry.getValue().unwrapped();
-            final Selector selector = Selectors.find(key);
+                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
+            }
+            catch (Exception e) {
+                ErrorResult eRes = new ErrorResult("GENERAL_ERROR", e.getMessage());
 
-            if (selector != null)
-                selector.select(configurator.getRoot()).change(value);
+                ctx.status(400).result(gson.toJson(new ResponseWrapper(eRes)));
+            }
         });
     }
 
@@ -118,5 +114,11 @@ public class RestModule {
         private ResponseWrapper(ErrorResult res) {
             this.res = res;
         }
+    }
+
+    /** */
+    private static class ChangeLocalWrapper {
+        /** */
+        private ChangeLocal local;
     }
 }
