@@ -2713,6 +2713,61 @@ public class PlannerTest extends GridCommonAbstractTest {
 
     /** */
     @Test
+    public void testLimitPropagation() throws Exception {
+        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
+        TestTable emp = new TestTable(
+            new RelDataTypeFactory.Builder(f)
+                .add("ID", f.createJavaType(Integer.class))
+                .add("NAME", f.createJavaType(String.class))
+                .add("DEPTNO", f.createJavaType(Integer.class))
+                .build()) {
+
+            @Override public IgniteDistribution distribution() {
+                return IgniteDistributions.broadcast();
+            }
+        };
+
+        emp.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", null, emp));
+
+        TestTable dept = new TestTable(
+            new RelDataTypeFactory.Builder(f)
+                .add("DEPTNO", f.createJavaType(Integer.class))
+                .add("NAME", f.createJavaType(String.class))
+                .build()) {
+
+            @Override public IgniteDistribution distribution() {
+                return IgniteDistributions.affinity(0, "EMP", "hash");
+            }
+        };
+
+        dept.addIndex(new IgniteIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "dep_idx", null, dept));
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable("EMP", emp);
+        publicSchema.addTable("DEPT", dept);
+
+        SchemaPlus schema = createRootSchema(false)
+            .add("PUBLIC", publicSchema);
+
+        String sql = "select * from dept d join emp e on d.deptno = e.deptno and e.name = d.name limit 10";
+
+        RelNode phys = physicalPlan(sql, publicSchema, "CorrelatedNestedLoopJoin", "MergeJoinConverter");
+
+        assertNotNull(phys);
+        assertEquals("" +
+                "IgniteLimit(fetch=[10])\n" +
+                "  IgniteNestedLoopJoin(condition=[AND(=($0, $4), =($3, $1))], joinType=[inner])\n" +
+                "    IgniteExchange(distribution=[single])\n" +
+                "      IgniteLimit(fetch=[10])\n" +
+                "        IgniteTableScan(table=[[PUBLIC, DEPT]])\n" +
+                "    IgniteTableScan(table=[[PUBLIC, EMP]])\n",
+            RelOptUtil.toString(phys));
+    }
+
+    /** */
+    @Test
     public void testMergeJoinIsNotAppliedForNonEquiJoin() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -2899,7 +2954,7 @@ public class PlannerTest extends GridCommonAbstractTest {
                 .add("VAL", f.createJavaType(String.class))
                 .build()) {
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.broadcast();
+                return IgniteDistributions.affinity(0, "TEST", "hash");
             }
         };
 
@@ -2911,6 +2966,8 @@ public class PlannerTest extends GridCommonAbstractTest {
 
         {
             RelNode phys = physicalPlan(sql, publicSchema);
+
+            System.out.println(RelOptUtil.toString(phys));
 
             assertNotNull(phys);
 
