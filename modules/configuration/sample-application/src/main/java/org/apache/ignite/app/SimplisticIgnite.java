@@ -17,6 +17,11 @@
 
 package org.apache.ignite.app;
 
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.rest.RestModule;
 
@@ -24,16 +29,44 @@ import org.apache.ignite.rest.RestModule;
  *
  */
 public class SimplisticIgnite {
+    /** */
+    private static final String CONF_PARAM_NAME = "--config";
 
+    /** */
+    private static final String DFLT_CONF_FILE_NAME = "bootstrap-config.json";
 
     /**
      *
      * @param args
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         ConfigurationModule confModule = new ConfigurationModule();
 
-        confModule.bootstrap(args[0]);
+        Reader confReader = null;
+
+        try {
+            if (args == null || args.length == 0) {
+                confReader = new InputStreamReader(
+                    SimplisticIgnite.class.getClassLoader().getResourceAsStream(DFLT_CONF_FILE_NAME));
+            } else {
+                for (int i = 0; i < args.length; i++) {
+                    if (CONF_PARAM_NAME.equals(args[i]) && i + 1 < args.length) {
+                        confReader = new FileReader(args[i + 1]);
+
+                        break;
+                    }
+                }
+            }
+
+            if (confReader != null)
+                confModule.bootstrap(confReader);
+            else
+                throw new IllegalArgumentException("No config is provided. Please specify a path to configuration file properly");
+        }
+        finally {
+            if (confReader != null)
+                confReader.close();
+        }
 
         RestModule rest = new RestModule(confModule);
 

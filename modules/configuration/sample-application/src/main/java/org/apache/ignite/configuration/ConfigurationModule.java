@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration;
 
-import java.io.FileReader;
+import java.io.Reader;
 import java.io.Serializable;
 import java.util.function.Consumer;
 
@@ -63,21 +63,16 @@ public class ConfigurationModule {
     private Configurator<LocalConfiguration> localConfigurator;
 
     /** */
-    public void bootstrap(String confFileName) {
-        try(FileReader reader = new FileReader(confFileName)) {
-            Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
+    public void bootstrap(Reader confReader) {
+        Configurator<LocalConfiguration> configurator = new Configurator<>(storage, LocalConfiguration::new);
 
-            FormatConverter converter = new JsonConverter();
+        FormatConverter converter = new JsonConverter();
 
-            ConfigWrapper wrapper = converter.convertFrom(reader, ConfigWrapper.class);
+        ConfigWrapper wrapper = converter.convertFrom(confReader, ConfigWrapper.class);
 
-            configurator.init(Selectors.LOCAL, wrapper.local);
+        configurator.init(Selectors.LOCAL, wrapper.local);
 
-            localConfigurator = configurator;
-        }
-        catch (Throwable ignored) {
-            // No-op.
-        }
+        localConfigurator = configurator;
     }
 
     /** */
