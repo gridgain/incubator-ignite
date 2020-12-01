@@ -90,6 +90,8 @@
         <module>modules/opencensus</module>
         <module>modules/control-utility</module>
         <module>modules/configuration</module>
+        <module>modules/configuration-annotation-processor</module>
+        <module>modules/config-sample</module>
     </modules>
 
     <profiles>
