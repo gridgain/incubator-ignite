@@ -17,6 +17,7 @@
 
 package org.apache.ignite.rest;
 
+import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.extended.ChangeLocal;
@@ -88,12 +89,19 @@ public class RestModule {
                 ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
             catch (ConfigurationValidationException validationE) {
-                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", validationE.getMessage());
+                ErrorResult eRes = new ErrorResult("APPLICATION_EXCEPTION", validationE.getMessage());
+
+                ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
+            }
+            catch (JsonSyntaxException e) {
+                String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+
+                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", msg);
 
                 ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
             catch (Exception e) {
-                ErrorResult eRes = new ErrorResult("GENERAL_ERROR", e.getMessage());
+                ErrorResult eRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
 
                 ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
