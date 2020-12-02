@@ -17,6 +17,8 @@
 
 package org.apache.ignite.rest;
 
+import java.util.Arrays;
+
 import com.google.gson.JsonSyntaxException;
 import io.javalin.Javalin;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -47,10 +49,10 @@ public class RestModule {
     }
 
     /** */
-    public void start() {
+    public void start(int port) {
         Configurator<LocalConfiguration> configurator = confModule.localConfigurator();
 
-        Javalin app = Javalin.create().start(8080);
+        Javalin app = Javalin.create().start(port);
 
         FormatConverter converter = new JsonConverter();
 
@@ -62,7 +64,7 @@ public class RestModule {
 
         app.get(CONF_URL + ":" + PATH_PARAM, ctx -> {
             try {
-                String selector = ctx.pathParam(PATH_PARAM);
+                String selector = convertToSelector(ctx.pathParam(PATH_PARAM));
 
                 Object subTree = configurator.getPublic(Selectors.find(selector));
 
@@ -106,6 +108,25 @@ public class RestModule {
                 ctx.status(400).result(converter.convertTo(new ResponseWrapper(eRes)));
             }
         });
+    }
+
+    /** */
+    private String convertToSelector(String selectorBar) {
+        StringBuilder res = new StringBuilder();
+
+        char[] chars = selectorBar.toCharArray();
+
+        for (int i = 0; i < chars.length; i++) {
+            char nextChar = chars[i];
+
+            if (Character.isUpperCase(nextChar)) {
+                res.append('_').append(Character.toLowerCase(nextChar));
+            }
+            else
+                res.append(nextChar);
+        }
+
+        return res.toString();
     }
 
     /** */

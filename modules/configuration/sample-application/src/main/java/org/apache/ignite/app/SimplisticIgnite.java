@@ -33,6 +33,9 @@ public class SimplisticIgnite {
     private static final String CONF_PARAM_NAME = "--config";
 
     /** */
+    private static final String PORT_PARAM_NAME = "--port";
+
+    /** */
     private static final String DFLT_CONF_FILE_NAME = "bootstrap-config.json";
 
     /**
@@ -44,24 +47,34 @@ public class SimplisticIgnite {
 
         Reader confReader = null;
 
+        int port = 8080;
+
         try {
-            if (args == null || args.length == 0) {
-                confReader = new InputStreamReader(
-                    SimplisticIgnite.class.getClassLoader().getResourceAsStream(DFLT_CONF_FILE_NAME));
-            } else {
+            if (args != null) {
                 for (int i = 0; i < args.length; i++) {
                     if (CONF_PARAM_NAME.equals(args[i]) && i + 1 < args.length) {
                         confReader = new FileReader(args[i + 1]);
 
-                        break;
+                        continue;
+                    }
+
+                    if (PORT_PARAM_NAME.equals(args[i]) && i + 1 < args.length) {
+                        try {
+                            port = Integer.parseInt(args[i + 1]);
+                        }
+                        catch (NumberFormatException ignored) {
+                            // No-op.
+                        }
                     }
                 }
             }
 
-            if (confReader != null)
-                confModule.bootstrap(confReader);
-            else
-                throw new IllegalArgumentException("No config is provided. Please specify a path to configuration file properly");
+            if (confReader == null) {
+                confReader = new InputStreamReader(
+                    SimplisticIgnite.class.getClassLoader().getResourceAsStream(DFLT_CONF_FILE_NAME));
+            }
+
+            confModule.bootstrap(confReader);
         }
         finally {
             if (confReader != null)
@@ -70,6 +83,6 @@ public class SimplisticIgnite {
 
         RestModule rest = new RestModule(confModule);
 
-        rest.start();
+        rest.start(port);
     }
 }
