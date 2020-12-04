@@ -51,9 +51,9 @@ public class FilterSpoolMergeRule extends RelRule<FilterSpoolMergeRule.Config> {
         final IgniteFilter filter = call.rel(0);
         final IgniteIndexSpool spool = call.rel(1);
 
-        RelOptCluster cluster = spool.getCluster();
+        RelOptCluster cluster = filter.getCluster();
 
-        RelTraitSet trait = spool.getTraitSet();
+        RelTraitSet trait = filter.getTraitSet();
         CorrelationTrait filterCorr = TraitUtils.correlation(filter);
 
         if (filterCorr.correlated())

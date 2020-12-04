@@ -31,6 +31,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedNestedLoopJoin;
+import org.apache.ignite.internal.processors.query.calcite.rel.IgniteIndexSpool;
 import org.apache.ignite.internal.util.typedef.F;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,6 +47,10 @@ public class IgniteMdRowCount extends RelMdRowCount {
     /** {@inheritDoc} */
     @Override public Double getRowCount(Join rel, RelMetadataQuery mq) {
         return joinRowCount(mq, rel);
+    }
+
+    public double getRowCount(IgniteIndexSpool rel, RelMetadataQuery mq) {
+        return rel.estimateRowCount(mq);
     }
 
     /** */

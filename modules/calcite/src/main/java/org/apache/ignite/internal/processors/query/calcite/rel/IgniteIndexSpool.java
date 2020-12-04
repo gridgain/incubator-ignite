@@ -89,7 +89,7 @@ public class IgniteIndexSpool extends Spool implements IgniteRel {
 
     /** {@inheritDoc} */
     @Override protected Spool copy(RelTraitSet traitSet, RelNode input, Type readType, Type writeType) {
-        return new IgniteIndexSpool(getCluster(), traitSet, input);
+        return new IgniteIndexSpool(getCluster(), traitSet, input, idxCond);
     }
 
     /** {@inheritDoc} */
@@ -119,5 +119,13 @@ public class IgniteIndexSpool extends Spool implements IgniteRel {
         rowCount = RelMdUtil.addEpsilon(rowCount);
 
         return planner.getCostFactory().makeCost(rowCount, 0, 0).multiplyBy(2);
+    }
+
+    /** {@inheritDoc} */
+    @Override public double estimateRowCount(RelMetadataQuery mq) {
+        if (idxCond != null)
+            return getInput().estimateRowCount(mq) / 10;
+
+        return getInput().estimateRowCount(mq);
     }
 }
