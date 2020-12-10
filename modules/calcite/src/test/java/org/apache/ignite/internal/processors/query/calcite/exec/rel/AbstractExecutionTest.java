@@ -106,7 +106,7 @@ public class AbstractExecutionTest extends GridCommonAbstractTest {
         };
 
         /**
-         * Returns next task acoording to the strategy.
+         * Returns a next task according to the strategy.
          *
          * @param tasks Task list.
          * @return Next task.
