@@ -32,9 +32,7 @@ import org.apache.ignite.internal.processors.query.calcite.rel.IgniteAggregateSo
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.util.typedef.F;
 
-/**
- *
- */
+/** */
 public class SortAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
     /** */
     public static final RelOptRule INSTANCE = new SortAggregateConverterRule();
@@ -48,10 +46,9 @@ public class SortAggregateConverterRule extends AbstractIgniteConverterRule<Logi
     @Override protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
         LogicalAggregate rel) {
         RelOptCluster cluster = rel.getCluster();
+        RelNode input = rel.getInput();
         RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
         RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        RelNode input = convert(rel.getInput(), inTrait);
-        if (F.isEmpty(rel.getGroupSet()))
 
         // Applicable only for GROUP BY
         if (F.isEmpty(rel.getGroupSet()) || rel.getGroupSets().size() > 1)
@@ -62,9 +59,10 @@ public class SortAggregateConverterRule extends AbstractIgniteConverterRule<Logi
         return new IgniteAggregateSort(
             cluster,
             outTrait.replace(collation),
-            convert(input, input.getTraitSet().replace(collation)),
+            convert(input, inTrait.replace(collation)),
             rel.getGroupSet(),
             rel.getGroupSets(),
-            rel.getAggCallList());
+            rel.getAggCallList()
+        );
     }
 }

@@ -577,7 +577,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
             accFactory,
             rowFactory,
             expressionFactory.comparator(rel.collation())
-            );
+        );
 
         Node<Row> input = visit(rel.getInput());
 
