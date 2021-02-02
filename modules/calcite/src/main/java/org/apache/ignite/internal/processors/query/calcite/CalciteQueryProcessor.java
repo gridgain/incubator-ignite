@@ -79,7 +79,8 @@ public class CalciteQueryProcessor extends GridProcessorAdapter implements Query
                 .withConformance(SqlConformanceEnum.DEFAULT))
         .sqlValidatorConfig(SqlValidator.Config.DEFAULT
             .withIdentifierExpansion(true)
-            .withSqlConformance(SqlConformanceEnum.DEFAULT))
+            .withSqlConformance(SqlConformanceEnum.DEFAULT)
+            .withTypeCoercionEnabled(false))
         // Dialects support.
         .operatorTable(SqlLibraryOperatorTableFactory.INSTANCE
             .getOperatorTable(
