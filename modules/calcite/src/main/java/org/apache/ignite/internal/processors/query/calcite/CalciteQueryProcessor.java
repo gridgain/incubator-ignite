@@ -30,6 +30,7 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
@@ -123,12 +124,16 @@ public class CalciteQueryProcessor extends GridProcessorAdapter implements Query
     /** */
     private final ExecutionService executionSvc;
 
+    /** */
+    private final IgniteLogger log;
+
     /**
      * @param ctx Kernal context.
      */
     public CalciteQueryProcessor(GridKernalContext ctx) {
         super(ctx);
 
+        log = ctx.log(CalciteQueryProcessor.class);
         failureProcessor = ctx.failure();
         schemaHolder = new SchemaHolderImpl(ctx);
         qryPlanCache = new QueryPlanCacheImpl(ctx);
@@ -237,6 +242,8 @@ public class CalciteQueryProcessor extends GridProcessorAdapter implements Query
     /** {@inheritDoc} */
     @Override public List<FieldsQueryCursor<List<?>>> query(@Nullable QueryContext qryCtx, @Nullable String schemaName,
         String qry, Object... params) throws IgniteSQLException {
+
+        log.info("Going to execute new query with Calcite: sql=" + qry);
 
         return executionSvc.executeQuery(qryCtx, schemaName, qry, params);
     }
