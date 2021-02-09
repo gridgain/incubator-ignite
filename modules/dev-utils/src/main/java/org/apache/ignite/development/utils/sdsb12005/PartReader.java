@@ -71,26 +71,18 @@ public class PartReader extends IgniteIndexReader {
     public PartReader(
             @Nullable PrintStream outStream,
             int pageSize,
-            File pathDir,
+            File partPath,
             int filePageStoreVer,
             int partNumber
     ) throws IgniteCheckedException {
         super(pageSize, outStream);
 
-        if (!pathDir.isDirectory())
-            throw new IllegalArgumentException("Wrong directory name argument.");
-
+        this.partPath = partPath;
         this.partNumber = partNumber;
-        String partFileName = String.format(FilePageStoreManager.PART_FILE_TEMPLATE, partNumber);
-
-        partPath = new File(pathDir, partFileName);
 
         if (!partPath.exists()) {
-            throw new IllegalArgumentException("Specified directory="
-                    + pathDir
-                    + " does not contain partition file="
-                    + partFileName
-                    + ", which stores metaPage="/* + U.hexLong(metaPageId)*/);
+            throw new IllegalArgumentException("Specified partition file="
+                    + partPath.getAbsolutePath()+" not exists");
         }
 
         storeFactory = new FileVersionCheckingFactory(
@@ -165,44 +157,48 @@ public class PartReader extends IgniteIndexReader {
 
         ByteBuffer cntrUpdDataBuf = allocateBuffer(pageSize);
 
-        long cntrUpdDataAddr = bufferAddress(cntrUpdDataBuf);
+        if (pageId!=null) {
+            long cntrUpdDataAddr = bufferAddress(cntrUpdDataBuf);
 
-        readPage(partStore, pageId, cntrUpdDataBuf);
+            readPage(partStore, pageId, cntrUpdDataBuf);
 
-        Object pageIO = PageIO.getPageIO(cntrUpdDataAddr);
+            Object pageIO = PageIO.getPageIO(cntrUpdDataAddr);
 
-        System.out.println("pageIO = " + pageIO);
-        try {
-            AbstractDataPageIO dataPageIO = PageIO.getPageIO(cntrUpdDataBuf);
+            System.out.println("pageIO = " + pageIO);
+            try {
+                AbstractDataPageIO dataPageIO = PageIO.getPageIO(cntrUpdDataBuf);
 
-            sb.a("freeSpace=").a(dataPageIO.getFreeSpace(cntrUpdDataAddr)).a(",\n");
+                sb.a("freeSpace=").a(dataPageIO.getFreeSpace(cntrUpdDataAddr)).a(",\n");
 
-            sb.a("page = [\n\t").a(PageIO.printPage(cntrUpdDataAddr, pageSize)).a("],\n");
+                sb.a("page = [\n\t").a(PageIO.printPage(cntrUpdDataAddr, pageSize)).a("],\n");
 
-            sb.a("binPage=").a(U.toHexString(cntrUpdDataAddr, pageSize)).a("\n");
+                sb.a("binPage=").a(U.toHexString(cntrUpdDataAddr, pageSize)).a("\n");
 
-            long nextLink = gapsLink;
+                long nextLink = gapsLink;
 
-            Collection<Long> pageIds = new ArrayList<>();
-            do {
-                pageIds.add(pageId);
+                Collection<Long> pageIds = new ArrayList<>();
+                do {
+                    pageIds.add(pageId);
 
-                cntrUpdDataBuf = allocateBuffer(pageSize);
+                    cntrUpdDataBuf = allocateBuffer(pageSize);
 
-                cntrUpdDataAddr = bufferAddress(cntrUpdDataBuf);
+                    cntrUpdDataAddr = bufferAddress(cntrUpdDataBuf);
 
-                readPage(partStore, pageId, cntrUpdDataBuf);
+                    readPage(partStore, pageId, cntrUpdDataBuf);
 
-                DataPagePayload data = dataPageIO.readPayload(cntrUpdDataAddr, itemId(nextLink), pageSize);
+                    DataPagePayload data = dataPageIO.readPayload(cntrUpdDataAddr, itemId(nextLink), pageSize);
 
-                nextLink = data.nextLink();
-                pageId = pageId(nextLink);
-            } while (nextLink != 0);
+                    nextLink = data.nextLink();
+                    pageId = pageId(nextLink);
+                }
+                while (nextLink != 0);
 
-            sb.a("pageIds=").a(pageIds).a("\n");
+                sb.a("pageIds=").a(pageIds).a("\n");
 
-        } catch (Exception e) {
-            sb.a("Error in reading dataPAGEIO : " + e.getMessage());
+            }
+            catch (Exception e) {
+                sb.a("Error in reading dataPAGEIO : " + e.getMessage());
+            }
         }
         outStream.println(sb.toString());
     }
@@ -219,7 +215,7 @@ public class PartReader extends IgniteIndexReader {
         List<CLIArgument> argsConfiguration = asList(
                 CLIArgument.mandatoryArg(
                         Args.PART_PATH.arg(),
-                        "partition path, where " + INDEX_FILE_NAME + " and partition files are located.",
+                        "partition path: "+ FilePageStoreManager.PART_FILE_TEMPLATE,
                         String.class
                 ),
                 CLIArgument.optionalArg(Args.PAGE_SIZE.arg(), "page size.", Integer.class, () -> 4096),
@@ -245,26 +241,21 @@ public class PartReader extends IgniteIndexReader {
         int pageStoreVer = p.get(Args.PAGE_STORE_VER.arg());
         String destFile = p.get(Args.DEST_FILE.arg());
 
-        final File dir = new File(partPath);
+        File bin = new File(partPath);
 
-        for (File bin : dir.listFiles()) {
-            if (bin.getName().startsWith(FilePageStoreManager.PART_FILE_PREFIX)
-                && bin.getName().endsWith(FilePageStoreManager.FILE_SUFFIX)
-            ) {
-                int partNumber = Integer.parseInt(bin.getName().substring(
-                    FilePageStoreManager.PART_FILE_PREFIX.length(),
-                    bin.getName().length() - FilePageStoreManager.FILE_SUFFIX.length()
-                ));
-                try (PartReader reader = new PartReader(
-                    isNull(destFile) ? null : new PrintStream(destFile),
-                    pageSize,
-                    dir,
-                    pageStoreVer,
-                    partNumber
-                )) {
-                    reader.read();
-                }
-            }
+        int partNumber = Integer.parseInt(bin.getName().substring(
+            FilePageStoreManager.PART_FILE_PREFIX.length(),
+            bin.getName().length() - FilePageStoreManager.FILE_SUFFIX.length()
+        ));
+
+        try (PartReader reader = new PartReader(
+            isNull(destFile) ? null : new PrintStream(destFile),
+            pageSize,
+            bin,
+            pageStoreVer,
+            partNumber
+        )) {
+            reader.read();
         }
     }
 
