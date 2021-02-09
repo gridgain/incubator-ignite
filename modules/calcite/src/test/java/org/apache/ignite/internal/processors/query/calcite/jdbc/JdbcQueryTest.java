@@ -91,6 +91,8 @@ public class JdbcQueryTest extends GridCommonAbstractTest {
             assertEquals(2, rs.getInt(3));
         }
 
+        stmt.executeUpdate("update Person set \"name\" = ( select 'asd' from Person where \"id\" = 10 )");
+
         stmt.execute("alter table Person add column age int");
 
         stmt.execute("drop table Person");
