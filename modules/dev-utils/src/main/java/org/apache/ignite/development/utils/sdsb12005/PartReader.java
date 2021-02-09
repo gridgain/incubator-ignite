@@ -245,15 +245,25 @@ public class PartReader extends IgniteIndexReader {
         int pageStoreVer = p.get(Args.PAGE_STORE_VER.arg());
         String destFile = p.get(Args.DEST_FILE.arg());
 
-        for (int i = 0; i < Files.list(Paths.get(partPath)).count(); i++) {
-            try (PartReader reader = new PartReader(
+        final File dir = new File(partPath);
+
+        for (File bin : dir.listFiles()) {
+            if (bin.getName().startsWith(FilePageStoreManager.PART_FILE_PREFIX)
+                && bin.getName().endsWith(FilePageStoreManager.FILE_SUFFIX)
+            ) {
+                int partNumber = Integer.parseInt(bin.getName().substring(
+                    FilePageStoreManager.PART_FILE_PREFIX.length(),
+                    bin.getName().length() - FilePageStoreManager.FILE_SUFFIX.length()
+                ));
+                try (PartReader reader = new PartReader(
                     isNull(destFile) ? null : new PrintStream(destFile),
                     pageSize,
-                    new File(partPath),
+                    dir,
                     pageStoreVer,
-                    i
-            )) {
-                reader.read();
+                    partNumber
+                )) {
+                    reader.read();
+                }
             }
         }
     }
