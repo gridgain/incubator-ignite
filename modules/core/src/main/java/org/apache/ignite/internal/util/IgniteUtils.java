@@ -4155,7 +4155,7 @@ public abstract class IgniteUtils {
      * @param sb String builder.
      * @param b Byte to add in hexadecimal format.
      */
-    private static void addByteAsHex(StringBuilder sb, byte b) {
+    public static void addByteAsHex(StringBuilder sb, byte b) {
         sb.append(Integer.toHexString(MASK & b >>> 4)).append(Integer.toHexString(MASK & b));
     }
 

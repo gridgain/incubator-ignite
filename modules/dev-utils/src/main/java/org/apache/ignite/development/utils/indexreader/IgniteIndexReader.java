@@ -664,13 +664,17 @@ public class IgniteIndexReader implements AutoCloseable {
      * @param partId Partition id.
      * @param flag Page store flag.
      * @param store File page store.
-     * @param pageTypes Page types to find.
+     * @param pageTypesIn Page types to find.
      * @return Map of found pages. First page of this class that was found, is put to this map.
      * @throws IgniteCheckedException If failed.
      */
-    protected Map<Short, Long> findPages(int partId, byte flag, FilePageStore store, Set<Short> pageTypes)
+    protected Map<Short, Long> findPages(int partId, byte flag, FilePageStore store, Set<Short> pageTypesIn)
         throws IgniteCheckedException {
         Map<Short, Long> res = new HashMap<>();
+
+        Set<Short> pageTypes = new HashSet<>();
+
+        pageTypes.addAll(pageTypesIn);
 
         scanFileStore(partId, flag, store, (pageId, addr, io) -> {
             if (pageTypes.contains((short)io.getType())) {

@@ -1,6 +1,7 @@
 package org.apache.ignite.development.utils.sdsb12005;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_PART_META;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
+import static org.apache.ignite.internal.util.IgniteUtils.addByteAsHex;
 
 public class PartReader extends IgniteIndexReader {
 
@@ -100,6 +102,11 @@ public class PartReader extends IgniteIndexReader {
     public void read() {
         outStream.println("Check part=" + partNumber + ", path=" + partPath);
 
+        outStream.println("File size: " + partPath.length());
+
+        if (partPath.length() > pageSize)
+            printFirstPage();
+
         try {
             Map<Short, Long> metaPages = findPages(partNumber, FLAG_DATA, partStore, singleton(T_PART_META));
 
@@ -131,9 +138,27 @@ public class PartReader extends IgniteIndexReader {
                 return null;
             });
         } catch (IgniteCheckedException e) {
-            e.printStackTrace();
+            e.printStackTrace(outStream);
         }
 
+    }
+
+    private void printFirstPage() {
+        try (FileInputStream inputStream = new FileInputStream(partPath)) {
+            StringBuilder sb = new StringBuilder();
+
+            for (int i = 0; i < pageSize; i++) {
+                int b = inputStream.read();
+
+                addByteAsHex(sb, (byte)b);
+            }
+
+            outStream.println("First page of partition file: " + sb.toString());
+        }
+        catch (Exception e) {
+            outStream.println("Error on reading file: " + e.getMessage());
+            e.printStackTrace(outStream);
+        }
     }
 
     /**
