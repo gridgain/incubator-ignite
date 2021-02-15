@@ -56,6 +56,7 @@ import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2IndexBase;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
+import org.apache.ignite.internal.processors.query.h2.opt.H2Row;
 import org.apache.ignite.internal.processors.query.h2.sys.SqlSystemTableEngine;
 import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemView;
 import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemViewBaselineNodes;
@@ -74,9 +75,12 @@ import org.apache.ignite.spi.systemview.view.SqlTableView;
 import org.apache.ignite.spi.systemview.view.SqlViewColumnView;
 import org.apache.ignite.spi.systemview.view.SqlViewView;
 import org.h2.index.Index;
+import org.h2.message.DbException;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.metricName;
+import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.AFFINITY_KEY_IDX_NAME;
+import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.PK_IDX_NAME;
 
 /**
  * Schema manager. Responsible for all manipulations on schema objects.
@@ -553,7 +557,18 @@ public class SchemaManager {
 
         GridH2Table h2Tbl = H2TableEngine.createTable(conn.connection(), sql, rowDesc, tbl);
 
-        lsnr.onSqlTypeCreate(schemaName, tbl.type(), tbl.cacheInfo());
+        GridIndex<H2Row> pk = (GridIndex<H2Row>)h2Tbl.getIndex(PK_IDX_NAME);
+
+        GridIndex<H2Row> affIdx = null;
+
+        try {
+            affIdx = (GridIndex<H2Row>) h2Tbl.getIndex(AFFINITY_KEY_IDX_NAME);
+        }
+        catch (DbException e) {
+            // No op.
+        }
+
+        lsnr.onSqlTypeCreate(schemaName, tbl.type(), tbl.cacheInfo(), pk, affIdx);
 
         for (GridH2IndexBase usrIdx : tbl.createUserIndexes())
             createInitialUserIndex(schemaName, tbl, usrIdx);
@@ -881,7 +896,7 @@ public class SchemaManager {
 
         /** {@inheritDoc} */
         @Override public void onSqlTypeCreate(String schemaName, GridQueryTypeDescriptor typeDescriptor,
-            GridCacheContextInfo<?,?> cacheInfo) {}
+            GridCacheContextInfo<?,?> cacheInfo, GridIndex<?> pk, GridIndex<?> affIdx) {}
 
         /** {@inheritDoc} */
         @Override public void onSqlTypeDrop(String schemaName, GridQueryTypeDescriptor typeDescriptor) {}
@@ -908,8 +923,8 @@ public class SchemaManager {
 
         /** {@inheritDoc} */
         @Override public void onSqlTypeCreate(String schemaName, GridQueryTypeDescriptor typeDescriptor,
-            GridCacheContextInfo<?,?> cacheInfo) {
-            lsnrs.forEach(lsnr -> lsnr.onSqlTypeCreate(schemaName, typeDescriptor, cacheInfo));
+            GridCacheContextInfo<?,?> cacheInfo, GridIndex<?> pk, GridIndex<?> affIdx) {
+            lsnrs.forEach(lsnr -> lsnr.onSqlTypeCreate(schemaName, typeDescriptor, cacheInfo, pk, affIdx));
         }
 
         /** {@inheritDoc} */

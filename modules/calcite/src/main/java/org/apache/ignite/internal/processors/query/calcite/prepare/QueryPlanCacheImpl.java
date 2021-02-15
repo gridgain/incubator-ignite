@@ -123,7 +123,7 @@ public class QueryPlanCacheImpl extends AbstractService implements QueryPlanCach
 
     /** {@inheritDoc} */
     @Override public void onSqlTypeCreate(String schemaName, GridQueryTypeDescriptor typeDescriptor,
-        GridCacheContextInfo<?, ?> cacheInfo) {
+        GridCacheContextInfo<?, ?> cacheInfo, GridIndex<?> pk, GridIndex<?> affIdx) {
         // No-op
     }
 }
