@@ -1,15 +1,13 @@
 package org.apache.ignite.development.utils.sdsb12005;
 
-import static java.util.Arrays.asList;
-import static java.util.Objects.isNull;
-import static java.util.Objects.nonNull;
-import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
-import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
-import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.INDEX_FILE_NAME;
-import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
-import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
-
+import java.io.File;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.development.utils.arguments.CLIArgument;
@@ -20,7 +18,6 @@ import org.apache.ignite.internal.processors.cache.persistence.file.AsyncFileIOF
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStore;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
 import org.apache.ignite.internal.processors.cache.persistence.file.FileVersionCheckingFactory;
-import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetastoreDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
@@ -30,18 +27,16 @@ import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
-import java.io.PrintStream;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singleton;
+import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
+import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_DATA;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_PART_META;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 
 public class PartReader extends IgniteIndexReader {
 
@@ -103,10 +98,10 @@ public class PartReader extends IgniteIndexReader {
 
     /** */
     public void read() {
-        outStream.println("Check part=" + partNumber);
+        outStream.println("Check part=" + partNumber + ", path=" + partPath);
 
         try {
-            Map<Class, Long> metaPages = findPages(partNumber, FLAG_DATA, partStore, /*singleton(PagePartitionMetaIOV2.class)*/ new HashSet<>(Arrays.asList(PagePartitionMetaIOV2.class, MetastoreDataPageIO.class)));
+            Map<Short, Long> metaPages = findPages(partNumber, FLAG_DATA, partStore, singleton(T_PART_META));
 
             if (metaPages == null || metaPages.isEmpty()) {
 
@@ -114,7 +109,7 @@ public class PartReader extends IgniteIndexReader {
                 return;
             }
 
-            long partMetaId = metaPages.get(PagePartitionMetaIOV2.class);
+            long partMetaId = metaPages.get(T_PART_META);
 
             doWithBuffer((buf, addr) -> {
                 readPage(partStore, partMetaId, buf);
@@ -125,13 +120,13 @@ public class PartReader extends IgniteIndexReader {
 
                 long partMetaStoreReuseListRoot = partMetaIO.getPartitionMetaStoreReuseListRoot(addr);
 
-                outStream.println("partMetaStoreReuseListRoot = " + partMetaStoreReuseListRoot + " partPath=" + partPath);
+                outStream.println("partMetaStoreReuseListRoot=" + partMetaStoreReuseListRoot);
 
                 final long gapsLink = partMetaIO.getGapsLink(addr);
 
                 printPagesListsInfo(getPageListsInfo(partMetaStoreReuseListRoot, partStore));
 
-                printGapsLink(gapsLink, metaPages);
+                printGapsLink(gapsLink);
 
                 return null;
             });
@@ -144,12 +139,12 @@ public class PartReader extends IgniteIndexReader {
     /**
      *
      */
-    private void printGapsLink(long gapsLink, Map<Class, Long> metaPages) throws IgniteCheckedException {
+    private void printGapsLink(long gapsLink) throws IgniteCheckedException {
         SB sb = new SB();
 
         sb.a("Gaps Link content:").a("\n");
 
-        Long pageId = metaPages.get(MetastoreDataPageIO.class);
+        long pageId = PageIdUtils.pageId(gapsLink);
         int itemId = PageIdUtils.itemId(gapsLink);
 
         sb.a("pageId=").a(pageId).a(",\n");
@@ -157,18 +152,20 @@ public class PartReader extends IgniteIndexReader {
 
         ByteBuffer cntrUpdDataBuf = allocateBuffer(pageSize);
 
-        if (pageId!=null) {
+        if (pageId != 0) {
             long cntrUpdDataAddr = bufferAddress(cntrUpdDataBuf);
 
             readPage(partStore, pageId, cntrUpdDataBuf);
 
             Object pageIO = PageIO.getPageIO(cntrUpdDataAddr);
 
-            System.out.println("pageIO = " + pageIO);
+            sb.a("pageIO = " + pageIO);
             try {
                 AbstractDataPageIO dataPageIO = PageIO.getPageIO(cntrUpdDataBuf);
 
-                sb.a("freeSpace=").a(dataPageIO.getFreeSpace(cntrUpdDataAddr)).a(",\n");
+                sb.a("\nfreeSpace=").a(dataPageIO.getFreeSpace(cntrUpdDataAddr)).a(",\n");
+
+                sb.a("realFreeSpace=").a(dataPageIO.getRealFreeSpace(cntrUpdDataAddr)).a(",\n");
 
                 sb.a("page = [\n\t").a(PageIO.printPage(cntrUpdDataAddr, pageSize)).a("],\n");
 
