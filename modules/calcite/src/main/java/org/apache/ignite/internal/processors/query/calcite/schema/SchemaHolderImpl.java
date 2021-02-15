@@ -35,14 +35,20 @@ import org.apache.ignite.internal.processors.cache.GridCacheContextInfo;
 import org.apache.ignite.internal.processors.query.GridIndex;
 import org.apache.ignite.internal.processors.query.GridQueryIndexDescriptor;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
+import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.calcite.util.AbstractService;
+import org.apache.ignite.internal.processors.query.h2.database.H2TreeIndexBase;
 import org.apache.ignite.internal.processors.query.h2.opt.H2Row;
 import org.apache.ignite.internal.processors.query.schema.SchemaChangeListener;
 import org.apache.ignite.internal.processors.subscription.GridInternalSubscriptionProcessor;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgnitePredicate;
+import org.h2.table.IndexColumn;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.AFFINITY_KEY_IDX_NAME;
+import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.PK_IDX_NAME;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
@@ -168,7 +174,10 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
     @Override public synchronized void onSqlTypeCreate(
         String schemaName,
         GridQueryTypeDescriptor typeDesc,
-        GridCacheContextInfo<?, ?> cacheInfo) {
+        GridCacheContextInfo<?, ?> cacheInfo,
+        GridIndex<?> pk,
+        GridIndex<?> affIdx
+    ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
         String tblName = typeDesc.tableName();
@@ -176,9 +185,47 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
         TableDescriptorImpl desc =
             new TableDescriptorImpl(cacheInfo.cacheContext(), typeDesc, affinityIdentity(cacheInfo.config()));
 
-        schema.addTable(tblName, new IgniteTableImpl(desc));
+        IgniteTableImpl tbl = new IgniteTableImpl(desc);
+
+        schema.addTable(tblName, tbl);
+
+        registerSysIndexes(tbl, pk, affIdx);
 
         rebuild();
+    }
+
+    /**
+     * Registers system indexes (pk and affinity if present).
+     * @param tbl Ignite table.
+     * @param pk Primary Key index.
+     * @param affIdx Affinity key index.
+     */
+    private void registerSysIndexes(IgniteTableImpl tbl, GridIndex<?> pk, GridIndex<?> affIdx) {
+        RelCollation pkCollation = RelCollations.of(new RelFieldCollation(QueryUtils.KEY_COL));
+
+        IgniteIndex pkIdx = new IgniteIndex(pkCollation, PK_IDX_NAME, (GridIndex<H2Row>)pk, tbl);
+
+        tbl.addIndex(pkIdx);
+
+        if (affIdx != null) {
+            H2TreeIndexBase affIdx0 = (H2TreeIndexBase)affIdx;
+
+            IndexColumn[] idxColls = affIdx0.getIndexColumns();
+
+            List<RelFieldCollation> collations = new ArrayList<>(idxColls.length);
+
+            for (IndexColumn col : idxColls) {
+                int fieldIdx = col.column.getColumnId();
+
+                RelFieldCollation collation = new RelFieldCollation(fieldIdx);
+
+                collations.add(collation);
+            }
+
+            IgniteIndex idx = new IgniteIndex(RelCollations.of(collations), AFFINITY_KEY_IDX_NAME, (GridIndex<H2Row>)affIdx, tbl);
+
+            tbl.addIndex(idx);
+        }
     }
 
     /** */

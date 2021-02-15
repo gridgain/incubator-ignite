@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.calcite.rel.core.Project;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheMode;
@@ -651,7 +652,7 @@ public class CalciteQueryProcessorTest extends GridCommonAbstractTest {
     /** */
     @Test
     public void testInsertPrimitiveKey() throws Exception {
-        IgniteCache<Integer, Developer> developer = grid(1).getOrCreateCache(new CacheConfiguration<Integer, Developer>()
+        grid(1).getOrCreateCache(new CacheConfiguration<Integer, Developer>()
             .setName("developer")
             .setSqlSchema("PUBLIC")
             .setIndexedTypes(Integer.class, Developer.class)
@@ -688,7 +689,7 @@ public class CalciteQueryProcessorTest extends GridCommonAbstractTest {
     /** */
     @Test
     public void testInsertUpdateDeleteNonPrimitiveKey() throws Exception {
-        IgniteCache<Key, Developer> developer = client.getOrCreateCache(new CacheConfiguration<Key, Developer>()
+        client.getOrCreateCache(new CacheConfiguration<Key, Developer>()
             .setName("developer")
             .setSqlSchema("PUBLIC")
             .setIndexedTypes(Key.class, Developer.class)

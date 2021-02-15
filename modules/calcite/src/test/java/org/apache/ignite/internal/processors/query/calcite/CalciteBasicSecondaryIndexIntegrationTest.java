@@ -17,15 +17,19 @@
 package org.apache.ignite.internal.processors.query.calcite;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheKeyConfiguration;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.QueryIndexType;
+import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.processors.query.QueryEngine;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -38,6 +42,8 @@ import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.c
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsUnion;
+import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.AFFINITY_KEY_IDX_NAME;
+import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.PK_IDX_NAME;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.not;
 
@@ -119,6 +125,18 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
         devCache.put(21, new Developer("Cacciapaglia", 20, "", -1));
         devCache.put(22, new Developer("Prokofiev", 21, "", -1));
         devCache.put(23, new Developer("Musorgskii", 22, "", -1));
+
+        IgniteCache<CalciteQueryProcessorTest.Key, CalciteQueryProcessorTest.Developer> tblWithAff =
+            grid.getOrCreateCache(new CacheConfiguration<CalciteQueryProcessorTest.Key, CalciteQueryProcessorTest.Developer>()
+            .setName("TBL_WITH_AFF_KEY")
+            .setSqlSchema("PUBLIC")
+            .setBackups(1)
+            .setQueryEntities(F.asList(new QueryEntity(CalciteQueryProcessorTest.Key.class, CalciteQueryProcessorTest.Developer.class)
+            .setTableName("TBL_WITH_AFF_KEY")))
+        );
+
+        tblWithAff.put(new CalciteQueryProcessorTest.Key(1, 2), new CalciteQueryProcessorTest.Developer("Petr", 10));
+        tblWithAff.put(new CalciteQueryProcessorTest.Key(1, 3), new CalciteQueryProcessorTest.Developer("Ivan", 11));
 
         awaitPartitionMapExchange();
     }
@@ -237,8 +255,17 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
     @Test
     public void testKeyColumnEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE _key=1")
-            .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+            .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX_NAME))
             .returns(1, "Mozart", 3, "Vienna", 33)
+            .check();
+    }
+
+    /** */
+    @Test
+    public void testEqualsFilterWithAffIdx() {
+        assertQuery("SELECT * FROM TBL_WITH_AFF_KEY WHERE affinityKey=3")
+            .matches(containsIndexScan("PUBLIC", "TBL_WITH_AFF_KEY", AFFINITY_KEY_IDX_NAME))
+            .returns(1, 3, "Ivan", 11)
             .check();
     }
 
@@ -246,7 +273,7 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
     @Test
     public void testKeyColumnGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE _key>3 and _key<12")
-            .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+            .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX_NAME))
             .returns(4, "Strauss", 2, "Munich", 66)
             .returns(5, "Vagner", 4, "Leipzig", 70)
             .returns(6, "Chaikovsky", 5, "Votkinsk", 53)
@@ -263,7 +290,7 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
     public void testKeyColumnGreaterThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE _key>=? and _key<=?")
             .withParams(3, 11)
-            .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+            .matches(containsIndexScan("PUBLIC", "DEVELOPER" , PK_IDX_NAME))
             .returns(3, "Bach", 1, "Leipzig", 55)
             .returns(4, "Strauss", 2, "Munich", 66)
             .returns(5, "Vagner", 4, "Leipzig", 70)
