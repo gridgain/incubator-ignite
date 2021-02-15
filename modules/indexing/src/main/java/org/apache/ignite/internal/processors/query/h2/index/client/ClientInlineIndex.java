@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.query.h2.index.client;
 
 import java.util.UUID;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cache.query.index.Index;
@@ -25,8 +26,7 @@ import org.apache.ignite.cache.query.index.sorted.IndexKey;
 import org.apache.ignite.internal.cache.query.index.sorted.IndexKeyDefinition;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.InlineIndex;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.InlineIndexTree;
-import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRow;
-import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexSearchRow;
+import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRowImpl;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.util.lang.GridCursor;
@@ -68,28 +68,28 @@ public class ClientInlineIndex implements InlineIndex {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean putx(IndexSearchRow row) throws IgniteCheckedException {
+    @Override public boolean putx(IndexRowImpl row) throws IgniteCheckedException {
         throw unsupported();
     }
 
     /** {@inheritDoc} */
-    @Override public GridCursor<IndexRow> find(IndexKey lower, IndexKey upper, int segment) throws IgniteCheckedException {
+    @Override public GridCursor<IndexRowImpl> find(IndexKey lower, IndexKey upper, int segment) throws IgniteCheckedException {
         throw unsupported();
     }
 
     /** {@inheritDoc} */
-    @Override public GridCursor<IndexRow> find(IndexKey lower, IndexKey upper, int segment,
+    @Override public GridCursor<IndexRowImpl> find(IndexKey lower, IndexKey upper, int segment,
         IndexingQueryFilter filter) throws IgniteCheckedException {
         throw unsupported();
     }
 
     /** {@inheritDoc} */
-    @Override public GridCursor<IndexRow> findFirst(int segment, IndexingQueryFilter filter) throws IgniteCheckedException {
+    @Override public GridCursor<IndexRowImpl> findFirst(int segment, IndexingQueryFilter filter) throws IgniteCheckedException {
         throw unsupported();
     }
 
     /** {@inheritDoc} */
-    @Override public GridCursor<IndexRow> findLast(int segment, IndexingQueryFilter filter) throws IgniteCheckedException {
+    @Override public GridCursor<IndexRowImpl> findLast(int segment, IndexingQueryFilter filter) throws IgniteCheckedException {
         throw unsupported();
     }
 

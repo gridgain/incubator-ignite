@@ -86,14 +86,14 @@ public class InlineRecommender {
 
         int newSize = 0;
 
-        for (int i = 0; i < row.getSchema().getKeyDefinitions().length; i++) {
-            IndexKeyDefinition keyDef = row.getSchema().getKeyDefinitions()[i];
+        for (int i = 0; i < row.size(); i++) {
+            IndexKeyDefinition keyDef = def.getSchema().getKeyDefinitions()[i];
 
             if (!InlineIndexKeyTypeRegistry.supportInline(keyDef.getIdxType()))
                 break;
 
-            newSize += InlineIndexKeyTypeRegistry.get(row.getKey(i).getClass(), keyDef.getIdxType())
-                .inlineSize(row.getKey(i));
+            newSize += InlineIndexKeyTypeRegistry.get(row.key(i).getClass(), keyDef.getIdxType())
+                .inlineSize(row.key(i));
         }
 
         if (newSize > currInlineSize) {

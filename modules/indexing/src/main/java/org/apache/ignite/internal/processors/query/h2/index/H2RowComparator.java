@@ -24,7 +24,7 @@ import org.apache.ignite.internal.cache.query.index.sorted.inline.IndexKeyTypes;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.IndexRowComparator;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.InlineIndexKeyType;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.InlineIndexKeyTypeRegistry;
-import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexSearchRow;
+import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRow;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexSearchRowImpl;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.keys.NullableInlineIndexKeyType;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
@@ -86,9 +86,9 @@ public class H2RowComparator implements IndexRowComparator {
     }
 
     /** {@inheritDoc} */
-    @Override public int compareKey(IndexSearchRow left, IndexSearchRow right, int idx) throws IgniteCheckedException {
-        Object robject = right.getKey(idx);
-        Object lobject = left.getKey(idx);
+    @Override public int compareKey(IndexRow left, IndexRow right, int idx) throws IgniteCheckedException {
+        Object robject = right.key(idx);
+        Object lobject = left.key(idx);
 
         if (lobject == NullKey.INSTANCE)
             return ((NullKey) lobject).compareTo(robject);
@@ -103,12 +103,12 @@ public class H2RowComparator implements IndexRowComparator {
         if (left instanceof IndexSearchRowImpl)
             ltype = DataType.getTypeFromClass(lobject.getClass());
         else
-            ltype = left.getSchema().getKeyDefinitions()[idx].getIdxType();
+            ltype = left.schema().getKeyDefinitions()[idx].getIdxType();
 
         if (right instanceof IndexSearchRowImpl)
             rtype = DataType.getTypeFromClass(robject.getClass());
         else
-            rtype = right.getSchema().getKeyDefinitions()[idx].getIdxType();
+            rtype = right.schema().getKeyDefinitions()[idx].getIdxType();
 
         int c = compareValues(wrap(lobject, ltype), wrap(robject, rtype));
 

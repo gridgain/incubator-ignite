@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.cache.query.index.sorted;
 
 import java.util.function.Function;
+
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRow;
+import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRowImpl;
 import org.apache.ignite.internal.util.lang.GridCursor;
 
 /**
@@ -44,13 +45,13 @@ public class IndexValueCursor<V> implements GridCursor<V> {
     };
 
     /** Underlying cursor over original index rows. */
-    private final GridCursor<IndexRow> delegate;
+    private final GridCursor<IndexRowImpl> delegate;
 
     /** Map function that transforms index row to index value. */
-    private final Function<IndexRow, V> mapFunc;
+    private final Function<IndexRowImpl, V> mapFunc;
 
     /** */
-    public IndexValueCursor(GridCursor<IndexRow> delegate, Function<IndexRow, V> mapFunc) {
+    public IndexValueCursor(GridCursor<IndexRowImpl> delegate, Function<IndexRowImpl, V> mapFunc) {
         this.delegate = delegate;
         this.mapFunc = mapFunc;
     }

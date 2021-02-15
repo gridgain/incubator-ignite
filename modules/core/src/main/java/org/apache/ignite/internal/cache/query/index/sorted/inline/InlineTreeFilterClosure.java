@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cache.query.index.sorted.inline;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRow;
+import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRowImpl;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.io.InlineIO;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
@@ -30,7 +31,7 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 /**
  * Reopresents filter that allow query only primary partitions.
  */
-public class InlineTreeFilterClosure implements BPlusTree.TreeRowClosure<IndexRow, IndexRow> {
+public class InlineTreeFilterClosure implements BPlusTree.TreeRowClosure<IndexRow, IndexRowImpl> {
     /** */
     private final IndexingQueryCacheFilter filter;
 
@@ -40,7 +41,7 @@ public class InlineTreeFilterClosure implements BPlusTree.TreeRowClosure<IndexRo
     }
 
     /** {@inheritDoc} */
-    @Override public boolean apply(BPlusTree<IndexRow, IndexRow> tree,
+    @Override public boolean apply(BPlusTree<IndexRow, IndexRowImpl> tree,
         BPlusIO<IndexRow> io, long pageAddr, int idx) throws IgniteCheckedException {
 
         InlineIO inlineIO = (InlineIO) io;

@@ -25,10 +25,7 @@ public interface IndexKey {
      * @param idx Index of a key.
      * @return Underlying key by specified index.
      */
-    public Object getKey(int idx);
+    public Object key(int idx);
 
-    /**
-     * @return Underlying keys.
-     */
-    public Object[] getKeys();
+    public int size();
 }

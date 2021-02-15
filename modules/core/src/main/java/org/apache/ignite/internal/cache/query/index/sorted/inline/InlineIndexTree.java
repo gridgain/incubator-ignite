@@ -26,7 +26,7 @@ import org.apache.ignite.internal.cache.query.index.sorted.IndexKeyDefinition;
 import org.apache.ignite.internal.cache.query.index.sorted.SortedIndexDefinition;
 import org.apache.ignite.internal.cache.query.index.sorted.SortedIndexSchema;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRow;
-import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexSearchRow;
+import org.apache.ignite.internal.cache.query.index.sorted.inline.io.IndexRowImpl;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.io.InnerIO;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.io.LeafIO;
 import org.apache.ignite.internal.cache.query.index.sorted.inline.io.ThreadLocalSchemaHolder;
@@ -56,7 +56,7 @@ import static org.apache.ignite.internal.cache.query.index.sorted.inline.keys.Nu
 /**
  * BPlusTree where nodes stores inlined index keys.
  */
-public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
+public class InlineIndexTree extends BPlusTree<IndexRow, IndexRowImpl> {
     /** Amount of bytes to store inlined index keys. */
     private final int inlineSize;
 
@@ -151,17 +151,12 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
     /** {@inheritDoc} */
     @Override protected int compare(BPlusIO<IndexRow> io, long pageAddr, int idx, IndexRow row)
         throws IgniteCheckedException {
-        IndexSearchRow r = (IndexSearchRow) row;
-
-        int searchKeysLength = r.getSearchKeysCount();
+        int searchKeysLength = row.size();
 
         if (inlineSize == 0)
             return compareFullRows(getRow(io, pageAddr, idx), row, 0, searchKeysLength);
 
         SortedIndexSchema schema = def.getSchema();
-
-        if ((schema.getKeyDefinitions().length != searchKeysLength) && r.isFullSchemaSearch())
-            throw new IgniteCheckedException("Find is configured for full schema search.");
 
         int fieldOff = 0;
 
@@ -172,7 +167,7 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
             try {
                 // If a search key is null then skip other keys (consider that null shows that we should get all
                 // possible keys for that comparison).
-                if (row.getKey(i) == null)
+                if (row.key(i) == null)
                     return 0;
 
                 // Other keys are not inlined. Should compare as rows.
@@ -194,16 +189,11 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
 
                 int cmp = COMPARE_UNSUPPORTED;
 
-                if (!row.getKey(i).getClass().isAssignableFrom(keyDef.getIdxClass())) {
-                    lastIdxUsed = i;
-                    break;
-                }
-
                 InlineIndexKeyType keyType = InlineIndexKeyTypeRegistry.get(keyDef.getIdxClass(), keyDef.getIdxType());
 
                 // By default do not compare different types.
-                if (InlineIndexKeyTypeRegistry.validate(keyDef.getIdxType(), row.getKey(i).getClass()))
-                    cmp = keyType.compare(pageAddr, off + fieldOff, maxSize, row.getKey(i));
+                if (InlineIndexKeyTypeRegistry.validate(keyDef.getIdxType(), row.key(i).getClass()))
+                    cmp = keyType.compare(pageAddr, off + fieldOff, maxSize, row.key(i));
 
                 // Can't compare as inlined bytes are not enough for comparation.
                 if (cmp == CANT_BE_COMPARE) {
@@ -214,7 +204,7 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
                 // Try compare stored values for inlined keys with different approach?
                 if (cmp == COMPARE_UNSUPPORTED)
                     cmp = def.getRowComparator().compareKey(
-                        pageAddr, off + fieldOff, maxSize, row.getKey(i), keyType.type());
+                        pageAddr, off + fieldOff, maxSize, row.key(i), keyType.type());
 
                 if (cmp == CANT_BE_COMPARE || cmp == COMPARE_UNSUPPORTED) {
                     lastIdxUsed = i;
@@ -239,10 +229,10 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
             for (int i = lastIdxUsed; i < searchKeysLength; i++) {
                 // If a search key is null then skip other keys (consider that null shows that we should get all
                 // possible keys for that comparison).
-                if (row.getKey(i) == null)
+                if (row.key(i) == null)
                     return 0;
 
-                int c = def.getRowComparator().compareKey((IndexSearchRow) currRow, (IndexSearchRow) row, i);
+                int c = def.getRowComparator().compareKey(currRow, row, i);
 
                 if (c != 0)
                     return applySortOrder(Integer.signum(c), schema.getKeyDefinitions()[i].getOrder().getSortOrder());
@@ -257,10 +247,10 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
         for (int i = from; i < searchKeysLength; i++) {
             // If a search key is null then skip other keys (consider that null shows that we should get all
             // possible keys for that comparison).
-            if (row.getKey(i) == null)
+            if (row.key(i) == null)
                 return 0;
 
-            int c = def.getRowComparator().compareKey((IndexSearchRow) currRow, (IndexSearchRow) row, i);
+            int c = def.getRowComparator().compareKey(currRow, row, i);
 
             if (c != 0)
                 return applySortOrder(Integer.signum(c), def.getSchema().getKeyDefinitions()[i].getOrder().getSortOrder());
@@ -281,7 +271,7 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
     }
 
     /** {@inheritDoc} */
-    @Override public IndexRow getRow(BPlusIO<IndexRow> io, long pageAddr, int idx, Object ignore)
+    @Override public IndexRowImpl getRow(BPlusIO<IndexRow> io, long pageAddr, int idx, Object ignore)
         throws IgniteCheckedException {
 
         boolean cleanSchema = false;
@@ -292,7 +282,7 @@ public class InlineIndexTree extends BPlusTree<IndexRow, IndexRow> {
         }
 
         try {
-            return io.getLookupRow(this, pageAddr, idx);
+            return (IndexRowImpl)io.getLookupRow(this, pageAddr, idx);
         }
         finally {
             if (cleanSchema)

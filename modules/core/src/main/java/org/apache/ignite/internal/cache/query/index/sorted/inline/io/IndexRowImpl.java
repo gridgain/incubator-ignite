@@ -30,7 +30,7 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_TO_STRING_INCLUDE_
 /**
  * This class represents a row in {@link SortedIndex}.
  */
-public class IndexRowImpl implements IndexSearchRow {
+public class IndexRowImpl implements IndexRow {
     /** Object that contains info about original IgniteCache row. */
     private final CacheDataRow cacheRow;
 
@@ -64,7 +64,7 @@ public class IndexRowImpl implements IndexSearchRow {
     }
 
     /** {@inheritDoc} */
-    @Override public Object getKey(int idx) {
+    @Override public Object key(int idx) {
         if (keyCache[idx] != null)
             return keyCache[idx];
 
@@ -75,14 +75,16 @@ public class IndexRowImpl implements IndexSearchRow {
         return key;
     }
 
-    /** {@inheritDoc} */
-    @Override public Object[] getKeys() {
-        int keysCnt = getSearchKeysCount();
+    /**
+     * @return Keys' values represented by CacheRow.
+     */
+    public Object[] getKeys() {
+        int keysCnt = size();
 
         Object[] keys = new Object[keysCnt];
 
         for (int i = 0; i < keysCnt; ++i)
-            keys[i] = getKey(i);
+            keys[i] = key(i);
 
         return keys;
     }
@@ -93,23 +95,20 @@ public class IndexRowImpl implements IndexSearchRow {
     }
 
     /** {@inheritDoc} */
-    @Override public SortedIndexSchema getSchema() {
+    @Override public SortedIndexSchema schema() {
         return schema;
     }
 
-    /** {@inheritDoc} */
-    @Override public CacheDataRow getCacheDataRow() {
+    /**
+     * @return Cache row.
+     */
+    public CacheDataRow getCacheDataRow() {
         return cacheRow;
     }
 
     /** {@inheritDoc} */
-    @Override public int getSearchKeysCount() {
+    @Override public int size() {
         return schema.getKeyDefinitions().length;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isFullSchemaSearch() {
-        return true;
     }
 
     /** {@inheritDoc} */
@@ -134,7 +133,7 @@ public class IndexRowImpl implements IndexSearchRow {
                     sb.a(", ");
 
                 try {
-                    v = getKey(i);
+                    v = key(i);
 
                     sb.a(v == null ? "nil" : (S.includeSensitive() ? v.toString() : "data hidden"));
                 }

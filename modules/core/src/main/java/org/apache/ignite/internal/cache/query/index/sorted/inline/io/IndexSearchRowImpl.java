@@ -18,19 +18,12 @@
 package org.apache.ignite.internal.cache.query.index.sorted.inline.io;
 
 import org.apache.ignite.internal.cache.query.index.sorted.SortedIndexSchema;
-import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Represents a search row that used to find a place in a tree.
  */
-public class IndexSearchRowImpl implements IndexSearchRow {
-    /**
-     * If {@code true} then length of {@link #keys} must be equal to length of schema, so use full
-     * schema to search. If {@code false} then it's possible to use only part of schema for search.
-     */
-    private final boolean fullSchemaSearch;
-
+public class IndexSearchRowImpl implements IndexRow {
     /** */
     private final Object[] keys;
 
@@ -38,30 +31,24 @@ public class IndexSearchRowImpl implements IndexSearchRow {
     private final SortedIndexSchema schema;
 
     /** Constructor. */
-    public IndexSearchRowImpl(Object[] idxKeys, SortedIndexSchema schema) {
-        fullSchemaSearch = isFullSchemaSearch(idxKeys, schema.getKeyDefinitions().length);
-        keys = idxKeys;
+    public IndexSearchRowImpl(Object[] keys, SortedIndexSchema schema) {
+        this.keys = keys;
         this.schema = schema;
     }
 
     /** {@inheritDoc} */
-    @Override public Object getKey(int idx) {
+    @Override public Object key(int idx) {
         return keys[idx];
     }
 
     /** {@inheritDoc} */
-    @Override public Object[] getKeys() {
-        return keys.clone();
+    @Override public int size() {
+        return schema.getKeyDefinitions().length;
     }
 
     /** {@inheritDoc} */
-    @Override public int getSearchKeysCount() {
-        return keys.length;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isFullSchemaSearch() {
-        return fullSchemaSearch;
+    @Override public SortedIndexSchema schema() {
+        return schema;
     }
 
     /** {@inheritDoc} */
@@ -74,31 +61,5 @@ public class IndexSearchRowImpl implements IndexSearchRow {
         assert false : "Should not get link by IndexSearchRowImpl";
 
         return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SortedIndexSchema getSchema() {
-        return schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override public CacheDataRow getCacheDataRow() {
-        assert false : "Should not cache data row by IndexSearchRowImpl";
-
-        return null;
-    }
-
-    /** */
-    private boolean isFullSchemaSearch(Object[] idxKeys, int schemaLength) {
-        if (idxKeys.length != schemaLength)
-            return false;
-
-        for (int i = 0; i < schemaLength; i++) {
-            // Java null means that column is not specified in a search row, for SQL NULL a special constant is used
-            if (idxKeys[i] == null)
-                return false;
-        }
-
-        return true;
     }
 }

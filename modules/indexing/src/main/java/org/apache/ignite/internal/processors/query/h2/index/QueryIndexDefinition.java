@@ -48,7 +48,7 @@ public class QueryIndexDefinition extends SortedIndexDefinition {
         super(
             new IndexName(tbl.cacheName(), tbl.getSchema().getName(), tbl.getName(), idxName),
             isPrimary, isAffinity, null, tbl.rowDescriptor().context().config().getQueryParallelism(),
-            cfgInlineSize, new H2RowComparator(unwrappedSchema.getTable()));
+            cfgInlineSize, new H2RowComparator(tbl));
 
         cctx = tbl.cacheContext();
 

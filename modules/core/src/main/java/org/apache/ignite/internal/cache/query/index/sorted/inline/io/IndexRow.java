@@ -19,10 +19,9 @@ package org.apache.ignite.internal.cache.query.index.sorted.inline.io;
 
 import org.apache.ignite.cache.query.index.sorted.IndexKey;
 import org.apache.ignite.internal.cache.query.index.sorted.SortedIndexSchema;
-import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 
 /**
- * Represents an index row stored in a tree.
+ * Represents a search row that used to find a place in a tree.
  */
 public interface IndexRow extends IndexKey {
     /**
@@ -33,10 +32,5 @@ public interface IndexRow extends IndexKey {
     /**
      * @return Schema of an index.
      */
-    public SortedIndexSchema getSchema();
-
-    /**
-     * @return Cache row.
-     */
-    public CacheDataRow getCacheDataRow();
+    public SortedIndexSchema schema();
 }
