@@ -16,8 +16,12 @@
  */
 package org.apache.ignite.internal.processors.query.calcite;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheKeyConfiguration;
@@ -25,7 +29,9 @@ import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.QueryIndexType;
+import org.apache.ignite.cache.affinity.AffinityKeyMapped;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
+import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.processors.query.QueryEngine;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
@@ -137,6 +143,19 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
 
         tblWithAff.put(new CalciteQueryProcessorTest.Key(1, 2), new CalciteQueryProcessorTest.Developer("Petr", 10));
         tblWithAff.put(new CalciteQueryProcessorTest.Key(1, 3), new CalciteQueryProcessorTest.Developer("Ivan", 11));
+
+        IgniteCache<Key, CalciteQueryProcessorTest.Developer> tblConstrPk =
+            grid.getOrCreateCache(new CacheConfiguration<Key, CalciteQueryProcessorTest.Developer>()
+                .setName("TBL_CONSTR_PK")
+                .setSqlSchema("PUBLIC")
+                .setBackups(1)
+                .setQueryEntities(F.asList(new QueryEntity(Key.class, CalciteQueryProcessorTest.Developer.class)
+                    .setTableName("TBL_CONSTR_PK")
+                    .setKeyFields(new HashSet<>(Arrays.asList("id", "id2")))))
+            );
+
+        tblConstrPk.put(new Key(1, 2), new CalciteQueryProcessorTest.Developer("Petr", 10));
+        tblConstrPk.put(new Key(1, 3), new CalciteQueryProcessorTest.Developer("Ivan", 11));
 
         awaitPartitionMapExchange();
     }
@@ -271,6 +290,15 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
 
     /** */
     @Test
+    public void testEqualsFilterWithPkIdx1() {
+        assertQuery("SELECT * FROM TBL_CONSTR_PK WHERE projectId=11")
+            .matches(containsIndexScan("PUBLIC", "TBL_CONSTR_PK", PK_IDX_NAME))
+            .returns(1, 3, "Ivan", 11)
+            .check();
+    }
+
+    /** */
+    @Test
     public void testKeyColumnGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE _key>3 and _key<12")
             .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX_NAME))
@@ -330,7 +358,7 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
     @Test
     public void testKeyAliasEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-            .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+            .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX_NAME))
             .returns(2, "Beethoven", 2, "Vienna", 44)
             .check();
     }
@@ -963,6 +991,23 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
                 "name='" + name + '\'' +
                 ", ver=" + depId +
                 '}';
+        }
+    }
+
+    /** */
+    public static class Key {
+        /** */
+        @QuerySqlField
+        public int id;
+
+        /** */
+        @QuerySqlField
+        public int id2;
+
+        /** */
+        public Key(int id, int id2) {
+            this.id = id;
+            this.id2 = id2;
         }
     }
 }

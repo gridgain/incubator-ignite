@@ -196,6 +196,7 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
 
     /**
      * Registers system indexes (pk and affinity if present).
+     *
      * @param tbl Ignite table.
      * @param pk Primary Key index.
      * @param affIdx Affinity key index.
@@ -206,6 +207,14 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
         IgniteIndex pkIdx = new IgniteIndex(pkCollation, PK_IDX_NAME, (GridIndex<H2Row>)pk, tbl);
 
         tbl.addIndex(pkIdx);
+
+
+
+
+        RelCollation pkCollation1 = RelCollations.of(new RelFieldCollation(2));
+        IgniteIndex pkIdx1 = new IgniteIndex(pkCollation1, PK_IDX_NAME+"1", (GridIndex<H2Row>)pk, tbl);
+        tbl.addIndex(pkIdx1);
+
 
         if (affIdx != null) {
             H2TreeIndexBase affIdx0 = (H2TreeIndexBase)affIdx;
