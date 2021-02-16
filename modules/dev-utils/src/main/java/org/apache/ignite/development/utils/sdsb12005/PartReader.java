@@ -38,9 +38,11 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_PART_META;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
-import static org.apache.ignite.internal.util.IgniteUtils.addByteAsHex;
 
 public class PartReader extends IgniteIndexReader {
+
+    /** Byte bit-mask. */
+    private static final int MASK = 0xf;
 
     /** */
     private final FilePageStore partStore;
@@ -141,6 +143,14 @@ public class PartReader extends IgniteIndexReader {
             e.printStackTrace(outStream);
         }
 
+    }
+
+    /**
+     * @param sb String builder.
+     * @param b Byte to add in hexadecimal format.
+     */
+    private static void addByteAsHex(StringBuilder sb, byte b) {
+        sb.append(Integer.toHexString(MASK & b >>> 4)).append(Integer.toHexString(MASK & b));
     }
 
     private void printFirstPage() {
