@@ -144,18 +144,19 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
         tblWithAff.put(new CalciteQueryProcessorTest.Key(1, 2), new CalciteQueryProcessorTest.Developer("Petr", 10));
         tblWithAff.put(new CalciteQueryProcessorTest.Key(1, 3), new CalciteQueryProcessorTest.Developer("Ivan", 11));
 
-        IgniteCache<Key, CalciteQueryProcessorTest.Developer> tblConstrPk =
-            grid.getOrCreateCache(new CacheConfiguration<Key, CalciteQueryProcessorTest.Developer>()
+        IgniteCache<Integer, CalciteQueryProcessorTest.Developer> tblConstrPk =
+            grid.getOrCreateCache(new CacheConfiguration<Integer, CalciteQueryProcessorTest.Developer>()
                 .setName("TBL_CONSTR_PK")
                 .setSqlSchema("PUBLIC")
                 .setBackups(1)
-                .setQueryEntities(F.asList(new QueryEntity(Key.class, CalciteQueryProcessorTest.Developer.class)
+                .setQueryEntities(F.asList(new QueryEntity(Integer.class, CalciteQueryProcessorTest.Developer.class)
                     .setTableName("TBL_CONSTR_PK")
-                    .setKeyFields(new HashSet<>(Arrays.asList("id", "id2")))))
+                    .setKeyFieldName("id")
+                    .addQueryField("id", Integer.class.getName(), null)))
             );
 
-        tblConstrPk.put(new Key(1, 2), new CalciteQueryProcessorTest.Developer("Petr", 10));
-        tblConstrPk.put(new Key(1, 3), new CalciteQueryProcessorTest.Developer("Ivan", 11));
+        tblConstrPk.put(1, new CalciteQueryProcessorTest.Developer("Petr", 10));
+        tblConstrPk.put(2, new CalciteQueryProcessorTest.Developer("Ivan", 11));
 
         awaitPartitionMapExchange();
     }
@@ -291,7 +292,7 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
     /** */
     @Test
     public void testEqualsFilterWithPkIdx1() {
-        assertQuery("SELECT * FROM TBL_CONSTR_PK WHERE projectId=11")
+        assertQuery("SELECT * FROM TBL_CONSTR_PK WHERE id=2")
             .matches(containsIndexScan("PUBLIC", "TBL_CONSTR_PK", PK_IDX_NAME))
             .returns(1, 3, "Ivan", 11)
             .check();
