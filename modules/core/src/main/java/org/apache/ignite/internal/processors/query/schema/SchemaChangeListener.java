@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.processors.query.schema;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.processors.cache.GridCacheContextInfo;
 import org.apache.ignite.internal.processors.query.GridIndex;
 import org.apache.ignite.internal.processors.query.GridQueryIndexDescriptor;
@@ -46,15 +49,19 @@ public interface SchemaChangeListener {
      * @param schemaName Schema name.
      * @param typeDesc type descriptor.
      * @param cacheInfo Cache info.
-     * @param pkIdx Primary key index.
-     * @param affIdx Affinity index
+     * @param pkIdx pk Index.
+     * @param affIdx affinity Index.
+     * @param proxyCols proxy Index columns.
+     * @param affIdxColId affinity index column id.
      */
     void onSqlTypeCreate(
         String schemaName,
         GridQueryTypeDescriptor typeDesc,
         GridCacheContextInfo<?, ?> cacheInfo,
         GridIndex<?> pkIdx,
-        @Nullable GridIndex<?> affIdx);
+        Collection<Integer> proxyCols,
+        @Nullable GridIndex<?> affIdx,
+        int affIdxColId);
 
     /**
      * Callback method.

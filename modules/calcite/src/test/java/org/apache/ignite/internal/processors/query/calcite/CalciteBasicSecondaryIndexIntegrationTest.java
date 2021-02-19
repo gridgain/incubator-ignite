@@ -16,21 +16,13 @@
  */
 package org.apache.ignite.internal.processors.query.calcite;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.cache.CacheKeyConfiguration;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.QueryIndexType;
-import org.apache.ignite.cache.affinity.AffinityKeyMapped;
-import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.processors.query.QueryEngine;
@@ -50,6 +42,7 @@ import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.c
 import static org.apache.ignite.internal.processors.query.calcite.QueryChecker.containsUnion;
 import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.AFFINITY_KEY_IDX_NAME;
 import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.PK_IDX_NAME;
+import static org.apache.ignite.internal.processors.query.h2.opt.GridH2Table.generateProxyIdxName;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.not;
 
@@ -293,8 +286,8 @@ public class CalciteBasicSecondaryIndexIntegrationTest extends GridCommonAbstrac
     @Test
     public void testEqualsFilterWithPkIdx1() {
         assertQuery("SELECT * FROM TBL_CONSTR_PK WHERE id=2")
-            .matches(containsIndexScan("PUBLIC", "TBL_CONSTR_PK", PK_IDX_NAME))
-            .returns(1, 3, "Ivan", 11)
+            .matches(containsIndexScan("PUBLIC", "TBL_CONSTR_PK", generateProxyIdxName(PK_IDX_NAME)))
+            .returns("Ivan", 11, 2)
             .check();
     }
 

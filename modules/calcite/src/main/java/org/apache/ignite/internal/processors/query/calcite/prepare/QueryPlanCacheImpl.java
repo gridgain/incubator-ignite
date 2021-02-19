@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.prepare;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.GridKernalContext;
@@ -122,8 +124,14 @@ public class QueryPlanCacheImpl extends AbstractService implements QueryPlanCach
     }
 
     /** {@inheritDoc} */
-    @Override public void onSqlTypeCreate(String schemaName, GridQueryTypeDescriptor typeDescriptor,
-        GridCacheContextInfo<?, ?> cacheInfo, GridIndex<?> pk, GridIndex<?> affIdx) {
+    @Override public void onSqlTypeCreate(
+        String schemaName,
+        GridQueryTypeDescriptor typeDescriptor,
+        GridCacheContextInfo<?, ?> cacheInfo,
+        GridIndex<?> pkIdx,
+        Collection<Integer> proxyCols,
+        GridIndex<?> affIdx, int affIdxColId
+    ) {
         // No-op
     }
 }

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.processors.query.calcite.schema;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,20 +37,19 @@ import org.apache.ignite.internal.processors.cache.GridCacheContextInfo;
 import org.apache.ignite.internal.processors.query.GridIndex;
 import org.apache.ignite.internal.processors.query.GridQueryIndexDescriptor;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
-import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.calcite.util.AbstractService;
-import org.apache.ignite.internal.processors.query.h2.database.H2TreeIndexBase;
 import org.apache.ignite.internal.processors.query.h2.opt.H2Row;
 import org.apache.ignite.internal.processors.query.schema.SchemaChangeListener;
 import org.apache.ignite.internal.processors.subscription.GridInternalSubscriptionProcessor;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgnitePredicate;
-import org.h2.table.IndexColumn;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.query.QueryUtils.KEY_COL;
 import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.AFFINITY_KEY_IDX_NAME;
 import static org.apache.ignite.internal.processors.query.h2.H2TableDescriptor.PK_IDX_NAME;
+import static org.apache.ignite.internal.processors.query.h2.opt.GridH2Table.generateProxyIdxName;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
@@ -175,8 +176,10 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
         String schemaName,
         GridQueryTypeDescriptor typeDesc,
         GridCacheContextInfo<?, ?> cacheInfo,
-        GridIndex<?> pk,
-        GridIndex<?> affIdx
+        GridIndex<?> pkIdx,
+        Collection<Integer> proxyCols,
+        @Nullable GridIndex<?> affIdx,
+        int affIdxColId
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
@@ -189,51 +192,56 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
 
         schema.addTable(tblName, tbl);
 
-        registerSysIndexes(tbl, pk, affIdx);
+        registerSysIndexes(tbl, pkIdx, proxyCols, affIdx, affIdxColId);
 
         rebuild();
     }
 
     /**
      * Registers system indexes (pk and affinity if present).
-     *
      * @param tbl Ignite table.
-     * @param pk Primary Key index.
+     * @param pkIdx Pk index.
      * @param affIdx Affinity key index.
+     * @param proxyCols Column id`s, if proxy index exist.
      */
-    private void registerSysIndexes(IgniteTableImpl tbl, GridIndex<?> pk, GridIndex<?> affIdx) {
-        RelCollation pkCollation = RelCollations.of(new RelFieldCollation(QueryUtils.KEY_COL));
+    private void registerSysIndexes(
+        IgniteTableImpl tbl,
+        GridIndex<?> pkIdx,
+        Collection<Integer> proxyCols,
+        @Nullable GridIndex<?> affIdx,
+        int affIdxColId
+    ) {
+        assert pkIdx != null : "pk index is null";
 
-        IgniteIndex pkIdx = new IgniteIndex(pkCollation, PK_IDX_NAME, (GridIndex<H2Row>)pk, tbl);
+        registerSysIndex(tbl, pkIdx, proxyCols, false);
 
-        tbl.addIndex(pkIdx);
+        registerSysIndex(tbl, affIdx, Collections.singletonList(affIdxColId), true);
+    }
 
+    /** */
+    private static void registerSysIndex(IgniteTableImpl tbl, GridIndex<?> idx, Collection<Integer> proxyCols, boolean aff) {
+        if (idx == null)
+            return;
 
+        RelFieldCollation collation = new RelFieldCollation(aff ? proxyCols.iterator().next() : KEY_COL);
 
+        IgniteIndex ignIdx = new IgniteIndex(RelCollations.of(collation), aff ?
+            AFFINITY_KEY_IDX_NAME : PK_IDX_NAME, (GridIndex<H2Row>)idx, tbl);
 
-        RelCollation pkCollation1 = RelCollations.of(new RelFieldCollation(2));
-        IgniteIndex pkIdx1 = new IgniteIndex(pkCollation1, PK_IDX_NAME+"1", (GridIndex<H2Row>)pk, tbl);
-        tbl.addIndex(pkIdx1);
+        tbl.addIndex(ignIdx);
 
+        if (!proxyCols.isEmpty() && !aff) {
+            List<RelFieldCollation> collations = new ArrayList<>(proxyCols.size());
 
-        if (affIdx != null) {
-            H2TreeIndexBase affIdx0 = (H2TreeIndexBase)affIdx;
-
-            IndexColumn[] idxColls = affIdx0.getIndexColumns();
-
-            List<RelFieldCollation> collations = new ArrayList<>(idxColls.length);
-
-            for (IndexColumn col : idxColls) {
-                int fieldIdx = col.column.getColumnId();
-
-                RelFieldCollation collation = new RelFieldCollation(fieldIdx);
+            for (Integer fieldIdx : proxyCols) {
+                collation = new RelFieldCollation(fieldIdx);
 
                 collations.add(collation);
             }
 
-            IgniteIndex idx = new IgniteIndex(RelCollations.of(collations), AFFINITY_KEY_IDX_NAME, (GridIndex<H2Row>)affIdx, tbl);
+            ignIdx = new IgniteIndex(RelCollations.of(collations), generateProxyIdxName(PK_IDX_NAME), (GridIndex<H2Row>)idx, tbl);
 
-            tbl.addIndex(idx);
+            tbl.addIndex(ignIdx);
         }
     }
 
