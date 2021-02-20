@@ -130,7 +130,9 @@ public class QueryPlanCacheImpl extends AbstractService implements QueryPlanCach
         GridCacheContextInfo<?, ?> cacheInfo,
         GridIndex<?> pkIdx,
         Collection<Integer> proxyCols,
-        GridIndex<?> affIdx, int affIdxColId
+        GridIndex<?> affIdx,
+        int affIdxColId,
+        boolean fromSql
     ) {
         // No-op
     }

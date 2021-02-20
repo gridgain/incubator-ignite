@@ -598,7 +598,7 @@ public class SchemaManager {
         }
 
         lsnr.onSqlTypeCreate(schemaName, tbl.type(), tbl.cacheInfo(), pk, proxyCols, affIdx,
-            affIdx != null ? ((Index)affIdx).getColumns()[0].getColumnId() : -1);
+            affIdx != null ? ((Index)affIdx).getColumns()[0].getColumnId() : -1, tbl.sql());
 
         for (GridH2IndexBase usrIdx : tbl.createUserIndexes())
             createInitialUserIndex(schemaName, tbl, usrIdx);
@@ -925,8 +925,16 @@ public class SchemaManager {
         @Override public void onIndexDrop(String schemaName, String tblName, String idxName) {}
 
         /** {@inheritDoc} */
-        @Override public void onSqlTypeCreate(String schemaName, GridQueryTypeDescriptor typeDescriptor,
-            GridCacheContextInfo<?,?> cacheInfo, GridIndex<?> pkIdx, Collection<Integer> proxyCols, GridIndex<?> affIdx, int affIdxColId) {}
+        @Override public void onSqlTypeCreate(
+            String schemaName,
+            GridQueryTypeDescriptor typeDescriptor,
+            GridCacheContextInfo<?,?> cacheInfo,
+            GridIndex<?> pkIdx,
+            Collection<Integer> proxyCols,
+            GridIndex<?> affIdx,
+            int affIdxColId,
+            boolean fromSql
+        ) {}
 
         /** {@inheritDoc} */
         @Override public void onSqlTypeDrop(String schemaName, GridQueryTypeDescriptor typeDescriptor) {}
@@ -952,10 +960,18 @@ public class SchemaManager {
         }
 
         /** {@inheritDoc} */
-        @Override public void onSqlTypeCreate(String schemaName, GridQueryTypeDescriptor typeDescriptor,
-            GridCacheContextInfo<?,?> cacheInfo, GridIndex<?> pkIdx, Collection<Integer> proxyCols, GridIndex<?> affIdx, int affIdxColId) {
+        @Override public void onSqlTypeCreate(
+            String schemaName,
+            GridQueryTypeDescriptor typeDescriptor,
+            GridCacheContextInfo<?,?> cacheInfo,
+            GridIndex<?> pkIdx,
+            Collection<Integer> proxyCols,
+            GridIndex<?> affIdx,
+            int affIdxColId,
+            boolean fromSql
+        ) {
             lsnrs.forEach(lsnr -> lsnr.onSqlTypeCreate(schemaName, typeDescriptor, cacheInfo, pkIdx, proxyCols,
-             affIdx, affIdxColId));
+             affIdx, affIdxColId, fromSql));
         }
 
         /** {@inheritDoc} */

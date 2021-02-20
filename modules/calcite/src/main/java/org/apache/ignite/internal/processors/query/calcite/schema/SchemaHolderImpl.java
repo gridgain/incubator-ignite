@@ -179,7 +179,8 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
         GridIndex<?> pkIdx,
         Collection<Integer> proxyCols,
         @Nullable GridIndex<?> affIdx,
-        int affIdxColId
+        int affIdxColId,
+        boolean fromSql
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
@@ -192,7 +193,7 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
 
         schema.addTable(tblName, tbl);
 
-        registerSysIndexes(tbl, pkIdx, proxyCols, affIdx, affIdxColId);
+        registerSysIndexes(tbl, pkIdx, proxyCols, affIdx, affIdxColId, fromSql);
 
         rebuild();
     }
@@ -209,37 +210,47 @@ public class SchemaHolderImpl extends AbstractService implements SchemaHolder, S
         GridIndex<?> pkIdx,
         Collection<Integer> proxyCols,
         @Nullable GridIndex<?> affIdx,
-        int affIdxColId
+        int affIdxColId,
+        boolean fromSql
     ) {
         assert pkIdx != null : "pk index is null";
 
-        registerSysIndex(tbl, pkIdx, proxyCols, false);
+        registerSysIndex(tbl, pkIdx, proxyCols, false, fromSql);
 
-        registerSysIndex(tbl, affIdx, Collections.singletonList(affIdxColId), true);
+        registerSysIndex(tbl, affIdx, Collections.singletonList(affIdxColId), true, fromSql);
     }
 
     /** */
-    private static void registerSysIndex(IgniteTableImpl tbl, GridIndex<?> idx, Collection<Integer> proxyCols, boolean aff) {
+    private static void registerSysIndex(
+        IgniteTableImpl tbl,
+        GridIndex<?> idx,
+        Collection<Integer> proxyCols,
+        boolean aff,
+        boolean fromSql
+    ) {
         if (idx == null)
             return;
 
-        RelFieldCollation collation = new RelFieldCollation(aff ? proxyCols.iterator().next() : KEY_COL);
+        if (!fromSql || aff) {
+            RelFieldCollation collation = new RelFieldCollation(aff ? proxyCols.iterator().next() : KEY_COL);
 
-        IgniteIndex ignIdx = new IgniteIndex(RelCollations.of(collation), aff ?
-            AFFINITY_KEY_IDX_NAME : PK_IDX_NAME, (GridIndex<H2Row>)idx, tbl);
+            IgniteIndex ignIdx = new IgniteIndex(RelCollations.of(collation), aff ?
+                AFFINITY_KEY_IDX_NAME : PK_IDX_NAME, (GridIndex<H2Row>) idx, tbl);
 
-        tbl.addIndex(ignIdx);
+            tbl.addIndex(ignIdx);
+        }
 
         if (!proxyCols.isEmpty() && !aff) {
             List<RelFieldCollation> collations = new ArrayList<>(proxyCols.size());
 
             for (Integer fieldIdx : proxyCols) {
-                collation = new RelFieldCollation(fieldIdx);
+                RelFieldCollation collation = new RelFieldCollation(fieldIdx);
 
                 collations.add(collation);
             }
 
-            ignIdx = new IgniteIndex(RelCollations.of(collations), generateProxyIdxName(PK_IDX_NAME), (GridIndex<H2Row>)idx, tbl);
+            IgniteIndex ignIdx = new IgniteIndex(RelCollations.of(collations), fromSql ? PK_IDX_NAME : generateProxyIdxName(PK_IDX_NAME),
+                (GridIndex<H2Row>) idx, tbl);
 
             tbl.addIndex(ignIdx);
         }
