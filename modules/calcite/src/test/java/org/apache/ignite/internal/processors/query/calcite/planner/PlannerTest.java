@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.linq4j.Linq4j;
@@ -89,10 +90,12 @@ import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.thread.IgniteStripedThreadPoolExecutor;
+import org.apache.lucene.document.IntRange;
 import org.jetbrains.annotations.Nullable;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static java.util.stream.Collectors.joining;
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.configuration.IgniteConfiguration.DFLT_THREAD_KEEP_ALIVE_TIME;
@@ -621,6 +624,57 @@ public class PlannerTest extends AbstractPlannerTest {
         }
 
         assertNotNull(root);
+    }
+
+    @Test
+    public void test() throws Exception {
+        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
+        TestTable emp = new TestTable(
+            new RelDataTypeFactory.Builder(f)
+                .add("ID", f.createJavaType(Integer.class))
+                .add("NAME", f.createJavaType(String.class))
+                .add("DEPTNO", f.createJavaType(Integer.class))
+                .build()) {
+
+            @Override public IgniteDistribution distribution() {
+                return IgniteDistributions.broadcast();
+            }
+        };
+//
+//        TestTable dept = new TestTable(
+//            new RelDataTypeFactory.Builder(f)
+//                .add("DEPTNO", f.createJavaType(Integer.class))
+//                .add("NAME", f.createJavaType(String.class))
+//                .build()) {
+//
+//            @Override public IgniteDistribution distribution() {
+//                return IgniteDistributions.broadcast();
+//            }
+//        };
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable("EMP", emp);
+//        publicSchema.addTable("DEPT", dept);
+
+//        String sarg = IntStream.range(0, 50).boxed().map(String::valueOf).collect(joining(",", "(", ")"));
+
+        String sarg = "(0,1,-2,3,-5,7,-11,13,-17,19,-23,29,-31,37,-41,43,-47,53,-59,61,-67,71,-73,79,-83,89,-97)";
+        String sql = "select * from emp e where deptno in " + sarg + " or id > 5";
+
+        IgniteRel phys = physicalPlan(sql, publicSchema);
+
+        System.out.println(RelOptUtil.toString(phys));
+
+        assertNotNull(phys);
+//        assertEquals("" +
+//                "IgniteMergeJoin(condition=[AND(=($0, $4), =($3, $1))], joinType=[inner], leftCollation=[[0, 1]], rightCollation=[[2, 1]])\n" +
+//                "  IgniteIndexScan(table=[[PUBLIC, DEPT]], index=[dep_idx])\n" +
+//                "  IgniteIndexScan(table=[[PUBLIC, EMP]], index=[emp_idx])\n",
+//            RelOptUtil.toString(phys));
+
+        checkSplitAndSerialization(phys, publicSchema);
     }
 
     /**

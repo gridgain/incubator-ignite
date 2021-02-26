@@ -28,11 +28,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableRangeSet;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
 import org.apache.calcite.avatica.AvaticaUtils;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.avatica.util.TimeUnitRange;
@@ -94,6 +98,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteRel;
@@ -105,6 +110,8 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
+
+import static com.google.common.collect.BoundType.CLOSED;
 
 /**
  * Utilities for converting {@link RelNode} into JSON format.
@@ -286,6 +293,8 @@ class RelJson {
             return toJson((RelDataType)value);
         else if (value instanceof RelDataTypeField)
             return toJson((RelDataTypeField)value);
+        else if (value instanceof Sarg)
+            return toJson((Sarg) value);
         else
             throw new UnsupportedOperationException("type not serializable: "
                 + value + " (type " + value.getClass().getCanonicalName() + ")");
@@ -491,6 +500,12 @@ class RelJson {
                 if (type.getSqlTypeName() == SqlTypeName.SYMBOL)
                     literal = toEnum(literal);
 
+                if (literal instanceof Map && "sarg".equals(((Map<?, ?>)literal).get("kind"))) {
+                    Sarg sarg = toSarg((Map<String, Object>)literal);
+
+                    return rexBuilder.makeSearchArgumentLiteral(sarg, type);
+                }
+
                 return rexBuilder.makeLiteral(literal, type, false);
             }
             
@@ -630,6 +645,69 @@ class RelJson {
         for (Object operand : operands)
             list.add(toRex(relInput, operand));
         return list;
+    }
+
+    private Sarg toSarg(Map<String, Object> map) {
+        List<Range<Comparable>> ranges = list();
+
+        Object rangesJson = map.get("rangeSet");
+        if (rangesJson instanceof List) {
+            for (Object range : (Iterable)rangesJson)
+                ranges.add(toRange((Map<String, Object>)range));
+        }
+
+        boolean containsNull = map.containsKey("containsNull");
+
+        RangeSet rs = ImmutableRangeSet.copyOf(ranges);
+
+        return Sarg.of(containsNull, rs);
+    }
+
+    private Range toRange(Map<String, Object> map) {
+        int type = 0;
+        Comparable lower = null, upper = null;
+
+        if (map.containsKey("lower")) {
+            type |= map.containsKey("lClosed") ? LOWER_CLOSED : LOWER_OPEN;
+            lower = new BigDecimal((Integer)map.get("lower"));
+        }
+
+        if (map.containsKey("upper")) {
+            type |= map.containsKey("uClosed") ? UPPER_CLOSED : UPPER_OPEN;
+            upper = new BigDecimal((Integer)map.get("upper"));;
+        }
+
+        return createRange(lower, upper, type);
+    }
+
+    private static final int LOWER_OPEN = 0b1;
+    private static final int LOWER_CLOSED = 0b11;
+    private static final int UPPER_OPEN = 0b100;
+    private static final int UPPER_CLOSED = 0b1100;
+
+    private <C extends Comparable> Range createRange(C lower, C upper, int type) {
+        switch (type) {
+            case 0:
+                return Range.all();
+            case LOWER_OPEN:
+                return Range.greaterThan(lower);
+            case LOWER_CLOSED:
+                return Range.atLeast(lower);
+            case UPPER_OPEN:
+                return Range.lessThan(upper);
+            case UPPER_CLOSED:
+                return Range.atMost(upper);
+            case LOWER_OPEN | UPPER_OPEN:
+                return Range.open(lower, upper);
+            case LOWER_CLOSED | UPPER_OPEN:
+                return Range.closedOpen(lower, upper);
+            case LOWER_OPEN | UPPER_CLOSED:
+                return Range.openClosed(lower, upper);
+            case LOWER_CLOSED | UPPER_CLOSED:
+                return Range.closed(lower, upper);
+            default:
+                throw new IllegalStateException(String.valueOf(type));
+        }
     }
 
     /** */
@@ -891,6 +969,50 @@ class RelJson {
         map.put("name", operator.getName());
         map.put("kind", toJson(operator.kind));
         map.put("syntax", toJson(operator.getSyntax()));
+        return map;
+    }
+
+    /** */
+    private Object toJson(Sarg<?> sarg) {
+        Map map = map();
+        map.put("kind", "sarg");
+
+        if (sarg.containsNull)
+            map.put("containsNull", true);
+
+        map.put("rangeSet", toJson(sarg.rangeSet));
+
+        return map;
+    }
+
+    /** */
+    private Object toJson(RangeSet rangeSet) {
+        Set set = set();
+
+        for (Object range : rangeSet.asRanges())
+            set.add(toJson((Range) range));
+
+        return set;
+    }
+
+    /** */
+    private Object toJson(Range range) {
+        Map map = map();
+
+        if (range.hasLowerBound()) {
+            map.put("lower", toJson(range.lowerEndpoint()));
+
+            if (range.lowerBoundType() == CLOSED)
+                map.put("lClosed", true);
+        }
+
+        if (range.hasUpperBound()) {
+            map.put("upper", toJson(range.upperEndpoint()));
+
+            if (range.upperBoundType() == CLOSED)
+                map.put("uClosed", true);
+        }
+
         return map;
     }
 }
