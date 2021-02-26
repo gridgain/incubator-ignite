@@ -72,6 +72,7 @@ public class CalciteQueryProcessor extends GridProcessorAdapter implements Query
         .executor(EXECUTOR)
         .sqlToRelConverterConfig(SqlToRelConverter.config()
             .withTrimUnusedFields(true)
+            .withInSubQueryThreshold(Integer.MAX_VALUE)
             .withDecorrelationEnabled(true))
         .parserConfig(
             SqlParser.config()

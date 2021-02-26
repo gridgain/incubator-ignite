@@ -294,7 +294,7 @@ class RelJson {
         else if (value instanceof RelDataTypeField)
             return toJson((RelDataTypeField)value);
         else if (value instanceof Sarg)
-            return toJson((Sarg) value);
+            return toJson((Sarg)value);
         else
             throw new UnsupportedOperationException("type not serializable: "
                 + value + " (type " + value.getClass().getCanonicalName() + ")");
