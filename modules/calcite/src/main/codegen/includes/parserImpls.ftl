@@ -164,6 +164,26 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     }
 }
 
+boolean IfExistsOpt() :
+{
+}
+{
+    <IF> <EXISTS> { return true; }
+|
+    { return false; }
+}
+
+SqlDrop SqlDropTable(Span s, boolean replace) :
+{
+    final boolean ifExists;
+    final SqlIdentifier id;
+}
+{
+    <TABLE> ifExists = IfExistsOpt() id = CompoundIdentifier() {
+        return SqlDdlNodes.dropTable(s.end(this), ifExists, id);
+    }
+}
+
 void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
 {
     final SqlDataTypeSpec dt;
