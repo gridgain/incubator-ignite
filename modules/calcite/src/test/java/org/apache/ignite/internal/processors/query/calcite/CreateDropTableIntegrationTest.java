@@ -320,6 +320,16 @@ public class CreateDropTableIntegrationTest extends GridCommonAbstractTest {
         executeSql("drop table if exists my_schema.my_table");
     }
 
+    @Test
+    public void test() {
+        executeSql("CREATE TABLE test (id INTEGER, a1 INTEGER, a2 INTEGER, a3 INTEGER, a4 INTEGER, aa INTEGER);");
+        executeSql("INSERT INTO test(id, aa) VALUES (1, 1), (2, 1), (2, 1), (3, 1);");
+        executeSql("INSERT INTO test(id, aa) VALUES (3, 1), (3, 1), (4, 1), (4, 1), (4, 1), (4, 1);");
+
+        for (List<?> row : executeSql("SELECT id, sum(aa) FROM test group by id order by count(aa)"))
+            System.out.println(row);
+    }
+
     /** */
     private List<List<?>> executeSql(String sql) {
         List<FieldsQueryCursor<List<?>>> cur = queryProcessor().query(null, "PUBLIC", sql);

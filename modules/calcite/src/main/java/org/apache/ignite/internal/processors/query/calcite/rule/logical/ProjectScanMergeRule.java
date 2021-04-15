@@ -151,19 +151,15 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
         ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
 
-        new RexShuttle() {
+        RexShuttle requiredFieldGatherer = new RexShuttle() {
             @Override public RexNode visitInputRef(RexInputRef ref) {
                 builder.set(ref.getIndex());
                 return ref;
             }
-        }.apply(projects);
+        };
 
-        new RexShuttle() {
-            @Override public RexNode visitLocalRef(RexLocalRef inputRef) {
-                builder.set(inputRef.getIndex());
-                return inputRef;
-            }
-        }.apply(cond);
+        requiredFieldGatherer.apply(projects);
+        requiredFieldGatherer.apply(cond);
 
         ImmutableBitSet requiredColumns = builder.build();
 
