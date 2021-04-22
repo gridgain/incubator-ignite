@@ -80,6 +80,7 @@ public class MinusConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
 
+//            RelNode map = new IgniteMapMinus(cluster, outTrait.replace(IgniteDistributions.random()), inputs, setOp.all);
             RelNode map = new IgniteMapMinus(cluster, outTrait, inputs, setOp.all);
 
             return new IgniteReduceMinus(

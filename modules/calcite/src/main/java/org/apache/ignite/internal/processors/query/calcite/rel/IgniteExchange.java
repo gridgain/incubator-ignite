@@ -32,6 +32,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribution;
+import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistributions;
 
 import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
 
@@ -80,10 +81,12 @@ public class IgniteExchange extends Exchange implements IgniteRel {
 
         IgniteCostFactory costFactory = (IgniteCostFactory)planner.getCostFactory();
 
-        if (RelDistributions.BROADCAST_DISTRIBUTED.equals(distribution))
+        if (IgniteDistributions.broadcast() == distribution)
             totalBytes *= IgniteCost.BROADCAST_DISTRIBUTION_PENALTY;
 
-        return costFactory.makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0, 0, totalBytes);
+        RelOptCost cost = costFactory.makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0, 0, totalBytes);
+
+        return IgniteDistributions.single() == distribution ? cost.multiplyBy(1000) : cost;
     }
 
     /** {@inheritDoc} */

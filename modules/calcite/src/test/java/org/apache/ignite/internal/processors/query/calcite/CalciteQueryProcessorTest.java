@@ -715,8 +715,7 @@ public class CalciteQueryProcessorTest extends GridCommonAbstractTest {
         populateTables();
         copyCacheAsReplicated("orders");
 
-        List<List<?>> rows = sql("SELECT name FROM Orders_repl EXCEPT ALL SELECT name FROM Account EXCEPT ALL " +
-            "SELECT name FROM orders WHERE salary < 11");
+        List<List<?>> rows = sql("SELECT name FROM Account EXCEPT SELECT name FROM Account EXCEPT SELECT name FROM (SELECT salary, count(name)::VARCHAR as name FROM Account GROUP BY salary)");
 
         assertEquals(3, rows.size());
         assertEquals(2, F.size(rows, r -> r.get(0).equals("Igor")));

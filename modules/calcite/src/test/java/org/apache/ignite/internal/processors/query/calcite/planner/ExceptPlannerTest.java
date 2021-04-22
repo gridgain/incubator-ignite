@@ -67,6 +67,7 @@ public class ExceptPlannerTest extends AbstractPlannerTest {
             .add("SALARY", f.createJavaType(Double.class))
             .build();
 
+        createTable("SINGLE_TBL1", type, IgniteDistributions.single(), null);
         createTable("RANDOM_TBL1", type, IgniteDistributions.random(), null);
         createTable("RANDOM_TBL2", type, IgniteDistributions.random(), null);
         createTable("BROADCAST_TBL1", type, IgniteDistributions.broadcast(), null);
@@ -96,6 +97,23 @@ public class ExceptPlannerTest extends AbstractPlannerTest {
             "SELECT * FROM random_tbl1 " +
             "EXCEPT " +
             "SELECT * FROM random_tbl2 ";
+
+        assertPlan(sql, isInstanceOf(IgniteReduceMinus.class).and(n -> !n.all)
+            .and(hasChildThat(isInstanceOf(IgniteMapMinus.class)
+                .and(input(0, isTableScan("random_tbl1")))
+                .and(input(1, isTableScan("random_tbl2")))
+            ))
+        );
+    }
+
+    @Test
+    public void test() throws Exception {
+        String sql = "" +
+            "SELECT * FROM single_tbl1 " +
+            "EXCEPT " +
+            "SELECT * FROM random_tbl1 " +
+            "EXCEPT " +
+            "SELECT * FROM broadcast_tbl1 ";
 
         assertPlan(sql, isInstanceOf(IgniteReduceMinus.class).and(n -> !n.all)
             .and(hasChildThat(isInstanceOf(IgniteMapMinus.class)
@@ -290,7 +308,9 @@ public class ExceptPlannerTest extends AbstractPlannerTest {
 
     /** */
     private <T extends RelNode> void assertPlan(String sql, Predicate<T> predicate) throws Exception {
-        IgniteRel plan = physicalPlan(sql, publicSchema);
+        IgniteRel plan = physicalPlan(sql, publicSchema, "SingleMinusConverterRule");
+
+        System.out.println(RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES));
 
         if (!predicate.test((T)plan)) {
             String invalidPlanMsg = "Invalid plan (" + lastError + "):\n" +

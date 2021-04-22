@@ -22,10 +22,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptCost;
+import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.Pair;
@@ -109,21 +112,11 @@ public class IgniteMapMinus extends IgniteMinusBase {
         RelTraitSet nodeTraits,
         List<RelTraitSet> inputTraits
     ) {
-        Set<IgniteDistribution> distributions = inputTraits.stream()
-            .map(TraitUtils::distribution)
-            .collect(Collectors.toSet());
-
-        ImmutableList.Builder<Pair<RelTraitSet, List<RelTraitSet>>> b = ImmutableList.builder();
-
-        for (IgniteDistribution distribution : distributions) {
-            if (distribution.satisfies(IgniteDistributions.single()))
-                continue;
-
-            b.add(Pair.of(nodeTraits.replace(distribution),
-                Commons.transform(inputTraits, t -> t.replace(distribution))));
-        }
-
-        return b.build();
+        return ImmutableList.of(
+            Pair.of(nodeTraits.replace(IgniteDistributions.random()), Commons.transform(inputTraits,
+                t -> t.replace(IgniteDistributions.random())
+            ))
+        );
     }
 
     /** {@inheritDoc} */
