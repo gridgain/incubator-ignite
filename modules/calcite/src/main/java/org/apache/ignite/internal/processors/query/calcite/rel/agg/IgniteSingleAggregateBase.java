@@ -55,6 +55,16 @@ public abstract class IgniteSingleAggregateBase extends IgniteAggregate implemen
     }
 
     /** {@inheritDoc} */
+    @Override public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
+        List<RelTraitSet> inTraits) {
+
+        if (TraitUtils.distribution(nodeTraits) != IgniteDistributions.single())
+            return null;
+
+        return Pair.of(nodeTraits, ImmutableList.of(inTraits.get(0)));
+    }
+
+    /** {@inheritDoc} */
     @Override public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
         RelTraitSet nodeTraits,
         List<RelTraitSet> inputTraits
