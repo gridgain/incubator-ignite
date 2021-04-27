@@ -56,6 +56,7 @@ import org.apache.ignite.internal.processors.query.calcite.rule.TableFunctionSca
 import org.apache.ignite.internal.processors.query.calcite.rule.TableModifyConverterRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.UnionConverterRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.ValuesConverterRule;
+import org.apache.ignite.internal.processors.query.calcite.rule.logical.ExposeCorrelationRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.processors.query.calcite.rule.logical.LogicalOrToUnionRule;
@@ -158,6 +159,8 @@ public enum PlannerPhase {
                     ProjectScanMergeRule.INDEX_SCAN,
                     FilterScanMergeRule.TABLE_SCAN,
                     FilterScanMergeRule.INDEX_SCAN,
+
+                    ExposeCorrelationRule.INSTANCE,
 
                     LogicalOrToUnionRule.INSTANCE,
 
