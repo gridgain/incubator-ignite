@@ -89,7 +89,7 @@ public class CorrelationTrait implements RelTrait {
 
     /** {@inheritDoc} */
     @Override public boolean satisfies(RelTrait trait) {
-        if (trait == this || this == UNCORRELATED)
+        if (trait == this)
             return true;
 
         if (!(trait instanceof CorrelationTrait))
