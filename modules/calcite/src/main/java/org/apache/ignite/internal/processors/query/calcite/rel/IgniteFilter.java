@@ -108,8 +108,17 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
 
         CorrelationTrait correlation = TraitUtils.correlation(nodeTraits);
 
-        if (corrSet.isEmpty() || correlation.correlationIds().containsAll(corrSet))
+        if (corrSet.isEmpty())
             return Pair.of(nodeTraits, ImmutableList.of(inTraits.get(0).replace(correlation)));
+
+        if (correlation.correlationIds().containsAll(corrSet))
+            // this probably won't work for complex correlated queries
+            // with multiple correlated variables used in multiple rels each,
+            // but another option is to traverse the tree to find if any of
+            // the CorrelationId from the corrSet is used anywhere below.
+            // I think we could postpone implementation of the second option
+            // for a while till the real-world case of such queries appears
+            return Pair.of(nodeTraits, ImmutableList.of(inTraits.get(0).replace(CorrelationTrait.ANY)));
 
         return null;
     }

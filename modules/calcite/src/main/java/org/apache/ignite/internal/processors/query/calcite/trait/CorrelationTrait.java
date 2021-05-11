@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.processors.query.calcite.trait;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
+
 import com.google.common.collect.ImmutableSet;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTrait;
@@ -46,19 +47,35 @@ import org.apache.ignite.internal.util.typedef.F;
  */
 public class CorrelationTrait implements RelTrait {
     /** */
-    public static final CorrelationTrait UNCORRELATED = canonize(new CorrelationTrait(Collections.emptyList()));
+    public static final CorrelationTrait UNCORRELATED = canonize(new CorrelationTrait(CorrelationType.UNCORRELATED));
+
+    /** */
+    public static final CorrelationTrait ANY = canonize(new CorrelationTrait(CorrelationType.ANY));
+
+    /** */
+    private final CorrelationType type;
 
     /** */
     private final ImmutableSet<CorrelationId> correlations;
 
     /** */
-    public CorrelationTrait(Collection<CorrelationId> correlationIds) {
+    private CorrelationTrait(CorrelationType type) {
+        this.type = type;
+
+        correlations = ImmutableSet.of();
+    }
+
+    /** */
+    private CorrelationTrait(Collection<CorrelationId> correlationIds) {
+        assert !F.isEmpty(correlationIds);
+
+        type = CorrelationType.CORRELATED;
         correlations = ImmutableSet.copyOf(correlationIds);
     }
 
     /** */
     public boolean correlated() {
-        return !F.isEmpty(correlations);
+        return type == CorrelationType.CORRELATED;
     }
 
     /** {@inheritDoc} */
@@ -69,17 +86,19 @@ public class CorrelationTrait implements RelTrait {
         if (!(o instanceof CorrelationTrait))
             return false;
 
-        return correlations.equals(((CorrelationTrait)o).correlations);
+        CorrelationTrait other = (CorrelationTrait)o;
+
+        return type == other.type && correlations.equals(other.correlations);
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return correlations.hashCode();
+        return Objects.hash(type, correlations);
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return correlated() ? "correlated" + correlations : "uncorrelated";
+        return type.name().toLowerCase() + (correlated() ? correlations : "");
     }
 
     /** {@inheritDoc} */
@@ -89,15 +108,10 @@ public class CorrelationTrait implements RelTrait {
 
     /** {@inheritDoc} */
     @Override public boolean satisfies(RelTrait trait) {
-        if (trait == this || this == UNCORRELATED)
+        if (trait == ANY)
             return true;
 
-        if (!(trait instanceof CorrelationTrait))
-            return false;
-
-        CorrelationTrait other = (CorrelationTrait) trait;
-
-        return other.correlated() && other.correlationIds().containsAll(correlationIds());
+        return equals(trait);
     }
 
     /** {@inheritDoc} */
@@ -117,6 +131,26 @@ public class CorrelationTrait implements RelTrait {
 
     /** */
     public static CorrelationTrait correlations(Collection<CorrelationId> correlationIds) {
+        if (F.isEmpty(correlationIds))
+            return UNCORRELATED;
+
         return canonize(new CorrelationTrait(correlationIds));
+    }
+
+    /**
+     * Type of the correlation.
+     */
+    private enum CorrelationType {
+        /** The stream is correlated by specified correlation ids. */
+        CORRELATED,
+
+        /** The stream is not correlated. */
+        UNCORRELATED,
+
+        /**
+         * Not a valid correlation for a physical stream. Indicates
+         * that consumer accept any correlation.
+         */
+        ANY
     }
 }

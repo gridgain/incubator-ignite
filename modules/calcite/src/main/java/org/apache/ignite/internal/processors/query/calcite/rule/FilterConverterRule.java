@@ -53,6 +53,6 @@ public class FilterConverterRule extends AbstractIgniteConverterRule<LogicalFilt
         if (!corrIds.isEmpty())
             traits = traits.replace(CorrelationTrait.correlations(corrIds));
 
-        return new IgniteFilter(cluster, traits, rel.getInput(), rel.getCondition());
+        return new IgniteFilter(cluster, traits, convert(rel.getInput(), IgniteConvention.INSTANCE), rel.getCondition());
     }
 }

@@ -136,8 +136,6 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         RelTraitSet left = inputTraits.get(0), right = inputTraits.get(1);
         RelCollation leftCollation = TraitUtils.collation(left), rightCollation = TraitUtils.collation(right);
 
-        List<Integer> newLeftCollation, newRightCollation;
-
         if (isPrefix(leftCollation.getKeys(), joinInfo.leftKeys)) // preserve left collation
             rightCollation = leftCollation.apply(buildProjectionMapping(true));
 
