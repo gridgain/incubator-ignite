@@ -81,7 +81,7 @@ public class IgniteSortAggregate extends IgniteAggregateBase {
 
     /** {@inheritDoc} */
     @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSortAggregate(cluster, getTraitSet(), sole(inputs),
+        return new IgniteSortAggregate(cluster, getTraitSet().replace(collation), sole(inputs),
             getGroupSet(), getGroupSets(), getAggCallList());
     }
 
