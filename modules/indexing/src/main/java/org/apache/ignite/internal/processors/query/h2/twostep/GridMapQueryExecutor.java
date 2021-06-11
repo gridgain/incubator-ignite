@@ -84,6 +84,7 @@ import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.events.EventType.EVT_CACHE_QUERY_EXECUTED;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.QUERY_POOL;
+import static org.apache.ignite.internal.processors.query.h2.opt.GridH2IndexBase.calculateSegment;
 import static org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryRequest.isDataPageScanEnabled;
 import static org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2ValueMessageFactory.toMessages;
 import static org.apache.ignite.internal.processors.tracing.SpanTags.ERROR;
@@ -218,8 +219,12 @@ public class GridMapQueryExecutor {
 
             final List<Integer> cacheIds = req.caches();
 
-            int segments = explain || replicated || F.isEmpty(cacheIds) ? 1 :
+            final boolean singlePart = parts != null && parts.length == 1;
+            final int parallelism = explain || replicated ? 1 :
                 CU.firstPartitioned(ctx.cache().context(), cacheIds).config().getQueryParallelism();
+
+            final int segments = explain || replicated || singlePart ? 1 : parallelism;
+            final int singleSegment = singlePart ? calculateSegment(parallelism, parts[0]) : 0;
 
             final Object[] params = req.parameters();
 
@@ -269,7 +274,7 @@ public class GridMapQueryExecutor {
             onQueryRequest0(
                 node,
                 req.requestId(),
-                0,
+                singleSegment,
                 req.schemaName(),
                 req.queries(),
                 cacheIds,
