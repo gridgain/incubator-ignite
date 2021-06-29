@@ -16,14 +16,12 @@
  */
 package org.apache.ignite.internal.processors.odbc;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
 import org.apache.ignite.internal.processors.metric.impl.IntMetricImpl;
 import org.apache.ignite.internal.processors.metric.impl.MetricUtils;
 
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.CLIENT_METRICS;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.CLIENT_CONNECTOR_METRICS;
 import static org.apache.ignite.internal.processors.odbc.ClientListenerNioListener.JDBC_CLIENT;
 import static org.apache.ignite.internal.processors.odbc.ClientListenerNioListener.ODBC_CLIENT;
 import static org.apache.ignite.internal.processors.odbc.ClientListenerNioListener.THIN_CLIENT;
@@ -32,20 +30,14 @@ import static org.apache.ignite.internal.processors.odbc.ClientListenerNioListen
  * Client listener metrics.
  */
 public class ClientListenerMetrics {
-    /** Connections metric label. */
-    public static final String METRIC_CONNECTIONS = "connections";
-
     /** Handshakes rejected by timeout metric label. */
-    public static final String METRIC_REJECTED_TIMEOUT =
-            MetricUtils.metricName(METRIC_CONNECTIONS, "rejectedByTimeout");
+    public static final String METRIC_REJECTED_TIMEOUT = "rejectedByTimeout";
 
     /** Handshakes rejected by authentication metric label. */
-    public static final String METRIC_REJECTED_AUTHENTICATION =
-            MetricUtils.metricName(METRIC_CONNECTIONS, "rejectedAuthentication");
+    public static final String METRIC_REJECTED_AUTHENTICATION = "rejectedAuthentication";
 
     /** Total number of rejected handshakes. */
-    public static final String METRIC_REJECTED_TOTAL =
-            MetricUtils.metricName(METRIC_CONNECTIONS, "rejectedTotal");
+    public static final String METRIC_REJECTED_TOTAL = "rejectedTotal";
 
     /** Rejected by timeout. */
     private final IntMetricImpl rejectedTimeout;
@@ -57,16 +49,16 @@ public class ClientListenerMetrics {
     private final IntMetricImpl rejectedTotal;
 
     /** Connections accepted. */
-    private final Map<Byte, IntMetricImpl> accepted;
+    private final IntMetricImpl[] accepted;
 
     /** Number of active connections. */
-    private final Map<Byte, IntMetricImpl> active;
+    private final IntMetricImpl[] active;
 
     /**
      * @param ctx Kernal context.
      */
     public ClientListenerMetrics(GridKernalContext ctx) {
-        MetricRegistry mreg = ctx.metric().registry(CLIENT_METRICS);
+        MetricRegistry mreg = ctx.metric().registry(CLIENT_CONNECTOR_METRICS);
 
         rejectedTimeout = mreg.intMetric(METRIC_REJECTED_TIMEOUT,
                 "Number of sessions that were not established because of handshake timeout.");
@@ -77,18 +69,15 @@ public class ClientListenerMetrics {
         rejectedTotal = mreg.intMetric(METRIC_REJECTED_TOTAL, "Total number of rejected connections.");
 
         final byte[] supportedClients = { ODBC_CLIENT, JDBC_CLIENT, THIN_CLIENT };
-        accepted = new HashMap<>(supportedClients.length);
-        active = new HashMap<>(supportedClients.length);
+        accepted = new IntMetricImpl[supportedClients.length];
+        active = new IntMetricImpl[supportedClients.length];
 
         for (byte clientType : supportedClients) {
-            String labelAccepted = MetricUtils.metricName(METRIC_CONNECTIONS,
-                    clientTypeLabel(clientType), "accepted");
+            String labelAccepted = MetricUtils.metricName(clientTypeLabel(clientType), "accepted");
+            String labelActive = MetricUtils.metricName(clientTypeLabel(clientType), "active");
 
-            String labelActive = MetricUtils.metricName(METRIC_CONNECTIONS,
-                    clientTypeLabel(clientType), "active");
-
-            accepted.put(clientType, mreg.intMetric(labelAccepted, "Number of successfully established sessions."));
-            active.put(clientType, mreg.intMetric(labelActive, "Number of active sessions."));
+            accepted[clientType] = mreg.intMetric(labelAccepted, "Number of successfully established sessions.");
+            active[clientType] = mreg.intMetric(labelActive, "Number of active sessions.");
         }
     }
 
@@ -121,8 +110,8 @@ public class ClientListenerMetrics {
      * @param clientType Client type.
      */
     public void onHandshakeAccept(byte clientType) {
-        accepted.get(clientType).increment();
-        active.get(clientType).increment();
+        accepted[clientType].increment();
+        active[clientType].increment();
     }
 
     /**
@@ -131,7 +120,7 @@ public class ClientListenerMetrics {
      * @param clientType Client type.
      */
     public void onDisconnect(byte clientType) {
-        active.get(clientType).add(-1);
+        active[clientType].add(-1);
     }
 
     /**
