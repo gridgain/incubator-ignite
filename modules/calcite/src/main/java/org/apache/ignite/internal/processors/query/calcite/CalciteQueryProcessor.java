@@ -26,6 +26,7 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.sql.fun.SqlLibrary;
 import org.apache.calcite.sql.fun.SqlLibraryOperatorTableFactory;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.type.SqlTypeCoercionRule;
 import org.apache.calcite.sql.util.SqlOperatorTables;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
@@ -93,6 +94,7 @@ public class CalciteQueryProcessor extends GridProcessorAdapter implements Query
                 .withConformance(IgniteSqlConformance.INSTANCE))
         .sqlValidatorConfig(SqlValidator.Config.DEFAULT
             .withIdentifierExpansion(true)
+            .withTypeCoercionRules(SqlTypeCoercionRule.instance())
             .withSqlConformance(IgniteSqlConformance.INSTANCE))
         // Dialects support.
         .operatorTable(SqlOperatorTables.chain(

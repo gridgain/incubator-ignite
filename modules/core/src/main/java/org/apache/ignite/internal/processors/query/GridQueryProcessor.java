@@ -173,7 +173,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
     /** Pattern to test incoming query to decide whether this query should be executed with Calcite or H2. */
     public static final Pattern H2_REDIRECTION_RULES =
-        Pattern.compile("\\s*(alter\\s+table)", CASE_INSENSITIVE);
+        Pattern.compile("\\s*(create\\s+table|alter\\s+table)", CASE_INSENSITIVE);
 
     /** For tests. */
     public static Class<? extends GridQueryIndexing> idxCls;
