@@ -32,7 +32,8 @@
         <jsonpath.version>2.4.0</jsonpath.version>
         <reflections.version>0.9.10</reflections.version>
         <javassist.version>3.28.0-GA</javassist.version>
-        <esri.geometry.version>2.2.0</esri.geometry.version>
+        <esri.geometry.version>2.2.3</esri.geometry.version>
+        <checkerframework.version>3.10.0</checkerframework.version>
     </properties>
 
     <parent>
@@ -139,6 +140,12 @@
             <groupId>com.esri.geometry</groupId>
             <artifactId>esri-geometry-api</artifactId>
             <version>${esri.geometry.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.checkerframework</groupId>
+            <artifactId>checker-qual</artifactId>
+            <version>${checkerframework.version}</version>
         </dependency>
 
         <dependency>
