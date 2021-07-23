@@ -165,7 +165,7 @@ public enum PlannerPhase {
                     FilterScanMergeRule.TABLE_SCAN,
                     FilterScanMergeRule.INDEX_SCAN,
 
-                    LogicalOrToUnionRule.INSTANCE,
+//                    LogicalOrToUnionRule.INSTANCE,
 
                     CorrelatedNestedLoopJoinRule.INSTANCE,
                     CorrelateToNestedLoopRule.INSTANCE,
