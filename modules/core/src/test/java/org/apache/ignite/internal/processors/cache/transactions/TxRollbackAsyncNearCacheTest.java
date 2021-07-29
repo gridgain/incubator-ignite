@@ -31,3 +31,4 @@ public class TxRollbackAsyncNearCacheTest extends TxRollbackAsyncTest {
         log.error("Would be fixed on: https://ggsystems.atlassian.net/browse/GG-27570");
     }
 }
+

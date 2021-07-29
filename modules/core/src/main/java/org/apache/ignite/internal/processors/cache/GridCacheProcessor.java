@@ -993,6 +993,9 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             if (mgr != exch)
                 mgr.onKernalStop(cancel);
         }
+
+        for (CacheGroupContext grp : cacheGrps.values())
+            grp.offheap().onKernalStop();
     }
 
     /**
