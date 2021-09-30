@@ -20,17 +20,22 @@ package org.apache.ignite.internal.processors.query.calcite.exec;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import com.google.common.primitives.Primitives;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
+import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -99,6 +104,7 @@ import org.apache.ignite.internal.processors.query.calcite.trait.IgniteDistribut
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactory;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
+import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
@@ -200,7 +206,40 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override public Node<Row> visit(IgniteProject rel) {
-        Function<Row, Row> prj = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
+        boolean projectionFromVals = false;
+
+        Function<Row, Row> prj = null;
+
+        Set<CorrelationId> corrs = RexUtils.extractCorrelationIds(rel.getProjects());
+
+        if (corrs.size() == 1 && (rel.getInput() instanceof Values)) {
+            projectionFromVals = true;
+
+            Values values = (Values)rel.getInput();
+
+            List<RexLiteral> vals = Commons.flat(Commons.cast(values.getTuples()));
+
+            assert vals.size() == 1;
+
+            RexLiteral literal = vals.get(0);
+
+            List<RelDataType> fldType = RelOptUtil.getFieldTypeList(rel.getInput().getRowType());
+
+            RelDataType type0 = fldType.get(0);
+
+            IgniteTypeFactory typeFactory = ctx.getTypeFactory();
+
+            Class<?> javaType = Primitives.wrap((Class<?>)typeFactory.getJavaClass(type0));
+
+            Object val = literal.getValueAs(javaType);
+
+            RowFactory<Row> fact = ctx.rowHandler().factory(javaType);
+
+            prj = row -> fact.create(val);
+        }
+
+        if (!projectionFromVals)
+            prj = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
 
         ProjectNode<Row> node = new ProjectNode<>(ctx, rel.getRowType(), prj);
 

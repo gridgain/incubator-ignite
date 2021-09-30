@@ -43,6 +43,8 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rex.RexExecutor;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlKind;
@@ -51,7 +53,14 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorScope;
+import org.apache.calcite.sql.validate.implicit.AbstractTypeCoercion;
+import org.apache.calcite.sql.validate.implicit.TypeCoercion;
+import org.apache.calcite.sql.validate.implicit.TypeCoercionFactory;
+import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -286,8 +295,63 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     /** */
     private SqlValidator validator() {
+        class TC extends TypeCoercionImpl {
+            public TC(RelDataTypeFactory typeFactory, SqlValidator validator) {
+                super(typeFactory, validator);
+            }
+
+            @Override protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
+                RelDataType fromType = validator.deriveType(scope, node);
+                // This depends on the fact that type validate happens before coercion.
+                // We do not have inferred type for some node, i.e. LOCALTIME.
+                if (fromType == null) {
+                    return false;
+                }
+
+                // This prevents that we cast a JavaType to normal RelDataType.
+                if (fromType instanceof RelDataTypeFactoryImpl.JavaType
+                    && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
+                    return false;
+                }
+
+                // Do not make a cast when we don't know specific type (ANY) of the origin node.
+                if (toType.getSqlTypeName() == SqlTypeName.ANY
+                    || fromType.getSqlTypeName() == SqlTypeName.ANY) {
+                    return false;
+                }
+
+                // No need to cast between char and varchar.
+                if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
+                    return false;
+                }
+
+                // No need to cast if the source type precedence list
+                // contains target type. i.e. do not cast from
+                // tinyint to int or int to bigint.
+/*                if (fromType.getPrecedenceList().containsType(toType)
+                    && SqlTypeUtil.isIntType(fromType)
+                    && SqlTypeUtil.isIntType(toType)) {
+                    return false;
+                }*/
+
+                // Implicit type coercion does not handle nullability.
+                if (SqlTypeUtil.equalSansNullability(factory, fromType, toType)) {
+                    return false;
+                }
+                // Should keep sync with rules in SqlTypeCoercionRule.
+                assert SqlTypeUtil.canCastFrom(toType, fromType, true);
+                return true;
+            }
+        }
+
+        SqlValidator.Config validatorCfg0 = validatorCfg.withTypeCoercionFactory(new TypeCoercionFactory() {
+            @Override public TypeCoercion create(RelDataTypeFactory typeFactory, SqlValidator validator) {
+                return new TC(typeFactory, validator);
+            }
+        });
+
         if (validator == null)
-            validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg, ctx.parameters());
+            validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg0, ctx.parameters());
 
         return validator;
     }

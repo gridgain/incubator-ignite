@@ -258,6 +258,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory
 
         assert handler.columnCount(res) == (requiredColumns == null ? descriptors.length : requiredColumns.cardinality());
 
+        System.err.println("requiredColumns: " + requiredColumns);
+
         if (requiredColumns == null) {
             for (int i = 0; i < descriptors.length; i++) {
                 ColumnDescriptor desc = descriptors[i];
@@ -736,6 +738,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory
             final Object val0 = key() ? null : dst;
 
             desc.setValue(key0, val0, val);
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return S.toString(FieldDescriptor.class, this);
         }
     }
 
