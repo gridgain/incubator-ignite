@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.processors.query.calcite.exec.ExecutionContext;
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Scan node.
@@ -40,12 +43,29 @@ public class ScanNode<Row> extends AbstractNode<Row> implements SingleNode<Row> 
     /** */
     private boolean inLoop;
 
+    /** */
+    private final List<CorrelationId> correlationIds;
+
     /**
      * @param ctx Execution context.
      * @param src Source.
      */
     public ScanNode(ExecutionContext<Row> ctx, RelDataType rowType, Iterable<Row> src) {
         super(ctx, rowType);
+
+        correlationIds = Collections.emptyList();
+
+        this.src = src;
+    }
+
+    /**
+     * @param ctx Execution context.
+     * @param src Source.
+     */
+    public ScanNode(ExecutionContext<Row> ctx, RelDataType rowType, Iterable<Row> src, @NotNull List<CorrelationId> corrIds) {
+        super(ctx, rowType);
+
+        correlationIds = corrIds;
 
         this.src = src;
     }

@@ -213,6 +213,10 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         Set<CorrelationId> corrs = RexUtils.extractCorrelationIds(rel.getProjects());
 
         if (corrs.size() == 1 && (rel.getInput() instanceof Values)) {
+            Supplier<Row> row0 = expressionFactory.rowSource(rel.getProjects());
+
+            row0.get();
+
             projectionFromVals = true;
 
             Values values = (Values)rel.getInput();

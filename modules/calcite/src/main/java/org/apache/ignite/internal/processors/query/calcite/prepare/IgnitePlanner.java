@@ -140,7 +140,10 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         programs = frameworkCfg.getPrograms();
         parserCfg = frameworkCfg.getParserConfig();
         sqlToRelConverterCfg = frameworkCfg.getSqlToRelConverterConfig();
-        validatorCfg = frameworkCfg.getSqlValidatorConfig();
+
+        SqlValidator.Config validatorCfg0 = frameworkCfg.getSqlValidatorConfig();
+        validatorCfg = validatorCfg0.withTypeCoercionFactory(IgniteTypeCoercion::new);
+
         convertletTbl = frameworkCfg.getConvertletTable();
         rexExecutor = frameworkCfg.getExecutor();
         traitDefs = frameworkCfg.getTraitDefs();
@@ -295,63 +298,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     /** */
     private SqlValidator validator() {
-        class TC extends TypeCoercionImpl {
-            public TC(RelDataTypeFactory typeFactory, SqlValidator validator) {
-                super(typeFactory, validator);
-            }
-
-            @Override protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
-                RelDataType fromType = validator.deriveType(scope, node);
-                // This depends on the fact that type validate happens before coercion.
-                // We do not have inferred type for some node, i.e. LOCALTIME.
-                if (fromType == null) {
-                    return false;
-                }
-
-                // This prevents that we cast a JavaType to normal RelDataType.
-                if (fromType instanceof RelDataTypeFactoryImpl.JavaType
-                    && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
-                    return false;
-                }
-
-                // Do not make a cast when we don't know specific type (ANY) of the origin node.
-                if (toType.getSqlTypeName() == SqlTypeName.ANY
-                    || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-                    return false;
-                }
-
-                // No need to cast between char and varchar.
-                if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
-                    return false;
-                }
-
-                // No need to cast if the source type precedence list
-                // contains target type. i.e. do not cast from
-                // tinyint to int or int to bigint.
-/*                if (fromType.getPrecedenceList().containsType(toType)
-                    && SqlTypeUtil.isIntType(fromType)
-                    && SqlTypeUtil.isIntType(toType)) {
-                    return false;
-                }*/
-
-                // Implicit type coercion does not handle nullability.
-                if (SqlTypeUtil.equalSansNullability(factory, fromType, toType)) {
-                    return false;
-                }
-                // Should keep sync with rules in SqlTypeCoercionRule.
-                assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-                return true;
-            }
-        }
-
-        SqlValidator.Config validatorCfg0 = validatorCfg.withTypeCoercionFactory(new TypeCoercionFactory() {
-            @Override public TypeCoercion create(RelDataTypeFactory typeFactory, SqlValidator validator) {
-                return new TC(typeFactory, validator);
-            }
-        });
-
         if (validator == null)
-            validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg0, ctx.parameters());
+            validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg, ctx.parameters());
 
         return validator;
     }

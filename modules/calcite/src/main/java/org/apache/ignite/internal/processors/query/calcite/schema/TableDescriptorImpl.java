@@ -258,8 +258,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory
 
         assert handler.columnCount(res) == (requiredColumns == null ? descriptors.length : requiredColumns.cardinality());
 
-        System.err.println("requiredColumns: " + requiredColumns);
-
         if (requiredColumns == null) {
             for (int i = 0; i < descriptors.length; i++) {
                 ColumnDescriptor desc = descriptors[i];

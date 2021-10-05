@@ -625,6 +625,13 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
             this.ctx_ = ctx_;
         }
 
+        @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
+            RexNode before = fieldAccess.getReferenceExpr();
+            RexNode after = before.accept(this);
+
+            return super.visitFieldAccess(fieldAccess);
+        }
+
         /** */
         public Function1<String, InputGetter> build(Iterable<RexNode> nodes) {
             try {
