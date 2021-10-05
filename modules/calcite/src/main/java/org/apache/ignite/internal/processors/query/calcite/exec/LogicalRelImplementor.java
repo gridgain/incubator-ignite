@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -37,6 +39,7 @@ import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -106,6 +109,7 @@ import org.apache.ignite.internal.processors.query.calcite.type.IgniteTypeFactor
 import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
 import org.apache.ignite.internal.util.typedef.F;
+import org.checkerframework.checker.units.qual.K;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
 import static org.apache.ignite.internal.processors.query.calcite.util.TypeUtils.combinedRowType;
@@ -210,39 +214,49 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
         Function<Row, Row> prj = null;
 
-        Set<CorrelationId> corrs = RexUtils.extractCorrelationIds(rel.getProjects());
+        Map<RexCorrelVariable, List<Integer>> correlationIds = RexUtils.extractCorrelationFieldIds(rel.getProjects());
 
-        if (corrs.size() == 1 && (rel.getInput() instanceof Values)) {
-            Supplier<Row> row0 = expressionFactory.rowSource(rel.getProjects());
+/*        if (correlationIds.size() == 1 && (rel.getInput() instanceof Values)) {
 
-            row0.get();
-
-            projectionFromVals = true;
+            //projectionFromVals = true;
 
             Values values = (Values)rel.getInput();
 
             List<RexLiteral> vals = Commons.flat(Commons.cast(values.getTuples()));
 
-            assert vals.size() == 1;
+            int pos = 0;
 
-            RexLiteral literal = vals.get(0);
+            for (Map.Entry<RexCorrelVariable, List<Integer>> corrId : correlationIds.entrySet()) {
+                RexLiteral literal = vals.get(pos);
 
-            List<RelDataType> fldType = RelOptUtil.getFieldTypeList(rel.getInput().getRowType());
+                List<RelDataType> fldTypes = RelOptUtil.getFieldTypeList(corrId.getKey().getType());
 
-            RelDataType type0 = fldType.get(0);
+                RowFactory<Row> factory = ctx.rowHandler().factory(ctx.getTypeFactory(), fldTypes);
 
-            IgniteTypeFactory typeFactory = ctx.getTypeFactory();
+                Row row = factory.create();
 
-            Class<?> javaType = Primitives.wrap((Class<?>)typeFactory.getJavaClass(type0));
+                for (int corrPos : corrId.getValue()) {
+                    RelDataType t0 = fldTypes.get(corrPos);
 
-            Object val = literal.getValueAs(javaType);
+                    Class<?> javaType = Primitives.wrap((Class<?>)ctx.getTypeFactory().getJavaClass(t0));
 
-            RowFactory<Row> fact = ctx.rowHandler().factory(javaType);
+                    Object val = literal.getValueAs(javaType);
 
-            prj = row -> fact.create(val);
-        }
+                    ctx.rowHandler().set(corrPos, row, val);
+                }
 
-        if (!projectionFromVals)
+                ++pos;
+
+                ctx.setCorrelated(row, corrId.getKey().id.getId());
+            }
+
+
+            //prj = row -> fact.create(val);
+
+            //ctx.setCorrelated(row, correlationIds.get(i).getId());
+        }*/
+
+        //if (!projectionFromVals)
             prj = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
 
         ProjectNode<Row> node = new ProjectNode<>(ctx, rel.getRowType(), prj);

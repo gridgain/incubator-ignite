@@ -26,8 +26,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
-import org.apache.ignite.internal.processors.query.calcite.util.Commons;
-import org.apache.ignite.internal.util.typedef.F;
 
 import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
 
@@ -50,17 +48,6 @@ public class IgniteValues extends Values implements IgniteRel {
      */
     public IgniteValues(RelOptCluster cluster, RelDataType rowType, ImmutableList<ImmutableList<RexLiteral>> tuples, RelTraitSet traits) {
         super(cluster, rowType, tuples, traits);
-
-        prepareCorrelations();
-    }
-
-    /** */
-    private void prepareCorrelations() {
-        List<RexLiteral> vals = Commons.flat(Commons.cast(tuples));
-
-        for (int i = 0; i < vals.size(); i++) {
-            context().setCorrelated(row, correlationIds.get(i).getId());
-        }
     }
 
     /** */

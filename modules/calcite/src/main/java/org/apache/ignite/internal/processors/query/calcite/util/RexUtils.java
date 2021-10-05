@@ -553,6 +553,27 @@ public class RexUtils {
         return cors;
     }
 
+    /** */
+    public static Map<RexCorrelVariable, List<Integer>> extractCorrelationFieldIds(List<RexNode> nodes) {
+        final Map<RexCorrelVariable, List<Integer>> cors = new HashMap<>();
+
+        RexVisitor<RexNode> v = new RexVisitorImpl<RexNode>(true) {
+            @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
+                RexCorrelVariable refExpr = (RexCorrelVariable)fieldAccess.getReferenceExpr();
+
+                List<Integer> vars = cors.computeIfAbsent(refExpr, k -> new ArrayList<>());
+
+                vars.add(fieldAccess.getField().getIndex());
+
+                return null;
+            }
+        };
+
+        nodes.forEach(rex -> rex.accept(v));
+
+        return cors;
+    }
+
     /** Visitor for replacing scan local refs to input refs. */
     private static class LocalRefReplacer extends RexShuttle {
         /** */

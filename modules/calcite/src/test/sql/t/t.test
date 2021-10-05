@@ -1,0 +1,31 @@
+# name: test/sql/subquery/scalar/test_complex_nested_correlated_subquery.test
+# description: Test nested correlated subqueries with multiple columns
+# group: [scalar]
+
+statement ok
+CREATE TABLE tbl(a TINYINT, b SMALLINT, c INTEGER, d BIGINT, e VARCHAR, f DATE, g TIMESTAMP)
+
+statement ok
+INSERT INTO tbl VALUES (1, 2, 3, 4, '5', DATE '1992-01-01', TIMESTAMP '1992-01-01 00:00:00')
+
+query TTTTTTTTTTTTTT
+SELECT * FROM tbl t1 LEFT JOIN tbl t2 ON (SELECT t2.a)<100
+----
+1	2	3	4	5	1992-01-01	1992-01-01 00:00:00.0	1	2	3	4	5	1992-01-01	1992-01-01 00:00:00.0
+
+query TTTTTTTTTTTTTT
+SELECT * FROM tbl t1 LEFT JOIN tbl t2 ON (SELECT t2.a)>100
+----
+1	2	3	4	5	1992-01-01	1992-01-01 00:00:00.0	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+
+
+
+
+
+
+
+
+
+
+
+
