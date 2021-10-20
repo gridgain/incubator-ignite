@@ -669,6 +669,8 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                     else if (customMsg instanceof ChangeGlobalStateFinishMessage) {
                         ctx.state().onStateFinishMessage((ChangeGlobalStateFinishMessage)customMsg);
 
+                        ctx.cluster().onLocalJoin();
+
                         Snapshot snapshot = topSnap.get();
 
                         // Topology version does not change, but need create DiscoCache with new state.
@@ -821,8 +823,6 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                             ctx.service().onLocalJoin(discoEvt, discoCache);
 
                             ctx.encryption().onLocalJoin();
-
-                            ctx.cluster().onLocalJoin();
                         }
                     }
 

@@ -21,11 +21,14 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Predicate;
 import org.apache.ignite.cluster.ClusterState;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
 import org.apache.ignite.internal.processors.metastorage.persistence.DistributedMetaStorageImpl;
+import org.apache.ignite.internal.processors.metastorage.persistence.DmsDataWriterWorker;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.spi.IgniteSpiException;
@@ -39,6 +42,8 @@ import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_GLOBAL_METASTORAGE_HISTORY_MAX_BYTES;
 import static org.apache.ignite.internal.GridComponent.DiscoveryDataExchangeType.META_STORAGE;
+import static org.apache.ignite.internal.processors.cluster.ClusterProcessor.CLUSTER_ID_TAG_KEY;
+import static org.apache.ignite.internal.processors.metastorage.DistributedMetaStorage.IGNITE_INTERNAL_KEY_PREFIX;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assume.assumeThat;
@@ -50,6 +55,13 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
     /** {@inheritDoc} */
     @Override protected boolean isPersistent() {
         return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void beforeTestsStarted() throws Exception {
+        cleanPersistenceDir();
+
+        super.beforeTestsStarted();
     }
 
     /** {@inheritDoc} */
@@ -73,7 +85,7 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
     public void testRestart() throws Exception {
         IgniteEx ignite = startGrid(0);
 
-        ignite.cluster().active(true);
+        ignite.cluster().state(ClusterState.ACTIVE);
 
         ignite.context().distributedMetastorage().write("key", "value");
 
@@ -81,9 +93,56 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
 
         ignite = startGrid(0);
 
-        ignite.cluster().active(true);
+        ignite.cluster().state(ClusterState.ACTIVE);
 
         assertEquals("value", ignite.context().distributedMetastorage().read("key"));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testStoreLagOnOneNode() throws Exception {
+        IgniteEx ignite = startGrid(0);
+
+        IgniteEx ignite2 = startGrid(1);
+
+        DistributedMetaStorageImpl distrMetaStore = (DistributedMetaStorageImpl)ignite.context().distributedMetastorage();
+
+        DmsDataWriterWorker worker = GridTestUtils.getFieldValue(distrMetaStore, "worker");
+
+        assertNotNull(worker);
+
+        GridTestUtils.setFieldValue(worker, "writeCondition", new Predicate<String>() {
+            private volatile boolean skip;
+
+            @Override public boolean test(String s) {
+                if (s.equals(IGNITE_INTERNAL_KEY_PREFIX + CLUSTER_ID_TAG_KEY) || skip) {
+                    skip = true;
+
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        ignite.cluster().state(ClusterState.ACTIVE);
+
+        String key = "some_kind_of_uniq_key_" + ThreadLocalRandom.current().nextInt();
+
+        ignite.context().distributedMetastorage().write(key, "value");
+
+        checkStoredWithPers(ignite.context().distributedMetastorage(), ignite2, key, "value");
+
+        stopAllGrids();
+
+        ignite = startGrid(0);
+
+        startGrid(1);
+
+        ignite.cluster().state(ClusterState.ACTIVE);
+
+        assertEquals("value", ignite.context().distributedMetastorage().read(key));
     }
 
     /**

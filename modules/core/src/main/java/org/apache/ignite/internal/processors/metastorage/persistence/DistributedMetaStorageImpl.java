@@ -412,6 +412,7 @@ public class DistributedMetaStorageImpl extends GridProcessorAdapter
 
             try {
                 ver = bridge.readInitialData(metastorage);
+                System.err.println("!!!ver=" + ver);
 
                 metastorage.iterate(
                     historyItemPrefix(),
@@ -1018,6 +1019,7 @@ public class DistributedMetaStorageImpl extends GridProcessorAdapter
             if (nodeData != null) {
                 if (nodeData.fullData != null) {
                     ver = nodeData.ver;
+                    System.err.println("!!!ver=" + ver);
 
                     notifyListenersBeforeReadyForWrite(nodeData.fullData);
 

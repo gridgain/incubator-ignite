@@ -27,6 +27,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RunnableFuture;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -71,6 +72,9 @@ public class DmsDataWriterWorker extends GridWorker {
 
     /** */
     private volatile CountDownLatch latch = new CountDownLatch(0);
+
+    /** For tests purpose only. */
+    private volatile Predicate<String> writeCondition;
 
     /**
      * This task is used to pause processing of the {@code updateQueue}. If this task completed it means that all the updates
@@ -129,6 +133,9 @@ public class DmsDataWriterWorker extends GridWorker {
 
     /** */
     public void update(DistributedMetaStorageHistoryItem histItem) {
+        if (writeCondition != null && writeCondition.test(histItem.keys()[0]))
+            return;
+
         updateQueue.offer(newDmsTask(() -> {
             metastorage.write(historyItemKey(workerDmsVer.id() + 1), histItem);
 
@@ -291,6 +298,9 @@ public class DmsDataWriterWorker extends GridWorker {
 
     /** */
     private void write(String key, byte[] valBytes) throws IgniteCheckedException {
+        if (writeCondition != null && writeCondition.test(key))
+            return;
+
         if (valBytes == null)
             metastorage.remove(localKey(key));
         else

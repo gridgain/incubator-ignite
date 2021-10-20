@@ -258,7 +258,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
      * Master value contained in {@link #historicalRebalanceThreshold}.
      */
     private final int walRebalanceThresholdLegacy =
-            getInteger(IGNITE_PDS_WAL_REBALANCE_THRESHOLD, DFLT_PDS_WAL_REBALANCE_THRESHOLD);
+        getInteger(IGNITE_PDS_WAL_REBALANCE_THRESHOLD, DFLT_PDS_WAL_REBALANCE_THRESHOLD);
 
     /** WAL rebalance threshold distributed configuration key */
     public static final String HISTORICAL_REBALANCE_THRESHOLD_DMS_KEY = "historical.rebalance.threshold";
@@ -1444,7 +1444,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         }
 
         if (cctx.kernalContext().query().moduleEnabled())
-           cctx.kernalContext().query().beforeExchange(fut);
+            cctx.kernalContext().query().beforeExchange(fut);
     }
 
     /** {@inheritDoc} */
@@ -3283,7 +3283,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
      * @throws IgniteCheckedException If failed.
      */
     private static void dumpPartitionsInfo(GridCacheSharedContext cctx,
-        IgniteLogger log) throws IgniteCheckedException {
+                                           IgniteLogger log) throws IgniteCheckedException {
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
             if (grp.isLocal() || !grp.persistenceEnabled())
                 continue;
