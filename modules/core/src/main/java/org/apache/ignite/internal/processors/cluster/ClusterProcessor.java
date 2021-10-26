@@ -71,6 +71,7 @@ import org.apache.ignite.internal.util.lang.GridPlainRunnable;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -287,16 +288,15 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
                 try {
                     ClusterIdAndTag idAndTag = new ClusterIdAndTag(cluster.id(), cluster.tag());
 
-                    if (log.isInfoEnabled()) {
-                        if (idAndTag.id() != null) {
-                            metastorage.writeAsync(CLUSTER_ID_TAG_KEY, idAndTag);
+                    if (idAndTag.id() != null) {
+                        metastorage.writeAsync(CLUSTER_ID_TAG_KEY, idAndTag);
 
+                        if (log.isInfoEnabled())
                             log.info("Writing cluster ID and tag to metastorage on ready for write " + idAndTag);
-                        }
-                        else
-                            if (log.isDebugEnabled())
-                                log.debug("Skip writing empty clusterId and tag");
                     }
+                    else
+                        if (log.isDebugEnabled())
+                            log.debug("Skip writing empty clusterId and tag");
                 }
                 catch (IgniteCheckedException e) {
                     ctx.failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
@@ -338,7 +338,7 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
      *     when it becomes ready for read.</li>
      * </ul>
      */
-    public void onLocalJoin() {
+    public void onChangeState() {
         Collection<ClusterNode> rmtNodes = cluster.forServers().nodes();
         List<ClusterNode> rmtNodes0 = new ArrayList<>(rmtNodes);
 
@@ -346,7 +346,13 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
 
         @Nullable Collection<BaselineNode> bltNodes = cluster.currentBaselineTopology();
 
-        UUID first = null;
+        if (F.isEmpty(bltNodes)) {
+            log.info("Baseline node collection is empty.");
+
+            return;
+        }
+
+        @Nullable UUID first = null;
 
         Collection<Object> srvIds = F.nodeConsistentIds(bltNodes);
 
@@ -360,7 +366,7 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
 
         ClusterNode locNode = ctx.config().getDiscoverySpi().getLocalNode();
 
-        if (first == locNode.id() || locClusterId != null) {
+        if (first == locNode.id() || locClusterTag != null) {
             cluster.setId(locClusterId != null ? locClusterId : UUID.randomUUID());
 
             cluster.setTag(locClusterTag != null ? locClusterTag :
@@ -369,7 +375,7 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
             ClusterIdAndTag idAndTag = new ClusterIdAndTag(cluster.id(), cluster.tag());
 
             if (log.isInfoEnabled())
-                log.info("Writing1 cluster ID and tag to metastorage on ready for write " + idAndTag);
+                log.info("Writing cluster ID and tag to metastorage on ready for write " + idAndTag);
 
             try {
                 metastorage.writeAsync(CLUSTER_ID_TAG_KEY, idAndTag);
@@ -377,6 +383,18 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
             catch (IgniteCheckedException e) {
                 ctx.failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
+        }
+    }
+
+    /** */
+    public void onLocalJoin() {
+        boolean persistent = CU.isPersistenceEnabled(ctx.config());
+
+        if (!persistent) {
+            cluster.setId(locClusterId != null ? locClusterId : UUID.randomUUID());
+
+            cluster.setTag(locClusterTag != null ? locClusterTag :
+                ClusterTagGenerator.generateTag());
         }
     }
 

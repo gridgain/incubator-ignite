@@ -3283,7 +3283,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
      * @throws IgniteCheckedException If failed.
      */
     private static void dumpPartitionsInfo(GridCacheSharedContext cctx,
-                                           IgniteLogger log) throws IgniteCheckedException {
+        IgniteLogger log) throws IgniteCheckedException {
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
             if (grp.isLocal() || !grp.persistenceEnabled())
                 continue;

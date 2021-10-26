@@ -33,7 +33,6 @@ import org.apache.ignite.cluster.ClusterState;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.events.Event;
 import org.apache.ignite.failure.FailureHandler;
 import org.apache.ignite.failure.StopNodeFailureHandler;
 import org.apache.ignite.internal.IgniteEx;
@@ -47,7 +46,6 @@ import org.apache.ignite.internal.processors.metastorage.persistence.Distributed
 import org.apache.ignite.internal.processors.metastorage.persistence.DmsDataWriterWorker;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.spi.discovery.DiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
@@ -58,7 +56,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_GLOBAL_METASTORAGE_HISTORY_MAX_BYTES;
-import static org.apache.ignite.events.EventType.EVT_CLUSTER_STATE_CHANGED;
 import static org.apache.ignite.testframework.GridTestUtils.waitForCondition;
 
 /**
@@ -81,9 +78,10 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
         // to be sure that all async metastorage updates of the node_0 are completed.
         startGrid(1);
 
-        ign.cluster().state(ClusterState.ACTIVE);
-
-        waitForCondition(() -> (int)metastorage(0).getUpdatesCount() == (isPersistent() ? 4 : 2), 10_000);
+        //baselineAutoAdjustEnabled
+        //baselineAutoAdjustTimeout
+        //historical.rebalance.threshold
+        waitForCondition(() -> (int)metastorage(0).getUpdatesCount() == 3, 10_000);
 
         initialUpdatesCount = (int)metastorage(0).getUpdatesCount();
     }
@@ -424,7 +422,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         metastorage(0).write("key1", "value1");
 
-        int expUpdatesCnt = 1;
+        int expUpdatesCnt = isPersistent() ? 2 : 1;
 
         assertTrue("initialUpdatesCount=" + initialUpdatesCount + ", upd=" + metastorage(0).getUpdatesCount(),
             waitForCondition(() ->
@@ -452,7 +450,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         AtomicInteger clientLsnrUpdatesCnt = new AtomicInteger();
 
-        int expUpdatesCnt = 1;
+        int expUpdatesCnt = isPersistent() ? 2 : 1;
 
         assertEquals("initialUpdatesCount=" + initialUpdatesCount + ", upd=" + metastorage(1).getUpdatesCount(),
             expUpdatesCnt, metastorage(1).getUpdatesCount() - initialUpdatesCount);
@@ -585,7 +583,7 @@ public class DistributedMetaStorageTest extends GridCommonAbstractTest {
 
         checkStored(metastorage(2), metastorage(1), "key2", "value2");
 
-        int expUpdatesCnt = isPersistent() ? 3 : 2;
+        int expUpdatesCnt = isPersistent() ? 4 : 2;
 
         // Wait enough to cover failover timeout.
         assertTrue("initialUpdatesCount=" + initialUpdatesCount + ", upd=" + metastorage(1).getUpdatesCount(),

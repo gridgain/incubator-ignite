@@ -37,6 +37,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 import static org.apache.ignite.internal.processors.metastorage.persistence.DistributedMetaStorageUtil.COMMON_KEY_PREFIX;
 import static org.apache.ignite.internal.processors.metastorage.persistence.DistributedMetaStorageUtil.cleanupGuardKey;
@@ -74,6 +75,7 @@ public class DmsDataWriterWorker extends GridWorker {
     private volatile CountDownLatch latch = new CountDownLatch(0);
 
     /** For tests purpose only. */
+    @TestOnly
     private volatile Predicate<String> writeCondition;
 
     /**

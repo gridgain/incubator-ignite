@@ -19,16 +19,26 @@ package org.apache.ignite.internal.processors.metastorage;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.cluster.ClusterState;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
+import org.apache.ignite.internal.processors.cluster.ClusterProcessor;
 import org.apache.ignite.internal.processors.metastorage.persistence.DistributedMetaStorageImpl;
 import org.apache.ignite.internal.processors.metastorage.persistence.DmsDataWriterWorker;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.spi.IgniteSpiException;
@@ -37,13 +47,14 @@ import org.apache.ignite.spi.discovery.DiscoverySpiDataExchange;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_GLOBAL_METASTORAGE_HISTORY_MAX_BYTES;
 import static org.apache.ignite.internal.GridComponent.DiscoveryDataExchangeType.META_STORAGE;
 import static org.apache.ignite.internal.processors.cluster.ClusterProcessor.CLUSTER_ID_TAG_KEY;
-import static org.apache.ignite.internal.processors.metastorage.DistributedMetaStorage.IGNITE_INTERNAL_KEY_PREFIX;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assume.assumeThat;
@@ -113,11 +124,14 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
 
         assertNotNull(worker);
 
+        // check we still have no cluster tag key.
+        assertNull(distrMetaStore.read(CLUSTER_ID_TAG_KEY));
+
         GridTestUtils.setFieldValue(worker, "writeCondition", new Predicate<String>() {
             private volatile boolean skip;
 
             @Override public boolean test(String s) {
-                if (s.equals(IGNITE_INTERNAL_KEY_PREFIX + CLUSTER_ID_TAG_KEY) || skip) {
+                if (s.equals(CLUSTER_ID_TAG_KEY) || skip) {
                     skip = true;
 
                     return true;
@@ -128,11 +142,15 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
 
         ignite.cluster().state(ClusterState.ACTIVE);
 
+        ignite.cluster().tag("noop");
+
+        String tag0 = ignite.cluster().tag();
+
         String key = "some_kind_of_uniq_key_" + ThreadLocalRandom.current().nextInt();
 
-        ignite.context().distributedMetastorage().write(key, "value");
+        checkStoredWithPers(metastorage(0), ignite2, key, "value");
 
-        checkStoredWithPers(ignite.context().distributedMetastorage(), ignite2, key, "value");
+        distrMetaStore.iterate("", (key1, value) -> System.err.println(key1));
 
         stopAllGrids();
 
@@ -143,6 +161,66 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
         ignite.cluster().state(ClusterState.ACTIVE);
 
         assertEquals("value", ignite.context().distributedMetastorage().read(key));
+
+        assertEquals(tag0, ignite.cluster().tag());
+    }
+
+    /** Check cluster tag behaviour while one node fails. */
+    @Test
+    public void changeTagWithNodeCrash() throws Exception {
+        String clusterTag = "seamonkey";
+
+        IgniteEx ignite = startGrid(0);
+
+        IgniteEx ignite2 = startGrid(1);
+
+        Collection<ClusterNode> rmtNodes = ignite.cluster().forServers().nodes();
+
+        List<ClusterNode> rmtNodes0 = new ArrayList<>(rmtNodes);
+
+        rmtNodes0.sort(Comparator.comparing(ClusterNode::id));
+
+        // Choose a node the same as in ClusterProcessor.onChangeState.
+        @Nullable UUID first = F.first(rmtNodes0).id();
+
+        assertNotNull(first);
+
+        IgniteEx activeNode = ignite.cluster().localNode().id() == first ? ignite : ignite2;
+
+        assertEquals(activeNode.cluster().localNode().id(), first);
+
+        DistributedMetaStorageImpl distrMetaStore =
+            (DistributedMetaStorageImpl)activeNode.context().distributedMetastorage();
+
+        ClusterProcessor proc = activeNode.context().cluster();
+
+        AtomicBoolean fail = new AtomicBoolean();
+
+        DistributedMetaStorageDelegate delegate = new DistributedMetaStorageDelegate(distrMetaStore, fail);
+
+        GridTestUtils.setFieldValue(proc, "metastorage", delegate);
+
+        fail.set(true);
+
+        IgniteEx alive = activeNode.name().equals(ignite.name()) ? ignite2 : ignite;
+
+        ignite.cluster().state(ClusterState.ACTIVE);
+
+        assertNull(alive.cluster().tag());
+
+        alive.cluster().tag(clusterTag);
+
+        assertTrue(GridTestUtils.waitForCondition(() -> alive.cluster().tag().equals(clusterTag), 10_000));
+
+        String tag0 = alive.cluster().tag();
+
+        stopAllGrids();
+
+        startGridsMultiThreaded(2);
+
+        assertTrue(GridTestUtils.waitForCondition(() -> grid(0).cluster().tag().equals(tag0), 10_000));
+
+        assertTrue(GridTestUtils.waitForCondition(() -> grid(1).cluster().tag().equals(tag0), 10_000));
     }
 
     /**
@@ -655,5 +733,82 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
         startGrid(0);
 
         assertNull(metastorage(0).read(longKey));
+    }
+
+    /** */
+    static class DistributedMetaStorageDelegate implements DistributedMetaStorage {
+        /** */
+        DistributedMetaStorage delegate;
+
+        /** */
+        AtomicBoolean fail;
+
+        /** */
+        DistributedMetaStorageDelegate(DistributedMetaStorage ms, AtomicBoolean fail) {
+            delegate = ms;
+            this.fail = fail;
+        }
+
+        /** */
+        @Override public void write(@NotNull String key, @NotNull Serializable val) throws IgniteCheckedException {
+            delegate.write(key, val);
+        }
+
+        /** */
+        @Override public GridFutureAdapter<?> writeAsync(@NotNull String key, @NotNull Serializable val) throws IgniteCheckedException {
+            if (fail.get())
+                throw new IgniteCheckedException("fail");
+            else
+                return delegate.writeAsync(key, val);
+        }
+
+        /** */
+        @Override public GridFutureAdapter<?> removeAsync(@NotNull String key) throws IgniteCheckedException {
+            return delegate.removeAsync(key);
+        }
+
+        /** */
+        @Override public void remove(@NotNull String key) throws IgniteCheckedException {
+            delegate.removeAsync(key);
+        }
+
+        /** */
+        @Override public boolean compareAndSet(@NotNull String key, @Nullable Serializable expVal,
+            @NotNull Serializable newVal) throws IgniteCheckedException {
+            return delegate.compareAndSet(key, expVal, newVal);
+        }
+
+        /** */
+        @Override public GridFutureAdapter<Boolean> compareAndSetAsync(@NotNull String key,
+            @Nullable Serializable expVal, @NotNull Serializable newVal) throws IgniteCheckedException {
+            return delegate.compareAndSetAsync(key, expVal, newVal);
+        }
+
+        /** */
+        @Override public boolean compareAndRemove(@NotNull String key, @NotNull Serializable expVal)
+            throws IgniteCheckedException {
+            return delegate.compareAndRemove(key, expVal);
+        }
+
+        /** */
+        @Override public long getUpdatesCount() {
+            return delegate.getUpdatesCount();
+        }
+
+        /** */
+        @Override public <T extends Serializable> @Nullable T read(@NotNull String key) throws IgniteCheckedException {
+            return delegate.read(key);
+        }
+
+        /** */
+        @Override public void iterate(@NotNull String keyPrefix, @NotNull BiConsumer<String, ? super Serializable> cb)
+            throws IgniteCheckedException {
+            delegate.iterate(keyPrefix, cb);
+        }
+
+        /** */
+        @Override public void listen(@NotNull Predicate<String> keyPred, DistributedMetaStorageListener<?> lsnr) {
+            delegate.listen(keyPred, lsnr);
+        }
     }
 }

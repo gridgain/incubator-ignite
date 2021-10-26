@@ -515,7 +515,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         );
 
         if (initException.get() != null)
-            throw new IgniteCheckedException("Metastorage initialization error: ", initException.get());
+            throw initException.get();
     }
 
     /** {@inheritDoc} */
