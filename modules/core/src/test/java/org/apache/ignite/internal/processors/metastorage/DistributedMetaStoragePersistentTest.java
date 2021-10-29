@@ -142,15 +142,13 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
 
         ignite.cluster().state(ClusterState.ACTIVE);
 
-        ignite.cluster().tag("noop");
+        ignite2.cluster().tag("griffon");
 
-        String tag0 = ignite.cluster().tag();
+        String tag0 = ignite2.cluster().tag();
 
         String key = "some_kind_of_uniq_key_" + ThreadLocalRandom.current().nextInt();
 
         checkStoredWithPers(metastorage(0), ignite2, key, "value");
-
-        distrMetaStore.iterate("", (key1, value) -> System.err.println(key1));
 
         stopAllGrids();
 
@@ -187,6 +185,8 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
 
         IgniteEx activeNode = ignite.cluster().localNode().id() == first ? ignite : ignite2;
 
+        System.err.println("node to skip: " + activeNode.name());
+
         assertEquals(activeNode.cluster().localNode().id(), first);
 
         DistributedMetaStorageImpl distrMetaStore =
@@ -198,29 +198,42 @@ public class DistributedMetaStoragePersistentTest extends DistributedMetaStorage
 
         DistributedMetaStorageDelegate delegate = new DistributedMetaStorageDelegate(distrMetaStore, fail);
 
+        DmsDataWriterWorker worker = GridTestUtils.getFieldValue(distrMetaStore, "worker");
+
         GridTestUtils.setFieldValue(proc, "metastorage", delegate);
 
-        fail.set(true);
+        GridTestUtils.setFieldValue(worker, "writeCondition", new Predicate<String>() {
+            @Override public boolean test(String s) {
+                if (s.equals(CLUSTER_ID_TAG_KEY) || fail.get()) {
+                    fail.set(true);
+
+                    return true;
+                }
+                return false;
+            }
+        });
 
         IgniteEx alive = activeNode.name().equals(ignite.name()) ? ignite2 : ignite;
 
-        ignite.cluster().state(ClusterState.ACTIVE);
-
-        assertNull(alive.cluster().tag());
+        alive.cluster().state(ClusterState.ACTIVE);
 
         alive.cluster().tag(clusterTag);
 
-        assertTrue(GridTestUtils.waitForCondition(() -> alive.cluster().tag().equals(clusterTag), 10_000));
+        assertEquals(alive.cluster().tag(), clusterTag);
 
         String tag0 = alive.cluster().tag();
+
+        checkStoredWithPers(alive.context().distributedMetastorage(), alive, "key", "value");
 
         stopAllGrids();
 
         startGridsMultiThreaded(2);
 
-        assertTrue(GridTestUtils.waitForCondition(() -> grid(0).cluster().tag().equals(tag0), 10_000));
+        assertTrue("expectedTag=" + tag0 + ", current=" + grid(0).cluster().tag(),
+            GridTestUtils.waitForCondition(() -> tag0.equals(grid(0).cluster().tag()), 5_000));
 
-        assertTrue(GridTestUtils.waitForCondition(() -> grid(1).cluster().tag().equals(tag0), 10_000));
+        assertTrue("expectedTag=" + tag0 + ", current=" + grid(1).cluster().tag(),
+            GridTestUtils.waitForCondition(() -> tag0.equals(grid(1).cluster().tag()), 5_000));
     }
 
     /**

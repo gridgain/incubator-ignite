@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -214,13 +215,15 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
         cluster.start();
     }
 
+    private CountDownLatch readyForSend = new CountDownLatch(1);
+
     /** {@inheritDoc} */
     @Override public void onReadyForRead(ReadableDistributedMetaStorage metastorage) {
         ClusterIdAndTag idAndTag = readKey(metastorage, CLUSTER_ID_TAG_KEY, "Reading cluster ID and tag " +
             "from metastorage failed, default values will be generated");
 
         if (log.isInfoEnabled())
-            log.info("Cluster ID and tag has been read from metastorage: " + idAndTag);
+            log.info("!!!!Cluster ID and tag has been read from metastorage: " + idAndTag);
 
         if (idAndTag != null) {
             locClusterId = idAndTag.id();
@@ -258,9 +261,13 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
                     }
                 }
 
+                System.err.println("onReadyForRead " + (newVal != null ? newVal.tag() : null));
+
                 cluster.setTag(newVal != null ? newVal.tag() : null);
             }
         );
+
+        readyForSend.countDown();
     }
 
     /**
@@ -313,11 +320,9 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
     public void updateTag(String newTag) throws IgniteCheckedException {
         ClusterIdAndTag oldTag = metastorage.read(CLUSTER_ID_TAG_KEY);
 
-        if (oldTag == null)
-            throw new IgniteCheckedException("Cannot change tag as default tag has not been set yet. " +
-                "Please try again later.");
+        UUID newId = oldTag == null ? UUID.randomUUID() : oldTag.id();
 
-        if (!metastorage.compareAndSet(CLUSTER_ID_TAG_KEY, oldTag, new ClusterIdAndTag(oldTag.id(), newTag))) {
+        if (!metastorage.compareAndSet(CLUSTER_ID_TAG_KEY, oldTag, new ClusterIdAndTag(newId, newTag))) {
             ClusterIdAndTag concurrentValue = metastorage.read(CLUSTER_ID_TAG_KEY);
 
             throw new IgniteCheckedException("Cluster tag has been concurrently updated to different value: " +
@@ -578,7 +583,17 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
     @Override public void collectGridNodeData(DiscoveryDataBag dataBag) {
         dataBag.addNodeSpecificData(CLUSTER_PROC.ordinal(), getDiscoveryData());
 
-        dataBag.addGridCommonData(CLUSTER_PROC.ordinal(), new ClusterIdAndTag(cluster.id(), cluster.tag()));
+        log.error("collectGridNodeData " + cluster.tag());
+
+/*        try {
+            readyForSend.await();
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
+        }*/
+
+        //dataBag.addGridCommonData(CLUSTER_PROC.ordinal(), new ClusterIdAndTag(cluster.id(), cluster.tag()));
+        dataBag.addGridCommonData(CLUSTER_PROC.ordinal(), new ClusterIdAndTag(locClusterId, locClusterTag));
     }
 
     /**
@@ -594,6 +609,7 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
 
     /** {@inheritDoc} */
     @Override public void onGridDataReceived(GridDiscoveryData data) {
+        System.err.println("onGridDataReceived " + data.commonData());
         Map<UUID, Serializable> nodeSpecData = data.nodeSpecificData();
 
         if (nodeSpecData != null) {
@@ -621,8 +637,10 @@ public class ClusterProcessor extends GridProcessorAdapter implements Distribute
 
             String remoteClusterTag = commonData.tag();
 
-            if (remoteClusterTag != null)
+            if (remoteClusterTag != null) {
+                log.error("remoteClusterTag=" + remoteClusterTag);
                 locClusterTag = remoteClusterTag;
+            }
         }
     }
 
