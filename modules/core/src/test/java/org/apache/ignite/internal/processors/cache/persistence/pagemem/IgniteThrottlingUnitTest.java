@@ -31,7 +31,6 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockStateChecker;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.checkpoint.CheckpointProgress;
-import org.apache.ignite.internal.processors.cache.persistence.checkpoint.CheckpointProgressImpl;
 import org.apache.ignite.internal.processors.metric.GridMetricManager;
 import org.apache.ignite.internal.processors.performancestatistics.PerformanceStatisticsProcessor;
 import org.apache.ignite.lang.IgniteOutClosure;
@@ -63,7 +62,7 @@ import static org.mockito.Mockito.when;
 public class IgniteThrottlingUnitTest {
     /** Per test timeout */
     @Rule
-    public Timeout globalTimeout = new Timeout((int)GridTestUtils.DFLT_TEST_TIMEOUT);
+    public Timeout globalTimeout = Timeout.millis((int)GridTestUtils.DFLT_TEST_TIMEOUT);
 
     /** Logger. */
     private final IgniteLogger log = new NullLogger();
@@ -126,7 +125,7 @@ public class IgniteThrottlingUnitTest {
             20103,
             23103);
 
-        assertTrue(time == 0);
+        assertEquals(0, time);
     }
 
     /**
@@ -224,10 +223,10 @@ public class IgniteThrottlingUnitTest {
     public void beginOfCp() {
         PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, log);
 
-        assertTrue(throttle.getParkTime(0.01, 100, 400000,
-            1,
-            20103,
-            23103) == 0);
+        assertEquals(0, throttle.getParkTime(0.01, 100, 400000,
+                1,
+                20103,
+                23103));
 
         //mark speed 22413 for mark all remaining as dirty
         long time = throttle.getParkTime(0.024, 100, 400000,
@@ -236,12 +235,12 @@ public class IgniteThrottlingUnitTest {
             23103);
         assertTrue(time > 0);
 
-        assertTrue(throttle.getParkTime(0.01,
-            100,
-            400000,
-            1,
-            22412,
-            23103) == 0);
+        assertEquals(0, throttle.getParkTime(0.01,
+                100,
+                400000,
+                1,
+                22412,
+                23103));
     }
 
     /**
@@ -284,7 +283,7 @@ public class IgniteThrottlingUnitTest {
 
         System.err.println(time);
 
-        assertTrue(time == 0);
+        assertEquals(0, time);
     }
 
     /** */
@@ -358,14 +357,9 @@ public class IgniteThrottlingUnitTest {
 
         AtomicInteger written = new AtomicInteger();
 
-        CheckpointProgressImpl cl0 = Mockito.mock(CheckpointProgressImpl.class);
+        Mockito.when(progress.writtenPagesCounter()).thenReturn(written);
 
-        IgniteOutClosure<CheckpointProgress> cpProgress = Mockito.mock(IgniteOutClosure.class);
-        Mockito.when(cpProgress.apply()).thenReturn(cl0);
-
-        Mockito.when(cl0.writtenPagesCounter()).thenReturn(written);
-
-        PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProgress, stateChecker, log) {
+        PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProvider, stateChecker, log) {
             @Override protected void doPark(long throttleParkTimeNs) {
                 //do nothing
             }
