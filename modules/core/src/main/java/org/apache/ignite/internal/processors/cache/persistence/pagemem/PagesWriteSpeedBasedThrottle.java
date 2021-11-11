@@ -134,11 +134,12 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     @Override public void onMarkDirty(boolean isPageInCheckpoint) {
         assert cpLockStateChecker.checkpointLockIsHeldByThread();
 
+        final boolean shouldThrottleToProtectCPBuffer = isPageInCheckpoint && isCheckpointBufferInDangerZone();
+
         CheckpointProgress progress = cpProgress.apply();
+        AtomicInteger writtenPagesCntr = progress == null ? null : progress.writtenPagesCounter();
 
-        AtomicInteger writtenPagesCntr = progress == null ? null : cpProgress.apply().writtenPagesCounter();
-
-        if (writtenPagesCntr == null) {
+        if (writtenPagesCntr == null && !shouldThrottleToProtectCPBuffer) {
             speedForMarkAll = 0;
             targetDirtyRatio = -1;
             currDirtyRatio = -1;
@@ -146,11 +147,28 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             return; // Don't throttle if checkpoint is not running.
         }
 
-        int cpWrittenPages = writtenPagesCntr.get();
-
-        long fullyCompletedPages = (cpWrittenPages + cpSyncedPages()) / 2; // written & sync'ed
+        int cpWrittenPages = writtenPagesCntr != null ? writtenPagesCntr.get() : 0;
 
         long curNanoTime = System.nanoTime();
+
+        long throttleParkTimeNs = calculateParkTime(isPageInCheckpoint, shouldThrottleToProtectCPBuffer,
+                cpWrittenPages, curNanoTime);
+
+        if (throttleParkTimeNs > 0) {
+            recurrentLogIfNeeded();
+
+            doPark(throttleParkTimeNs);
+        }
+
+        pageMemory.metrics().addThrottlingTime(U.nanosToMillis(System.nanoTime() - curNanoTime));
+
+        speedMarkAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
+    }
+
+    /***/
+    private long calculateParkTime(boolean isPageInCheckpoint, boolean shouldThrottleToProtectCPBuffer,
+                                   int cpWrittenPages, long curNanoTime) {
+        long fullyCompletedPages = (cpWrittenPages + cpSyncedPages()) / 2; // written & sync'ed
 
         speedCpWrite.setCounter(fullyCompletedPages, curNanoTime);
 
@@ -162,12 +180,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
 
         ThrottleMode level = ThrottleMode.NO; //should apply delay (throttling) for current page modification
 
-        if (isPageInCheckpoint) {
-            int checkpointBufLimit = pageMemory.checkpointBufferPagesSize() * 2 / 3;
-
-            if (pageMemory.checkpointBufferPagesCount() > checkpointBufLimit)
-                level = ThrottleMode.EXPONENTIAL;
-        }
+        if (shouldThrottleToProtectCPBuffer)
+            level = ThrottleMode.EXPONENTIAL;
 
         long throttleParkTimeNs = 0;
 
@@ -221,16 +235,14 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             if (level == ThrottleMode.NO)
                 throttleParkTimeNs = 0;
         }
+        return throttleParkTimeNs;
+    }
 
-        if (throttleParkTimeNs > 0) {
-            recurrentLogIfNeed();
+    /***/
+    private boolean isCheckpointBufferInDangerZone() {
+        int checkpointBufLimit = pageMemory.checkpointBufferPagesSize() * 2 / 3;
 
-            doPark(throttleParkTimeNs);
-        }
-
-        pageMemory.metrics().addThrottlingTime(U.nanosToMillis(System.nanoTime() - curNanoTime));
-
-        speedMarkAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
+        return pageMemory.checkpointBufferPagesCount() > checkpointBufLimit;
     }
 
     /**
@@ -284,7 +296,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     /**
      * Prints warning to log if throttling is occurred and requires markable amount of time.
      */
-    private void recurrentLogIfNeed() {
+    private void recurrentLogIfNeeded() {
         long prevWarningNs = prevWarnTime.get();
         long curNs = System.nanoTime();
 
