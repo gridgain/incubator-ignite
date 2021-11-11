@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
+
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -46,6 +47,8 @@ import org.mockito.Mockito;
 
 import static java.lang.Thread.State.TIMED_WAITING;
 import static org.apache.ignite.testframework.GridTestUtils.waitForCondition;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
@@ -63,13 +66,19 @@ public class IgniteThrottlingUnitTest {
     public Timeout globalTimeout = new Timeout((int)GridTestUtils.DFLT_TEST_TIMEOUT);
 
     /** Logger. */
-    private IgniteLogger log = new NullLogger();
+    private final IgniteLogger log = new NullLogger();
 
     /** Page memory 2 g. */
-    private PageMemoryImpl pageMemory2g = mock(PageMemoryImpl.class);
+    private final PageMemoryImpl pageMemory2g = mock(PageMemoryImpl.class);
 
     /** State checker. */
-    private CheckpointLockStateChecker stateChecker = () -> true;
+    private final CheckpointLockStateChecker stateChecker = () -> true;
+
+    /** {@link CheckpointProgress} mock. */
+    private final CheckpointProgress progress = mock(CheckpointProgress.class);
+
+    /** {@link CheckpointProgress} provider that always provides the mock above. */
+    private final IgniteOutClosure<CheckpointProgress> cpProvider = () -> progress;
 
     {
         when(pageMemory2g.totalPages()).thenReturn((2L * 1024 * 1024 * 1024) / 4096);
@@ -384,5 +393,42 @@ public class IgniteThrottlingUnitTest {
         System.out.println(throttle.throttleWeight());
 
         assertTrue(warnings.get() > 0);
+    }
+
+    /***/
+    @Test
+    public void speedBasedThrottleShouldThrottleWhenCheckpointBufferIsInDangerZone() {
+        when(progress.writtenPagesCounter()).thenReturn(new AtomicInteger(1000));
+        simulateCheckpointBufferInDangerZoneSituation();
+        PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProvider,
+                stateChecker, log);
+
+        throttle.onMarkDirty(true);
+
+        assertThatThrottlingHappened(throttle);
+    }
+
+    /***/
+    private void assertThatThrottlingHappened(PagesWriteSpeedBasedThrottle throttle) {
+        assertThat(throttle.throttleParkTime(), greaterThan(0L));
+    }
+
+    /***/
+    private void simulateCheckpointBufferInDangerZoneSituation() {
+        when(pageMemory2g.checkpointBufferPagesSize()).thenReturn(100);
+        when(pageMemory2g.checkpointBufferPagesCount()).thenReturn(100);
+    }
+
+    /***/
+    @Test
+    public void speedBasedThrottleShouldThrottleWhenCheckpointCountersAreNotReadyYetButCheckpointBufferIsInDangerZone() {
+        when(progress.writtenPagesCounter()).thenReturn(null);
+        simulateCheckpointBufferInDangerZoneSituation();
+        PagesWriteSpeedBasedThrottle throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProvider,
+                stateChecker, log);
+
+        throttle.onMarkDirty(true);
+
+        assertThatThrottlingHappened(throttle);
     }
 }
