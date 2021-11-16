@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rule;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
@@ -30,12 +32,19 @@ import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalTableFunctionScan;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rex.RexFieldAccess;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql2rel.DeduplicateCorrelateVariables;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteFilter;
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
+import org.apache.ignite.internal.processors.query.calcite.util.Commons;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
@@ -55,6 +64,8 @@ public class FilterConverterRule extends AbstractIgniteConverterRule<LogicalFilt
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = rel.getTraitSet().replace(IgniteConvention.INSTANCE);
 
+        RexNode cond = rel.getCondition();
+
         Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.getCondition());
 
         // TODO: remove all near 'if' scope after https://issues.apache.org/jira/browse/CALCITE-4673 will be merged.
@@ -72,9 +83,43 @@ public class FilterConverterRule extends AbstractIgniteConverterRule<LogicalFilt
 
         corrIds = RexUtils.extractCorrelationIds(rel.getCondition());
 
+        ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
+
+        cond = rel.getCondition();
+
+        cond = new RexShuttle() {
+            @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
+                int idx = fieldAccess.getField().getIndex();
+                builder.set(idx);
+
+                return super.visitFieldAccess(fieldAccess);
+            }
+        }.apply(cond);
+
+        ImmutableBitSet requiredColumns = builder.build();
+
+        Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns, 100);
+
+        final LogicalFilter rel0 = rel;
+        final Set<CorrelationId> corrIds0 = corrIds;
+
+        if (!corrIds.isEmpty())
+            assert corrIds.size() == 1;
+            cond = new RexShuttle() {
+                @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
+                    RexNode refExpr = fieldAccess.getReferenceExpr().accept(this);
+                    int fieldIndex = fieldAccess.getField().getIndex();
+                    return cluster.getRexBuilder().makeFieldAccess(
+                        cluster.getRexBuilder().makeCorrel(rel0.getRowType(), F.first(corrIds0)),
+                        targetMapping.getTarget(fieldIndex));
+                }
+            }.apply(cond);
+
+        corrIds = RexUtils.extractCorrelationIds(cond);
+
         if (!corrIds.isEmpty())
             traits = traits.replace(CorrelationTrait.correlations(corrIds));
 
-        return new IgniteFilter(cluster, traits, rel.getInput(), rel.getCondition());
+        return new IgniteFilter(cluster, traits, rel.getInput(), cond);
     }
 }

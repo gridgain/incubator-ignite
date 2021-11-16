@@ -170,6 +170,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
 
     /** {@inheritDoc} */
     @Override public Node<Row> visit(IgniteFilter rel) {
+        System.err.println("!!!IgniteFilter");
         Predicate<Row> pred = expressionFactory.predicate(rel.getCondition(), rel.getRowType());
 
         FilterNode<Row> node = new FilterNode<>(ctx, rel.getRowType(), pred);

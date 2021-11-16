@@ -363,6 +363,8 @@ public class ExpressionFactoryImpl<Row> implements ExpressionFactory<Row> {
 
         Class<? extends Scalar> clazz = biInParams ? BiScalar.class : SingleScalar.class;
 
+        System.err.println(Expressions.toString(F.asList(decl), "\n", false));
+
         return Commons.compile(clazz, Expressions.toString(F.asList(decl), "\n", false));
     }
 

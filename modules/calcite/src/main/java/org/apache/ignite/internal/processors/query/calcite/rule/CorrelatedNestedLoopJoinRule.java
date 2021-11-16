@@ -78,19 +78,20 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
         final Set<CorrelationId> corrIds = RelOptUtil.getVariablesUsed(rel.getRight());
 
         // TODO: remove all near 'if' scope after https://issues.apache.org/jira/browse/CALCITE-4673 will be merged.
-        if (corrIds.size() >= 1) {
-            CorrelationId corr0 = F.first(corrIds);
-            corrVar.add(rexBuilder.makeCorrel(rel.getLeft().getRowType(), corr0));
-            correlationIds.add(corr0);
-        }
+        if (!corrIds.isEmpty()) {
+            correlationIds.addAll(corrIds);
 
-        if (corrVar.isEmpty()) {
-            for (int i = 0; i < batchSize; i++) {
-                CorrelationId correlationId = cluster.createCorrel();
-                correlationIds.add(correlationId);
-                corrVar.add(rexBuilder.makeCorrel(rel.getLeft().getRowType(), correlationId));
-            }
+            for (CorrelationId id : correlationIds)
+                corrVar.add(rexBuilder.makeCorrel(rel.getLeft().getRowType(), id));
         }
+        else
+            if (corrVar.isEmpty()) {
+                for (int i = 0; i < batchSize; i++) {
+                    CorrelationId correlationId = cluster.createCorrel();
+                    correlationIds.add(correlationId);
+                    corrVar.add(rexBuilder.makeCorrel(rel.getLeft().getRowType(), correlationId));
+                }
+            }
 
         // Generate first condition
         final RexNode condition = rel.getCondition().accept(new RexShuttle() {
