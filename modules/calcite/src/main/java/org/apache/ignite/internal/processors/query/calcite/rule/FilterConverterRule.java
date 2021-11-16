@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rule;
 
+import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalTableFunctionScan;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.sql2rel.DeduplicateCorrelateVariables;
+import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteFilter;
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  *
@@ -49,6 +56,21 @@ public class FilterConverterRule extends AbstractIgniteConverterRule<LogicalFilt
         RelTraitSet traits = rel.getTraitSet().replace(IgniteConvention.INSTANCE);
 
         Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.getCondition());
+
+        // TODO: remove all near 'if' scope after https://issues.apache.org/jira/browse/CALCITE-4673 will be merged.
+        if (corrIds.size() > 1) {
+            final List<CorrelationId> correlNames = U.arrayList(corrIds);
+
+            RelNode rel0 = DeduplicateCorrelateVariables.go(cluster.getRexBuilder(), correlNames.get(0), Util.skip(correlNames), rel);
+
+            corrIds = RelOptUtil.getVariablesUsed(rel0);
+
+            assert corrIds.size() == 1 : "Multiple correlates are applied: " + corrIds;
+
+            rel = (LogicalFilter)rel0;
+        }
+
+        corrIds = RexUtils.extractCorrelationIds(rel.getCondition());
 
         if (!corrIds.isEmpty())
             traits = traits.replace(CorrelationTrait.correlations(corrIds));

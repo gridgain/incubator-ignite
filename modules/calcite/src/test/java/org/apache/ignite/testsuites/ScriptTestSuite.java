@@ -73,7 +73,7 @@ import org.junit.runner.RunWith;
  *
  */
 @RunWith(ScriptTestRunner.class)
-@ScriptRunnerTestsEnvironment(scriptsRoot = "src/test/sql/", timeout = 180000)
+@ScriptRunnerTestsEnvironment(scriptsRoot = "src/test/sql/sqlite/select1/", timeout = 180000)
 @Ignore
 public class ScriptTestSuite {
 }
