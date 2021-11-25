@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -27,9 +33,11 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
@@ -37,6 +45,8 @@ import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrai
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils;
 import org.apache.ignite.internal.processors.query.calcite.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.processors.query.calcite.util.RexUtils;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUtils.changeTraits;
 
@@ -49,6 +59,14 @@ import static org.apache.ignite.internal.processors.query.calcite.trait.TraitUti
  * false.</p>
  */
 public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
+    /** */
+    private RelDataType posToColumn;
+
+    /** */
+    public RelDataType posToColumn() {
+        return posToColumn;
+    }
+
     /**
      * Creates a filter.
      *
@@ -58,18 +76,41 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
      * @param condition boolean expression which determines whether a row is
      *                  allowed to pass
      */
-    public IgniteFilter(RelOptCluster cluster, RelTraitSet traits, RelNode input, RexNode condition) {
+    public IgniteFilter(
+        RelOptCluster cluster,
+        RelTraitSet traits,
+        RelNode input,
+        RexNode condition,
+        RelDataType corrToCol
+    ) {
         super(cluster, traits, input, condition);
+        posToColumn = corrToCol;
     }
 
     /** */
     public IgniteFilter(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
+        ObjectMapper mapper = new ObjectMapper();
+        TypeReference<HashMap<Integer, String>> typeRef
+            = new TypeReference<HashMap<Integer, String>>() {};
+        posToColumn = input.getRowType("posToCol");
     }
 
     /** {@inheritDoc} */
     @Override public Filter copy(RelTraitSet traitSet, RelNode input, RexNode condition) {
-        return new IgniteFilter(getCluster(), traitSet, input, condition);
+        return new IgniteFilter(getCluster(), traitSet, input, condition, posToColumn);
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
+        return new IgniteFilter(cluster, getTraitSet(), sole(inputs), getCondition(), posToColumn);
+    }
+
+    /** {@inheritDoc} */
+    @Override public RelWriter explainTerms(RelWriter pw) {
+        super.explainTerms(pw);
+        pw.itemIf("posToCol", posToColumn, posToColumn != null);
+        return pw;
     }
 
     /** {@inheritDoc} */
@@ -130,10 +171,5 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
 
         return planner.getCostFactory().makeCost(rowCount,
             rowCount * (IgniteCost.ROW_COMPARISON_COST + IgniteCost.ROW_PASS_THROUGH_COST), 0);
-    }
-
-    /** {@inheritDoc} */
-    @Override public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteFilter(cluster, getTraitSet(), sole(inputs), getCondition());
     }
 }

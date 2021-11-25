@@ -284,7 +284,15 @@ public class ExecutionContext<Row> extends AbstractQueryContext implements DataC
      * @param id Correlation ID.
      * @param value Correlated value.
      */
-    public void setCorrelated(@NotNull Object value, int id) {
+    public void setCorrelated(@NotNull Object value, int id, int shift) {
+        if (shift != 0) {
+            Object[] value0 = new Object[shift + ((Object[])value).length];
+            Object[] add = new Object[shift];
+
+            System.arraycopy(add, 0, value0, 0, shift);
+            System.arraycopy(value, 0, value0, shift - 1, ((Object[])value).length);
+        }
+
         correlations = Commons.ensureCapacity(correlations, id + 1);
 
         correlations[id] = value;

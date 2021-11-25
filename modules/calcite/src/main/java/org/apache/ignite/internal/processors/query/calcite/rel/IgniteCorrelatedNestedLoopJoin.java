@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.rel;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +37,7 @@ import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.processors.query.calcite.metadata.cost.IgniteCost;
@@ -57,6 +59,8 @@ import static org.apache.ignite.internal.processors.query.calcite.util.Commons.m
  * inputs; precisely which subset depends on the join condition.
  */
 public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
+    /** */
+    final List<String> leftColumns;
     /**
      * Creates a Join.
      *
@@ -73,6 +77,12 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
     public IgniteCorrelatedNestedLoopJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right,
         RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
         super(cluster, traitSet, left, right, condition, variablesSet, joinType);
+
+        List<RelDataTypeField> leftFlds = left.getRowType().getFieldList();
+
+        leftColumns = new ArrayList<>();
+
+        leftFlds.forEach(f -> leftColumns.add(f.getName()));
     }
 
     /** */

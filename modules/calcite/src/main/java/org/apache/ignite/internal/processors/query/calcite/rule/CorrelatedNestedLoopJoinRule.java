@@ -35,12 +35,14 @@ import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.tools.RelBuilder;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteConvention;
 import org.apache.ignite.internal.processors.query.calcite.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.processors.query.calcite.trait.CorrelationTrait;
@@ -77,7 +79,6 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
 
         final Set<CorrelationId> corrIds = RelOptUtil.getVariablesUsed(rel.getRight());
 
-        // TODO: remove all near 'if' scope after https://issues.apache.org/jira/browse/CALCITE-4673 will be merged.
         if (!corrIds.isEmpty()) {
             correlationIds.addAll(corrIds);
 
@@ -93,6 +94,8 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
                 }
             }
 
+        final ImmutableBitSet.Builder requiredColumns = ImmutableBitSet.builder();
+
         // Generate first condition
         final RexNode condition = rel.getCondition().accept(new RexShuttle() {
             @Override public RexNode visitInputRef(RexInputRef input) {
@@ -100,6 +103,7 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
                 if (field >= leftFieldCount)
                     return rexBuilder.makeInputRef(input.getType(), input.getIndex() - leftFieldCount);
 
+                requiredColumns.set(field);
                 return rexBuilder.makeFieldAccess(corrVar.get(0), field);
             }
         });

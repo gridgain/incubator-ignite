@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiPredicate;
@@ -27,11 +29,13 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -168,9 +172,13 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         return outbox;
     }
 
+    private RelDataType corrDataType; // need to be map per corr
+
     /** {@inheritDoc} */
     @Override public Node<Row> visit(IgniteFilter rel) {
         System.err.println("!!!IgniteFilter");
+        corrDataType = rel.posToColumn();
+
         Predicate<Row> pred = expressionFactory.predicate(rel.getCondition(), rel.getRowType());
 
         FilterNode<Row> node = new FilterNode<>(ctx, rel.getRowType(), pred);
@@ -245,8 +253,29 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         assert rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.LEFT
             : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
 
+        int shift = 0;
+
+        if (corrDataType != null)
+            for (RelDataTypeField colLeft : leftType.getFieldList()) {
+                for (RelDataTypeField colCorr : corrDataType.getFieldList())
+                    if (colLeft.getName().equals(colCorr.getName())) {
+                        shift = colCorr.getIndex() - colLeft.getIndex();
+                        break;
+                    }
+            }
+
+/*        if (!posToColumn.isEmpty() && rel.getVariablesSet().isEmpty())
+            assert posToColumn.size() >= rel.getVariablesSet().size();
+
+        Map<Integer, Integer> redirect = new HashMap<>();
+
+        for (Map.Entry<Integer, String> ent : posToColumn.entrySet()) {
+            Integer corrPos = ent.getKey();
+            String corrColName = ent.getValue();
+        }*/
+
         Node<Row> node = new CorrelatedNestedLoopJoinNode<>(ctx, outType, cond, rel.getVariablesSet(),
-            rel.getJoinType());
+            rel.getJoinType(), shift);
 
         Node<Row> leftInput = visit(rel.getLeft());
         Node<Row> rightInput = visit(rel.getRight());

@@ -508,7 +508,7 @@ public class ExecutionTest extends AbstractExecutionTest {
                             joinRowType,
                             (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
                             ImmutableSet.of(new CorrelationId(0)),
-                            joinType
+                            joinType, 0
                         );
 
                         GridTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);

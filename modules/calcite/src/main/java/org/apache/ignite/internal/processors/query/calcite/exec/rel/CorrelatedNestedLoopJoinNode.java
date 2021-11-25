@@ -83,6 +83,8 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /** */
     private State state = State.INITIAL;
 
+    private int shift = 0;
+
     /** */
     private enum State {
         /** */
@@ -109,7 +111,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
      * @param cond Join expression.
      */
     public CorrelatedNestedLoopJoinNode(ExecutionContext<Row> ctx, RelDataType rowType, BiPredicate<Row, Row> cond,
-        Set<CorrelationId> correlationIds, JoinRelType joinType) {
+        Set<CorrelationId> correlationIds, JoinRelType joinType, int shift) {
         super(ctx, rowType);
 
         assert !F.isEmpty(correlationIds);
@@ -122,6 +124,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
         rightInBufferSize = IN_BUFFER_SIZE;
 
         handler = ctx.rowHandler();
+        this.shift = shift;
     }
 
     /** {@inheritDoc} */
@@ -490,7 +493,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     private void prepareCorrelations() {
         for (int i = 0; i < correlationIds.size(); i++) {
             Row row = i < leftInBuf.size() ? leftInBuf.get(i) : F.first(leftInBuf);
-            context().setCorrelated(row, correlationIds.get(i).getId());
+            context().setCorrelated(row, correlationIds.get(i).getId(), shift);
         }
     }
 }
