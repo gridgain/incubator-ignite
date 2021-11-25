@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.calcite.exec;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -290,7 +291,9 @@ public class ExecutionContext<Row> extends AbstractQueryContext implements DataC
             Object[] add = new Object[shift];
 
             System.arraycopy(add, 0, value0, 0, shift);
-            System.arraycopy(value, 0, value0, shift - 1, ((Object[])value).length);
+            System.arraycopy(value, 0, value0, shift, ((Object[])value).length);
+
+            value = value0;
         }
 
         correlations = Commons.ensureCapacity(correlations, id + 1);

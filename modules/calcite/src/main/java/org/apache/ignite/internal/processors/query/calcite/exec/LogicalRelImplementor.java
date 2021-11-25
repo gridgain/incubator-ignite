@@ -253,16 +253,19 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         assert rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.LEFT
             : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
 
-        int shift = 0;
-
-        if (corrDataType != null)
-            for (RelDataTypeField colLeft : leftType.getFieldList()) {
-                for (RelDataTypeField colCorr : corrDataType.getFieldList())
-                    if (colLeft.getName().equals(colCorr.getName())) {
-                        shift = colCorr.getIndex() - colLeft.getIndex();
-                        break;
-                    }
-            }
+        Supplier<Integer> sup = () -> { // смещение не сработает _key _val A B C D E  , справа B D, слева A B D - смапимся не туда.
+            int shift = 0;
+            if (corrDataType != null)
+                for (RelDataTypeField colLeft : leftType.getFieldList()) {
+                    for (RelDataTypeField colCorr : corrDataType.getFieldList())
+                        if (colLeft.getName().equals(colCorr.getName())) {
+                            shift = colCorr.getIndex() - colLeft.getIndex();
+                            //System.err.println("shift: " + shift);
+                            break;
+                        }
+                }
+            return shift;
+        };
 
 /*        if (!posToColumn.isEmpty() && rel.getVariablesSet().isEmpty())
             assert posToColumn.size() >= rel.getVariablesSet().size();
@@ -275,7 +278,7 @@ public class LogicalRelImplementor<Row> implements IgniteRelVisitor<Node<Row>> {
         }*/
 
         Node<Row> node = new CorrelatedNestedLoopJoinNode<>(ctx, outType, cond, rel.getVariablesSet(),
-            rel.getJoinType(), shift);
+            rel.getJoinType(), sup);
 
         Node<Row> leftInput = visit(rel.getLeft());
         Node<Row> rightInput = visit(rel.getRight());

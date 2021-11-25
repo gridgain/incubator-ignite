@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.processors.query.calcite.exec.rel;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.Supplier;
 
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -83,7 +85,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /** */
     private State state = State.INITIAL;
 
-    private int shift = 0;
+    private Supplier<Integer> shift;
 
     /** */
     private enum State {
@@ -111,7 +113,7 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
      * @param cond Join expression.
      */
     public CorrelatedNestedLoopJoinNode(ExecutionContext<Row> ctx, RelDataType rowType, BiPredicate<Row, Row> cond,
-        Set<CorrelationId> correlationIds, JoinRelType joinType, int shift) {
+        Set<CorrelationId> correlationIds, JoinRelType joinType, Supplier<Integer> shift) {
         super(ctx, rowType);
 
         assert !F.isEmpty(correlationIds);
@@ -492,8 +494,8 @@ public class CorrelatedNestedLoopJoinNode<Row> extends AbstractNode<Row> {
     /** */
     private void prepareCorrelations() {
         for (int i = 0; i < correlationIds.size(); i++) {
-            Row row = i < leftInBuf.size() ? leftInBuf.get(i) : F.first(leftInBuf);
-            context().setCorrelated(row, correlationIds.get(i).getId(), shift);
+            Row row = i < leftInBuf.size() ? leftInBuf.get(0) : F.first(leftInBuf); // !!!!
+            context().setCorrelated(row, correlationIds.get(i).getId(), shift.get());
         }
     }
 }
